@@ -47,6 +47,66 @@ jobs:
           go test -count=1 -p 1 ./...
           go test -race -count=1 -p 1 ./...
           go vet -p 1 ./...
+      - name: Bounded parser and policy fuzzing
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -run='^$' -fuzz=FuzzCoverage -fuzztime=15s -parallel=2 ./internal/assurance
+          go test -run='^$' -fuzz=FuzzDecodeNeverLeaksInput -fuzztime=15s -parallel=2 ./internal/policy
+          go test -run='^$' -fuzz=FuzzEndpointNeverAcceptsCredentialURL -fuzztime=15s -parallel=2 ./internal/transport
+      - name: Enforce cyclomatic complexity ceiling
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$GOBIN"
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+          mapfile -d '' go_sources < <(git ls-files -z '*.go')
+          "$GOBIN/gocyclo" -over 10 "${go_sources[@]}"
+  native-macos:
+    name: macOS synthetic tests
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run native synthetic tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -count=1 -p 1 ./...
+  native-windows:
+    name: Windows synthetic tests
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run native synthetic tests
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          go test -count=1 -p=1 ./...
   cross-build:
     name: Compile ${{ matrix.os }}/${{ matrix.arch }}
     runs-on: ubuntu-24.04

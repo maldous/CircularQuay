@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 // Check records bounded metadata. Raw command output never becomes report content.
@@ -57,24 +59,12 @@ func WriteReport(directory string, report Report) error {
 	if err != nil {
 		return errors.New("audit report encoding failed")
 	}
-	file, err := os.CreateTemp(directory, ".report-*")
+	path, err := filepath.Abs(filepath.Join(directory, "report.json"))
 	if err != nil {
-		return errors.New("audit report staging failed")
+		return errors.New("invalid audit report path")
 	}
-	name := file.Name()
-	defer func() { _ = os.Remove(name) }()
-	if err = file.Chmod(0600); err == nil {
-		_, err = file.Write(append(encoded, '\n'))
-	}
-	if err == nil {
-		err = file.Sync()
-	}
-	closeErr := file.Close()
-	if err != nil || closeErr != nil {
-		return errors.New("audit report write failed")
-	}
-	if err = os.Rename(name, filepath.Join(directory, "report.json")); err != nil {
-		return errors.New("audit report activation failed")
+	if err = platform.WriteProtected(path, append(encoded, '\n')); err != nil {
+		return errors.New("private audit report write failed")
 	}
 	return nil
 }

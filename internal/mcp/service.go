@@ -20,6 +20,11 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const (
+	mcpRequest    = "mcp request"
+	mcpDisclosure = "mcp disclosure"
+)
+
 // Backend is the enrolled workload interface. It must not return process output.
 type Backend interface {
 	Status(context.Context, string) (Status, error)
@@ -126,21 +131,25 @@ func scopeAllows(p Principal, operation string) bool {
 }
 
 func validHandle(value string) bool {
-	if value == "" || len(value) > 128 {
+	if value == "" || len(value) > 128 || value == "." || value == ".." {
 		return false
 	}
 	for _, r := range value {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.') {
+		if !handleRune(r) {
 			return false
 		}
 	}
-	return value != "." && value != ".."
+	return true
+}
+
+func handleRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.'
 }
 
 // ListWorkloads returns no source references or secret names.
 func (s *Service) ListWorkloads(ctx context.Context, p Principal) ([]string, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, fault.New(fault.Unavailable, "mcp request")
+		return nil, fault.New(fault.Unavailable, mcpRequest)
 	}
 	ids := []string{}
 	for id := range s.current().Workloads {
@@ -155,7 +164,7 @@ func (s *Service) ListWorkloads(ctx context.Context, p Principal) ([]string, err
 // GetStatus checks authorization before asking the backend for even metadata.
 func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (Status, error) {
 	if ctx.Err() != nil {
-		return Status{}, fault.New(fault.Unavailable, "mcp request")
+		return Status{}, fault.New(fault.Unavailable, mcpRequest)
 	}
 	if !s.authorized(p, workload, "status", "") {
 		return Status{}, fault.New(fault.Denied, "mcp status")
@@ -175,14 +184,11 @@ func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (
 // RunWorkload invokes only a locally enrolled and independently approved action.
 func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string) (RunResult, error) {
 	if ctx.Err() != nil {
-		return RunResult{}, fault.New(fault.Unavailable, "mcp request")
+		return RunResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
-	if !s.authorized(p, workload, "run", "") || s.options.ActionAllowed == nil || !s.options.ActionAllowed(workload) {
-		return RunResult{}, fault.New(fault.Denied, "mcp action")
-	}
-	w := s.current().Workloads[workload]
-	if w.UntrustedCode && !s.mayReadAll(p, workload, w) {
-		return RunResult{}, fault.New(fault.Denied, "mcp code disclosure")
+	w, err := s.authorizeRun(p, workload)
+	if err != nil {
+		return RunResult{}, err
 	}
 	if err := s.record(ctx, p, workload, "run", "", "authorized", w.AuditRequired); err != nil {
 		return RunResult{}, err
@@ -191,6 +197,21 @@ func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string)
 	if err != nil {
 		return RunResult{}, safeError(err, "mcp action")
 	}
+	return sanitizeRunResult(result), nil
+}
+
+func (s *Service) authorizeRun(p Principal, workload string) (model.Workload, error) {
+	if !s.authorized(p, workload, "run", "") || s.options.ActionAllowed == nil || !s.options.ActionAllowed(workload) {
+		return model.Workload{}, fault.New(fault.Denied, "mcp action")
+	}
+	w := s.current().Workloads[workload]
+	if w.UntrustedCode && !s.mayReadAll(p, workload, w) {
+		return model.Workload{}, fault.New(fault.Denied, "mcp code disclosure")
+	}
+	return w, nil
+}
+
+func sanitizeRunResult(result RunResult) RunResult {
 	// The backend is trusted, but its strings must not become an output channel.
 	if !validHandle(result.ID) {
 		result.ID = "redacted"
@@ -201,7 +222,7 @@ func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string)
 	if result.ExitCode < 0 || result.ExitCode > 255 {
 		result.ExitCode = 1
 	}
-	return result, nil
+	return result
 }
 
 func (s *Service) mayReadAll(p Principal, id string, w model.Workload) bool {
@@ -217,29 +238,20 @@ func (s *Service) mayReadAll(p Principal, id string, w model.Workload) bool {
 // Revocation cannot recall a value already delivered into client/model context.
 func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key string) (SecretResult, error) {
 	if ctx.Err() != nil {
-		return SecretResult{}, fault.New(fault.Unavailable, "mcp request")
+		return SecretResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
 	if !validHandle(key) || !s.authorized(p, workload, "read", key) {
-		return SecretResult{}, fault.New(fault.Denied, "mcp disclosure")
+		return SecretResult{}, fault.New(fault.Denied, mcpDisclosure)
 	}
 	if s.options.Audit == nil {
 		return SecretResult{}, fault.New(fault.Apply, "mcp disclosure audit")
 	}
 	value, err := s.backend.Read(withPrincipal(ctx, p), workload, key)
 	if err != nil {
-		return SecretResult{}, safeError(err, "mcp disclosure")
+		return SecretResult{}, safeError(err, mcpDisclosure)
 	}
-	if value.Leased || value.Renewable {
-		return SecretResult{}, fault.New(fault.Unsupported, "mcp leased disclosure")
-	}
-	if !value.ExpiresAt.IsZero() && !time.Now().Before(value.ExpiresAt) {
-		return SecretResult{}, fault.New(fault.Expired, "mcp disclosure")
-	}
-	if len(value.Data) > 65536 {
-		return SecretResult{}, fault.New(fault.Unsupported, "mcp value size")
-	}
-	if s.current().Workloads[workload].AuditRequired && !value.AuditVerified {
-		return SecretResult{}, fault.New(fault.Denied, "mcp source audit")
+	if err := s.validateDisclosure(workload, value); err != nil {
+		return SecretResult{}, err
 	}
 	// The provider call may have blocked while an operator revoked the grant.
 	// Recheck current policy before recording a disclosure and releasing data.
@@ -247,12 +259,28 @@ func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key str
 		return SecretResult{}, fault.New(fault.Denied, "mcp disclosure revoked")
 	}
 	if ctx.Err() != nil {
-		return SecretResult{}, fault.New(fault.Unavailable, "mcp request")
+		return SecretResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
 	if err := s.record(ctx, p, workload, "read", key, "released", true); err != nil {
 		return SecretResult{}, err
 	}
 	return SecretResult{Alias: key, Value: value.Data, Version: value.Version, ExpiresAt: value.ExpiresAt}, nil
+}
+
+func (s *Service) validateDisclosure(workload string, value model.Value) error {
+	if value.Leased || value.Renewable {
+		return fault.New(fault.Unsupported, "mcp leased disclosure")
+	}
+	if !value.ExpiresAt.IsZero() && !time.Now().Before(value.ExpiresAt) {
+		return fault.New(fault.Expired, mcpDisclosure)
+	}
+	if len(value.Data) > 65536 {
+		return fault.New(fault.Unsupported, "mcp value size")
+	}
+	if s.current().Workloads[workload].AuditRequired && !value.AuditVerified {
+		return fault.New(fault.Denied, "mcp source audit")
+	}
+	return nil
 }
 
 // SecretResult is the sole protocol result allowed to carry plaintext.
@@ -338,12 +366,17 @@ func (s *Service) hasOperation(p Principal, operation string) bool {
 		if operation != "read" && s.authorized(p, id, operation, "") {
 			return true
 		}
-		if operation == "read" {
-			for _, b := range w.Bindings {
-				if s.authorized(p, id, "read", b.Name) {
-					return true
-				}
-			}
+		if operation == "read" && s.canReadBinding(p, id, w) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) canReadBinding(p Principal, workload string, w model.Workload) bool {
+	for _, binding := range w.Bindings {
+		if s.authorized(p, workload, "read", binding.Name) {
+			return true
 		}
 	}
 	return false
@@ -371,13 +404,20 @@ func validSID(sid string) bool {
 		return false
 	}
 	for _, part := range strings.Split(sid[4:], "-") {
-		if part == "" {
+		if !decimalSIDPart(part) {
 			return false
 		}
-		for _, r := range part {
-			if r < '0' || r > '9' {
-				return false
-			}
+	}
+	return true
+}
+
+func decimalSIDPart(part string) bool {
+	if part == "" {
+		return false
+	}
+	for _, r := range part {
+		if r < '0' || r > '9' {
+			return false
 		}
 	}
 	return true

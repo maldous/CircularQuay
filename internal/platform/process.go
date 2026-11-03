@@ -31,6 +31,9 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 	if !validExecutable(args) {
 		return 0, fault.New(fault.Invalid, "absolute executable required")
 	}
+	if err := ValidateExecutable(args[0]); err != nil {
+		return 0, err
+	}
 	if len(override) == 0 && work.CommandSHA256 != "" {
 		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
 			return 0, err
@@ -60,23 +63,33 @@ func VerifyExecutable(path, expected string) error {
 	if err != nil || len(decoded) != sha256.Size || !filepath.IsAbs(path) {
 		return fault.New(fault.Trust, "invalid executable identity")
 	}
-	if err := ValidateExecutable(path); err != nil {
+	f, err := openVerifiedExecutable(path)
+	if err != nil {
 		return err
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return fault.New(fault.Trust, "registered executable unavailable")
-	}
 	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) {
-		return fault.New(fault.Trust, "registered executable permissions")
-	}
 	hash := sha256.New()
 	if _, err := io.Copy(hash, f); err != nil || !bytesEqual(hash.Sum(nil), decoded) {
 		return fault.New(fault.Trust, "registered executable changed")
 	}
 	return nil
+}
+
+func openVerifiedExecutable(path string) (*os.File, error) {
+	if err := ValidateExecutable(path); err != nil {
+		return nil, err
+	}
+	f, err := openInParent(path, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fault.New(fault.Trust, "registered executable unavailable")
+	}
+	info, err := f.Stat()
+	named, namedErr := os.Lstat(path)
+	if err != nil || namedErr != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !os.SameFile(info, named) {
+		_ = f.Close()
+		return nil, fault.New(fault.Trust, "registered executable permissions")
+	}
+	return f, nil
 }
 
 // ValidateExecutable rejects mutable helper binaries before supplying bootstrap
@@ -86,7 +99,7 @@ func ValidateExecutable(path string) error {
 	if !filepath.IsAbs(path) || strings.ContainsRune(path, '\x00') {
 		return fault.New(fault.Trust, "absolute trusted executable required")
 	}
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !checkNativeSecurity(path, false) {
 		return fault.New(fault.Trust, "trusted executable permissions")
 	}

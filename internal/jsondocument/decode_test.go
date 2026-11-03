@@ -39,3 +39,14 @@ func TestDecodeRejectsAmbiguousDocuments(t *testing.T) {
 		t.Fatal("non-pointer destination accepted")
 	}
 }
+
+func TestDecodeRejectsInvalidUTF8(t *testing.T) {
+	type document struct {
+		Name string `json:"name"`
+	}
+	var result document
+	invalid := []byte{'{', '"', 'n', 'a', 'm', 'e', '"', ':', '"', 0xff, '"', '}'}
+	if err := Decode(invalid, &result); err == nil {
+		t.Fatal("invalid UTF-8 document accepted")
+	}
+}

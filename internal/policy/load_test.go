@@ -96,16 +96,27 @@ func TestLoadYAML(t *testing.T) {
 
 func TestLoadRejectsUntrustedFiles(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := Load(filepath.Join(dir, "missing")); err == nil {
-		t.Fatal("missing policy accepted")
-	}
-	if _, err := Load(dir); err == nil {
-		t.Fatal("directory accepted")
-	}
+	rejectMissingAndDirectory(t, dir)
 	file := filepath.Join(dir, "policy.json")
 	if err := os.WriteFile(file, policyBytes(t), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	rejectInsecurePolicyFile(t, dir, file)
+	rejectInvalidPolicyContents(t, file)
+}
+
+func rejectMissingAndDirectory(t *testing.T, directory string) {
+	t.Helper()
+	if _, err := Load(filepath.Join(directory, "missing")); err == nil {
+		t.Fatal("missing policy accepted")
+	}
+	if _, err := Load(directory); err == nil {
+		t.Fatal("directory accepted")
+	}
+}
+
+func rejectInsecurePolicyFile(t *testing.T, directory, file string) {
+	t.Helper()
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(file, 0o666); err != nil {
 			t.Fatal(err)
@@ -116,7 +127,7 @@ func TestLoadRejectsUntrustedFiles(t *testing.T) {
 		if err := os.Chmod(file, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		link := filepath.Join(dir, "link")
+		link := filepath.Join(directory, "link")
 		if err := os.Symlink(file, link); err != nil {
 			t.Fatal(err)
 		}
@@ -124,23 +135,26 @@ func TestLoadRejectsUntrustedFiles(t *testing.T) {
 			t.Fatal("symlink policy accepted")
 		}
 	}
-	if err := os.WriteFile(file, bytes.Repeat([]byte(" "), maximumPolicyBytes+1), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(file); err == nil {
-		t.Fatal("oversized policy accepted")
-	}
-	if err := os.WriteFile(file, []byte(`{"version":2}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(file); err == nil {
-		t.Fatal("invalid declaration accepted")
-	}
-	if err := os.WriteFile(file, []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(file); err == nil {
-		t.Fatal("malformed declaration accepted")
+}
+
+func rejectInvalidPolicyContents(t *testing.T, file string) {
+	t.Helper()
+	for _, test := range []struct {
+		name string
+		data []byte
+	}{
+		{name: "oversized", data: bytes.Repeat([]byte(" "), maximumPolicyBytes+1)},
+		{name: "invalid", data: []byte(`{"version":2}`)},
+		{name: "malformed", data: []byte("{")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := os.WriteFile(file, test.data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Load(file); err == nil {
+				t.Fatalf("%s policy accepted", test.name)
+			}
+		})
 	}
 }
 

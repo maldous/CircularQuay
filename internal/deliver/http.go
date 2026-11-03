@@ -13,6 +13,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/transport"
 )
 
+const bearerPrefix = "Bearer "
+
 // Apply publishes one complete JSON bundle to one explicitly named native secret.
 // It neither deploys application code nor claims runtime read-audit inheritance.
 func Apply(ctx context.Context, target model.Target, generation model.Generation) error {
@@ -92,7 +94,7 @@ func cloudflare(ctx context.Context, c transport.Client, t model.Target, token, 
 		Success bool `json:"success"`
 	}
 	body := map[string]any{"name": binding(t), "text": data, "type": "secret_text"}
-	if err = c.DoJSON(ctx, http.MethodPut, u, map[string]string{"Authorization": "Bearer " + token}, body, &result); err != nil {
+	if err = c.DoJSON(ctx, http.MethodPut, u, authorizationHeader(token), body, &result); err != nil {
 		return err
 	}
 	if !result.Success {
@@ -122,7 +124,7 @@ func netlify(ctx context.Context, c transport.Client, t model.Target, token, dat
 		return err
 	}
 	update.RawQuery = u.RawQuery
-	headers := map[string]string{"Authorization": "Bearer " + token}
+	headers := authorizationHeader(token)
 	err = c.DoJSON(ctx, http.MethodPut, update, headers, body, nil)
 	if !fault.Is(err, fault.Missing) {
 		return err
@@ -136,7 +138,7 @@ func windmill(ctx context.Context, c transport.Client, t model.Target, token, da
 	if t.Project == "" || t.Resource == "" || t.Endpoint == "" {
 		return fault.New(fault.Invalid, "windmill_target")
 	}
-	headers := map[string]string{"Authorization": "Bearer " + token}
+	headers := authorizationHeader(token)
 	u, err := transport.URL(t.Endpoint, "api", "w", t.Project, "variables", "exists", t.Resource)
 	if err != nil {
 		return err
@@ -158,6 +160,10 @@ func windmill(ctx context.Context, c transport.Client, t model.Target, token, da
 		return err
 	}
 	return c.DoJSON(ctx, http.MethodPost, u, headers, body, nil)
+}
+
+func authorizationHeader(token string) map[string]string {
+	return map[string]string{"Authorization": bearerPrefix + token}
 }
 
 // ValidateLifecycle can be used before native application delivery.

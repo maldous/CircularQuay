@@ -55,6 +55,15 @@ func tokenFixture(t *testing.T) string {
 }
 
 func TestRegistryAndLiteralSources(t *testing.T) {
+	testRegistryScope(t)
+	testJSONLiteralSource(t)
+	testEnvironmentLiteralSource(t)
+	if len(Capabilities()) < 10 {
+		t.Fatal("capability inventory missing")
+	}
+}
+
+func testRegistryScope(t *testing.T) {
 	ctx := context.Background()
 	r := NewRegistry()
 	r.Register("test", ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
@@ -69,6 +78,11 @@ func TestRegistryAndLiteralSources(t *testing.T) {
 	if _, err := r.Read(ctx, model.Source{Type: "unknown", Resources: []string{"declared"}}, model.Binding{Resource: "declared"}); !fault.Is(err, fault.Unsupported) {
 		t.Fatal("unknown reader accepted")
 	}
+}
+
+func testJSONLiteralSource(t *testing.T) {
+	ctx := context.Background()
+	r := NewRegistry()
 	file := filepath.Join(t.TempDir(), "values.json")
 	write := func(s string) {
 		t.Helper()
@@ -96,9 +110,21 @@ func TestRegistryAndLiteralSources(t *testing.T) {
 	if _, err := readJSON(ctx, model.Source{Path: "relative"}, model.Binding{}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("relative file accepted")
 	}
+}
+
+func testEnvironmentLiteralSource(t *testing.T) {
+	ctx := context.Background()
+	r := NewRegistry()
+	file := filepath.Join(t.TempDir(), "values.env")
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(file, []byte(s), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Setenv("CQUAY_TEST_LITERAL", "literal-env")
 	es := model.Source{Type: "env", Resources: []string{"CQUAY_TEST_LITERAL"}}
-	v, err = r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"})
+	v, err := r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"})
 	if err != nil || v.Data != "literal-env" {
 		t.Fatal("explicit environment failed")
 	}
@@ -114,59 +140,84 @@ func TestRegistryAndLiteralSources(t *testing.T) {
 			t.Fatal("unsafe dotenv accepted")
 		}
 	}
-	if len(Capabilities()) < 10 {
-		t.Fatal("capability inventory missing")
-	}
 }
 
 func TestVaultAndHostedContracts(t *testing.T) {
 	requests := 0
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
-		switch r.URL.Path {
-		case "/v1/kv/data/app":
-			if r.Header.Get("X-Vault-Token") != "synthetic-token" || r.URL.Query().Get("version") != "2" {
-				t.Error("vault request scope mismatch")
-			}
-			fmt.Fprint(w, `{"data":{"data":{"KEY":"vault-value"},"metadata":{"version":2}},"lease_duration":3600}`)
-		case "/v3/configs/config/secret":
-			if r.URL.Query().Get("name") != "KEY" || r.Header.Get("Authorization") != "Bearer synthetic-token" {
-				t.Error("doppler scope mismatch")
-			}
-			fmt.Fprint(w, `{"value":{"raw":"doppler-value","computed":"not-selected"}}`)
-		case "/api/v4/secrets/KEY":
-			if r.URL.Query().Get("includeImports") != "false" || r.URL.Query().Get("expandSecretReferences") != "false" {
-				t.Error("implicit inheritance enabled")
-			}
-			fmt.Fprint(w, `{"secret":{"secretValue":"infisical-value","version":4}}`)
-		case "/get-secret-value":
-			var body map[string]any
-			if json.NewDecoder(r.Body).Decode(&body) != nil || body["token"] != "synthetic-token" {
-				t.Error("akeyless auth mismatch")
-			}
-			fmt.Fprint(w, `{"KEY":"akeyless-value"}`)
-		default:
-			w.WriteHeader(403)
-			fmt.Fprint(w, "RAW-ERROR-MUST-NOT-LEAK")
-		}
-	}))
+	server := httptest.NewTLSServer(hostedContractHandler(t, &requests))
 	defer server.Close()
 	r := NewRegistryWithClient(server.Client())
 	token := tokenFixture(t)
-	for _, tc := range []struct{ typ, resource, version, want string }{{"openbao", "app", "2", "vault-value"}, {"vault", "app", "2", "vault-value"}, {"doppler", "KEY", "", "doppler-value"}, {"infisical", "KEY", "4", "infisical-value"}, {"akeyless", "KEY", "2", "akeyless-value"}} {
-		s := model.Source{Type: tc.typ, Endpoint: server.URL, Mount: "kv", TokenFile: token, Project: "project", Environment: "test", Resources: []string{tc.resource}}
-		v, err := r.Read(context.Background(), s, model.Binding{Name: "KEY", Resource: tc.resource, Version: tc.version})
-		if err != nil || v.Data != tc.want {
-			t.Fatalf("%s contract failed: %v", tc.typ, err)
-		}
-		if v.Leased {
-			t.Fatal("static KV duration incorrectly treated as lease")
-		}
-	}
+	assertHostedContracts(t, r, server.URL, token)
 	before := requests
 	_, err := r.Read(context.Background(), model.Source{Type: "openbao", Endpoint: server.URL, Mount: "kv", TokenFile: token, Resources: []string{"permitted"}}, model.Binding{Resource: "forbidden"})
 	if !fault.Is(err, fault.Denied) || requests != before {
 		t.Fatal("denial made an upstream request")
+	}
+}
+
+func hostedContractHandler(t *testing.T, requests *int) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*requests++
+		switch r.URL.Path {
+		case "/v1/kv/data/app":
+			writeVaultContract(t, w, r)
+		case "/v3/configs/config/secret":
+			writeDopplerContract(t, w, r)
+		case "/api/v4/secrets/KEY":
+			writeInfisicalContract(t, w, r)
+		case "/get-secret-value":
+			writeAkeylessContract(t, w, r)
+		default:
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, "RAW-ERROR-MUST-NOT-LEAK")
+		}
+	})
+}
+
+func writeVaultContract(t *testing.T, w http.ResponseWriter, request *http.Request) {
+	if request.Header.Get("X-Vault-Token") != "synthetic-token" || request.URL.Query().Get("version") != "2" {
+		t.Error("vault request scope mismatch")
+	}
+	fmt.Fprint(w, `{"data":{"data":{"KEY":"vault-value"},"metadata":{"version":2}},"lease_duration":3600}`)
+}
+
+func writeDopplerContract(t *testing.T, w http.ResponseWriter, request *http.Request) {
+	if request.URL.Query().Get("name") != "KEY" || request.Header.Get("Authorization") != "Bearer synthetic-token" {
+		t.Error("doppler scope mismatch")
+	}
+	fmt.Fprint(w, `{"value":{"raw":"doppler-value","computed":"not-selected"}}`)
+}
+
+func writeInfisicalContract(t *testing.T, w http.ResponseWriter, request *http.Request) {
+	if request.URL.Query().Get("includeImports") != "false" || request.URL.Query().Get("expandSecretReferences") != "false" {
+		t.Error("implicit inheritance enabled")
+	}
+	fmt.Fprint(w, `{"secret":{"secretValue":"infisical-value","version":4}}`)
+}
+
+func writeAkeylessContract(t *testing.T, w http.ResponseWriter, request *http.Request) {
+	var body map[string]any
+	if json.NewDecoder(request.Body).Decode(&body) != nil || body["token"] != "synthetic-token" {
+		t.Error("akeyless auth mismatch")
+	}
+	fmt.Fprint(w, `{"KEY":"akeyless-value"}`)
+}
+
+func assertHostedContracts(t *testing.T, registry *Registry, endpoint, token string) {
+	for _, test := range []struct{ typ, resource, version, want string }{{"openbao", "app", "2", "vault-value"}, {"vault", "app", "2", "vault-value"}, {"doppler", "KEY", "", "doppler-value"}, {"infisical", "KEY", "4", "infisical-value"}, {"akeyless", "KEY", "2", "akeyless-value"}} {
+		assertHostedContract(t, registry, endpoint, token, test.typ, test.resource, test.version, test.want)
+	}
+}
+
+func assertHostedContract(t *testing.T, registry *Registry, endpoint, token, typ, resource, version, want string) {
+	source := model.Source{Type: typ, Endpoint: endpoint, Mount: "kv", TokenFile: token, Project: "project", Environment: "test", Resources: []string{resource}}
+	value, err := registry.Read(context.Background(), source, model.Binding{Name: "KEY", Resource: resource, Version: version})
+	if err != nil || value.Data != want {
+		t.Fatalf("%s contract failed: %v", typ, err)
+	}
+	if value.Leased {
+		t.Fatal("static KV duration incorrectly treated as lease")
 	}
 }
 
@@ -218,6 +269,14 @@ func TestNativeVendorContracts(t *testing.T) {
 }
 
 func TestCloudScopeAndErrors(t *testing.T) {
+	testAWSCloudScope(t)
+	testAzureCloudIdentity(t)
+	testGCPCloudScope(t)
+	testCloudErrorClassification(t)
+	testCloudCRC(t)
+}
+
+func testAWSCloudScope(t *testing.T) {
 	s := model.Source{Account: "123456789012", Region: "test-region"}
 	if validateAWSResource(s, model.Binding{Resource: "arn:aws:secretsmanager:test-region:123456789012:secret:key"}, "secretsmanager") != nil {
 		t.Fatal("exact ARN failed")
@@ -235,6 +294,9 @@ func TestCloudScopeAndErrors(t *testing.T) {
 	if _, err := awsConfiguration(context.Background(), model.Source{Account: "id", Region: "region", Identity: "ecs"}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("credential endpoint override accepted")
 	}
+}
+
+func testAzureCloudIdentity(t *testing.T) {
 	if _, err := azureCredential(model.Source{}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("missing tenant accepted")
 	}
@@ -244,6 +306,9 @@ func TestCloudScopeAndErrors(t *testing.T) {
 	if _, err := azureCredential(model.Source{Account: "tenant", Identity: "workload"}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("incomplete workload identity accepted")
 	}
+}
+
+func testGCPCloudScope(t *testing.T) {
 	if name, err := gcpResource(model.Source{Project: "project"}, model.Binding{Resource: "projects/project/secrets/key"}); err != nil || name != "projects/project/secrets/key/versions/latest" {
 		t.Fatal("exact GCP resource failed")
 	}
@@ -253,6 +318,9 @@ func TestCloudScopeAndErrors(t *testing.T) {
 	if _, err := gcpResource(model.Source{Project: "project"}, model.Binding{Resource: "projects/project/secrets/key", Version: "../escape"}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("version traversal allowed")
 	}
+}
+
+func testCloudErrorClassification(t *testing.T) {
 	for _, err := range []error{&smithy.GenericAPIError{Code: "AccessDeniedException"}, &azcore.ResponseError{StatusCode: 403}, status.Error(codes.PermissionDenied, "must-not-leak")} {
 		if !fault.Is(cloudError(err), fault.Denied) {
 			t.Fatal("denial misclassified")
@@ -264,9 +332,13 @@ func TestCloudScopeAndErrors(t *testing.T) {
 	if !fault.Is(cloudCode("ParameterNotFound"), fault.Missing) {
 		t.Fatal("missing parameter misclassified")
 	}
+}
+
+func testCloudCRC(t *testing.T) {
 	data := []byte("fixture")
 	crc := int64(crc32.Checksum(data, crc32.MakeTable(crc32.Castagnoli)))
-	if !validCRC(data, &crc) || validCRC(data, nil) {
+	negative := int64(-1)
+	if !validCRC(data, &crc) || validCRC(data, nil) || validCRC(data, &negative) {
 		t.Fatal("integrity check failed")
 	}
 }

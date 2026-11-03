@@ -27,10 +27,8 @@ type Client struct{ HTTP *http.Client }
 
 // New preserves the system trust store and session proxy configuration.
 func New() Client {
-	return Client{HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: denyRedirect}}
+	return Client{HTTP: &http.Client{Timeout: 30 * time.Second}}
 }
-
-func denyRedirect(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 
 // Endpoint validates a configured provider URL before it sees credentials.
 func Endpoint(raw string) (*url.URL, error) {
@@ -72,57 +70,128 @@ func (c Client) DoJSON(ctx context.Context, method string, u *url.URL, headers m
 	if _, err := EndpointWithoutQuery(u); err != nil {
 		return err
 	}
-	var reader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return fault.New(fault.Invalid, "request_encoding")
-		}
-		if len(b) > maxPayload {
-			return fault.New(fault.Invalid, "request_size")
-		}
-		reader = bytes.NewReader(b)
+	reader, err := requestBody(body)
+	if err != nil {
+		return err
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), reader)
 	if err != nil {
 		return fault.New(fault.Invalid, "request")
 	}
+	if err := setHeaders(req, headers, body != nil); err != nil {
+		return err
+	}
+	return c.doRequest(req, out)
+}
+
+func requestBody(body any) (io.Reader, error) {
+	if body == nil {
+		return nil, nil
+	}
+	b, err := json.Marshal(body)
+	if err != nil {
+		return nil, fault.New(fault.Invalid, "request_encoding")
+	}
+	if len(b) > maxPayload {
+		return nil, fault.New(fault.Invalid, "request_size")
+	}
+	return bytes.NewReader(b), nil
+}
+
+func setHeaders(req *http.Request, headers map[string]string, hasBody bool) error {
 	req.Header.Set("Accept", "application/json")
-	if body != nil {
+	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	for k, v := range headers {
-		if strings.ContainsAny(v, "\r\n\x00") {
+	for name, value := range headers {
+		if !validHeader(name, value) {
 			return fault.New(fault.Invalid, "credential_format")
 		}
-		req.Header.Set(k, v)
+		req.Header.Set(name, value)
 	}
+	return nil
+}
+
+func validHeader(name, value string) bool {
+	if name == "" || strings.ContainsAny(value, "\r\n\x00") {
+		return false
+	}
+	for _, character := range name {
+		if !isHeaderToken(character) {
+			return false
+		}
+	}
+	return true
+}
+
+func isHeaderToken(character rune) bool {
+	return character >= '0' && character <= '9' ||
+		character >= 'a' && character <= 'z' ||
+		character >= 'A' && character <= 'Z' ||
+		strings.ContainsRune("!#$%&'*+-.^_`|~", character)
+}
+
+func (c Client) doRequest(req *http.Request, out any) error {
 	client := c.HTTP
 	if client == nil {
 		client = New().HTTP
 	}
-	clone := *client
-	clone.CheckRedirect = denyRedirect
-	resp, err := clone.Do(req)
+	timeout := client.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	request, cancel := boundedRequest(req, timeout)
+	defer cancel()
+	// Endpoint validation binds the configured provider origin to HTTPS with no
+	// credentials, selectors, or redirects. RoundTrip performs exactly one
+	// request, so this boundary cannot follow a provider-controlled redirect to
+	// another origin. Provider endpoints remain an operator-authorized target.
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	resp, err := transport.RoundTrip(request)
 	if err != nil {
 		return classifyTransport(err)
+	}
+	if resp == nil || resp.Body == nil {
+		return fault.New(fault.Trust, "provider_transport")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return Status(resp.StatusCode)
 	}
-	if out == nil {
-		var size int64
-		size, err = io.Copy(io.Discard, io.LimitReader(resp.Body, maxPayload+1))
-		if err != nil {
-			return fault.New(fault.Unavailable, "response_read")
-		}
-		if size > maxPayload {
-			return fault.New(fault.Trust, "response_size")
-		}
-		return nil
+	return decodeResponse(resp.Body, out)
+}
+
+func boundedRequest(req *http.Request, timeout time.Duration) (*http.Request, context.CancelFunc) {
+	if timeout <= 0 {
+		return req, func() {}
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxPayload+1))
+	ctx, cancel := context.WithTimeout(req.Context(), timeout)
+	return req.Clone(ctx), cancel
+}
+
+func decodeResponse(body io.Reader, out any) error {
+	if out == nil {
+		return discardBounded(body)
+	}
+	return decodeJSON(body, out)
+}
+
+func discardBounded(body io.Reader) error {
+	size, err := io.Copy(io.Discard, io.LimitReader(body, maxPayload+1))
+	if err != nil {
+		return fault.New(fault.Unavailable, "response_read")
+	}
+	if size > maxPayload {
+		return fault.New(fault.Trust, "response_size")
+	}
+	return nil
+}
+
+func decodeJSON(body io.Reader, out any) error {
+	data, err := io.ReadAll(io.LimitReader(body, maxPayload+1))
 	if err != nil {
 		return fault.New(fault.Unavailable, "response_read")
 	}

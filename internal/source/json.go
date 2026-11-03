@@ -34,39 +34,27 @@ func readJSON(_ context.Context, s model.Source, b model.Binding) (model.Value, 
 
 func readEnvironment(_ context.Context, s model.Source, b model.Binding) (model.Value, error) {
 	if s.Path == "" {
-		value, ok := os.LookupEnv(b.Resource)
-		if !ok {
-			return model.Value{}, fault.New(fault.Missing, "environment_value")
-		}
-		return literal(value, s.AuditVerified)
+		return readEnvironmentVariable(b.Resource, s.AuditVerified)
 	}
+	return readDotenv(s, b)
+}
+
+func readEnvironmentVariable(name string, auditVerified bool) (model.Value, error) {
+	value, ok := os.LookupEnv(name)
+	if !ok {
+		return model.Value{}, fault.New(fault.Missing, "environment_value")
+	}
+	return literal(value, auditVerified)
+}
+
+func readDotenv(s model.Source, b model.Binding) (model.Value, error) {
 	data, version, err := readLiteralFileVersion(s.Path)
 	if err != nil {
 		return model.Value{}, err
 	}
-	values := map[string]string{}
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	scanner.Buffer(make([]byte, 1024), 1<<20)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		name, value, ok := strings.Cut(line, "=")
-		if !ok {
-			return model.Value{}, fault.New(fault.Invalid, "dotenv_literal")
-		}
-		name = strings.TrimSpace(name)
-		if _, exists := values[name]; exists {
-			return model.Value{}, fault.New(fault.Invalid, "dotenv_duplicate")
-		}
-		if strings.ContainsAny(value, "`\x00") || strings.Contains(value, "$(") || strings.Contains(value, "${") {
-			return model.Value{}, fault.New(fault.Invalid, "dotenv_expansion")
-		}
-		values[name] = value
-	}
-	if scanner.Err() != nil {
-		return model.Value{}, fault.New(fault.Trust, "dotenv_size")
+	values, err := dotenvValues(data)
+	if err != nil {
+		return model.Value{}, err
 	}
 	value, ok := values[b.Resource]
 	if !ok {
@@ -75,6 +63,41 @@ func readEnvironment(_ context.Context, s model.Source, b model.Binding) (model.
 	v, err := literal(value, s.AuditVerified)
 	v.Version = version
 	return v, err
+}
+
+func dotenvValues(data []byte) (map[string]string, error) {
+	values := make(map[string]string)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Buffer(make([]byte, 1024), 1<<20)
+	for scanner.Scan() {
+		if err := addDotenvLine(values, scanner.Text()); err != nil {
+			return nil, err
+		}
+	}
+	if scanner.Err() != nil {
+		return nil, fault.New(fault.Trust, "dotenv_size")
+	}
+	return values, nil
+}
+
+func addDotenvLine(values map[string]string, line string) error {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
+	name, value, ok := strings.Cut(line, "=")
+	if !ok {
+		return fault.New(fault.Invalid, "dotenv_literal")
+	}
+	name = strings.TrimSpace(name)
+	if _, exists := values[name]; exists {
+		return fault.New(fault.Invalid, "dotenv_duplicate")
+	}
+	if strings.ContainsAny(value, "`\x00") || strings.Contains(value, "$(") || strings.Contains(value, "${") {
+		return fault.New(fault.Invalid, "dotenv_expansion")
+	}
+	values[name] = value
+	return nil
 }
 
 func literal(value string, audit bool) (model.Value, error) {
@@ -97,24 +120,35 @@ func readLiteralFileVersion(path string) ([]byte, string, error) {
 	if !info.Mode().IsRegular() || info.Size() > 4<<20 {
 		return nil, "", fault.New(fault.Trust, "source_file")
 	}
+	return readStableLiteralFile(path, info)
+}
+
+func readStableLiteralFile(path string, expected os.FileInfo) ([]byte, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, "", fault.New(fault.Denied, "source_file")
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !os.SameFile(info, opened) {
+	if err != nil || !os.SameFile(expected, opened) {
 		return nil, "", fault.New(fault.Trust, "source_file")
 	}
 	data, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
 	if err != nil || len(data) > 4<<20 {
 		return nil, "", fault.New(fault.Trust, "source_file")
 	}
-	after, err := f.Stat()
-	if err != nil || !after.ModTime().Equal(opened.ModTime()) || after.Size() != opened.Size() {
-		return nil, "", fault.New(fault.Trust, "source_file_changed")
+	if err := unchangedLiteralFile(f, opened); err != nil {
+		return nil, "", err
 	}
 	return data, fmt.Sprintf("file:%d:%d", opened.ModTime().UnixNano(), opened.Size()), nil
+}
+
+func unchangedLiteralFile(file *os.File, opened os.FileInfo) error {
+	after, err := file.Stat()
+	if err != nil || !after.ModTime().Equal(opened.ModTime()) || after.Size() != opened.Size() {
+		return fault.New(fault.Trust, "source_file_changed")
+	}
+	return nil
 }
 
 // literalObject rejects ambiguous duplicate keys and non-object documents.
@@ -125,7 +159,22 @@ func literalObject(data []byte) (map[string]any, error) {
 	if err != nil || token != json.Delim('{') {
 		return nil, fault.New(fault.Trust, "json_source")
 	}
-	object := map[string]any{}
+	object, err := decodeLiteralObject(dec)
+	if err != nil {
+		return nil, err
+	}
+	if token, err = dec.Token(); err != nil || token != json.Delim('}') {
+		return nil, fault.New(fault.Trust, "json_source")
+	}
+	var extra any
+	if dec.Decode(&extra) != io.EOF {
+		return nil, fault.New(fault.Trust, "json_source")
+	}
+	return object, nil
+}
+
+func decodeLiteralObject(dec *json.Decoder) (map[string]any, error) {
+	object := make(map[string]any)
 	for dec.More() {
 		key, err := dec.Token()
 		name, ok := key.(string)
@@ -140,13 +189,6 @@ func literalObject(data []byte) (map[string]any, error) {
 			return nil, fault.New(fault.Trust, "json_source")
 		}
 		object[name] = value
-	}
-	if token, err = dec.Token(); err != nil || token != json.Delim('}') {
-		return nil, fault.New(fault.Trust, "json_source")
-	}
-	var extra any
-	if dec.Decode(&extra) != io.EOF {
-		return nil, fault.New(fault.Trust, "json_source")
 	}
 	return object, nil
 }

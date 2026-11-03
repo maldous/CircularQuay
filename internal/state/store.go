@@ -111,7 +111,9 @@ func (s Store) Lock(name string) (func() error, error) {
 		return nil, err
 	}
 	if err = lock(f); err != nil {
-		f.Close()
+		if closeErr := f.Close(); closeErr != nil {
+			return nil, fault.New(fault.Apply, "state lock cleanup")
+		}
 		return nil, fault.New(fault.Unavailable, "reconciliation busy")
 	}
 	return func() error {

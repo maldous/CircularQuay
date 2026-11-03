@@ -22,13 +22,18 @@ import (
 // SOPSReader delegates cryptography to a protected upstream SOPS executable.
 type SOPSReader struct{}
 
+const (
+	sopsInputTypeFlag    = "--input-type"
+	sopsOutputTypeFlag   = "--output-type"
+	sopsFilenameFlag     = "--filename-override"
+	sopsJSONFilename     = "cquay.sops.json"
+	sopsJSONDocumentType = "json"
+)
+
 // Read resolves one string field, after inspecting online key metadata before a
 // token is supplied. Transit sources cannot silently use an offline recipient.
 func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.Binding) (model.Value, error) {
-	path := config.Path
-	if path == "" {
-		path = binding.Resource
-	}
+	path := sopsPath(config, binding)
 	data, err := platform.ReadProtected(path, false)
 	if err != nil {
 		return model.Value{}, err
@@ -37,28 +42,43 @@ func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.B
 	if err := validateSOPSMetadata(data, config, transit); err != nil {
 		return model.Value{}, err
 	}
-	digest := sha256.Sum256(data)
-	version := "sha256:" + hex.EncodeToString(digest[:])
+	version := sopsVersion(data)
 	if binding.Version != "" && binding.Version != version {
 		return model.Value{}, fault.New(fault.Trust, "SOPS ciphertext version mismatch")
 	}
-	clear, err := runSOPS(ctx, config.SOPS, []string{"decrypt", "--input-type", "json", "--output-type", "json", "--filename-override", "cquay.sops.json"}, data, config.AgeIdentityFile, config.TokenFile, config.VaultAllowlist)
+	plaintext, err := runSOPS(ctx, config.SOPS, sopsDecryptArgs(), data, config.AgeIdentityFile, config.TokenFile, config.VaultAllowlist)
 	if err != nil {
 		return model.Value{}, err
 	}
-	values, err := decodeStrings(clear)
+	values, err := decodeStrings(plaintext)
 	if err != nil {
 		return model.Value{}, err
 	}
-	field := binding.Field
-	if field == "" {
-		field = binding.Name
-	}
+	field := selectedField(binding)
 	value, ok := values[field]
 	if !ok {
 		return model.Value{}, fault.New(fault.Missing, "SOPS selected field")
 	}
 	return model.Value{Data: value, Version: version, AuditVerified: config.AuditVerified}, nil
+}
+
+func sopsPath(config model.Source, binding model.Binding) string {
+	if config.Path != "" {
+		return config.Path
+	}
+	return binding.Resource
+}
+
+func sopsVersion(data []byte) string {
+	digest := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(digest[:])
+}
+
+func selectedField(binding model.Binding) string {
+	if binding.Field != "" {
+		return binding.Field
+	}
+	return binding.Name
 }
 
 // EncryptSnapshot writes a static value map using only the declared age recipients.
@@ -72,15 +92,15 @@ func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[stri
 			return fault.New(fault.Invalid, "snapshot age recipient")
 		}
 	}
-	clear, err := json.Marshal(values)
+	plaintext, err := json.Marshal(values)
 	if err != nil {
 		return fault.New(fault.Invalid, "snapshot values")
 	}
-	if _, err = decodeStrings(clear); err != nil {
+	if _, err = decodeStrings(plaintext); err != nil {
 		return err
 	}
-	args := []string{"encrypt", "--input-type", "json", "--output-type", "json", "--filename-override", "cquay.sops.json", "--age", strings.Join(config.Recipients, ",")}
-	encrypted, err := runSOPS(ctx, config.SOPS, args, clear, "", "", nil)
+	args := append(sopsEncryptArgs(), "--age", strings.Join(config.Recipients, ","))
+	encrypted, err := runSOPS(ctx, config.SOPS, args, plaintext, "", "", nil)
 	if err != nil {
 		return err
 	}
@@ -99,11 +119,19 @@ func DecryptSnapshot(ctx context.Context, config model.Snapshot) (map[string]str
 	if err := validateSOPSMetadata(data, model.Source{}, false); err != nil {
 		return nil, err
 	}
-	clear, err := runSOPS(ctx, config.SOPS, []string{"decrypt", "--input-type", "json", "--output-type", "json", "--filename-override", "cquay.sops.json"}, data, config.IdentityFile, "", nil)
+	plaintext, err := runSOPS(ctx, config.SOPS, sopsDecryptArgs(), data, config.IdentityFile, "", nil)
 	if err != nil {
 		return nil, err
 	}
-	return decodeStrings(clear)
+	return decodeStrings(plaintext)
+}
+
+func sopsDecryptArgs() []string {
+	return []string{"decrypt", sopsInputTypeFlag, sopsJSONDocumentType, sopsOutputTypeFlag, sopsJSONDocumentType, sopsFilenameFlag, sopsJSONFilename}
+}
+
+func sopsEncryptArgs() []string {
+	return []string{"encrypt", sopsInputTypeFlag, sopsJSONDocumentType, sopsOutputTypeFlag, sopsJSONDocumentType, sopsFilenameFlag, sopsJSONFilename}
 }
 
 type sopsMetadata struct {
@@ -130,19 +158,31 @@ func validateSOPSMetadata(data []byte, config model.Source, transit bool) error 
 		return fault.New(fault.Invalid, "SOPS metadata required")
 	}
 	m := document.SOPS
-	if len(m.Groups)+len(m.PGP)+len(m.KMS)+len(m.GCP)+len(m.Azure)+len(m.Huawei) != 0 {
+	if hasUnsupportedSOPSRecipients(m) {
 		return fault.New(fault.Unsupported, "SOPS recipient backend")
 	}
 	if !transit {
-		if len(m.Vault) != 0 || len(m.Age) == 0 {
-			return fault.New(fault.Trust, "age-only recipient policy")
-		}
-		return nil
+		return validateAgeOnlySOPSRecipients(m)
 	}
-	if len(m.Age) != 0 || len(m.Vault) == 0 || len(config.VaultAllowlist) == 0 || len(config.VaultKeys) == 0 {
+	return validateTransitSOPSRecipients(m, config)
+}
+
+func hasUnsupportedSOPSRecipients(metadata sopsMetadata) bool {
+	return len(metadata.Groups)+len(metadata.PGP)+len(metadata.KMS)+len(metadata.GCP)+len(metadata.Azure)+len(metadata.Huawei) != 0
+}
+
+func validateAgeOnlySOPSRecipients(metadata sopsMetadata) error {
+	if len(metadata.Vault) != 0 || len(metadata.Age) == 0 {
+		return fault.New(fault.Trust, "age-only recipient policy")
+	}
+	return nil
+}
+
+func validateTransitSOPSRecipients(metadata sopsMetadata, config model.Source) error {
+	if len(metadata.Age) != 0 || len(metadata.Vault) == 0 || len(config.VaultAllowlist) == 0 || len(config.VaultKeys) == 0 {
 		return fault.New(fault.Trust, "Transit-only recipient policy")
 	}
-	for _, key := range m.Vault {
+	for _, key := range metadata.Vault {
 		if !approvedVaultAddress(key.Address, config.VaultAllowlist) || !contains(config.VaultKeys, key.Engine+"/"+key.Key) {
 			return fault.New(fault.Trust, "unapproved Transit recipient")
 		}
@@ -247,24 +287,32 @@ func sopsEnvironment(home, ageFile, tokenFile string, allowlist []string) ([]str
 		env = append(env, "SOPS_AGE_KEY_FILE="+ageFile)
 	}
 	if tokenFile != "" {
-		if len(allowlist) == 0 {
-			return nil, fault.New(fault.Trust, "Transit endpoint required")
-		}
-		for _, endpoint := range allowlist {
-			if !approvedVaultAddress(endpoint, []string{endpoint}) {
-				return nil, fault.New(fault.Trust, "invalid Transit endpoint")
-			}
-		}
-		data, err := platform.ReadProtected(tokenFile, true)
+		token, err := transitToken(tokenFile, allowlist)
 		if err != nil {
 			return nil, err
-		}
-		token := strings.TrimSpace(string(data))
-		if token == "" || strings.ContainsAny(token, "\r\n\x00") {
-			return nil, fault.New(fault.Invalid, "invalid Transit token file")
 		}
 		env[2] = "SOPS_HC_VAULT_ALLOWLIST=" + strings.Join(allowlist, ",")
 		env = append(env, "VAULT_TOKEN="+token)
 	}
 	return env, nil
+}
+
+func transitToken(tokenFile string, allowlist []string) (string, error) {
+	if len(allowlist) == 0 {
+		return "", fault.New(fault.Trust, "Transit endpoint required")
+	}
+	for _, endpoint := range allowlist {
+		if !approvedVaultAddress(endpoint, []string{endpoint}) {
+			return "", fault.New(fault.Trust, "invalid Transit endpoint")
+		}
+	}
+	data, err := platform.ReadProtected(tokenFile, true)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" || strings.ContainsAny(token, "\r\n\x00") {
+		return "", fault.New(fault.Invalid, "invalid Transit token file")
+	}
+	return token, nil
 }

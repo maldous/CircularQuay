@@ -15,7 +15,7 @@ import (
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
 func run(arguments []string, stdout, stderr io.Writer) int {
-	if len(arguments) > 0 && (arguments[0] == "sonar-init" || arguments[0] == "sonar-bootstrap") {
+	if isSonarCommand(arguments) {
 		return runSonar(arguments, stdout, stderr)
 	}
 	if len(arguments) == 0 || arguments[0] != "run" {
@@ -48,6 +48,10 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func isSonarCommand(arguments []string) bool {
+	return len(arguments) > 0 && (arguments[0] == "sonar-init" || arguments[0] == "sonar-bootstrap")
 }
 
 func runSonar(arguments []string, stdout, stderr io.Writer) int {

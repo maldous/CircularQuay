@@ -52,39 +52,58 @@ func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (mo
 	if err := checkCancellation(ctx); err != nil {
 		return model.Generation{}, err
 	}
-	w, ok := e.Policy.Workloads[id]
-	if !ok {
-		return model.Generation{}, fault.New(fault.Invalid, "workload")
-	}
-	if e.Reader == nil {
-		return model.Generation{}, fault.New(fault.Unsupported, "source reader")
+	w, err := e.workload(id)
+	if err != nil {
+		return model.Generation{}, err
 	}
 	if allowFallback && w.Mode == "offline" && w.Snapshot.Path != "" {
 		return e.restore(ctx, id, w)
 	}
+	return e.readGeneration(ctx, id, w, allowFallback)
+}
+
+func (e *Engine) workload(id string) (model.Workload, error) {
+	w, ok := e.Policy.Workloads[id]
+	if !ok {
+		return model.Workload{}, fault.New(fault.Invalid, "workload")
+	}
+	if e.Reader == nil {
+		return model.Workload{}, fault.New(fault.Unsupported, "source reader")
+	}
+	return w, nil
+}
+
+func (e *Engine) readGeneration(ctx context.Context, id string, w model.Workload, allowFallback bool) (model.Generation, error) {
 	g := model.Generation{Workload: id, Values: make(map[string]model.Value), RetrievedAt: e.now()}
 	for _, b := range w.Bindings {
-		if err := checkCancellation(ctx); err != nil {
-			return model.Generation{}, err
-		}
-		s, ok := e.Policy.Sources[b.Source]
-		if !ok {
-			return model.Generation{}, fault.New(fault.Invalid, "source")
-		}
-		v, err := e.Reader.Read(ctx, s, b)
-		if canceled := checkCancellation(ctx); canceled != nil {
-			return model.Generation{}, canceled
-		}
-		if err != nil {
+		if err := e.readBinding(ctx, &g, b, w.AuditRequired); err != nil {
 			return e.failed(ctx, id, w, err, allowFallback)
 		}
-		if err = validateValue(v, g.RetrievedAt, w.AuditRequired); err != nil {
-			return e.failed(ctx, id, w, err, allowFallback)
-		}
-		g.Values[b.Name] = v
-		g.Receipts = append(g.Receipts, model.Receipt{Source: b.Source, Resource: b.Resource, Version: v.Version})
 	}
 	return g, nil
+}
+
+func (e *Engine) readBinding(ctx context.Context, g *model.Generation, binding model.Binding, auditRequired bool) error {
+	if err := checkCancellation(ctx); err != nil {
+		return err
+	}
+	sourceConfig, ok := e.Policy.Sources[binding.Source]
+	if !ok {
+		return fault.New(fault.Invalid, "source")
+	}
+	value, err := e.Reader.Read(ctx, sourceConfig, binding)
+	if canceled := checkCancellation(ctx); canceled != nil {
+		return canceled
+	}
+	if err != nil {
+		return err
+	}
+	if err := validateValue(value, g.RetrievedAt, auditRequired); err != nil {
+		return err
+	}
+	g.Values[binding.Name] = value
+	g.Receipts = append(g.Receipts, model.Receipt{Source: binding.Source, Resource: binding.Resource, Version: value.Version})
+	return nil
 }
 
 func validateValue(v model.Value, now time.Time, audit bool) error {
@@ -120,9 +139,9 @@ func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, erro
 	if err := checkCancellation(ctx); err != nil {
 		return model.Value{}, err
 	}
-	w, ok := e.Policy.Workloads[id]
-	if !ok {
-		return model.Value{}, fault.New(fault.Invalid, "workload")
+	w, err := e.workload(id)
+	if err != nil {
+		return model.Value{}, err
 	}
 	if w.Mode == "offline" {
 		g, err := e.Resolve(ctx, id)
@@ -135,25 +154,41 @@ func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, erro
 		}
 		return v, nil
 	}
-	for _, b := range w.Bindings {
-		if b.Name == key {
-			v, err := e.Reader.Read(ctx, e.Policy.Sources[b.Source], b)
-			if canceled := checkCancellation(ctx); canceled != nil {
-				return model.Value{}, canceled
-			}
-			if err != nil {
-				return model.Value{}, err
-			}
-			if err = validateValue(v, e.now(), w.AuditRequired); err != nil {
-				return model.Value{}, err
-			}
-			if v.Leased || v.Renewable {
-				return model.Value{}, fault.New(fault.Unsupported, "leased MCP disclosure")
-			}
-			return v, nil
+	binding, found := binding(w, key)
+	if !found {
+		return model.Value{}, fault.New(fault.Missing, "key")
+	}
+	return e.readKeyBinding(ctx, w, binding)
+}
+
+func binding(workload model.Workload, key string) (model.Binding, bool) {
+	for _, binding := range workload.Bindings {
+		if binding.Name == key {
+			return binding, true
 		}
 	}
-	return model.Value{}, fault.New(fault.Missing, "key")
+	return model.Binding{}, false
+}
+
+func (e *Engine) readKeyBinding(ctx context.Context, workload model.Workload, binding model.Binding) (model.Value, error) {
+	sourceConfig, exists := e.Policy.Sources[binding.Source]
+	if !exists {
+		return model.Value{}, fault.New(fault.Invalid, "source")
+	}
+	value, err := e.Reader.Read(ctx, sourceConfig, binding)
+	if canceled := checkCancellation(ctx); canceled != nil {
+		return model.Value{}, canceled
+	}
+	if err != nil {
+		return model.Value{}, err
+	}
+	if err := validateValue(value, e.now(), workload.AuditRequired); err != nil {
+		return model.Value{}, err
+	}
+	if value.Leased || value.Renewable {
+		return model.Value{}, fault.New(fault.Unsupported, "leased MCP disclosure")
+	}
+	return value, nil
 }
 
 type snapshotPayload struct {
@@ -185,22 +220,38 @@ func (e *Engine) Snapshot(ctx context.Context, g model.Generation) error {
 	if err := checkCancellation(ctx); err != nil {
 		return err
 	}
-	w, ok := e.Policy.Workloads[g.Workload]
-	if !ok || w.AuditRequired || w.Mode == "online" || w.Snapshot.Path == "" || e.Snapshots == nil {
-		return fault.New(fault.Denied, "snapshot policy")
+	w, err := e.snapshotWorkload(g.Workload)
+	if err != nil {
+		return err
 	}
 	if err := validateGeneration(w, g, e.now()); err != nil {
 		return err
 	}
-	fp, err := e.fingerprint(g.Workload)
+	encoded, err := e.encodeSnapshot(g)
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(snapshotPayload{Version: 1, Workload: g.Workload, Policy: fp, Generation: g})
-	if err != nil || len(b) > 2<<20 {
-		return fault.New(fault.Apply, "snapshot encode")
+	return e.Snapshots.Encrypt(ctx, w.Snapshot, map[string]string{"circularquay_snapshot": encoded})
+}
+
+func (e *Engine) snapshotWorkload(id string) (model.Workload, error) {
+	workload, found := e.Policy.Workloads[id]
+	if !found || workload.AuditRequired || workload.Mode == "online" || workload.Snapshot.Path == "" || e.Snapshots == nil {
+		return model.Workload{}, fault.New(fault.Denied, "snapshot policy")
 	}
-	return e.Snapshots.Encrypt(ctx, w.Snapshot, map[string]string{"circularquay_snapshot": string(b)})
+	return workload, nil
+}
+
+func (e *Engine) encodeSnapshot(generation model.Generation) (string, error) {
+	fingerprint, err := e.fingerprint(generation.Workload)
+	if err != nil {
+		return "", err
+	}
+	encoded, err := json.Marshal(snapshotPayload{Version: 1, Workload: generation.Workload, Policy: fingerprint, Generation: generation})
+	if err != nil || len(encoded) > 2<<20 {
+		return "", fault.New(fault.Apply, "snapshot encode")
+	}
+	return string(encoded), nil
 }
 
 func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (model.Generation, error) {
@@ -222,27 +273,43 @@ func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (mode
 			return model.Generation{}, fault.New(fault.Denied, "observed source failure")
 		}
 	}
-	m, err := e.Snapshots.Decrypt(ctx, w.Snapshot)
+	payload, err := e.decryptSnapshot(ctx, w)
+	if err != nil {
+		return model.Generation{}, err
+	}
+	if err := e.validateSnapshot(id, w, payload); err != nil {
+		return model.Generation{}, err
+	}
+	payload.Generation.Offline = true
+	return payload.Generation, nil
+}
+
+func (e *Engine) decryptSnapshot(ctx context.Context, workload model.Workload) (snapshotPayload, error) {
+	contents, err := e.Snapshots.Decrypt(ctx, workload.Snapshot)
 	if canceled := checkCancellation(ctx); canceled != nil {
-		return model.Generation{}, canceled
+		return snapshotPayload{}, canceled
 	}
 	if err != nil {
-		return model.Generation{}, err
+		return snapshotPayload{}, err
 	}
-	var p snapshotPayload
-	if len(m) != 1 || len(m["circularquay_snapshot"]) > 2<<20 || jsondocument.Decode([]byte(m["circularquay_snapshot"]), &p) != nil {
-		return model.Generation{}, fault.New(fault.Trust, "snapshot format")
+	encoded, valid := contents["circularquay_snapshot"]
+	if len(contents) != 1 || !valid || len(encoded) > 2<<20 {
+		return snapshotPayload{}, fault.New(fault.Trust, "snapshot format")
 	}
-	fp, err := e.fingerprint(id)
+	var payload snapshotPayload
+	if jsondocument.Decode([]byte(encoded), &payload) != nil {
+		return snapshotPayload{}, fault.New(fault.Trust, "snapshot format")
+	}
+	return payload, nil
+}
+
+func (e *Engine) validateSnapshot(id string, workload model.Workload, payload snapshotPayload) error {
+	fingerprint, err := e.fingerprint(id)
 	if err != nil {
-		return model.Generation{}, err
+		return err
 	}
-	if p.Version != 1 || p.Workload != id || p.Policy != fp || p.Generation.Workload != id || len(p.Generation.Values) != len(w.Bindings) {
-		return model.Generation{}, fault.New(fault.Trust, "snapshot scope")
+	if payload.Version != 1 || payload.Workload != id || payload.Policy != fingerprint || payload.Generation.Workload != id || len(payload.Generation.Values) != len(workload.Bindings) {
+		return fault.New(fault.Trust, "snapshot scope")
 	}
-	if err := validateGeneration(w, p.Generation, e.now()); err != nil {
-		return model.Generation{}, err
-	}
-	p.Generation.Offline = true
-	return p.Generation, nil
+	return validateGeneration(workload, payload.Generation, e.now())
 }

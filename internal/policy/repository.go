@@ -16,24 +16,44 @@ var serviceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,127}$`)
 // ValidateRepository checks the trust declaration without network or filesystem I/O.
 func ValidateRepository(repo model.Repository) error {
 	if repo.URL == "" {
-		if repo.Directory != "" || repo.Ref != "" || repo.AllowedSignersFile != "" || repo.InitialCommit != "" || repo.TokenFile != "" {
-			return invalid("repository_declaration")
-		}
-		return nil
+		return validateEmptyRepository(repo)
 	}
-	if !secureEndpoint(repo.URL, false) || !commitID.MatchString(repo.InitialCommit) || !validRef(repo.Ref) {
+	if !validRepositoryTrust(repo) {
 		return invalid("repository_trust")
 	}
-	if !filepath.IsAbs(repo.Directory) || !filepath.IsAbs(repo.AllowedSignersFile) || !safeText(repo.Directory) || !safeText(repo.AllowedSignersFile) {
+	if !validRepositoryPaths(repo) {
 		return invalid("repository_paths")
 	}
-	if repo.TokenFile != "" && (!filepath.IsAbs(repo.TokenFile) || !safeText(repo.TokenFile)) {
+	if !validRepositoryToken(repo.TokenFile) {
 		return invalid("repository_token")
 	}
-	if within(repo.Directory, repo.AllowedSignersFile) || repo.TokenFile != "" && within(repo.Directory, repo.TokenFile) {
+	if repositoryBootstrapCycle(repo) {
 		return invalid("repository_bootstrap_cycle")
 	}
 	return nil
+}
+
+func validateEmptyRepository(repo model.Repository) error {
+	if repo.Directory != "" || repo.Ref != "" || repo.AllowedSignersFile != "" || repo.InitialCommit != "" || repo.TokenFile != "" {
+		return invalid("repository_declaration")
+	}
+	return nil
+}
+
+func validRepositoryTrust(repo model.Repository) bool {
+	return secureEndpoint(repo.URL, false) && commitID.MatchString(repo.InitialCommit) && validRef(repo.Ref)
+}
+
+func validRepositoryPaths(repo model.Repository) bool {
+	return filepath.IsAbs(repo.Directory) && filepath.IsAbs(repo.AllowedSignersFile) && safeText(repo.Directory) && safeText(repo.AllowedSignersFile)
+}
+
+func validRepositoryToken(tokenFile string) bool {
+	return tokenFile == "" || filepath.IsAbs(tokenFile) && safeText(tokenFile)
+}
+
+func repositoryBootstrapCycle(repo model.Repository) bool {
+	return within(repo.Directory, repo.AllowedSignersFile) || repo.TokenFile != "" && within(repo.Directory, repo.TokenFile)
 }
 
 func validRef(value string) bool {
@@ -68,20 +88,28 @@ func ValidRepositoryPath(value string) bool {
 }
 
 func portableSegment(segment string) bool {
-	if segment == "" || segment == "." || segment == ".." || strings.HasSuffix(segment, ".") || strings.HasSuffix(segment, " ") || strings.ContainsAny(segment, `<>|"`) {
+	if invalidPortableSuffix(segment) {
 		return false
 	}
 	upper := strings.ToUpper(segment)
-	if upper == ".GIT" || upper == ".GITATTRIBUTES" || upper == ".GITMODULES" {
+	if gitControlFile(upper) {
 		return false
 	}
+	return !windowsReservedName(upper)
+}
+
+func invalidPortableSuffix(segment string) bool {
+	return segment == "" || segment == "." || segment == ".." || strings.HasSuffix(segment, ".") || strings.HasSuffix(segment, " ") || strings.ContainsAny(segment, `<>|"`)
+}
+
+func gitControlFile(upper string) bool {
+	return upper == ".GIT" || upper == ".GITATTRIBUTES" || upper == ".GITMODULES"
+}
+
+func windowsReservedName(upper string) bool {
 	base := strings.SplitN(upper, ".", 2)[0]
-	switch base {
-	case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
-		return false
-	default:
-		return true
-	}
+	reserved := map[string]bool{"CON": true, "PRN": true, "AUX": true, "NUL": true, "COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true, "LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true}
+	return reserved[base]
 }
 
 func validateRepositoryReferences(config model.Policy) error {
@@ -89,18 +117,25 @@ func validateRepositoryReferences(config model.Policy) error {
 		return err
 	}
 	for _, source := range config.Sources {
-		if strings.HasPrefix(source.Path, "repo:") && (config.Repository.URL == "" || !localFileSource(source.Type) || !ValidRepositoryPath(strings.TrimPrefix(source.Path, "repo:"))) {
-			return invalid("repository_source")
-		}
-		for _, bootstrap := range []string{source.TokenFile, source.AgeIdentityFile, source.SOPS} {
-			if strings.HasPrefix(bootstrap, "repo:") {
-				return invalid("repository_bootstrap")
-			}
+		if err := validateRepositorySource(config.Repository, source); err != nil {
+			return err
 		}
 	}
 	for _, workload := range config.Workloads {
 		if err := validateLocalWorkloadPaths(workload); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateRepositorySource(repository model.Repository, source model.Source) error {
+	if strings.HasPrefix(source.Path, "repo:") && (repository.URL == "" || !localFileSource(source.Type) || !ValidRepositoryPath(strings.TrimPrefix(source.Path, "repo:"))) {
+		return invalid("repository_source")
+	}
+	for _, bootstrap := range []string{source.TokenFile, source.AgeIdentityFile, source.SOPS} {
+		if strings.HasPrefix(bootstrap, "repo:") {
+			return invalid("repository_bootstrap")
 		}
 	}
 	return nil
@@ -124,14 +159,26 @@ func validateLocalWorkloadPaths(workload model.Workload) error {
 }
 
 func validateActivation(target model.Target) error {
-	if target.Activation != "" && target.Activation != "none" && target.Activation != "restart" && target.Activation != "reload" {
+	if !knownActivation(target.Activation) {
 		return invalid("activation_action")
 	}
 	if target.Service != "" && !serviceName.MatchString(target.Service) {
 		return invalid("activation_service")
 	}
-	if target.Activation != "" && target.Activation != "none" && (target.Service == "" || target.Type != "systemd" && target.Type != "windows") {
+	if activationNeedsService(target) && (target.Service == "" || !nativeActivationTarget(target.Type)) {
 		return invalid("activation_scope")
 	}
 	return nil
+}
+
+func knownActivation(action string) bool {
+	return action == "" || action == "none" || action == "restart" || action == "reload"
+}
+
+func activationNeedsService(target model.Target) bool {
+	return target.Activation != "" && target.Activation != "none"
+}
+
+func nativeActivationTarget(targetType string) bool {
+	return targetType == "systemd" || targetType == "windows"
 }

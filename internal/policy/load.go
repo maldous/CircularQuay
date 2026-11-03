@@ -169,36 +169,56 @@ func safeYAML(node *yaml.Node, depth int) bool {
 }
 
 func bindPaths(policy *model.Policy, base string) {
-	policy.Repository.Directory = absolutePath(base, policy.Repository.Directory)
-	policy.Repository.AllowedSignersFile = absolutePath(base, policy.Repository.AllowedSignersFile)
-	policy.Repository.TokenFile = absolutePath(base, policy.Repository.TokenFile)
+	bindRepositoryPaths(&policy.Repository, base)
 	for name, source := range policy.Sources {
-		if localFileSource(source.Type) || source.Type == "env" {
-			source.Path = absolutePath(base, source.Path)
-		}
-		source.TokenFile = absolutePath(base, source.TokenFile)
-		source.AgeIdentityFile = absolutePath(base, source.AgeIdentityFile)
-		source.SOPS = executablePath(base, source.SOPS)
+		bindSourcePaths(&source, base)
 		policy.Sources[name] = source
 	}
 	for name, workload := range policy.Workloads {
-		workload.Directory = absolutePath(base, workload.Directory)
-		if len(workload.Command) > 0 {
-			workload.Command[0] = executablePath(base, workload.Command[0])
-		}
-		workload.Snapshot.Path = absolutePath(base, workload.Snapshot.Path)
-		workload.Snapshot.IdentityFile = absolutePath(base, workload.Snapshot.IdentityFile)
-		workload.Snapshot.SOPS = executablePath(base, workload.Snapshot.SOPS)
-		for targetName, target := range workload.Targets {
-			if target.Type == "file" || target.Type == "systemd" || target.Type == "windows" {
-				target.Path = absolutePath(base, target.Path)
-			}
-			target.TokenFile = absolutePath(base, target.TokenFile)
-			workload.Targets[targetName] = target
-		}
+		bindWorkloadPaths(&workload, base)
 		policy.Workloads[name] = workload
 	}
 	policy.MCP.AuditPath = absolutePath(base, policy.MCP.AuditPath)
+}
+
+func bindRepositoryPaths(repository *model.Repository, base string) {
+	repository.Directory = absolutePath(base, repository.Directory)
+	repository.AllowedSignersFile = absolutePath(base, repository.AllowedSignersFile)
+	repository.TokenFile = absolutePath(base, repository.TokenFile)
+}
+
+func bindSourcePaths(source *model.Source, base string) {
+	if localFileSource(source.Type) || source.Type == "env" {
+		source.Path = absolutePath(base, source.Path)
+	}
+	source.TokenFile = absolutePath(base, source.TokenFile)
+	source.AgeIdentityFile = absolutePath(base, source.AgeIdentityFile)
+	source.SOPS = executablePath(base, source.SOPS)
+}
+
+func bindWorkloadPaths(workload *model.Workload, base string) {
+	workload.Directory = absolutePath(base, workload.Directory)
+	bindCommandPath(workload.Command, base)
+	workload.Snapshot.Path = absolutePath(base, workload.Snapshot.Path)
+	workload.Snapshot.IdentityFile = absolutePath(base, workload.Snapshot.IdentityFile)
+	workload.Snapshot.SOPS = executablePath(base, workload.Snapshot.SOPS)
+	for name, target := range workload.Targets {
+		bindTargetPaths(&target, base)
+		workload.Targets[name] = target
+	}
+}
+
+func bindCommandPath(command []string, base string) {
+	if len(command) > 0 {
+		command[0] = executablePath(base, command[0])
+	}
+}
+
+func bindTargetPaths(target *model.Target, base string) {
+	if target.Type == "file" || target.Type == "systemd" || target.Type == "windows" {
+		target.Path = absolutePath(base, target.Path)
+	}
+	target.TokenFile = absolutePath(base, target.TokenFile)
 }
 
 func absolutePath(base, value string) string {

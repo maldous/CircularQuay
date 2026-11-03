@@ -13,21 +13,9 @@ import (
 )
 
 func readVault(ctx context.Context, c transport.Client, s model.Source, b model.Binding) (model.Value, error) {
-	if s.Mount == "" {
-		return model.Value{}, fault.New(fault.Invalid, "vault_mount")
-	}
-	u, err := transport.URL(s.Endpoint, "v1", s.Mount, "data", b.Resource)
+	u, err := vaultURL(s, b)
 	if err != nil {
 		return model.Value{}, err
-	}
-	if b.Version != "" {
-		version, e := strconv.ParseUint(b.Version, 10, 64)
-		if e != nil || version == 0 {
-			return model.Value{}, fault.New(fault.Invalid, "source_version")
-		}
-		q := u.Query()
-		q.Set("version", b.Version)
-		u.RawQuery = q.Encode()
 	}
 	token, err := transport.ReadCredentialFile(s.TokenFile)
 	if err != nil {
@@ -37,22 +25,49 @@ func readVault(ctx context.Context, c transport.Client, s model.Source, b model.
 	if s.Namespace != "" {
 		headers["X-Vault-Namespace"] = s.Namespace
 	}
-	var result struct {
-		Data struct {
-			Data     map[string]any `json:"data"`
-			Metadata struct {
-				Version      int    `json:"version"`
-				DeletionTime string `json:"deletion_time"`
-				Destroyed    bool   `json:"destroyed"`
-			} `json:"metadata"`
-		} `json:"data"`
-		LeaseID       string `json:"lease_id"`
-		LeaseDuration int    `json:"lease_duration"`
-		Renewable     bool   `json:"renewable"`
-	}
+	var result vaultResult
 	if err = c.DoJSON(ctx, http.MethodGet, u, headers, nil, &result); err != nil {
 		return model.Value{}, err
 	}
+	return vaultValue(result, s, b)
+}
+
+func vaultURL(s model.Source, b model.Binding) (*url.URL, error) {
+	if s.Mount == "" {
+		return nil, fault.New(fault.Invalid, "vault_mount")
+	}
+	u, err := transport.URL(s.Endpoint, "v1", s.Mount, "data", b.Resource)
+	if err != nil {
+		return nil, err
+	}
+	if b.Version == "" {
+		return u, nil
+	}
+	version, err := strconv.ParseUint(b.Version, 10, 64)
+	if err != nil || version == 0 {
+		return nil, fault.New(fault.Invalid, "source_version")
+	}
+	query := u.Query()
+	query.Set("version", b.Version)
+	u.RawQuery = query.Encode()
+	return u, nil
+}
+
+type vaultResult struct {
+	Data struct {
+		Data     map[string]any `json:"data"`
+		Metadata struct {
+			Version      int    `json:"version"`
+			DeletionTime string `json:"deletion_time"`
+			Destroyed    bool   `json:"destroyed"`
+		} `json:"metadata"`
+	} `json:"data"`
+	LeaseID       string `json:"lease_id"`
+	LeaseDuration int    `json:"lease_duration"`
+	Renewable     bool   `json:"renewable"`
+}
+
+func vaultValue(result vaultResult, s model.Source, b model.Binding) (model.Value, error) {
 	if result.Data.Metadata.Destroyed || result.Data.Metadata.DeletionTime != "" {
 		return model.Value{}, fault.New(fault.Missing, "deleted_source_version")
 	}
@@ -64,11 +79,15 @@ func readVault(ctx context.Context, c transport.Client, s model.Source, b model.
 	if err != nil {
 		return model.Value{}, err
 	}
+	return leasedVaultValue(value, result, s), nil
+}
+
+func leasedVaultValue(value string, result vaultResult, s model.Source) model.Value {
 	v := model.Value{Data: value, Version: strconv.Itoa(result.Data.Metadata.Version), Leased: result.LeaseID != "", Renewable: result.Renewable, AuditVerified: s.AuditVerified}
 	if v.Leased && result.LeaseDuration > 0 {
 		v.ExpiresAt = time.Now().UTC().Add(time.Duration(result.LeaseDuration) * time.Second)
 	}
-	return v, nil
+	return v
 }
 
 func readHosted(ctx context.Context, c transport.Client, provider string, s model.Source, b model.Binding) (model.Value, error) {
@@ -127,27 +146,10 @@ func readInfisical(ctx context.Context, c transport.Client, s model.Source, b mo
 	if s.Project == "" || s.Environment == "" {
 		return model.Value{}, fault.New(fault.Invalid, "infisical_scope")
 	}
-	endpoint := s.Endpoint
-	if endpoint == "" {
-		endpoint = "https://us.infisical.com"
-	}
-	u, err := transport.URL(endpoint, "api", "v4", "secrets", b.Resource)
+	u, err := infisicalURL(s, b)
 	if err != nil {
 		return model.Value{}, err
 	}
-	q := u.Query()
-	q.Set("projectId", s.Project)
-	q.Set("environment", s.Environment)
-	q.Set("secretPath", s.Path)
-	q.Set("expandSecretReferences", "false")
-	q.Set("includeImports", "false")
-	if b.Version != "" {
-		if _, err = strconv.ParseUint(b.Version, 10, 64); err != nil {
-			return model.Value{}, fault.New(fault.Invalid, "source_version")
-		}
-		q.Set("version", b.Version)
-	}
-	u.RawQuery = q.Encode()
 	var result struct {
 		Secret struct {
 			SecretValue *string `json:"secretValue"`
@@ -158,17 +160,46 @@ func readInfisical(ctx context.Context, c transport.Client, s model.Source, b mo
 	if err = c.DoJSON(ctx, http.MethodGet, u, bearer(token), nil, &result); err != nil {
 		return model.Value{}, err
 	}
-	if result.Secret.Hidden {
+	return infisicalValue(result.Secret.SecretValue, result.Secret.Version, result.Secret.Hidden, s, b)
+}
+
+func infisicalURL(s model.Source, b model.Binding) (*url.URL, error) {
+	endpoint := s.Endpoint
+	if endpoint == "" {
+		endpoint = "https://us.infisical.com"
+	}
+	u, err := transport.URL(endpoint, "api", "v4", "secrets", b.Resource)
+	if err != nil {
+		return nil, err
+	}
+	q := u.Query()
+	q.Set("projectId", s.Project)
+	q.Set("environment", s.Environment)
+	q.Set("secretPath", s.Path)
+	q.Set("expandSecretReferences", "false")
+	q.Set("includeImports", "false")
+	if b.Version != "" {
+		if _, err = strconv.ParseUint(b.Version, 10, 64); err != nil {
+			return nil, fault.New(fault.Invalid, "source_version")
+		}
+		q.Set("version", b.Version)
+	}
+	u.RawQuery = q.Encode()
+	return u, nil
+}
+
+func infisicalValue(raw *string, version int, hidden bool, s model.Source, b model.Binding) (model.Value, error) {
+	if hidden {
 		return model.Value{}, fault.New(fault.Denied, "source_value_hidden")
 	}
-	if result.Secret.SecretValue == nil {
+	if raw == nil {
 		return model.Value{}, fault.New(fault.Missing, "source_value")
 	}
-	data, err := selectValue(*result.Secret.SecretValue, b.Field)
+	data, err := selectValue(*raw, b.Field)
 	if err != nil {
 		return model.Value{}, err
 	}
-	return model.Value{Data: data, Version: strconv.Itoa(result.Secret.Version), AuditVerified: s.AuditVerified}, nil
+	return model.Value{Data: data, Version: strconv.Itoa(version), AuditVerified: s.AuditVerified}, nil
 }
 
 func readAkeyless(ctx context.Context, c transport.Client, s model.Source, b model.Binding, token string) (model.Value, error) {

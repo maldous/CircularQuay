@@ -29,9 +29,16 @@ func validServiceName(name string) bool {
 		return false
 	}
 	for _, c := range name {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("._@:-", c)) {
+		if !serviceNameRune(c) {
 			return false
 		}
 	}
 	return true
+}
+
+func serviceNameRune(c rune) bool {
+	return c >= 'a' && c <= 'z' ||
+		c >= 'A' && c <= 'Z' ||
+		c >= '0' && c <= '9' ||
+		strings.ContainsRune("._@:-", c)
 }

@@ -39,47 +39,12 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 	blocks := make(map[string]coverageBlock)
 	var result Coverage
 	for scanner.Scan() {
-		parts := coverageLine.FindStringSubmatch(scanner.Text())
-		if parts == nil {
-			return Coverage{}, errors.New("invalid coverage block")
-		}
-		name, err := ownedCoveragePath(parts[1])
+		name, key, block, err := parseCoverageBlock(scanner.Text())
 		if err != nil {
 			return Coverage{}, err
 		}
-		if err = validateBlock(parts); err != nil {
+		if err = result.mergeBlock(blocks, key, block); err != nil {
 			return Coverage{}, err
-		}
-		key := strings.Join(parts[1:6], ":")
-		statements, err := strconv.ParseInt(parts[6], 10, 64)
-		if err != nil || statements > 10_000_000 {
-			return Coverage{}, errors.New("invalid statement count")
-		}
-		executions, err := strconv.ParseUint(parts[7], 10, 64)
-		if err != nil {
-			return Coverage{}, errors.New("invalid execution count")
-		}
-		// Whole-module coverage repeats blocks across test binaries. Match the
-		// Go tool's merge invariant: coordinates must agree on NumStmt. Count
-		// each statement once and union execution, preserving the denominator.
-		if previous, exists := blocks[key]; exists {
-			if previous.statements != statements {
-				return Coverage{}, errors.New("inconsistent coverage block")
-			}
-			if executions > 0 && !previous.covered {
-				result.Covered += statements
-				previous.covered = true
-				blocks[key] = previous
-			}
-			continue
-		}
-		blocks[key] = coverageBlock{statements: statements, covered: executions > 0}
-		result.Total += statements
-		if result.Total > 100_000_000 {
-			return Coverage{}, errors.New("coverage size limit exceeded")
-		}
-		if executions > 0 {
-			result.Covered += statements
 		}
 		files[name] = true
 	}
@@ -92,6 +57,53 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 	result.Files = len(files)
 	result.Percent = 100 * float64(result.Covered) / float64(result.Total)
 	return result, nil
+}
+
+func parseCoverageBlock(line string) (name, key string, block coverageBlock, err error) {
+	parts := coverageLine.FindStringSubmatch(line)
+	if parts == nil {
+		return "", "", block, errors.New("invalid coverage block")
+	}
+	name, err = ownedCoveragePath(parts[1])
+	if err != nil {
+		return "", "", block, err
+	}
+	if err = validateBlock(parts); err != nil {
+		return "", "", block, err
+	}
+	statements, err := strconv.ParseInt(parts[6], 10, 64)
+	if err != nil || statements > 10_000_000 {
+		return "", "", block, errors.New("invalid statement count")
+	}
+	executions, err := strconv.ParseUint(parts[7], 10, 64)
+	if err != nil {
+		return "", "", block, errors.New("invalid execution count")
+	}
+	return name, strings.Join(parts[1:6], ":"), coverageBlock{statements: statements, covered: executions > 0}, nil
+}
+
+// Whole-module coverage repeats blocks across test binaries. Coordinates must
+// agree on NumStmt. Union execution while counting each statement only once.
+func (result *Coverage) mergeBlock(blocks map[string]coverageBlock, key string, block coverageBlock) error {
+	if previous, exists := blocks[key]; exists {
+		if previous.statements != block.statements {
+			return errors.New("inconsistent coverage block")
+		}
+		if block.covered && !previous.covered {
+			result.Covered += block.statements
+			blocks[key] = block
+		}
+		return nil
+	}
+	blocks[key] = block
+	result.Total += block.statements
+	if result.Total > 100_000_000 {
+		return errors.New("coverage size limit exceeded")
+	}
+	if block.covered {
+		result.Covered += block.statements
+	}
+	return nil
 }
 
 func validCoverageMode(header string) bool {

@@ -166,7 +166,7 @@ func newAccessTokenVerifier(ctx context.Context, cfg model.MCP, client *http.Cli
 	issuer, issuerErr := url.Parse(cfg.Issuer)
 	keys, keyErr := url.Parse(cfg.JWKSURL)
 	resource, resourceErr := url.Parse(cfg.Audience)
-	if issuerErr != nil || keyErr != nil || resourceErr != nil || !secureResource(issuer) || !secureResource(keys) || !secureResource(resource) {
+	if !validIssuerConfiguration(issuer, keys, resource, issuerErr, keyErr, resourceErr) {
 		return nil, fault.New(fault.Invalid, "mcp issuer configuration")
 	}
 	// A cross-origin key set could disclose a credential or accept another issuer.
@@ -177,19 +177,27 @@ func newAccessTokenVerifier(ctx context.Context, cfg model.MCP, client *http.Cli
 	keySet := oidc.NewRemoteKeySet(ctx, cfg.JWKSURL)
 	verifier := oidc.NewVerifier(cfg.Issuer, keySet, &oidc.Config{ClientID: cfg.Audience, SupportedSigningAlgs: []string{oidc.RS256, oidc.ES256}})
 	return func(ctx context.Context, raw string, _ *http.Request) (*auth.TokenInfo, error) {
-		if !accessHeader(raw) {
-			return nil, auth.ErrInvalidToken
-		}
-		token, err := verifier.Verify(ctx, raw)
-		if err != nil || token.Subject == "" || len(token.Subject) > 512 {
-			return nil, auth.ErrInvalidToken
-		}
-		claims, err := verifiedClaims(token)
-		if err != nil {
-			return nil, auth.ErrInvalidToken
-		}
-		return &auth.TokenInfo{UserID: cfg.Issuer + "|" + token.Subject, Expiration: token.Expiry, Scopes: strings.Fields(claims.Scope), Extra: map[string]any{"client": claims.ClientID}}, nil
+		return verifiedTokenInfo(ctx, raw, verifier, cfg.Issuer)
 	}, nil
+}
+
+func validIssuerConfiguration(issuer, keys, resource *url.URL, issuerErr, keyErr, resourceErr error) bool {
+	return issuerErr == nil && keyErr == nil && resourceErr == nil && secureResource(issuer) && secureResource(keys) && secureResource(resource)
+}
+
+func verifiedTokenInfo(ctx context.Context, raw string, verifier *oidc.IDTokenVerifier, issuer string) (*auth.TokenInfo, error) {
+	if !accessHeader(raw) {
+		return nil, auth.ErrInvalidToken
+	}
+	token, err := verifier.Verify(ctx, raw)
+	if err != nil || token.Subject == "" || len(token.Subject) > 512 {
+		return nil, auth.ErrInvalidToken
+	}
+	claims, err := verifiedClaims(token)
+	if err != nil {
+		return nil, auth.ErrInvalidToken
+	}
+	return &auth.TokenInfo{UserID: issuer + "|" + token.Subject, Expiration: token.Expiry, Scopes: strings.Fields(claims.Scope), Extra: map[string]any{"client": claims.ClientID}}, nil
 }
 
 type accessClaims struct {
@@ -209,31 +217,37 @@ func verifiedClaims(token *oidc.IDToken) (accessClaims, error) {
 	if token.Claims(&claims) != nil {
 		return claims, auth.ErrInvalidToken
 	}
-	now := time.Now().Unix()
-	if claims.NotBefore > now || claims.IssuedAt <= 0 || claims.IssuedAt > now+30 || claims.IssuedAt > token.Expiry.Unix() {
-		return claims, auth.ErrInvalidToken
-	}
-	if claims.ClientID == "" || len(claims.ClientID) > 256 || claims.AuthorizedParty != "" && claims.AuthorizedParty != claims.ClientID {
-		return claims, auth.ErrInvalidToken
-	}
-	if claims.ID == "" || len(claims.ID) > 512 || strings.ContainsAny(token.Subject+claims.ClientID+claims.ID+claims.Scope, "\x00\r\n") {
+	if !validClaimTimes(claims, token.Expiry) || !validClaimClient(claims) || !validClaimText(token.Subject, claims) {
 		return claims, auth.ErrInvalidToken
 	}
 	return claims, nil
 }
 
+func validClaimTimes(claims accessClaims, expiresAt time.Time) bool {
+	now := time.Now().Unix()
+	return claims.NotBefore <= now && claims.IssuedAt > 0 && claims.IssuedAt <= now+30 && claims.IssuedAt <= expiresAt.Unix()
+}
+
+func validClaimClient(claims accessClaims) bool {
+	return claims.ClientID != "" && len(claims.ClientID) <= 256 && (claims.AuthorizedParty == "" || claims.AuthorizedParty == claims.ClientID)
+}
+
+func validClaimText(subject string, claims accessClaims) bool {
+	return claims.ID != "" && len(claims.ID) <= 512 && !strings.ContainsAny(subject+claims.ClientID+claims.ID+claims.Scope, "\x00\r\n")
+}
+
 // Remote keys are public, but a compromised issuer must not allocate unbounded
 // memory in the resource server. Redirects are never followed to another origin.
 func boundedKeyClient(client *http.Client) *http.Client {
-	copy := *client
-	copy.Timeout = 10 * time.Second
-	copy.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
-	transport := copy.Transport
+	keyClient := *client
+	keyClient.Timeout = 10 * time.Second
+	keyClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	transport := keyClient.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	copy.Transport = boundedKeyTransport{transport}
-	return &copy
+	keyClient.Transport = boundedKeyTransport{transport}
+	return &keyClient
 }
 
 type boundedKeyTransport struct{ base http.RoundTripper }

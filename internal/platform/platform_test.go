@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -106,7 +107,31 @@ func TestProtectedAtomicDelivery(t *testing.T) {
 	}
 }
 
+func TestStageProtectedFileRemovesFailedStage(t *testing.T) {
+	dir := t.TempDir()
+	_, err := stageProtectedFileWithWriter(dir, []byte("synthetic"), func(_ *os.File, _ []byte) error {
+		return errors.New("synthetic write failure")
+	})
+	if err == nil {
+		t.Fatal("failed stage write accepted")
+	}
+	files, err := filepath.Glob(filepath.Join(dir, ".cquay-stage-*"))
+	if err != nil || len(files) != 0 {
+		t.Fatal("failed stage file retained")
+	}
+}
+
 func TestProtectedFileRejections(t *testing.T) {
+	testRelativeAndDirectoryRejections(t)
+	dir := t.TempDir()
+	testMissingAndOversizeRejections(t, dir)
+	if runtime.GOOS != "windows" {
+		testUnixFileRejections(t, dir)
+	}
+}
+
+func testRelativeAndDirectoryRejections(t *testing.T) {
+	t.Helper()
 	if _, err := ReadProtected("relative", true); !fault.Is(err, fault.Trust) {
 		t.Fatal("relative source accepted")
 	}
@@ -120,6 +145,13 @@ func TestProtectedFileRejections(t *testing.T) {
 	if err := WriteProtected(dir, nil); !fault.Is(err, fault.Trust) {
 		t.Fatal("directory replaced")
 	}
+	if err := ValidateProtectedPath(filepath.Join(dir, "missing")); !fault.Is(err, fault.Trust) {
+		t.Fatal("missing protected path accepted")
+	}
+}
+
+func testMissingAndOversizeRejections(t *testing.T, dir string) {
+	t.Helper()
 	if _, err := ReadProtected(filepath.Join(dir, "missing"), true); !fault.Is(err, fault.Missing) {
 		t.Fatal("missing source misclassified")
 	}
@@ -132,27 +164,32 @@ func TestProtectedFileRejections(t *testing.T) {
 	if _, err := ReadProtected(filepath.Join(dir, "large"), false); !fault.Is(err, fault.Invalid) {
 		t.Fatal("large source accepted")
 	}
-	if runtime.GOOS != "windows" {
-		path := filepath.Join(dir, "public")
-		if err := os.WriteFile(path, []byte("synthetic"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(path, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := ReadProtected(path, true); !fault.Is(err, fault.Trust) {
-			t.Fatal("public bootstrap file accepted")
-		}
-		link := filepath.Join(dir, "link")
-		if err := os.Symlink(path, link); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := ReadProtected(link, false); !fault.Is(err, fault.Trust) {
-			t.Fatal("symlink read accepted")
-		}
-		if err := WriteProtected(link, nil); !fault.Is(err, fault.Trust) {
-			t.Fatal("symlink replaced")
-		}
+	if err := AppendProtected(filepath.Join(dir, "nested", "audit.jsonl"), []byte(`{"action":"synthetic"}`)); err != nil {
+		t.Fatal("missing private receipt parent was not established")
+	}
+}
+
+func testUnixFileRejections(t *testing.T, dir string) {
+	t.Helper()
+	path := filepath.Join(dir, "public")
+	if err := os.WriteFile(path, []byte("synthetic"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadProtected(path, true); !fault.Is(err, fault.Trust) {
+		t.Fatal("public bootstrap file accepted")
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(path, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadProtected(link, false); !fault.Is(err, fault.Trust) {
+		t.Fatal("symlink read accepted")
+	}
+	if err := WriteProtected(link, nil); !fault.Is(err, fault.Trust) {
+		t.Fatal("symlink replaced")
 	}
 }
 
@@ -218,6 +255,12 @@ func TestPrivateDirectoryAndExecutableTrust(t *testing.T) {
 	if err := EnsurePrivateDirectory("relative"); !fault.Is(err, fault.Invalid) {
 		t.Fatal("relative state directory accepted")
 	}
+	testExecutableTrust(t)
+	testExistingDirectoryPermissions(t, dir)
+}
+
+func testExecutableTrust(t *testing.T) {
+	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -239,6 +282,19 @@ func TestPrivateDirectoryAndExecutableTrust(t *testing.T) {
 	if err := ValidateExecutable("relative"); !fault.Is(err, fault.Trust) {
 		t.Fatal("relative helper accepted")
 	}
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "helper-link")
+		if err := os.Symlink(exe, link); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateExecutable(link); !fault.Is(err, fault.Trust) {
+			t.Fatal("symbolic executable accepted")
+		}
+	}
+}
+
+func testExistingDirectoryPermissions(t *testing.T, dir string) {
+	t.Helper()
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(dir, 0o755); err != nil {
 			t.Fatal(err)

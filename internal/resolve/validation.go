@@ -28,21 +28,28 @@ func validVersion(version string) bool {
 }
 
 func validateGeneration(w model.Workload, g model.Generation, now time.Time) error {
-	if len(g.Values) != len(w.Bindings) || len(g.Receipts) != len(w.Bindings) || g.RetrievedAt.IsZero() || g.RetrievedAt.After(now) {
+	if !completeGeneration(w, g, now) {
 		return fault.New(fault.Trust, "snapshot generation")
 	}
 	for i, b := range w.Bindings {
-		v, ok := g.Values[b.Name]
-		if !ok || !b.AllowOffline || v.Leased || v.Renewable {
-			return fault.New(fault.Denied, "snapshot scope")
-		}
-		receipt := g.Receipts[i]
-		if receipt.Source != b.Source || receipt.Resource != b.Resource || receipt.Version != v.Version {
-			return fault.New(fault.Trust, "snapshot provenance")
-		}
-		if err := validateValue(v, now, false); err != nil {
+		if err := validateSnapshotBinding(b, g.Values, g.Receipts[i], now); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func completeGeneration(workload model.Workload, generation model.Generation, now time.Time) bool {
+	return len(generation.Values) == len(workload.Bindings) && len(generation.Receipts) == len(workload.Bindings) && !generation.RetrievedAt.IsZero() && !generation.RetrievedAt.After(now)
+}
+
+func validateSnapshotBinding(binding model.Binding, values map[string]model.Value, receipt model.Receipt, now time.Time) error {
+	value, found := values[binding.Name]
+	if !found || !binding.AllowOffline || value.Leased || value.Renewable {
+		return fault.New(fault.Denied, "snapshot scope")
+	}
+	if receipt.Source != binding.Source || receipt.Resource != binding.Resource || receipt.Version != value.Version {
+		return fault.New(fault.Trust, "snapshot provenance")
+	}
+	return validateValue(value, now, false)
 }

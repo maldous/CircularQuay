@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -75,12 +76,20 @@ func TestLockProbeChild(t *testing.T) {
 }
 
 func TestSyncOncePublishesChangedBytesWithIdenticalMetadata(t *testing.T) {
+	config, fixture, destination, modified := syncFixture(t)
+	for _, value := range []string{"first", "later"} {
+		assertSyncedValue(t, config, fixture, destination, modified, value)
+	}
+}
+
+func syncFixture(t *testing.T) (config, fixture, destination string, modified time.Time) {
+	t.Helper()
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	fixture := filepath.Join(dir, "values.json")
-	destination := filepath.Join(dir, "published.json")
+	fixture = filepath.Join(dir, "values.json")
+	destination = filepath.Join(dir, "published.json")
 	if err := os.WriteFile(fixture, []byte(`{"message":"first"}`), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -93,33 +102,42 @@ func TestSyncOncePublishesChangedBytesWithIdenticalMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := filepath.Join(dir, "policy.json")
+	config = filepath.Join(dir, "policy.json")
 	if err = os.WriteFile(config, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	for _, value := range []string{"first", "later"} {
-		if err = os.WriteFile(fixture, []byte(`{"message":"`+value+`"}`), 0600); err != nil {
-			t.Fatal(err)
-		}
-		if err = os.Chtimes(fixture, info.ModTime(), info.ModTime()); err != nil {
-			t.Fatal(err)
-		}
-		var out, diagnostics bytes.Buffer
-		code := (Runner{Out: &out, Err: &diagnostics}).Run(context.Background(), []string{"--config", config, "--state-dir", filepath.Join(dir, "state"), "sync", "--once", "--workload", "demo"})
-		if code != 0 {
-			t.Fatalf("sync failed: %s", diagnostics.String())
-		}
-		published, err := os.ReadFile(destination)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var values map[string]string
-		if json.Unmarshal(published, &values) != nil || values["MESSAGE"] != value {
-			t.Fatal("metadata equality suppressed changed source bytes")
-		}
-		var record state.Record
-		if json.Unmarshal(out.Bytes(), &record) != nil || record.State != "applied" || record.Health != "unknown" {
-			t.Fatal("sync exaggerated activation/health")
-		}
+	return config, fixture, destination, info.ModTime()
+}
+
+func assertSyncedValue(t *testing.T, config, fixture, destination string, modified time.Time, value string) {
+	t.Helper()
+	if err := os.WriteFile(fixture, []byte(`{"message":"`+value+`"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(fixture, modified, modified); err != nil {
+		t.Fatal(err)
+	}
+	var out, diagnostics bytes.Buffer
+	code := (Runner{Out: &out, Err: &diagnostics}).Run(context.Background(), []string{"--config", config, "--state-dir", filepath.Join(filepath.Dir(config), "state"), "sync", "--once", "--workload", "demo"})
+	if code != 0 {
+		t.Fatalf("sync failed: %s", diagnostics.String())
+	}
+	published, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values map[string]string
+	if err := json.Unmarshal(published, &values); err != nil {
+		t.Fatal(err)
+	}
+	if values["MESSAGE"] != value {
+		t.Fatal("metadata equality suppressed changed source bytes")
+	}
+	var record state.Record
+	if err := json.Unmarshal(out.Bytes(), &record); err != nil {
+		t.Fatal(err)
+	}
+	if record.State != "applied" || record.Health != "unknown" {
+		t.Fatal("sync exaggerated activation/health")
 	}
 }

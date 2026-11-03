@@ -23,16 +23,14 @@ func (s *store) readTree(ctx context.Context, commit string) (map[string]string,
 		if len(entry) == 0 {
 			continue
 		}
-		metadata, name, found := bytes.Cut(entry, []byte{'\t'})
-		fields := strings.Fields(string(metadata))
-		path := string(name)
-		if !found || len(fields) != 3 || fields[0] != "100644" || fields[1] != "blob" || !validCommit(fields[2]) || !policy.ValidRepositoryPath(path) {
-			return nil, failure(fault.Trust, "tree_entry")
+		path, object, err := parseTreeEntry(entry)
+		if err != nil {
+			return nil, err
 		}
 		if err := registerTreePath(paths, path); err != nil {
 			return nil, err
 		}
-		tree[path] = fields[2]
+		tree[path] = object
 		if len(tree) > maximumFiles {
 			return nil, failure(fault.Trust, "tree_size")
 		}
@@ -43,51 +41,32 @@ func (s *store) readTree(ctx context.Context, commit string) (map[string]string,
 	return tree, nil
 }
 
+func parseTreeEntry(entry []byte) (string, string, error) {
+	metadata, name, found := bytes.Cut(entry, []byte{'\t'})
+	fields := strings.Fields(string(metadata))
+	path := string(name)
+	if !found || len(fields) != 3 || fields[0] != "100644" || fields[1] != "blob" || !validCommit(fields[2]) || !policy.ValidRepositoryPath(path) {
+		return "", "", failure(fault.Trust, "tree_entry")
+	}
+	return path, fields[2], nil
+}
+
 func (s *store) materialize(ctx context.Context, commit string) (string, error) {
 	tree, err := s.readTree(ctx, commit)
 	if err != nil {
 		return "", err
 	}
-	releases := filepath.Join(s.repo.Directory, "releases")
-	if err = platform.EnsurePrivateDirectory(releases); err != nil {
-		return "", failure(fault.Trust, "releases_directory")
-	}
-	if err = protectedDirectory(releases); err != nil {
-		return "", err
-	}
-	destination := filepath.Join(releases, commit)
-	if _, err = os.Lstat(destination); err == nil {
-		if err = verifyRelease(destination, tree); err != nil {
-			return "", err
-		}
-		return destination, nil
-	} else if !os.IsNotExist(err) {
-		return "", failure(fault.Trust, "release_directory")
+	releases, destination, accepted, err := s.releaseDestination(commit, tree)
+	if err != nil || accepted {
+		return destination, err
 	}
 	staging, err := os.MkdirTemp(releases, ".release-*")
 	if err != nil {
 		return "", failure(fault.Trust, "release_staging")
 	}
 	defer os.RemoveAll(staging)
-	var total int64
-	for path, object := range tree {
-		// cat-file reads exact signed blob IDs. It does not apply .gitattributes,
-		// checkout filters, archive attributes or executable mode from a worktree.
-		data, err := s.command(ctx, maximumFileBytes, "cat-file", "blob", object)
-		if err != nil || blobID(data, len(object)) != object {
-			return "", failure(fault.Trust, "blob")
-		}
-		total += int64(len(data))
-		if total > maximumReleaseBytes {
-			return "", failure(fault.Trust, "release_size")
-		}
-		file := filepath.Join(staging, filepath.FromSlash(path))
-		if err = platform.EnsurePrivateDirectory(filepath.Dir(file)); err != nil {
-			return "", failure(fault.Trust, "release_parent")
-		}
-		if err = platform.WriteProtected(file, data); err != nil {
-			return "", failure(fault.Trust, "release_write")
-		}
+	if err = s.writeTree(ctx, staging, tree); err != nil {
+		return "", err
 	}
 	if err = verifyRelease(staging, tree); err != nil {
 		return "", err
@@ -96,6 +75,65 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 		return "", failure(fault.Trust, "release_accept")
 	}
 	return destination, nil
+}
+
+func (s *store) releaseDestination(commit string, tree map[string]string) (string, string, bool, error) {
+	releases := filepath.Join(s.repo.Directory, "releases")
+	if err := platform.EnsurePrivateDirectory(releases); err != nil {
+		return "", "", false, failure(fault.Trust, "releases_directory")
+	}
+	if err := protectedDirectory(releases); err != nil {
+		return "", "", false, err
+	}
+	destination := filepath.Join(releases, commit)
+	if _, err := os.Lstat(destination); err == nil {
+		if err = verifyRelease(destination, tree); err != nil {
+			return "", "", false, err
+		}
+		return releases, destination, true, nil
+	} else if !os.IsNotExist(err) {
+		return "", "", false, failure(fault.Trust, "release_directory")
+	}
+	return releases, destination, false, nil
+}
+
+func (s *store) writeTree(ctx context.Context, staging string, tree map[string]string) error {
+	var total int64
+	for path, object := range tree {
+		data, err := s.readBlob(ctx, object)
+		if err != nil {
+			return err
+		}
+		total += int64(len(data))
+		if total > maximumReleaseBytes {
+			return failure(fault.Trust, "release_size")
+		}
+		if err = writeMaterializedFile(staging, path, data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *store) readBlob(ctx context.Context, object string) ([]byte, error) {
+	// cat-file reads exact signed blob IDs. It does not apply .gitattributes,
+	// checkout filters, archive attributes or executable mode from a worktree.
+	data, err := s.command(ctx, maximumFileBytes, "cat-file", "blob", object)
+	if err != nil || blobID(data, len(object)) != object {
+		return nil, failure(fault.Trust, "blob")
+	}
+	return data, nil
+}
+
+func writeMaterializedFile(staging, path string, data []byte) error {
+	file := filepath.Join(staging, filepath.FromSlash(path))
+	if err := platform.EnsurePrivateDirectory(filepath.Dir(file)); err != nil {
+		return failure(fault.Trust, "release_parent")
+	}
+	if err := platform.WriteProtected(file, data); err != nil {
+		return failure(fault.Trust, "release_write")
+	}
+	return nil
 }
 
 // A case-folded directory has exactly one portable spelling and cannot also be

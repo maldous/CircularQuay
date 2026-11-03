@@ -32,6 +32,13 @@ func TestFinishDoesNotClaimQualification(t *testing.T) {
 func TestWritePrivateAtomicReport(t *testing.T) {
 	directory := t.TempDir()
 	input := Report{Version: 1, Profile: "source", Checks: []Check{{Name: "fixture", Status: "passed"}}}
+	assertPrivateReportWritten(t, directory, input)
+	assertInvalidReportRejected(t, directory, input)
+	assertReportActivationFailure(t, directory, input)
+}
+
+func assertPrivateReportWritten(t *testing.T, directory string, input Report) {
+	t.Helper()
 	if err := WriteReport(directory, input); err != nil {
 		t.Fatal(err)
 	}
@@ -50,19 +57,27 @@ func TestWritePrivateAtomicReport(t *testing.T) {
 	if err != nil || len(entries) != 1 {
 		t.Fatal("staging file left behind")
 	}
-	if err = WriteReport(directory, Report{Coverage: Coverage{Percent: math.NaN()}}); err == nil {
+}
+
+func assertInvalidReportRejected(t *testing.T, directory string, input Report) {
+	t.Helper()
+	if err := WriteReport(directory, Report{Coverage: Coverage{Percent: math.NaN()}}); err == nil {
 		t.Fatal("non-json report accepted")
 	}
-	if err = WriteReport(filepath.Join(directory, "missing"), input); err == nil {
+	if err := WriteReport(filepath.Join(directory, "missing"), input); err == nil {
 		t.Fatal("invalid directory accepted")
 	}
-	if err = os.Remove(filepath.Join(directory, "report.json")); err != nil {
+}
+
+func assertReportActivationFailure(t *testing.T, directory string, input Report) {
+	t.Helper()
+	if err := os.Remove(filepath.Join(directory, "report.json")); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.Mkdir(filepath.Join(directory, "report.json"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(directory, "report.json"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err = WriteReport(directory, input); err == nil {
+	if err := WriteReport(directory, input); err == nil {
 		t.Fatal("activation failure ignored")
 	}
 }

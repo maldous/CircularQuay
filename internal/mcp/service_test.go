@@ -262,17 +262,20 @@ func TestActionsCannotBecomeUnreviewedDisclosure(t *testing.T) {
 	p.Grants[0].Operations = []string{"run", "read"}
 	s.configured = p
 	result, err := s.RunWorkload(context.Background(), actor, "alpha")
-	if err != nil || result.ID != "run-1" {
-		t.Fatal(result, err)
-	}
+	assertSafeRunResult(t, result, err, "run-1", "completed", 0)
 	b.run = RunResult{ID: "raw output with spaces", Status: "PRIVATE_PAYLOAD", ExitCode: 999}
 	result, err = s.RunWorkload(context.Background(), actor, "alpha")
-	if err != nil || result.ID != "redacted" || result.Status != "unknown" || result.ExitCode != 1 {
-		t.Fatal("unsafe action result", result, err)
-	}
+	assertSafeRunResult(t, result, err, "redacted", "unknown", 1)
 	b.err = errors.New("PRIVATE_PAYLOAD")
 	if _, err = s.RunWorkload(context.Background(), actor, "alpha"); err == nil || strings.Contains(err.Error(), "PRIVATE_PAYLOAD") {
 		t.Fatal(err)
+	}
+}
+
+func assertSafeRunResult(t *testing.T, result RunResult, err error, id, status string, exitCode int) {
+	t.Helper()
+	if err != nil || result.ID != id || result.Status != status || result.ExitCode != exitCode {
+		t.Fatal("unsafe action result", result, err)
 	}
 }
 
@@ -292,23 +295,34 @@ func TestSafeStatus(t *testing.T) {
 func TestProtocolDiscoveryAndExplicitRead(t *testing.T) {
 	b := &fakeBackend{value: model.Value{Data: "PROTOCOL_SYNTHETIC_MARKER"}}
 	s := makeService(t, testPolicy(t), b, Options{Audit: &memoryAudit{}})
+	client, ctx := inMemoryMCPClient(t, s)
+	tools, err := client.ListTools(ctx, nil)
+	if err != nil || len(tools.Tools) != 4 || tools.CacheScope != "private" || tools.TTLMs != 0 {
+		t.Fatal("unqualified discovery cache", tools, err)
+	}
+	assertProtocolRead(t, client, ctx)
+}
+
+func inMemoryMCPClient(t *testing.T, s *Service) (*sdk.ClientSession, context.Context) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	serverTransport, clientTransport := sdk.NewInMemoryTransports()
 	serverSession, err := s.server(Principal{Subject: "local:alice"}).Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer serverSession.Close()
+	t.Cleanup(func() { serverSession.Close() })
 	client, err := sdk.NewClient(&sdk.Implementation{Name: "synthetic-client", Version: "1"}, nil).Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
-	tools, err := client.ListTools(ctx, nil)
-	if err != nil || len(tools.Tools) != 4 || tools.CacheScope != "private" || tools.TTLMs != 0 {
-		t.Fatal("unqualified discovery cache", tools, err)
-	}
+	t.Cleanup(func() { client.Close() })
+	return client, ctx
+}
+
+func assertProtocolRead(t *testing.T, client *sdk.ClientSession, ctx context.Context) {
+	t.Helper()
 	result, err := client.CallTool(ctx, &sdk.CallToolParams{Name: "read_secret", Arguments: map[string]any{"workload": "alpha", "key": "SERVICE_KEY"}})
 	if err != nil || result.IsError {
 		t.Fatal(result, err)
@@ -346,22 +360,64 @@ func TestInvalidConfigurationAndCancellation(t *testing.T) {
 	}
 }
 
+func TestNewCreatesConfiguredProtectedAuditor(t *testing.T) {
+	p := testPolicy(t)
+	p.MCP.AuditPath = filepath.Join(t.TempDir(), "mcp-audit.jsonl")
+	s, err := New(p, &fakeBackend{}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.options.Audit.(*FileAuditor); !ok {
+		t.Fatal("configured audit path did not install protected auditor")
+	}
+	if _, err := New(p, &fakeBackend{}, Options{Audit: &memoryAudit{}}); err != nil {
+		t.Fatal("explicit auditor should take precedence", err)
+	}
+	p.MCP.AuditPath = "relative.jsonl"
+	if _, err := New(p, &fakeBackend{}, Options{}); !fault.Is(err, fault.Invalid) {
+		t.Fatal("unsafe configured audit path accepted", err)
+	}
+}
+
 func TestLocalPrincipalUsesKernelIdentity(t *testing.T) {
 	t.Setenv("USER", "untrusted-agent-label")
 	t.Setenv("USERNAME", "untrusted-agent-label")
 	p, err := LocalPrincipal()
-	if err != nil || strings.Contains(p.Subject, "untrusted-agent-label") || p.Client != "" || p.HTTP {
+	if err != nil || untrustedLocalPrincipal(p) {
 		t.Fatal("environment became identity", p, err)
 	}
-	if runtime.GOOS != "windows" && p.Subject != "local:uid:"+strconv.Itoa(os.Getuid()) {
+	if wrongKernelPrincipal(p) {
 		t.Fatal("principal is not kernel UID")
 	}
-	for _, sid := range []string{"S-1-5-18", "S-1-5-21-123-456-789-1001"} {
+	assertSIDCases(t)
+}
+
+func untrustedLocalPrincipal(p Principal) bool {
+	return strings.Contains(p.Subject, "untrusted-agent-label") || p.Client != "" || p.HTTP
+}
+
+func wrongKernelPrincipal(p Principal) bool {
+	return runtime.GOOS != "windows" && p.Subject != "local:uid:"+strconv.Itoa(os.Getuid())
+}
+
+func assertSIDCases(t *testing.T) {
+	t.Helper()
+	assertValidSIDs(t, []string{"S-1-5-18", "S-1-5-21-123-456-789-1001"})
+	assertInvalidSIDs(t, []string{"", "S-1-", "S-1--5", "S-1-5-", "S-2-5-18", "S-1-5-alice", strings.Repeat("a", 257)})
+}
+
+func assertValidSIDs(t *testing.T, sids []string) {
+	t.Helper()
+	for _, sid := range sids {
 		if !validSID(sid) {
 			t.Fatal("valid SID rejected")
 		}
 	}
-	for _, sid := range []string{"", "S-1-", "S-1--5", "S-1-5-", "S-2-5-18", "S-1-5-alice", strings.Repeat("a", 257)} {
+}
+
+func assertInvalidSIDs(t *testing.T, sids []string) {
+	t.Helper()
+	for _, sid := range sids {
 		if validSID(sid) {
 			t.Fatal("malformed SID accepted")
 		}

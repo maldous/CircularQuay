@@ -77,10 +77,22 @@ func TestJWTProfileAndIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertVerifiedTokenIdentity(t, verify, issuer)
+	assertInvalidClaimTokens(t, verify, issuer)
+	assertInvalidTokenEncodings(t, verify)
+	assertIDTokenRejected(t, verify, issuer)
+}
+
+func assertVerifiedTokenIdentity(t *testing.T, verify auth.TokenVerifier, issuer *issuerFixture) {
+	t.Helper()
 	ti, err := verify(context.Background(), issuer.token(t, nil), nil)
 	if err != nil || ti.UserID != issuer.server.URL+"|alice" || ti.Extra["client"] != "agent-a" {
 		t.Fatal("verified identity not bound", err)
 	}
+}
+
+func assertInvalidClaimTokens(t *testing.T, verify auth.TokenVerifier, issuer *issuerFixture) {
+	t.Helper()
 	for _, changes := range []map[string]any{
 		{"iss": "https://other.example"}, {"aud": "https://other.example/mcp"},
 		{"exp": time.Now().Add(-time.Hour).Unix()}, {"sub": ""},
@@ -94,11 +106,19 @@ func TestJWTProfileAndIdentity(t *testing.T) {
 			t.Fatal("invalid claims accepted", changes, err)
 		}
 	}
+}
+
+func assertInvalidTokenEncodings(t *testing.T, verify auth.TokenVerifier) {
+	t.Helper()
 	for _, raw := range []string{"", "not.a.jwt", strings.Repeat("x", 16385)} {
 		if _, err := verify(context.Background(), raw, nil); err != auth.ErrInvalidToken {
 			t.Fatal("bad encoding accepted", err)
 		}
 	}
+}
+
+func assertIDTokenRejected(t *testing.T, verify auth.TokenVerifier, issuer *issuerFixture) {
+	t.Helper()
 	// A correctly signed ID token is not an MCP access token.
 	idToken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"iss": issuer.server.URL, "sub": "alice", "aud": "https://cq.example/mcp", "exp": time.Now().Add(time.Minute).Unix()})
 	raw, err := idToken.SignedString(issuer.key)
@@ -127,6 +147,21 @@ func TestIssuerConfiguration(t *testing.T) {
 	}
 }
 
+func TestHTTPHandlerBuildsVerifierFromTrustedConfiguration(t *testing.T) {
+	issuer := newIssuer(t)
+	p := testPolicy(t)
+	p.MCP = issuer.config()
+	s := makeService(t, p, &fakeBackend{}, Options{})
+	if _, err := s.HTTPHandler(); err != nil {
+		t.Fatal("trusted verifier configuration rejected", err)
+	}
+	p.MCP.Issuer = "http://public.example"
+	s.configured = p
+	if _, err := s.HTTPHandler(); !fault.Is(err, fault.Invalid) {
+		t.Fatal("unsafe public plaintext issuer accepted", err)
+	}
+}
+
 func TestHTTPGuardsAndMetadata(t *testing.T) {
 	p := testPolicy(t)
 	p.MCP = model.MCP{Issuer: "https://issuer.example", JWKSURL: "https://issuer.example/keys", Audience: "https://cq.example/mcp", Hosts: []string{"cq.example"}, Origins: []string{"https://client.example"}}
@@ -149,22 +184,7 @@ func TestHTTPGuardsAndMetadata(t *testing.T) {
 		{"/mcp", "cq.example", "", "invalid", 401},
 		{"/.well-known/oauth-protected-resource/mcp", "cq.example", "", "", 200},
 	} {
-		r := httptest.NewRequest(http.MethodGet, "https://"+tc.host+tc.path, nil)
-		r.Header.Set("Origin", tc.origin)
-		if tc.token != "" {
-			r.Header.Set("Authorization", "Bearer "+tc.token)
-		}
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		if w.Code != tc.want || w.Header().Get("Cache-Control") != "private, no-store" {
-			t.Fatal(tc, w.Code, w.Body.String())
-		}
-		if tc.want == 401 && !strings.Contains(w.Header().Get("WWW-Authenticate"), "resource_metadata") {
-			t.Fatal("missing OAuth discovery challenge")
-		}
-		if tc.want == 200 && !strings.Contains(w.Body.String(), "cquay:read") {
-			t.Fatal("missing scope contract")
-		}
+		assertHTTPGuard(t, h, tc.path, tc.host, tc.origin, tc.token, tc.want)
 	}
 	request := httptest.NewRequest(http.MethodPost, "https://cq.example/mcp", strings.NewReader(strings.Repeat("x", maximumRequestBytes+1)))
 	w := httptest.NewRecorder()
@@ -182,18 +202,57 @@ func TestHTTPGuardsAndMetadata(t *testing.T) {
 	}
 }
 
+func assertHTTPGuard(t *testing.T, handler http.Handler, path, host, origin, token string, want int) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "https://"+host+path, nil)
+	request.Header.Set("Origin", origin)
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != want || recorder.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatal(want, recorder.Code, recorder.Body.String())
+	}
+	assertHTTPResponseContract(t, recorder, want)
+}
+
+func assertHTTPResponseContract(t *testing.T, recorder *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if want == http.StatusUnauthorized && !strings.Contains(recorder.Header().Get("WWW-Authenticate"), "resource_metadata") {
+		t.Fatal("missing OAuth discovery challenge")
+	}
+	if want == http.StatusOK && !strings.Contains(recorder.Body.String(), "cquay:read") {
+		t.Fatal("missing scope contract")
+	}
+}
+
 type bearerTransport struct {
 	base  http.RoundTripper
 	token string
 }
 
 func (b bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	copy := r.Clone(r.Context())
-	copy.Header.Set("Authorization", "Bearer "+b.token)
-	return b.base.RoundTrip(copy)
+	authorizedRequest := r.Clone(r.Context())
+	authorizedRequest.Header.Set("Authorization", "Bearer "+b.token)
+	return b.base.RoundTrip(authorizedRequest)
 }
 
 func TestAuthenticatedHTTPClient(t *testing.T) {
+	client, b, audit, issuer, ctx := authenticatedHTTPClient(t)
+	tools, err := client.ListTools(ctx, nil)
+	if err != nil || len(tools.Tools) != 2 || tools.CacheScope != "private" {
+		t.Fatal("bad discovery", tools, err)
+	}
+	result, err := client.CallTool(ctx, &sdk.CallToolParams{Name: "read_secret", Arguments: map[string]any{"workload": "alpha", "key": "SERVICE_KEY"}})
+	if err != nil || result.IsError {
+		t.Fatal(result, err)
+	}
+	assertAuthenticatedHTTPRead(t, result, b, audit, issuer)
+}
+
+func authenticatedHTTPClient(t *testing.T) (*sdk.ClientSession, *fakeBackend, *memoryAudit, *issuerFixture, context.Context) {
+	t.Helper()
 	issuer := newIssuer(t)
 	p := testPolicy(t)
 	p.MCP = issuer.config()
@@ -213,23 +272,20 @@ func TestAuthenticatedHTTPClient(t *testing.T) {
 	}
 	server.Config.Handler = handler
 	server.Start()
-	defer server.Close()
-	httpClient := &http.Client{Transport: bearerTransport{base: http.DefaultTransport, token: issuer.token(t, nil)}}
+	t.Cleanup(server.Close)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
+	httpClient := &http.Client{Transport: bearerTransport{base: http.DefaultTransport, token: issuer.token(t, nil)}}
 	client, err := sdk.NewClient(&sdk.Implementation{Name: "http-fixture", Version: "1"}, nil).Connect(ctx, &sdk.StreamableClientTransport{Endpoint: server.URL + "/mcp", HTTPClient: httpClient}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
-	tools, err := client.ListTools(ctx, nil)
-	if err != nil || len(tools.Tools) != 2 || tools.CacheScope != "private" {
-		t.Fatal("bad discovery", tools, err)
-	}
-	result, err := client.CallTool(ctx, &sdk.CallToolParams{Name: "read_secret", Arguments: map[string]any{"workload": "alpha", "key": "SERVICE_KEY"}})
-	if err != nil || result.IsError {
-		t.Fatal(result, err)
-	}
+	t.Cleanup(func() { client.Close() })
+	return client, b, audit, issuer, ctx
+}
+
+func assertAuthenticatedHTTPRead(t *testing.T, result *sdk.CallToolResult, backend *fakeBackend, audit *memoryAudit, issuer *issuerFixture) {
+	t.Helper()
 	if !strings.Contains(result.Content[0].(*sdk.TextContent).Text, "HTTP_SYNTHETIC_MARKER") {
 		t.Fatal("authorized HTTP read failed")
 	}
@@ -237,7 +293,7 @@ func TestAuthenticatedHTTPClient(t *testing.T) {
 		t.Fatal("actor receipt mismatch")
 	}
 	// Self-reported MCP client name never changes the token-bound principal.
-	if b.principal.Subject != issuer.server.URL+"|alice" {
+	if backend.principal.Subject != issuer.server.URL+"|alice" {
 		t.Fatal("untrusted client label became identity")
 	}
 }

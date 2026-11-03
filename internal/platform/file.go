@@ -25,9 +25,8 @@ func EnsurePrivateDirectory(path string) error {
 	if !filepath.IsAbs(path) {
 		return fault.New(fault.Invalid, "absolute private directory required")
 	}
-	_, before := os.Lstat(path)
-	created := os.IsNotExist(before)
-	if before != nil && !created {
+	created, err := privateDirectoryAbsent(path)
+	if err != nil {
 		return fault.New(fault.Trust, "inspect private directory")
 	}
 	if err := os.MkdirAll(path, 0o700); err != nil {
@@ -37,62 +36,59 @@ func EnsurePrivateDirectory(path string) error {
 	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
 		return fault.New(fault.Trust, "symbolic private directory")
 	}
-	if created {
-		if err := protectDirectory(path); err != nil {
-			return fault.New(fault.Apply, "protect private directory")
-		}
+	if err := protectNewDirectory(path, created); err != nil {
+		return err
 	}
-	info, err := os.Lstat(path)
-	if err != nil || !info.IsDir() || !secureMode(info.Mode(), true) || !checkNativeSecurity(path, true) {
+	if !privateDirectorySecure(path) {
 		return fault.New(fault.Trust, "private directory permissions")
 	}
 	return nil
 }
 
+func privateDirectoryAbsent(path string) (bool, error) {
+	_, err := os.Lstat(path)
+	if err == nil {
+		return false, nil
+	}
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	return false, err
+}
+
+func protectNewDirectory(path string, created bool) error {
+	if !created {
+		return nil
+	}
+	if err := protectDirectory(path); err != nil {
+		return fault.New(fault.Apply, "protect private directory")
+	}
+	return nil
+}
+
+func privateDirectorySecure(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.IsDir() && secureMode(info.Mode(), true) && checkNativeSecurity(path, true)
+}
+
 // AppendProtected appends one bounded JSON receipt. A single configured writer
 // and a local filesystem are required; external log transport is not provided.
 func AppendProtected(path string, data []byte) error {
-	// Normalize one object to one JSONL record so callers cannot accidentally
-	// concatenate records or introduce an ambiguous multiline audit stream.
-	if !filepath.IsAbs(path) || len(data) == 0 || len(data) > 65536 {
-		return fault.New(fault.Invalid, "bounded JSON receipt required")
+	data, err := normalizeReceipt(path, data)
+	if err != nil {
+		return err
 	}
-	var object map[string]json.RawMessage
-	if json.Unmarshal(data, &object) != nil || object == nil {
-		return fault.New(fault.Invalid, "JSON receipt object required")
-	}
-	var compact bytes.Buffer
-	if json.Compact(&compact, data) != nil {
-		return fault.New(fault.Invalid, "JSON receipt required")
-	}
-	data = append(compact.Bytes(), '\n')
 	appendMu.Lock()
 	defer appendMu.Unlock()
 	if err := EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
 		return err
 	}
-	created := false
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|os.O_EXCL, 0o600)
-	if os.IsExist(err) {
-		if err = ValidateProtectedPath(path); err != nil {
-			return err
-		}
-		f, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o600)
-	} else if err == nil {
-		created = true
-	}
+	f, err := openReceiptLog(path)
 	if err != nil {
-		return fault.New(fault.Apply, "open receipt log")
+		return err
 	}
 	defer f.Close()
-	if created {
-		if err = protectFile(path); err != nil {
-			return fault.New(fault.Apply, "protect receipt log")
-		}
-	}
-	current, err := f.Stat()
-	named, namedErr := os.Lstat(path)
-	if err != nil || namedErr != nil || !os.SameFile(current, named) || !named.Mode().IsRegular() {
+	if !openedRegularFileMatches(f, path) {
 		return fault.New(fault.Trust, "receipt log changed")
 	}
 	if n, err := f.Write(data); err != nil || n != len(data) {
@@ -102,6 +98,51 @@ func AppendProtected(path string, data []byte) error {
 		return fault.New(fault.Apply, "sync receipt")
 	}
 	return nil
+}
+
+func openedRegularFileMatches(file *os.File, path string) bool {
+	opened, openedErr := file.Stat()
+	named, namedErr := os.Lstat(path)
+	return openedErr == nil && namedErr == nil && named.Mode().IsRegular() && os.SameFile(opened, named)
+}
+
+func normalizeReceipt(path string, data []byte) ([]byte, error) {
+	// Normalize one object to one JSONL record so callers cannot accidentally
+	// concatenate records or introduce an ambiguous multiline audit stream.
+	if !filepath.IsAbs(path) || len(data) == 0 || len(data) > 65536 {
+		return nil, fault.New(fault.Invalid, "bounded JSON receipt required")
+	}
+	var object map[string]json.RawMessage
+	if json.Unmarshal(data, &object) != nil || object == nil {
+		return nil, fault.New(fault.Invalid, "JSON receipt object required")
+	}
+	var compact bytes.Buffer
+	if json.Compact(&compact, data) != nil {
+		return nil, fault.New(fault.Invalid, "JSON receipt required")
+	}
+	return append(compact.Bytes(), '\n'), nil
+}
+
+func openReceiptLog(path string) (*os.File, error) {
+	f, err := openInParent(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|os.O_EXCL, 0o600)
+	if err == nil {
+		if err := protectFile(path); err != nil {
+			_ = f.Close()
+			return nil, fault.New(fault.Apply, "protect receipt log")
+		}
+		return f, nil
+	}
+	if !os.IsExist(err) {
+		return nil, fault.New(fault.Apply, "open receipt log")
+	}
+	if err := ValidateProtectedPath(path); err != nil {
+		return nil, err
+	}
+	f, err = openInParent(path, os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fault.New(fault.Apply, "open receipt log")
+	}
+	return f, nil
 }
 
 // ValidateProtectedPath checks native protection without reading file contents.
@@ -123,21 +164,11 @@ func ValidateProtectedPath(path string) error {
 // ReadProtected reads a regular file without following a final symbolic link.
 // Secret files must deny group and other access on Unix platforms.
 func ReadProtected(path string, secret bool) ([]byte, error) {
-	if !filepath.IsAbs(path) {
-		return nil, fault.New(fault.Trust, "absolute file path required")
-	}
-	before, err := os.Lstat(path)
+	before, err := protectedFileInfo(path, secret)
 	if err != nil {
-		return nil, fault.New(fault.Missing, "read protected file")
+		return nil, err
 	}
-	if !before.Mode().IsRegular() || !secureMode(before.Mode(), secret) || !checkNativeSecurity(path, secret) {
-		return nil, fault.New(fault.Trust, "protected file permissions")
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
-		return nil, fault.New(fault.Trust, "symbolic file path")
-	}
-	f, err := os.Open(path)
+	f, err := openInParent(path, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fault.New(fault.Denied, "open protected file")
 	}
@@ -153,12 +184,42 @@ func ReadProtected(path string, secret bool) ([]byte, error) {
 	return data, nil
 }
 
+func protectedFileInfo(path string, secret bool) (os.FileInfo, error) {
+	if !filepath.IsAbs(path) {
+		return nil, fault.New(fault.Trust, "absolute file path required")
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, fault.New(fault.Missing, "read protected file")
+	}
+	if !info.Mode().IsRegular() || !secureMode(info.Mode(), secret) || !checkNativeSecurity(path, secret) {
+		return nil, fault.New(fault.Trust, "protected file permissions")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
+		return nil, fault.New(fault.Trust, "symbolic file path")
+	}
+	return info, nil
+}
+
 // WriteProtected replaces one authorized file atomically with owner-only access.
 func WriteProtected(path string, data []byte) error {
 	if !filepath.IsAbs(path) || len(data) > MaxDocumentSize {
 		return fault.New(fault.Invalid, "protected destination")
 	}
 	dir := filepath.Dir(path)
+	if err := protectedDestination(dir, path); err != nil {
+		return err
+	}
+	name, err := stageProtectedFile(dir, data)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(name)
+	return activateStagedFile(name, path, dir)
+}
+
+func protectedDestination(dir, path string) error {
 	if err := EnsurePrivateDirectory(dir); err != nil {
 		return err
 	}
@@ -166,25 +227,45 @@ func WriteProtected(path string, data []byte) error {
 	if err != nil || filepath.Clean(resolved) != filepath.Clean(dir) {
 		return fault.New(fault.Trust, "symbolic destination directory")
 	}
-	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
+	info, err := os.Lstat(path)
+	if err == nil && !info.Mode().IsRegular() {
 		return fault.New(fault.Trust, "nonregular destination")
-	} else if err != nil && !os.IsNotExist(err) {
+	}
+	if err != nil && !os.IsNotExist(err) {
 		return fault.New(fault.Apply, "inspect destination")
 	}
-	f, err := os.CreateTemp(dir, ".cquay-stage-*")
+	return nil
+}
+
+func stageProtectedFile(dir string, data []byte) (string, error) {
+	return stageProtectedFileWithWriter(dir, data, writeAndSync)
+}
+
+func stageProtectedFileWithWriter(dir string, data []byte, write func(*os.File, []byte) error) (string, error) {
+	file, err := os.CreateTemp(dir, ".cquay-stage-*")
 	if err != nil {
-		return fault.New(fault.Apply, "stage protected file")
+		return "", fault.New(fault.Apply, "stage protected file")
 	}
-	name := f.Name()
-	defer os.Remove(name)
-	if err = protectFile(name); err != nil {
-		_ = f.Close()
-		return fault.New(fault.Apply, "protect staging ACL")
+	name := file.Name()
+	removeStage := true
+	defer func() {
+		_ = file.Close()
+		if removeStage {
+			_ = os.Remove(name)
+		}
+	}()
+	if err := protectFile(file.Name()); err != nil {
+		return "", fault.New(fault.Apply, "protect staging ACL")
 	}
-	if err = writeAndSync(f, data); err != nil {
-		return err
+	if err := write(file, data); err != nil {
+		return "", err
 	}
-	if err = replaceFile(name, path); err != nil {
+	removeStage = false
+	return name, nil
+}
+
+func activateStagedFile(name, path, dir string) error {
+	if err := replaceFile(name, path); err != nil {
 		return fault.New(fault.Apply, "activate protected file")
 	}
 	if err := syncDirectory(dir); err != nil {
@@ -235,16 +316,9 @@ func OpenLockFile(path string) (*os.File, error) {
 	if err := EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
-	created := err == nil
-	if os.IsExist(err) {
-		if err = ValidateProtectedPath(path); err != nil {
-			return nil, err
-		}
-		f, err = os.OpenFile(path, os.O_RDWR, 0600)
-	}
+	f, created, err := openOrCreateLock(path)
 	if err != nil {
-		return nil, fault.New(fault.Apply, "open lock file")
+		return nil, err
 	}
 	if created {
 		if err = protectFile(path); err != nil {
@@ -252,11 +326,40 @@ func OpenLockFile(path string) (*os.File, error) {
 			return nil, fault.New(fault.Apply, "protect lock file")
 		}
 	}
-	opened, statErr := f.Stat()
-	named, namedErr := os.Lstat(path)
-	if statErr != nil || namedErr != nil || !os.SameFile(opened, named) || ValidateProtectedPath(path) != nil {
+	if !openedRegularFileMatches(f, path) || ValidateProtectedPath(path) != nil {
 		_ = f.Close()
 		return nil, fault.New(fault.Trust, "lock file changed")
 	}
 	return f, nil
+}
+
+func openOrCreateLock(path string) (*os.File, bool, error) {
+	file, err := openInParent(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err == nil {
+		return file, true, nil
+	}
+	if !os.IsExist(err) {
+		return nil, false, fault.New(fault.Apply, "open lock file")
+	}
+	if err := ValidateProtectedPath(path); err != nil {
+		return nil, false, err
+	}
+	file, err = openInParent(path, os.O_RDWR, 0600)
+	if err != nil {
+		return nil, false, fault.New(fault.Apply, "open lock file")
+	}
+	return file, false, nil
+}
+
+// openInParent anchors a one-name operation to the opened parent directory.
+// Callers validate the absolute path and its access policy first; the Root then
+// prevents a concurrent replacement from escaping that validated directory.
+func openInParent(path string, flags int, perm os.FileMode) (*os.File, error) {
+	directory := filepath.Dir(path)
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.OpenFile(filepath.Base(path), flags, perm)
 }

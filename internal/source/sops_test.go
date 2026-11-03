@@ -22,36 +22,63 @@ func TestMain(m *testing.M) {
 	if providerTestMain() {
 		return
 	}
-	if len(os.Args) > 1 && (os.Args[1] == "decrypt" || os.Args[1] == "encrypt") {
-		data, err := io.ReadAll(io.LimitReader(os.Stdin, platform.MaxDocumentSize+1))
-		if err != nil {
-			os.Exit(90)
-		}
-		var value map[string]json.RawMessage
-		if json.Unmarshal(data, &value) != nil {
-			os.Exit(91)
-		}
-		if string(value["test_operation"]) == `"failure"` {
-			os.Exit(92)
-		}
-		if string(value["test_operation"]) == `"overflow"` {
-			_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), platform.MaxDocumentSize+10))
-			os.Exit(0)
-		}
-		if os.Getenv("HOME") == "" || os.Getenv("SOPS_AGE_KEY") != "" {
-			os.Exit(93)
-		}
-		if os.Args[1] == "decrypt" {
-			if value["test_data"] == nil {
-				os.Exit(94)
-			}
-			_, _ = os.Stdout.Write(value["test_data"])
-		} else {
-			_, _ = os.Stdout.Write([]byte(`{"sops":{"mac":"synthetic-mac","age":[{"recipient":"age1synthetic"}]},"test_data":` + string(data) + `}`))
-		}
-		os.Exit(0)
+	if isSOPSTestCommand() {
+		os.Exit(runSOPSTestCommand())
 	}
 	os.Exit(m.Run())
+}
+
+func isSOPSTestCommand() bool {
+	return len(os.Args) > 1 && (os.Args[1] == "decrypt" || os.Args[1] == "encrypt")
+}
+
+func runSOPSTestCommand() int {
+	data, value, status := sopsTestInput()
+	if status != 0 {
+		return status
+	}
+	if status, handled := sopsTestOperation(value); handled {
+		return status
+	}
+	if os.Getenv("HOME") == "" || os.Getenv("SOPS_AGE_KEY") != "" {
+		return 93
+	}
+	if os.Args[1] == "decrypt" {
+		return writeSOPSTestPlaintext(value)
+	}
+	_, _ = os.Stdout.Write([]byte(`{"sops":{"mac":"synthetic-mac","age":[{"recipient":"age1synthetic"}]},"test_data":` + string(data) + `}`))
+	return 0
+}
+
+func sopsTestInput() ([]byte, map[string]json.RawMessage, int) {
+	data, err := io.ReadAll(io.LimitReader(os.Stdin, platform.MaxDocumentSize+1))
+	if err != nil {
+		return nil, nil, 90
+	}
+	value := make(map[string]json.RawMessage)
+	if json.Unmarshal(data, &value) != nil {
+		return nil, nil, 91
+	}
+	return data, value, 0
+}
+
+func sopsTestOperation(value map[string]json.RawMessage) (int, bool) {
+	switch string(value["test_operation"]) {
+	case `"failure"`:
+		return 92, true
+	case `"overflow"`:
+		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), platform.MaxDocumentSize+10))
+		return 0, true
+	}
+	return 0, false
+}
+
+func writeSOPSTestPlaintext(value map[string]json.RawMessage) int {
+	if value["test_data"] == nil {
+		return 94
+	}
+	_, _ = os.Stdout.Write(value["test_data"])
+	return 0
 }
 
 func sopsFixture(t *testing.T, metadata string) (model.Source, string) {
@@ -223,9 +250,30 @@ func TestSOPSExecutableRequired(t *testing.T) {
 // verified before a downloaded helper is executed. It uses only temporary,
 // synthetic identities, and never prints the identity or decrypted document.
 func TestSOPSRealAgeRoundTrip(t *testing.T) {
+	sops, ageKeygen, ok := realSOPSTools(t)
+	if !ok {
+		t.Skip("verified upstream SOPS and age-keygen executables not configured")
+	}
+	dir := t.TempDir()
+	identity := filepath.Join(dir, "identity.txt")
+	recipient := makeSyntheticIdentity(t, dir, ageKeygen, identity)
+	config := model.Snapshot{Path: filepath.Join(dir, "snapshot.json"), SOPS: sops, Recipients: []string{recipient}, IdentityFile: identity}
+	want := map[string]string{"KEY": "synthetic-real-crypto-✓-$()\nsecond line", "OTHER": "independently-scoped"}
+	assertRealSOPSRoundTrip(t, config, want)
+	assertRealSOPSSelectedField(t, config, identity, want["KEY"])
+	wrong := filepath.Join(dir, "wrong-identity.txt")
+	makeSyntheticIdentity(t, dir, ageKeygen, wrong)
+	config.IdentityFile = wrong
+	assertUnrelatedIdentityDenied(t, config)
+	config.IdentityFile = identity
+	assertOnlineRecipientDenied(t, config)
+}
+
+func realSOPSTools(t *testing.T) (string, string, bool) {
+	t.Helper()
 	sops, ageKeygen := os.Getenv("CQUAY_TEST_SOPS"), os.Getenv("CQUAY_TEST_AGE_KEYGEN")
 	if sops == "" || ageKeygen == "" {
-		t.Skip("verified upstream SOPS and age-keygen executables not configured")
+		return "", "", false
 	}
 	if err := platform.ValidateExecutable(sops); err != nil {
 		t.Fatal("untrusted integration SOPS helper")
@@ -233,28 +281,27 @@ func TestSOPSRealAgeRoundTrip(t *testing.T) {
 	if err := platform.ValidateExecutable(ageKeygen); err != nil {
 		t.Fatal("untrusted integration age helper")
 	}
-	dir := t.TempDir()
-	identity := filepath.Join(dir, "identity.txt")
-	makeIdentity := func(path string) string {
-		t.Helper()
-		cmd := exec.CommandContext(context.Background(), ageKeygen, "-o", path)
-		cmd.Env = []string{"HOME=" + dir}
-		cmd.Stdout, cmd.Stderr = io.Discard, io.Discard
-		if err := cmd.Run(); err != nil {
-			t.Fatal("synthetic identity creation failed")
-		}
-		cmd = exec.CommandContext(context.Background(), ageKeygen, "-y", path)
-		cmd.Env = []string{"HOME=" + dir}
-		cmd.Stderr = io.Discard
-		pub, err := cmd.Output()
-		if err != nil {
-			t.Fatal("synthetic public identity derivation failed")
-		}
-		return strings.TrimSpace(string(pub))
+	return sops, ageKeygen, true
+}
+
+func makeSyntheticIdentity(t *testing.T, directory, ageKeygen, path string) string {
+	t.Helper()
+	cmd := exec.CommandContext(context.Background(), ageKeygen, "-o", path)
+	cmd.Env, cmd.Stdout, cmd.Stderr = []string{"HOME=" + directory}, io.Discard, io.Discard
+	if err := cmd.Run(); err != nil {
+		t.Fatal("synthetic identity creation failed")
 	}
-	recipient := makeIdentity(identity)
-	config := model.Snapshot{Path: filepath.Join(dir, "snapshot.json"), SOPS: sops, Recipients: []string{recipient}, IdentityFile: identity}
-	want := map[string]string{"KEY": "synthetic-real-crypto-✓-$()\nsecond line", "OTHER": "independently-scoped"}
+	cmd = exec.CommandContext(context.Background(), ageKeygen, "-y", path)
+	cmd.Env, cmd.Stderr = []string{"HOME=" + directory}, io.Discard
+	public, err := cmd.Output()
+	if err != nil {
+		t.Fatal("synthetic public identity derivation failed")
+	}
+	return strings.TrimSpace(string(public))
+}
+
+func assertRealSOPSRoundTrip(t *testing.T, config model.Snapshot, want map[string]string) {
+	t.Helper()
 	if err := EncryptSnapshot(context.Background(), config, want); err != nil {
 		t.Fatal("upstream encryption failed")
 	}
@@ -266,18 +313,26 @@ func TestSOPSRealAgeRoundTrip(t *testing.T) {
 	if err != nil || len(got) != len(want) || got["KEY"] != want["KEY"] || got["OTHER"] != want["OTHER"] {
 		t.Fatal("upstream age roundtrip failed")
 	}
-	reader := model.Source{Type: "sops", Path: config.Path, SOPS: sops, AgeIdentityFile: identity}
+}
+
+func assertRealSOPSSelectedField(t *testing.T, config model.Snapshot, identity, want string) {
+	t.Helper()
+	reader := model.Source{Type: "sops", Path: config.Path, SOPS: config.SOPS, AgeIdentityFile: identity}
 	selected, err := (SOPSReader{}).Read(context.Background(), reader, model.Binding{Name: "APP_KEY", Field: "KEY"})
-	if err != nil || selected.Data != want["KEY"] || !strings.HasPrefix(selected.Version, "sha256:") {
+	if err != nil || selected.Data != want || !strings.HasPrefix(selected.Version, "sha256:") {
 		t.Fatal("real field selection or ciphertext version failed")
 	}
-	wrong := filepath.Join(dir, "wrong-identity.txt")
-	makeIdentity(wrong)
-	config.IdentityFile = wrong
+}
+
+func assertUnrelatedIdentityDenied(t *testing.T, config model.Snapshot) {
+	t.Helper()
 	if _, err := DecryptSnapshot(context.Background(), config); !fault.Is(err, fault.Denied) {
 		t.Fatal("unrelated recipient decrypted encrypted snapshot")
 	}
-	config.IdentityFile = identity
+}
+
+func assertOnlineRecipientDenied(t *testing.T, config model.Snapshot) {
+	t.Helper()
 	data := []byte(`{"sops":{"mac":"fake","age":[{}],"hc_vault":[{"vault_address":"https://evil.invalid"}]}}`)
 	if err := platform.WriteProtected(config.Path, data); err != nil {
 		t.Fatal("write synthetic hostile metadata fixture")

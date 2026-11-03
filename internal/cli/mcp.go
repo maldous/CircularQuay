@@ -21,16 +21,9 @@ import (
 )
 
 func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
-	if len(args) == 0 || args[0] != "serve" {
-		return 0, fault.New(fault.Invalid, "mcp command")
-	}
-	f := flag.NewFlagSet("mcp serve", flag.ContinueOnError)
-	f.SetOutput(io.Discard)
-	transport := f.String("transport", "stdio", "stdio or http")
-	cert := f.String("tls-cert", "", "TLS certificate path")
-	key := f.String("tls-key", "", "TLS private key path")
-	if f.Parse(args[1:]) != nil || f.NArg() != 0 {
-		return 0, fault.New(fault.Invalid, "mcp arguments")
+	options, err := parseMCPServeOptions(args)
+	if err != nil {
+		return 0, err
 	}
 	p, err := a.load()
 	if err != nil {
@@ -41,17 +34,42 @@ func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if *transport == "stdio" {
+	if options.transport == "stdio" {
 		return 0, service.RunStdio(ctx)
 	}
-	if *transport != "http" {
+	if options.transport != "http" {
 		return 0, fault.New(fault.Invalid, "mcp transport")
 	}
+	return runMCPHTTP(ctx, p.MCP.Address, service, options)
+}
+
+type mcpServeOptions struct {
+	transport string
+	cert      string
+	key       string
+}
+
+func parseMCPServeOptions(args []string) (mcpServeOptions, error) {
+	if len(args) == 0 || args[0] != "serve" {
+		return mcpServeOptions{}, fault.New(fault.Invalid, "mcp command")
+	}
+	f := flag.NewFlagSet("mcp serve", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+	transport := f.String("transport", "stdio", "stdio or http")
+	cert := f.String("tls-cert", "", "TLS certificate path")
+	key := f.String("tls-key", "", "TLS private key path")
+	if f.Parse(args[1:]) != nil || f.NArg() != 0 {
+		return mcpServeOptions{}, fault.New(fault.Invalid, "mcp arguments")
+	}
+	return mcpServeOptions{transport: *transport, cert: *cert, key: *key}, nil
+}
+
+func runMCPHTTP(ctx context.Context, configuredAddress string, service *cqmcp.Service, options mcpServeOptions) (int, error) {
 	handler, err := service.HTTPHandler()
 	if err != nil {
 		return 0, err
 	}
-	address := p.MCP.Address
+	address := configuredAddress
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}
@@ -59,25 +77,32 @@ func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
 	if err != nil {
 		return 0, fault.New(fault.Invalid, "mcp address")
 	}
-	if !loopback(host) && (*cert == "" || *key == "") {
+	if !loopback(host) && (options.cert == "" || options.key == "") {
 		return 0, fault.New(fault.Trust, "public MCP requires TLS")
 	}
 	s := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 32 << 10}
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = s.Shutdown(shutdown)
-	}()
-	if *cert != "" && *key != "" {
-		err = s.ListenAndServeTLS(*cert, *key)
-	} else {
-		err = s.ListenAndServe()
-	}
+	shutdownMCPServerOnCancel(ctx, s)
+	err = listenMCPServer(s, options)
 	if err != nil && err != http.ErrServerClosed {
 		return 0, fault.New(fault.Apply, "mcp listener")
 	}
 	return 0, nil
+}
+
+func shutdownMCPServerOnCancel(ctx context.Context, server *http.Server) {
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdown)
+	}()
+}
+
+func listenMCPServer(server *http.Server, options mcpServeOptions) error {
+	if options.cert != "" && options.key != "" {
+		return server.ListenAndServeTLS(options.cert, options.key)
+	}
+	return server.ListenAndServe()
 }
 
 func loopback(host string) bool {
@@ -156,20 +181,9 @@ func (b backend) Read(ctx context.Context, id, key string) (model.Value, error) 
 }
 
 func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
-	p, err := b.authorized(ctx, id, "run", "")
+	p, workload, err := b.authorizeAction(ctx, id)
 	if err != nil {
 		return cqmcp.RunResult{}, err
-	}
-	if !b.app.actionAllowed(id) {
-		return cqmcp.RunResult{}, fault.New(fault.Denied, "action identity")
-	}
-	w := p.Workloads[id]
-	if w.UntrustedCode {
-		for _, binding := range w.Bindings {
-			if _, err = b.authorized(ctx, id, "read", binding.Name); err != nil {
-				return cqmcp.RunResult{}, err
-			}
-		}
 	}
 	e, err := b.app.engine(p)
 	if err != nil {
@@ -181,12 +195,43 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	}
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	code, err := platform.RunWithIO(runCtx, w, g, nil, nil, io.Discard, io.Discard)
+	code, err := platform.RunWithIO(runCtx, workload, g, nil, nil, io.Discard, io.Discard)
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
+	return actionRunResult(code)
+}
+
+func (b backend) authorizeAction(ctx context.Context, id string) (model.Policy, model.Workload, error) {
+	p, err := b.authorized(ctx, id, "run", "")
+	if err != nil {
+		return model.Policy{}, model.Workload{}, err
+	}
+	if !b.app.actionAllowed(id) {
+		return model.Policy{}, model.Workload{}, fault.New(fault.Denied, "action identity")
+	}
+	workload := p.Workloads[id]
+	if err := b.authorizeUntrustedCode(ctx, id, workload); err != nil {
+		return model.Policy{}, model.Workload{}, err
+	}
+	return p, workload, nil
+}
+
+func (b backend) authorizeUntrustedCode(ctx context.Context, id string, workload model.Workload) error {
+	if !workload.UntrustedCode {
+		return nil
+	}
+	for _, binding := range workload.Bindings {
+		if _, err := b.authorized(ctx, id, "read", binding.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func actionRunResult(code int) (cqmcp.RunResult, error) {
 	job := make([]byte, 16)
-	if _, err = rand.Read(job); err != nil {
+	if _, err := rand.Read(job); err != nil {
 		return cqmcp.RunResult{}, fault.New(fault.Apply, "run identifier")
 	}
 	status := "completed"

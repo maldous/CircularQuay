@@ -12,19 +12,13 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/transport"
 )
 
 func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
-	if !filepath.IsAbs(s.Path) {
-		return model.Value{}, fault.New(fault.Invalid, "vendor_executable")
-	}
-	info, err := os.Lstat(s.Path)
-	if err != nil || !info.Mode().IsRegular() {
-		return model.Value{}, fault.New(fault.Trust, "vendor_executable")
-	}
-	if strings.EqualFold(filepath.Ext(s.Path), ".cmd") || strings.EqualFold(filepath.Ext(s.Path), ".bat") {
-		return model.Value{}, fault.New(fault.Trust, "vendor_executable")
+	if err := validateVendorExecutable(s.Path); err != nil {
+		return model.Value{}, err
 	}
 	token, err := transport.ReadCredentialFile(s.TokenFile)
 	if err != nil {
@@ -56,8 +50,26 @@ func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Val
 	if output.overflow {
 		return model.Value{}, fault.New(fault.Trust, "vendor_response_size")
 	}
+	return parseVendorOutput(s, b, output.Bytes())
+}
+
+func validateVendorExecutable(path string) error {
+	if !filepath.IsAbs(path) {
+		return fault.New(fault.Invalid, "vendor_executable")
+	}
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return fault.New(fault.Trust, "vendor_executable")
+	}
+	if strings.EqualFold(filepath.Ext(path), ".cmd") || strings.EqualFold(filepath.Ext(path), ".bat") {
+		return fault.New(fault.Trust, "vendor_executable")
+	}
+	return platform.ValidateExecutable(path)
+}
+
+func parseVendorOutput(s model.Source, b model.Binding, output []byte) (model.Value, error) {
 	if s.Type == "onepassword" {
-		data, err := selectValue(output.String(), b.Field)
+		data, err := selectValue(string(output), b.Field)
 		return model.Value{Data: data, AuditVerified: s.AuditVerified}, err
 	}
 	var result struct {
@@ -65,7 +77,7 @@ func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Val
 		Value        *string `json:"value"`
 		RevisionDate string  `json:"revisionDate"`
 	}
-	if json.Unmarshal(output.Bytes(), &result) != nil {
+	if json.Unmarshal(output, &result) != nil {
 		return model.Value{}, fault.New(fault.Trust, "vendor_response")
 	}
 	if result.ProjectID != s.Project {
@@ -84,22 +96,34 @@ func vendorCommand(s model.Source, b model.Binding) ([]string, string, error) {
 	}
 	switch s.Type {
 	case "bitwarden":
-		if s.Project == "" || b.Resource == "" || strings.HasPrefix(b.Resource, "-") {
-			return nil, "", fault.New(fault.Invalid, "vendor_scope")
-		}
-		return []string{"secret", "get", b.Resource, "--output", "json"}, "BWS_ACCESS_TOKEN", nil
+		return bitwardenCommand(s, b)
 	case "onepassword":
-		if s.Environment != "" {
-			return nil, "", fault.New(fault.Unsupported, "onepassword_environments")
-		}
-		parts := strings.Split(strings.TrimPrefix(b.Resource, "op://"), "/")
-		if !strings.HasPrefix(b.Resource, "op://") || len(parts) != 3 || s.Project == "" || parts[0] != s.Project || parts[1] == "" || parts[2] == "" || strings.ContainsAny(b.Resource, "?#") {
-			return nil, "", fault.New(fault.Denied, "vendor_scope")
-		}
-		return []string{"read", b.Resource, "--no-newline"}, "OP_SERVICE_ACCOUNT_TOKEN", nil
+		return onePasswordCommand(s, b)
 	default:
 		return nil, "", fault.New(fault.Unsupported, "vendor_type")
 	}
+}
+
+func bitwardenCommand(s model.Source, b model.Binding) ([]string, string, error) {
+	if s.Project == "" || b.Resource == "" || strings.HasPrefix(b.Resource, "-") {
+		return nil, "", fault.New(fault.Invalid, "vendor_scope")
+	}
+	return []string{"secret", "get", b.Resource, "--output", "json"}, "BWS_ACCESS_TOKEN", nil
+}
+
+func onePasswordCommand(s model.Source, b model.Binding) ([]string, string, error) {
+	if s.Environment != "" {
+		return nil, "", fault.New(fault.Unsupported, "onepassword_environments")
+	}
+	if !onePasswordResourceAllowed(s.Project, b.Resource) {
+		return nil, "", fault.New(fault.Denied, "vendor_scope")
+	}
+	return []string{"read", b.Resource, "--no-newline"}, "OP_SERVICE_ACCOUNT_TOKEN", nil
+}
+
+func onePasswordResourceAllowed(project, resource string) bool {
+	parts := strings.Split(strings.TrimPrefix(resource, "op://"), "/")
+	return strings.HasPrefix(resource, "op://") && len(parts) == 3 && project != "" && parts[0] == project && parts[1] != "" && parts[2] != "" && !strings.ContainsAny(resource, "?#")
 }
 
 type limitedBuffer struct {

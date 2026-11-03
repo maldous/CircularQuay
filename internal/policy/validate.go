@@ -17,24 +17,20 @@ var environmentName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // Validate is a pure check: it never authenticates, retrieves values or issues credentials.
 func Validate(policy model.Policy) error {
-	if policy.Version != 1 || len(policy.Sources) == 0 || len(policy.Workloads) == 0 {
+	if !validPolicyStructure(policy) {
 		return invalid("policy_structure")
 	}
 	if err := validateRepositoryReferences(policy); err != nil {
 		return err
 	}
-	for name, source := range policy.Sources {
-		if !identifier.MatchString(name) || validateSource(source) != nil {
-			return invalid("source_declaration")
-		}
+	if err := validatePolicySources(policy.Sources); err != nil {
+		return err
 	}
 	if err := validateBootstrapSeparation(policy); err != nil {
 		return err
 	}
-	for name, workload := range policy.Workloads {
-		if !identifier.MatchString(name) || validateWorkload(policy, workload) != nil {
-			return invalid("workload_declaration")
-		}
+	if err := validatePolicyWorkloads(policy); err != nil {
+		return err
 	}
 	if err := validateGrants(policy); err != nil {
 		return err
@@ -42,21 +38,37 @@ func Validate(policy model.Policy) error {
 	return validateMCP(policy.MCP)
 }
 
+func validPolicyStructure(policy model.Policy) bool {
+	return policy.Version == 1 && len(policy.Sources) > 0 && len(policy.Workloads) > 0
+}
+
+func validatePolicySources(sources map[string]model.Source) error {
+	for name, source := range sources {
+		if !identifier.MatchString(name) || validateSource(source) != nil {
+			return invalid("source_declaration")
+		}
+	}
+	return nil
+}
+
+func validatePolicyWorkloads(policy model.Policy) error {
+	for name, workload := range policy.Workloads {
+		if !identifier.MatchString(name) || validateWorkload(policy, workload) != nil {
+			return invalid("workload_declaration")
+		}
+	}
+	return nil
+}
+
 func validateSource(source model.Source) error {
-	if !knownSource(source.Type) || !safeText(source.Path) || !safeText(source.TokenFile) || !safeText(source.AgeIdentityFile) || !safeText(source.SOPS) {
+	if !validSourceText(source) {
 		return invalid("source_type")
 	}
-	if source.Endpoint != "" && !secureEndpoint(source.Endpoint, false) {
+	if !validSourceEndpoint(source) {
 		return invalid("source_endpoint")
 	}
-	if requiresEndpoint(source.Type) && source.Endpoint == "" {
-		return invalid("source_endpoint")
-	}
-	if localFileSource(source.Type) && source.Path == "" {
-		return invalid("source_path")
-	}
-	if !localFileSource(source.Type) && len(source.Resources) == 0 {
-		return invalid("source_resources")
+	if err := validateSourceLocation(source); err != nil {
+		return err
 	}
 	if err := uniqueExact(source.Resources); err != nil {
 		return err
@@ -64,14 +76,46 @@ func validateSource(source model.Source) error {
 	return validateSourceIdentity(source)
 }
 
+func validSourceText(source model.Source) bool {
+	return knownSource(source.Type) && safeText(source.Path) && safeText(source.TokenFile) && safeText(source.AgeIdentityFile) && safeText(source.SOPS)
+}
+
+func validSourceEndpoint(source model.Source) bool {
+	if source.Endpoint != "" && !secureEndpoint(source.Endpoint, false) {
+		return false
+	}
+	return !requiresEndpoint(source.Type) || source.Endpoint != ""
+}
+
+func validateSourceLocation(source model.Source) error {
+	if localFileSource(source.Type) && source.Path == "" {
+		return invalid("source_path")
+	}
+	if !localFileSource(source.Type) && len(source.Resources) == 0 {
+		return invalid("source_resources")
+	}
+	return nil
+}
+
 func validateSourceIdentity(source model.Source) error {
-	allowed := map[string]bool{"": true, "none": true, "token_file": true, "workload": true, "profile": true, "environment": true, "managed": true, "ec2": true, "ecs": true, "metadata": true}
-	if !allowed[source.Identity] || source.Identity == "profile" && source.Profile == "" {
+	if !validSourceIdentity(source) {
 		return invalid("source_identity")
 	}
 	if source.Identity == "token_file" && source.TokenFile == "" {
 		return invalid("source_identity")
 	}
+	if err := validateVaultAuthority(source); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validSourceIdentity(source model.Source) bool {
+	allowed := map[string]bool{"": true, "none": true, "token_file": true, "workload": true, "profile": true, "environment": true, "managed": true, "ec2": true, "ecs": true, "metadata": true}
+	return allowed[source.Identity] && (source.Identity != "profile" || source.Profile != "")
+}
+
+func validateVaultAuthority(source model.Source) error {
 	if source.Type != "sops" && len(source.VaultAllowlist) > 0 {
 		return invalid("vault_allowlist")
 	}
@@ -93,66 +137,115 @@ func validateSourceIdentity(source model.Source) error {
 }
 
 func validateWorkload(policy model.Policy, workload model.Workload) error {
-	if workload.Mode != "offline" && workload.Mode != "online" && workload.Mode != "hybrid" {
+	if !validWorkloadMode(workload) {
 		return invalid("workload_mode")
 	}
 	if workload.Mode == "offline" && workload.AuditRequired {
 		return invalid("offline_central_audit")
 	}
-	if len(workload.Bindings) == 0 || !safeText(workload.Directory) {
+	if !validWorkloadBindings(workload) {
 		return invalid("workload_bindings")
 	}
-	if workload.CommandSHA256 != "" && !validSHA256(workload.CommandSHA256) {
+	if !validWorkloadDigest(workload) {
 		return invalid("command_digest")
 	}
 	if err := ValidateEnvironment(workload.Environment); err != nil {
 		return err
 	}
-	seen := make(map[string]bool)
-	for key := range workload.Environment {
-		seen[strings.ToUpper(key)] = true
+	if err := validateWorkloadBindings(policy, workload); err != nil {
+		return err
 	}
+	if err := validateCommand(workload.Command); err != nil {
+		return err
+	}
+	return validateTargets(workload)
+}
+
+func validWorkloadDigest(workload model.Workload) bool {
+	return workload.CommandSHA256 == "" || validSHA256(workload.CommandSHA256)
+}
+
+func validateCommand(command []string) error {
+	for _, arg := range command {
+		if arg == "" || !safeText(arg) {
+			return invalid("workload_command")
+		}
+	}
+	return nil
+}
+
+func validWorkloadMode(workload model.Workload) bool {
+	return workload.Mode == "offline" || workload.Mode == "online" || workload.Mode == "hybrid"
+}
+
+func validWorkloadBindings(workload model.Workload) bool {
+	return len(workload.Bindings) > 0 && safeText(workload.Directory)
+}
+
+func validateWorkloadBindings(policy model.Policy, workload model.Workload) error {
+	seen := environmentNames(workload.Environment)
 	for _, binding := range workload.Bindings {
 		if err := validateBinding(policy, workload, binding, seen); err != nil {
 			return err
 		}
 	}
-	for _, arg := range workload.Command {
-		if arg == "" || !safeText(arg) {
-			return invalid("workload_command")
-		}
+	return nil
+}
+
+func environmentNames(environment map[string]string) map[string]bool {
+	seen := make(map[string]bool, len(environment))
+	for key := range environment {
+		seen[strings.ToUpper(key)] = true
 	}
-	return validateTargets(workload)
+	return seen
 }
 
 func validateBinding(policy model.Policy, workload model.Workload, binding model.Binding, seen map[string]bool) error {
 	name := strings.ToUpper(binding.Name)
-	if !environmentName.MatchString(binding.Name) || forbiddenBindingName(name) || seen[name] {
+	if !validBindingName(binding.Name, name, seen) {
 		return invalid("binding_name")
 	}
 	seen[name] = true
 	source, exists := policy.Sources[binding.Source]
-	if !exists || !resourceAllowed(source, binding.Resource) || !safeSelector(binding.Field) || !safeSelector(binding.Version) {
+	if !validBindingScope(source, exists, binding) {
 		return invalid("binding_scope")
 	}
 	if workload.AuditRequired && !source.AuditVerified {
 		return invalid("audit_capability")
 	}
+	if err := validateBindingMode(workload, source, binding); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateBindingMode(workload model.Workload, source model.Source, binding model.Binding) error {
 	if workload.Mode == "offline" && (!binding.AllowOffline || !offlineSource(source.Type)) {
 		return invalid("offline_scope")
 	}
-	if workload.Mode == "online" && (source.Type == "json" || source.Type == "env") {
+	if workload.Mode != "online" {
+		return nil
+	}
+	if source.Type == "json" || source.Type == "env" {
 		return invalid("online_source")
 	}
-	if workload.Mode == "online" && source.Type == "sops" && (source.AgeIdentityFile != "" || len(source.VaultAllowlist) == 0) {
+	if source.Type == "sops" && (source.AgeIdentityFile != "" || len(source.VaultAllowlist) == 0) {
 		return invalid("online_decryption_authority")
 	}
 	return nil
 }
 
+func validBindingName(name, upperName string, seen map[string]bool) bool {
+	return environmentName.MatchString(name) && !forbiddenBindingName(upperName) && !seen[upperName]
+}
+
+func validBindingScope(source model.Source, exists bool, binding model.Binding) bool {
+	return exists && resourceAllowed(source, binding.Resource) && safeSelector(binding.Field) && safeSelector(binding.Version)
+}
+
 func validateTargets(workload model.Workload) error {
 	for name, target := range workload.Targets {
-		if !identifier.MatchString(name) || !knownTarget(target.Type) || !safeText(target.Path) || !safeText(target.TokenFile) {
+		if !validTarget(name, target) {
 			return invalid("target_declaration")
 		}
 		if target.Endpoint != "" && !secureEndpoint(target.Endpoint, false) {
@@ -164,14 +257,25 @@ func validateTargets(workload model.Workload) error {
 		if !target.AcceptSnapshot {
 			return invalid("target_snapshot_semantics")
 		}
-		for _, binding := range workload.Bindings {
-			if !binding.AllowPublish {
-				return invalid("target_export_permission")
-			}
+		if err := validateTargetExports(workload.Bindings); err != nil {
+			return err
 		}
 	}
 	if workload.Mode == "online" && workload.Snapshot.Path != "" {
 		return invalid("online_snapshot")
+	}
+	return nil
+}
+
+func validTarget(name string, target model.Target) bool {
+	return identifier.MatchString(name) && knownTarget(target.Type) && safeText(target.Path) && safeText(target.TokenFile)
+}
+
+func validateTargetExports(bindings []model.Binding) error {
+	for _, binding := range bindings {
+		if !binding.AllowPublish {
+			return invalid("target_export_permission")
+		}
 	}
 	return nil
 }
@@ -216,14 +320,25 @@ func requiresEndpoint(kind string) bool {
 
 func secureEndpoint(raw string, allowLoopback bool) bool {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || strings.ContainsAny(raw, "\r\n\x00") {
+	if err != nil || !validEndpointURL(raw, parsed) {
 		return false
 	}
 	if parsed.Scheme == "https" {
 		return true
 	}
-	ip := net.ParseIP(parsed.Hostname())
-	return allowLoopback && parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || ip != nil && ip.IsLoopback())
+	return allowLoopback && parsed.Scheme == "http" && loopbackHost(parsed.Hostname())
+}
+
+func validEndpointURL(raw string, parsed *url.URL) bool {
+	return parsed.Hostname() != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && !strings.ContainsAny(raw, "\r\n\x00")
+}
+
+func loopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func safeText(value string) bool {

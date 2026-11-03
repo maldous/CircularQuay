@@ -46,21 +46,37 @@ func Fetch(ctx context.Context, repo model.Repository) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lock := filepath.Join(repo.Directory, "fetch.lock")
-	if err = os.Mkdir(lock, 0o700); err != nil {
-		return "", failure(fault.Unavailable, "locked")
+	release, err := acquireFetchLock(repo.Directory)
+	if err != nil {
+		return "", err
 	}
-	defer os.Remove(lock)
+	defer release()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	previous, err := s.readAccepted()
 	if err != nil {
 		return "", err
 	}
-	if err = s.initialize(ctx); err != nil {
+	commit, err := s.fetchCandidate(ctx)
+	if err != nil {
 		return "", err
 	}
-	if _, err = s.run(ctx, true, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", repo.URL, "+"+repo.Ref+":refs/cquay/candidate"); err != nil {
+	return s.acceptCandidate(ctx, previous, commit)
+}
+
+func acquireFetchLock(directory string) (func(), error) {
+	lock := filepath.Join(directory, "fetch.lock")
+	if err := os.Mkdir(lock, 0o700); err != nil {
+		return nil, failure(fault.Unavailable, "locked")
+	}
+	return func() { _ = os.Remove(lock) }, nil
+}
+
+func (s *store) fetchCandidate(ctx context.Context) (string, error) {
+	if err := s.initialize(ctx); err != nil {
+		return "", err
+	}
+	if _, err := s.run(ctx, true, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", s.repo.URL, "+"+s.repo.Ref+":refs/cquay/candidate"); err != nil {
 		return "", failure(fault.Unavailable, "fetch")
 	}
 	data, err := s.command(ctx, 256, "rev-parse", "--verify", "refs/cquay/candidate^{commit}")
@@ -71,14 +87,18 @@ func Fetch(ctx context.Context, repo model.Repository) (string, error) {
 	if !validCommit(commit) {
 		return "", failure(fault.Trust, "commit")
 	}
-	if err = s.verifyCommit(ctx, commit); err != nil {
+	return commit, nil
+}
+
+func (s *store) acceptCandidate(ctx context.Context, previous accepted, commit string) (string, error) {
+	if err := s.verifyCommit(ctx, commit); err != nil {
 		return "", err
 	}
-	if err = s.ancestor(ctx, repo.InitialCommit, commit); err != nil {
+	if err := s.ancestor(ctx, s.repo.InitialCommit, commit); err != nil {
 		return "", err
 	}
 	if previous.Commit != "" {
-		if err = s.ancestor(ctx, previous.Commit, commit); err != nil {
+		if err := s.ancestor(ctx, previous.Commit, commit); err != nil {
 			return "", err
 		}
 	}
@@ -86,7 +106,7 @@ func Fetch(ctx context.Context, repo model.Repository) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err = s.writeAccepted(accepted{URL: repo.URL, Ref: repo.Ref, Commit: commit}); err != nil {
+	if err := s.writeAccepted(accepted{URL: s.repo.URL, Ref: s.repo.Ref, Commit: commit}); err != nil {
 		return "", err
 	}
 	return directory, nil

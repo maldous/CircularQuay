@@ -4,6 +4,15 @@ EXTENDS Naturals, FiniteSets, TLC
 CONSTANTS Users, Clients, Workloads, Keys, InitialUseGrants,
           InitialReadGrants
 
+\* Finite model values selected by Delivery.cfg.  Keep the tuple-valued grants
+\* in TLA+ rather than the restricted TLC configuration value language.
+ModelUsers == {"alice", "bob"}
+ModelClients == {"desktop", "agent"}
+ModelWorkloads == {"demo", "other"}
+ModelKeys == {"KEY_A", "KEY_B"}
+ModelInitialUseGrants == {<<"alice", "desktop", "demo">>, <<"bob", "agent", "other">>}
+ModelInitialReadGrants == {<<"alice", "desktop", "demo", "KEY_A">>}
+
 VARIABLES phase, mode, actor, client, workload, selectedKey, operation,
           useGrants, readGrants, resolved, active, failure, usedCache,
           disclosed, upstreamCalls

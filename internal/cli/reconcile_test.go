@@ -108,18 +108,34 @@ func TestTargetedReconciliationRetainsPriorTargetsWithoutGlobalActivation(t *tes
 		project:  func(context.Context, model.Workload, string, model.Generation) error { return nil },
 		activate: func(context.Context, model.Target) error { return nil },
 	})
-	if err != nil || result.State != "partial_activated" {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.State != "partial_activated" {
 		t.Fatalf("targeted activation claimed a complete workload: state=%q error=%v", result.State, err)
 	}
-	if current := result.Targets["a"]; !current.Current || current.Generation != result.Generation || current.State != "activated" {
-		t.Fatalf("selected target lacks current generation record: %+v", current)
-	}
-	if retained := result.Targets["b"]; retained.Current || retained.State != "pending_activation" || retained.Generation == "" {
-		t.Fatalf("prior pending target was hidden or relabeled: %+v", retained)
-	}
+	assertCurrentActivated(t, result.Targets["a"], result.Generation)
+	assertRetainedPending(t, result.Targets["b"])
 	saved, err := s.Read("demo")
-	if err != nil || saved.State != "partial_activated" || saved.Targets["b"].Current {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.State != "partial_activated" || saved.Targets["b"].Current {
 		t.Fatalf("partial state was not durable: %+v, %v", saved, err)
+	}
+}
+
+func assertCurrentActivated(t *testing.T, target state.TargetRecord, generation string) {
+	t.Helper()
+	if !target.Current || target.Generation != generation || target.State != "activated" {
+		t.Fatalf("selected target lacks current generation record: %+v", target)
+	}
+}
+
+func assertRetainedPending(t *testing.T, target state.TargetRecord) {
+	t.Helper()
+	if target.Current || target.State != "pending_activation" || target.Generation == "" {
+		t.Fatalf("prior pending target was hidden or relabeled: %+v", target)
 	}
 }
 

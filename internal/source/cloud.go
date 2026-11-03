@@ -48,20 +48,9 @@ func awsConfiguration(ctx context.Context, s model.Source) (aws.Config, error) {
 	if s.Account == "" || s.Region == "" || s.Profile != "" || s.Endpoint != "" {
 		return aws.Config{}, fault.New(fault.Invalid, "aws_identity")
 	}
-	var provider aws.CredentialsProvider
-	switch s.Identity {
-	case "ec2":
-		provider = ec2rolecreds.New(func(o *ec2rolecreds.Options) {
-			o.Client = imds.New(imds.Options{Endpoint: "http://169.254.169.254", HTTPClient: metadataHTTPClient(), EnableFallback: aws.FalseTernary})
-		})
-	case "ecs":
-		path := os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
-		if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#\r\n\x00") {
-			return aws.Config{}, fault.New(fault.Invalid, "ecs_identity")
-		}
-		provider = endpointcreds.New("http://169.254.170.2"+path, func(o *endpointcreds.Options) { o.HTTPClient = metadataHTTPClient() })
-	default:
-		return aws.Config{}, fault.New(fault.Unsupported, "aws_identity_method")
+	provider, err := awsCredentialsProvider(s)
+	if err != nil {
+		return aws.Config{}, err
 	}
 	cfg := aws.Config{Region: s.Region, Credentials: aws.NewCredentialsCache(provider), HTTPClient: transport.New().HTTP}
 	result, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
@@ -72,6 +61,27 @@ func awsConfiguration(ctx context.Context, s model.Source) (aws.Config, error) {
 		return aws.Config{}, fault.New(fault.Denied, "aws_account")
 	}
 	return cfg, nil
+}
+
+func awsCredentialsProvider(s model.Source) (aws.CredentialsProvider, error) {
+	switch s.Identity {
+	case "ec2":
+		return ec2rolecreds.New(func(o *ec2rolecreds.Options) {
+			o.Client = imds.New(imds.Options{Endpoint: "http://169.254.169.254", HTTPClient: metadataHTTPClient(), EnableFallback: aws.FalseTernary})
+		}), nil
+	case "ecs":
+		return ecsCredentialsProvider()
+	default:
+		return nil, fault.New(fault.Unsupported, "aws_identity_method")
+	}
+}
+
+func ecsCredentialsProvider() (aws.CredentialsProvider, error) {
+	path := os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#\r\n\x00") {
+		return nil, fault.New(fault.Invalid, "ecs_identity")
+	}
+	return endpointcreds.New("http://169.254.170.2"+path, func(o *endpointcreds.Options) { o.HTTPClient = metadataHTTPClient() }), nil
 }
 
 func validateAWSResource(s model.Source, b model.Binding, service string) error {
@@ -157,38 +167,53 @@ func azureCredential(s model.Source) (azcore.TokenCredential, error) {
 	}
 	switch s.Identity {
 	case "workload":
-		if s.Profile == "" || s.TokenFile == "" {
-			return nil, fault.New(fault.Invalid, "azure_workload_identity")
-		}
-		if err := platform.ValidateProtectedPath(s.TokenFile); err != nil {
-			return nil, err
-		}
-		if os.Getenv("AZURE_AUTHORITY_HOST") != "" {
-			return nil, fault.New(fault.Trust, "azure_authority_override")
-		}
-		cred, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{TenantID: s.Account, ClientID: s.Profile, TokenFilePath: s.TokenFile})
-		if err != nil {
-			return nil, fault.New(fault.Denied, "azure_identity")
-		}
-		return tenantCredential{credential: cred, tenant: s.Account}, nil
+		return azureWorkloadCredential(s)
 	case "managed":
-		if s.Profile == "" {
-			return nil, fault.New(fault.Invalid, "azure_managed_identity")
-		}
-		for _, name := range []string{"IDENTITY_ENDPOINT", "IDENTITY_HEADER", "MSI_ENDPOINT", "MSI_SECRET", "IMDS_ENDPOINT", "AZURE_POD_IDENTITY_AUTHORITY_HOST"} {
-			if os.Getenv(name) != "" {
-				return nil, fault.New(fault.Trust, "azure_metadata_override")
-			}
-		}
-		opts := &azidentity.ManagedIdentityCredentialOptions{ClientOptions: azcore.ClientOptions{Transport: metadataHTTPClient()}, ID: azidentity.ClientID(s.Profile)}
-		cred, err := azidentity.NewManagedIdentityCredential(opts)
-		if err != nil {
-			return nil, fault.New(fault.Denied, "azure_identity")
-		}
-		return tenantCredential{credential: cred, tenant: s.Account}, nil
+		return azureManagedCredential(s)
 	default:
 		return nil, fault.New(fault.Unsupported, "azure_identity_method")
 	}
+}
+
+func azureWorkloadCredential(s model.Source) (azcore.TokenCredential, error) {
+	if s.Profile == "" || s.TokenFile == "" {
+		return nil, fault.New(fault.Invalid, "azure_workload_identity")
+	}
+	if err := platform.ValidateProtectedPath(s.TokenFile); err != nil {
+		return nil, err
+	}
+	if os.Getenv("AZURE_AUTHORITY_HOST") != "" {
+		return nil, fault.New(fault.Trust, "azure_authority_override")
+	}
+	credential, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{TenantID: s.Account, ClientID: s.Profile, TokenFilePath: s.TokenFile})
+	if err != nil {
+		return nil, fault.New(fault.Denied, "azure_identity")
+	}
+	return tenantCredential{credential: credential, tenant: s.Account}, nil
+}
+
+func azureManagedCredential(s model.Source) (azcore.TokenCredential, error) {
+	if s.Profile == "" {
+		return nil, fault.New(fault.Invalid, "azure_managed_identity")
+	}
+	if azureMetadataOverride() {
+		return nil, fault.New(fault.Trust, "azure_metadata_override")
+	}
+	options := &azidentity.ManagedIdentityCredentialOptions{ClientOptions: azcore.ClientOptions{Transport: metadataHTTPClient()}, ID: azidentity.ClientID(s.Profile)}
+	credential, err := azidentity.NewManagedIdentityCredential(options)
+	if err != nil {
+		return nil, fault.New(fault.Denied, "azure_identity")
+	}
+	return tenantCredential{credential: credential, tenant: s.Account}, nil
+}
+
+func azureMetadataOverride() bool {
+	for _, name := range []string{"IDENTITY_ENDPOINT", "IDENTITY_HEADER", "MSI_ENDPOINT", "MSI_SECRET", "IMDS_ENDPOINT", "AZURE_POD_IDENTITY_AUTHORITY_HOST"} {
+		if os.Getenv(name) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // The native SDK authenticates this token. Checking its tenant binds an expected
@@ -285,8 +310,8 @@ func readGCP(ctx context.Context, s model.Source, b model.Binding) (model.Value,
 	if err != nil {
 		return model.Value{}, err
 	}
-	if s.Identity != "metadata" || s.Account == "" || s.Account == "default" || s.Endpoint != "" || s.TokenFile != "" || s.Profile != "" || os.Getenv("GCE_METADATA_HOST") != "" {
-		return model.Value{}, fault.New(fault.Unsupported, "gcp_identity_method")
+	if err := validateGCPIdentity(s); err != nil {
+		return model.Value{}, err
 	}
 	client, err := secretmanager.NewClient(ctx, option.WithTokenSource(google.ComputeTokenSource(s.Account)), option.WithEndpoint("secretmanager.googleapis.com:443"))
 	if err != nil {
@@ -298,6 +323,13 @@ func readGCP(ctx context.Context, s model.Source, b model.Binding) (model.Value,
 		return model.Value{}, cloudError(err)
 	}
 	return gcpSecretValue(result, s, b)
+}
+
+func validateGCPIdentity(s model.Source) error {
+	if s.Identity != "metadata" || s.Account == "" || s.Account == "default" || s.Endpoint != "" || s.TokenFile != "" || s.Profile != "" || os.Getenv("GCE_METADATA_HOST") != "" {
+		return fault.New(fault.Unsupported, "gcp_identity_method")
+	}
+	return nil
 }
 
 func gcpSecretValue(result *secretmanagerpb.AccessSecretVersionResponse, s model.Source, b model.Binding) (model.Value, error) {

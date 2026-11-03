@@ -16,34 +16,8 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	root := fixtureRepository(t)
 	output := filepath.Join(t.TempDir(), "evidence")
 	const secret = "synthetic-marker-do-not-log"
-	fake := func(_ context.Context, binary string, args []string, _ string, _ []string) commandResult {
-		if binary == "git" {
-			if len(args) > 0 && args[0] == "status" {
-				return commandResult{}
-			}
-			return commandResult{output: []byte(strings.Repeat("a", 40) + "\n")}
-		}
-		if binary == "go" && len(args) > 0 && args[0] == "version" {
-			return commandResult{output: []byte("go version go1.27.3 linux/amd64\n")}
-		}
-		if binary == "go" && len(args) > 0 && args[0] == "test" {
-			if !strings.Contains(strings.Join(args, " "), "-coverpkg="+modulePrefix+"...") {
-				t.Fatal("coverage scope is not explicitly bound to owned code")
-			}
-			for _, arg := range args {
-				if strings.HasPrefix(arg, "-coverprofile=") {
-					if err := os.WriteFile(strings.TrimPrefix(arg, "-coverprofile="), []byte("mode: atomic\n"+modulePrefix+"main.go:1.1,2.2 1 1\n"), 0600); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			return commandResult{output: []byte(secret)}
-		}
-		if binary == "gofmt" || binary == "go" {
-			return commandResult{}
-		}
-		return commandResult{missing: true, exitCode: 127, output: []byte(secret)}
-	}
+	fake := sourceAuditCommand(t, secret)
+
 	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, fake)
 	if err != nil {
 		t.Fatal(err)
@@ -51,16 +25,7 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	if !report.Passed || report.ProductionQualified || report.Coverage.Percent != 100 {
 		t.Fatalf("unexpected report result: %+v", report)
 	}
-	dirtyCommand := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
-		if binary == "git" && len(args) > 0 && args[0] == "status" {
-			return commandResult{output: []byte(" M source.go\n")}
-		}
-		return fake(ctx, binary, args, directory, environment)
-	}
-	dirtyReport, dirtyErr := run(context.Background(), Options{Source: root, Output: output + "-dirty", Profile: "source"}, dirtyCommand)
-	if dirtyErr != nil || dirtyReport.Passed || dirtyReport.Coverage.Percent != 100 {
-		t.Fatal("uncommitted source passed despite otherwise complete synthetic checks")
-	}
+	assertDirtySourceFails(t, root, output, fake)
 	data, err := os.ReadFile(filepath.Join(output, "report.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -74,15 +39,84 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	}
 }
 
+func assertDirtySourceFails(t *testing.T, root, output string, fake commandFunc) {
+	t.Helper()
+	dirtyCommand := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
+		if binary == "git" && len(args) > 0 && args[0] == "status" {
+			return commandResult{output: []byte(" M source.go\n")}
+		}
+		return fake(ctx, binary, args, directory, environment)
+	}
+	dirtyReport, dirtyErr := run(context.Background(), Options{Source: root, Output: output + "-dirty", Profile: "source"}, dirtyCommand)
+	if dirtyErr != nil || dirtyReport.Passed || dirtyReport.Coverage.Percent != 100 {
+		t.Fatal("uncommitted source passed despite otherwise complete synthetic checks")
+	}
+}
+
+func sourceAuditCommand(t *testing.T, secret string) commandFunc {
+	t.Helper()
+	return func(_ context.Context, binary string, args []string, _ string, _ []string) commandResult {
+		if binary == "git" {
+			return sourceAuditGitResult(args)
+		}
+		if binary == "go" {
+			return sourceAuditGoResult(t, args, secret)
+		}
+		if binary == "gofmt" {
+			return commandResult{}
+		}
+		return commandResult{missing: true, exitCode: 127, output: []byte(secret)}
+	}
+}
+
+func sourceAuditGitResult(args []string) commandResult {
+	if len(args) > 0 && args[0] == "status" {
+		return commandResult{}
+	}
+	return commandResult{output: []byte(strings.Repeat("a", 40) + "\n")}
+}
+
+func sourceAuditGoResult(t *testing.T, args []string, secret string) commandResult {
+	t.Helper()
+	if len(args) > 0 && args[0] == "version" {
+		return commandResult{output: []byte("go version go1.27.3 linux/amd64\n")}
+	}
+	if len(args) == 0 || args[0] != "test" {
+		return commandResult{}
+	}
+	assertOwnedCoverageScope(t, args)
+	writeSyntheticCoverage(t, args)
+	return commandResult{output: []byte(secret)}
+}
+
+func assertOwnedCoverageScope(t *testing.T, args []string) {
+	t.Helper()
+	if !strings.Contains(strings.Join(args, " "), "-coverpkg="+modulePrefix+"...") {
+		t.Fatal("coverage scope is not explicitly bound to owned code")
+	}
+}
+
+func writeSyntheticCoverage(t *testing.T, args []string) {
+	t.Helper()
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-coverprofile=") {
+			if err := os.WriteFile(strings.TrimPrefix(arg, "-coverprofile="), []byte("mode: atomic\n"+modulePrefix+"main.go:1.1,2.2 1 1\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
 func TestEnterpriseCannotPassWithoutSonar(t *testing.T) {
 	root := fixtureRepository(t)
 	file := filepath.Join(t.TempDir(), "token")
 	if err := os.WriteFile(file, []byte("synthetic-token\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	var report Report
-	fake := func(context.Context, string, []string, string, []string) commandResult { return commandResult{} }
-	addSonar(context.Background(), fake, root, nil, Options{Profile: "enterprise"}, "coverage.out", &report)
+	report := Report{Commit: strings.Repeat("a", 40)}
+	fake := sonarScannerFixture(t)
+	coverage := filepath.Join(t.TempDir(), "coverage.out")
+	addSonar(context.Background(), fake, root, nil, Options{Profile: "enterprise"}, coverage, &report)
 	report.finish()
 	if report.Passed {
 		t.Fatal("missing mandatory Sonar accepted")
@@ -100,23 +134,50 @@ func TestEnterpriseCannotPassWithoutSonar(t *testing.T) {
 	report.Checks = nil
 	server := httptest.NewServer(http.HandlerFunc(sonarFixture))
 	defer server.Close()
-	addSonar(context.Background(), fake, root, nil, Options{Profile: "enterprise", SonarURL: server.URL, SonarProjectKey: "key", SonarTokenFile: file}, "coverage.out", &report)
+	addSonar(context.Background(), fake, root, nil, Options{Profile: "enterprise", SonarURL: server.URL, SonarProjectKey: "key", SonarTokenFile: file}, coverage, &report)
 	if len(report.Checks) != 2 || report.Checks[0].Status != "passed" || report.Checks[1].Status != "passed" {
 		t.Fatal("valid scanner invocation rejected")
 	}
 }
 
+func sonarScannerFixture(t *testing.T) commandFunc {
+	t.Helper()
+	return func(_ context.Context, binary string, args []string, _ string, _ []string) commandResult {
+		if binary == "sonar-scanner" {
+			writeSonarTaskMetadata(t, args)
+		}
+		return commandResult{}
+	}
+}
+
+func writeSonarTaskMetadata(t *testing.T, args []string) {
+	t.Helper()
+	project := sonarProjectKey(args)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-Dsonar.scanner.metadataFilePath=") {
+			path := strings.TrimPrefix(arg, "-Dsonar.scanner.metadataFilePath=")
+			if err := os.WriteFile(path, []byte("ceTaskId=fixture-"+project+"task\nprojectKey="+project+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+	}
+	t.Fatal("scanner metadata path was not configured")
+}
+
+func sonarProjectKey(args []string) string {
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-Dsonar.projectKey=") {
+			return strings.TrimPrefix(arg, "-Dsonar.projectKey=")
+		}
+	}
+	return ""
+}
+
 func TestTokenHandling(t *testing.T) {
 	directory := t.TempDir()
 	file := filepath.Join(directory, "token")
-	for _, value := range []string{"", "a\nb", "x\x00y", strings.Repeat("x", 4097)} {
-		if err := os.WriteFile(file, []byte(value), 0600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := readToken(file); err == nil {
-			t.Fatal("invalid token accepted")
-		}
-	}
+	assertInvalidTokens(t, file)
 	if err := os.WriteFile(file, []byte("safe-value"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -133,6 +194,18 @@ func TestTokenHandling(t *testing.T) {
 	}
 	if _, err := readToken(directory); err == nil {
 		t.Fatal("directory accepted as token")
+	}
+}
+
+func assertInvalidTokens(t *testing.T, file string) {
+	t.Helper()
+	for _, value := range []string{"", "a\nb", "x\x00y", strings.Repeat("x", 4097)} {
+		if err := os.WriteFile(file, []byte(value), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readToken(file); err == nil {
+			t.Fatal("invalid token accepted")
+		}
 	}
 }
 
@@ -176,7 +249,7 @@ func TestCommandFailureCategories(t *testing.T) {
 		{commandResult{exitCode: 1, output: []byte("never expose")}, "failed", "command_failed"},
 	} {
 		fake := func(context.Context, string, []string, string, []string) commandResult { return test.result }
-		check := execute(context.Background(), fake, "fixture", true, "fixture", nil, "", nil)
+		check := commandFunc(fake).execute(context.Background(), "fixture", true, "fixture", nil, "", nil)
 		if check.Status != test.status || check.Code != test.code {
 			t.Fatal("invalid command classification")
 		}

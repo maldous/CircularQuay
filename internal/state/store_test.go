@@ -11,32 +11,42 @@ import (
 
 func TestAtomicMetadataAndProcessLock(t *testing.T) {
 	s := Store{Directory: filepath.Join(t.TempDir(), "state")}
-	r, err := s.Read("demo")
-	if err != nil || r.State != "not_provisioned" {
-		t.Fatal("missing state")
-	}
-	if err = s.Write(Record{Workload: "demo", State: "ready", Mode: "offline"}); err != nil {
+	requireState(t, s, "not_provisioned")
+	if err := s.Write(Record{Workload: "demo", State: "ready", Mode: "offline"}); err != nil {
 		t.Fatal(err)
 	}
-	r, err = s.Read("demo")
-	if err != nil || r.State != "ready" {
-		t.Fatal("metadata roundtrip")
-	}
-	unlock, err := s.Lock("demo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = s.Lock("demo"); !fault.Is(err, fault.Unavailable) {
+	requireState(t, s, "ready")
+	unlock := requireLock(t, s)
+	if _, err := s.Lock("demo"); !fault.Is(err, fault.Unavailable) {
 		t.Fatal("concurrent reconciliation allowed")
 	}
-	if err = unlock(); err != nil {
+	requireUnlock(t, unlock)
+	requireUnlock(t, requireLock(t, s))
+}
+
+func requireState(t *testing.T, store Store, want string) {
+	t.Helper()
+	record, err := store.Read("demo")
+	if err != nil {
 		t.Fatal(err)
 	}
-	unlock, err = s.Lock("demo")
-	if err != nil {
-		t.Fatal("OS lock not released")
+	if record.State != want {
+		t.Fatalf("state = %q, want %q", record.State, want)
 	}
-	if err = unlock(); err != nil {
+}
+
+func requireLock(t *testing.T, store Store) func() error {
+	t.Helper()
+	release, err := store.Lock("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return release
+}
+
+func requireUnlock(t *testing.T, release func() error) {
+	t.Helper()
+	if err := release(); err != nil {
 		t.Fatal(err)
 	}
 }

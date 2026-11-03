@@ -28,6 +28,9 @@ func executeGit(ctx context.Context, environment []string, limit int64, argument
 	if platform.ValidateExecutable(program) != nil {
 		return nil, failure(fault.Trust, "git_dependency")
 	}
+	// This is direct exec, never a shell. program is resolved and ACL-checked
+	// above; arguments are constructed by this package from validated policy,
+	// fixed Git subcommands and fixed ref names before reaching this boundary.
 	command := exec.CommandContext(ctx, program, arguments...)
 	command.Env = environment
 	command.Stderr = io.Discard
@@ -113,11 +116,31 @@ func (s *store) runVerified(ctx context.Context, authenticatedFetch bool, limit 
 }
 
 func (s *store) runWithVerification(ctx context.Context, authenticatedFetch, verifySignature bool, limit int64, arguments ...string) ([]byte, error) {
+	if !validGitInvocation(arguments) {
+		return nil, failure(fault.Invalid, "git_arguments")
+	}
 	environment, err := s.environment(authenticatedFetch, verifySignature)
 	if err != nil {
 		return nil, err
 	}
 	return runGit(ctx, environment, limit, append([]string{"--git-dir=" + s.git}, arguments...)...)
+}
+
+func validGitInvocation(arguments []string) bool {
+	if len(arguments) == 0 {
+		return false
+	}
+	switch arguments[0] {
+	case "init", "fetch", "rev-parse", "cat-file", "verify-commit", "merge-base", "ls-tree":
+	default:
+		return false
+	}
+	for _, argument := range arguments {
+		if strings.ContainsAny(argument, "\x00\r\n") {
+			return false
+		}
+	}
+	return true
 }
 
 // trustedSSHKeygen resolves the verifier before Git uses it. A PATH entry can

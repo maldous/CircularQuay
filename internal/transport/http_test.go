@@ -36,10 +36,18 @@ func TestEndpointAndPathBoundary(t *testing.T) {
 }
 
 func TestBoundedHTTPAndClassification(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(responseHandler())
+	defer server.Close()
+	c := Client{HTTP: server.Client()}
+	assertResponseCases(t, c, server.URL)
+	assertRequestCases(t, c, server.URL)
+	assertTransportClassification(t)
+}
+
+func responseHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ok":
-			w.Header().Set("Content-Type", "application/json")
 			_, _ = io.WriteString(w, `{"value":"synthetic"}`)
 		case "/extra":
 			_, _ = io.WriteString(w, `{} {}`)
@@ -53,28 +61,38 @@ func TestBoundedHTTPAndClassification(t *testing.T) {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = io.WriteString(w, "DO-NOT-RETURN-THIS-BODY")
 		}
-	}))
-	defer server.Close()
-	c := Client{HTTP: server.Client()}
+	}
+}
+
+func assertResponseCases(t *testing.T, c Client, endpoint string) {
+	t.Helper()
 	for _, test := range []struct {
 		path string
 		kind fault.Kind
 	}{{"ok", ""}, {"extra", fault.Trust}, {"bad", fault.Trust}, {"large", fault.Trust}, {"redirect", fault.Trust}, {"deny", fault.Denied}} {
-		u, err := URL(server.URL, test.path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var result map[string]any
-		err = c.DoJSON(context.Background(), http.MethodGet, u, nil, nil, &result)
-		if test.kind == "" {
-			if err != nil || result["value"] != "synthetic" {
-				t.Fatal("valid response failed")
-			}
-		} else if !fault.Is(err, test.kind) || strings.Contains(err.Error(), "DO-NOT") {
-			t.Fatal("unsafe response handling")
-		}
+		assertResponseCase(t, c, endpoint, test.path, test.kind)
 	}
-	u, _ := URL(server.URL, "ok")
+}
+
+func assertResponseCase(t *testing.T, c Client, endpoint, path string, kind fault.Kind) {
+	t.Helper()
+	u, err := URL(endpoint, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result map[string]any
+	err = c.DoJSON(context.Background(), http.MethodGet, u, nil, nil, &result)
+	if kind == "" && (err != nil || result["value"] != "synthetic") {
+		t.Fatal("valid response failed")
+	}
+	if kind != "" && (!fault.Is(err, kind) || strings.Contains(err.Error(), "DO-NOT")) {
+		t.Fatal("unsafe response handling")
+	}
+}
+
+func assertRequestCases(t *testing.T, c Client, endpoint string) {
+	t.Helper()
+	u, _ := URL(endpoint, "ok")
 	if err := c.DoJSON(context.Background(), http.MethodPost, u, nil, map[string]string{"synthetic": "request"}, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +111,16 @@ func TestBoundedHTTPAndClassification(t *testing.T) {
 	if err := (Client{}).DoJSON(context.Background(), http.MethodGet, u, nil, nil, nil); !fault.Is(err, fault.Trust) {
 		t.Fatal("untrusted TLS accepted")
 	}
+	if err := c.DoJSON(context.Background(), http.MethodGet, u, map[string]string{"bad\nname": "value"}, nil, nil); !fault.Is(err, fault.Invalid) {
+		t.Fatal("invalid header name accepted")
+	}
+	if err := c.DoJSON(context.Background(), http.MethodGet, u, map[string]string{"bad name": "value"}, nil, nil); !fault.Is(err, fault.Invalid) {
+		t.Fatal("non-token header name accepted")
+	}
+}
+
+func assertTransportClassification(t *testing.T) {
+	t.Helper()
 	for code, kind := range map[int]fault.Kind{401: fault.Denied, 403: fault.Denied, 404: fault.Missing, 302: fault.Trust, 429: fault.Trust, 500: fault.Trust} {
 		if !fault.Is(Status(code), kind) {
 			t.Fatal("incorrect status class")
@@ -112,6 +140,40 @@ func TestBoundedHTTPAndClassification(t *testing.T) {
 	}
 }
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func TestTransportRejectsMalformedRoundTripperResponse(t *testing.T) {
+	u, err := URL("https://provider.invalid", "resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := Client{HTTP: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK}, nil
+	})}}
+	if err := client.DoJSON(context.Background(), http.MethodGet, u, nil, nil, nil); !fault.Is(err, fault.Trust) {
+		t.Fatal("malformed round trip response accepted")
+	}
+}
+
+func TestInjectedClientWithoutTimeoutGetsBoundedRequest(t *testing.T) {
+	u, err := URL("https://provider.invalid", "resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadlineSet := false
+	client := Client{HTTP: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		_, deadlineSet = request.Context().Deadline()
+		return &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}}
+	if err := client.DoJSON(context.Background(), http.MethodGet, u, nil, nil, nil); err != nil || !deadlineSet {
+		t.Fatal("injected client request was not bounded")
+	}
+}
+
 func TestCredentialFileBoundary(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "token")
 	if _, err := ReadCredentialFile("relative"); !fault.Is(err, fault.Invalid) {
@@ -120,21 +182,34 @@ func TestCredentialFileBoundary(t *testing.T) {
 	if _, err := ReadCredentialFile(path); !fault.Is(err, fault.Denied) {
 		t.Fatal("missing token accepted")
 	}
-	if err := os.WriteFile(path, []byte("synthetic-token\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeCredential(t, path, "synthetic-token\n")
 	value, err := ReadCredentialFile(path)
 	if err != nil || value != "synthetic-token" {
 		t.Fatal("protected file not read")
 	}
+	assertInvalidCredentials(t, path)
+	assertCredentialDirectoryDenied(t, path)
+}
+
+func writeCredential(t *testing.T, path, data string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertInvalidCredentials(t *testing.T, path string) {
+	t.Helper()
 	for _, data := range []string{"", "bad\nheader", strings.Repeat("x", 65537)} {
-		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
-			t.Fatal(err)
-		}
+		writeCredential(t, path, data)
 		if _, err := ReadCredentialFile(path); !fault.Is(err, fault.Trust) {
 			t.Fatal("invalid token accepted")
 		}
 	}
+}
+
+func assertCredentialDirectoryDenied(t *testing.T, path string) {
+	t.Helper()
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}

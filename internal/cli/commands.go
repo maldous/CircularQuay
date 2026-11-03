@@ -19,6 +19,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
+	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
@@ -144,36 +145,15 @@ func (a application) status(args []string) (int, error) {
 }
 
 func (a application) workloadCommand(ctx context.Context, args []string) (int, error) {
-	id, target, override, err := workloadFlags(args[0], args[1:])
+	request, err := parseWorkloadRequest(args)
 	if err != nil {
 		return 0, err
 	}
-	if args[0] != "run" && len(override) > 0 {
-		return 0, fault.New(fault.Invalid, "unexpected arguments")
-	}
-	p, err := a.load()
+	request, workload, engine, err := a.prepareWorkloadCommand(request)
 	if err != nil {
 		return 0, err
 	}
-	w, ok := p.Workloads[id]
-	if !ok {
-		return 0, fault.New(fault.Invalid, "workload")
-	}
-	var targets []string
-	if args[0] == "apply" && target == "" {
-		return 0, fault.New(fault.Invalid, "explicit target required")
-	}
-	if args[0] == "apply" || args[0] == "sync" {
-		targets, err = selectedTargets(w, target)
-		if err != nil {
-			return 0, err
-		}
-	}
-	e, err := a.engine(p)
-	if err != nil {
-		return 0, err
-	}
-	unlock, err := e.State.Lock(id)
+	unlock, err := engine.State.Lock(request.id)
 	if err != nil {
 		return 0, err
 	}
@@ -182,55 +162,122 @@ func (a application) workloadCommand(ctx context.Context, args []string) (int, e
 			_ = unlock()
 		}
 	}()
-	var g model.Generation
-	if args[0] == "snapshot" || args[0] == "sync" {
-		g, err = e.ResolveFresh(ctx, id)
-	} else {
-		g, err = e.Resolve(ctx, id)
-	}
+	g, err := resolveWorkloadGeneration(ctx, engine, request)
 	if err != nil {
 		return 0, err
 	}
-	switch args[0] {
-	case "run":
-		if err = recordPhase(e.State, w, g, "resolved"); err != nil {
-			return 0, err
-		}
-		// Only reconciliation is serialized. A child may run indefinitely while
-		// subsequent checks and rotations need to acquire the same workload lock.
-		if err = unlock(); err != nil {
-			return 0, err
-		}
-		unlock = nil
-		return platform.RunWithIO(ctx, w, g, override, a.runner.In, a.runner.Out, a.runner.Err)
-	case "snapshot":
-		err = e.Snapshot(ctx, g)
-	case "apply":
-		record, applyErr := reconcileTargets(ctx, e.State, w, g, targets, nativeOperations())
-		if applyErr != nil {
-			return 0, applyErr
-		}
-		return a.print(record)
-	case "sync":
-		if w.Snapshot.Path != "" && w.Mode != "online" {
-			err = e.Snapshot(ctx, g)
-		}
+	if request.command == "run" {
+		return a.runResolvedWorkload(ctx, engine, workload, g, request.override, &unlock)
+	}
+	return a.completeWorkloadCommand(ctx, request, workload, engine, g)
+}
+
+type workloadRequest struct {
+	command  string
+	id       string
+	target   string
+	override []string
+	targets  []string
+}
+
+func parseWorkloadRequest(args []string) (workloadRequest, error) {
+	if len(args) == 0 {
+		return workloadRequest{}, fault.New(fault.Invalid, "workload command")
+	}
+	command := args[0]
+	id, target, override, err := workloadFlags(command, args[1:])
+	if err != nil {
+		return workloadRequest{}, err
+	}
+	if command != "run" && len(override) > 0 {
+		return workloadRequest{}, fault.New(fault.Invalid, "unexpected arguments")
+	}
+	return workloadRequest{command: command, id: id, target: target, override: override}, nil
+}
+
+func (a application) prepareWorkloadCommand(request workloadRequest) (workloadRequest, model.Workload, *resolve.Engine, error) {
+	p, err := a.load()
+	if err != nil {
+		return request, model.Workload{}, nil, err
+	}
+	workload, ok := p.Workloads[request.id]
+	if !ok {
+		return request, model.Workload{}, nil, fault.New(fault.Invalid, "workload")
+	}
+	if request.command == "apply" && request.target == "" {
+		return request, model.Workload{}, nil, fault.New(fault.Invalid, "explicit target required")
+	}
+	if request.command == "apply" || request.command == "sync" {
+		request.targets, err = selectedTargets(workload, request.target)
 		if err != nil {
-			return 0, err
+			return request, model.Workload{}, nil, err
 		}
-		record, applyErr := reconcileTargets(ctx, e.State, w, g, targets, nativeOperations())
-		if applyErr != nil {
-			return 0, applyErr
-		}
-		return a.print(record)
 	}
+	engine, err := a.engine(p)
+	if err != nil {
+		return request, model.Workload{}, nil, err
+	}
+	return request, workload, engine, nil
+}
+
+func resolveWorkloadGeneration(ctx context.Context, engine *resolve.Engine, request workloadRequest) (model.Generation, error) {
+	if request.command == "snapshot" || request.command == "sync" {
+		return engine.ResolveFresh(ctx, request.id)
+	}
+	return engine.Resolve(ctx, request.id)
+}
+
+func (a application) runResolvedWorkload(ctx context.Context, engine *resolve.Engine, workload model.Workload, generation model.Generation, override []string, unlock *func() error) (int, error) {
+	if err := recordPhase(engine.State, workload, generation, "resolved"); err != nil {
+		return 0, err
+	}
+	// Only reconciliation is serialized. A child may run indefinitely while
+	// subsequent checks and rotations need to acquire the same workload lock.
+	if err := (*unlock)(); err != nil {
+		return 0, err
+	}
+	*unlock = nil
+	return platform.RunWithIO(ctx, workload, generation, override, a.runner.In, a.runner.Out, a.runner.Err)
+}
+
+func (a application) completeWorkloadCommand(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
+	switch request.command {
+	case "snapshot":
+		return a.storeSnapshot(ctx, request, workload, engine, generation)
+	case "apply":
+		return a.reconcileWorkload(ctx, workload, engine, generation, request.targets)
+	case "sync":
+		return a.syncWorkload(ctx, request, workload, engine, generation)
+	default:
+		return 0, fault.New(fault.Invalid, "workload command")
+	}
+}
+
+func (a application) storeSnapshot(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
+	if err := engine.Snapshot(ctx, generation); err != nil {
+		return 0, err
+	}
+	if err := recordPhase(engine.State, workload, generation, "snapshotted"); err != nil {
+		return 0, err
+	}
+	return a.print(map[string]any{"workload": request.id, "state": "snapshotted", "operation": request.command, "offline": generation.Offline, "bindings": len(generation.Values)})
+}
+
+func (a application) reconcileWorkload(ctx context.Context, workload model.Workload, engine *resolve.Engine, generation model.Generation, targets []string) (int, error) {
+	record, err := reconcileTargets(ctx, engine.State, workload, generation, targets, nativeOperations())
 	if err != nil {
 		return 0, err
 	}
-	if err = recordPhase(e.State, w, g, "snapshotted"); err != nil {
-		return 0, err
+	return a.print(record)
+}
+
+func (a application) syncWorkload(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
+	if workload.Snapshot.Path != "" && workload.Mode != "online" {
+		if err := engine.Snapshot(ctx, generation); err != nil {
+			return 0, err
+		}
 	}
-	return a.print(map[string]any{"workload": id, "state": "snapshotted", "operation": args[0], "offline": g.Offline, "bindings": len(g.Values)})
+	return a.reconcileWorkload(ctx, workload, engine, generation, request.targets)
 }
 
 func recordPhase(s state.Store, w model.Workload, g model.Generation, phase string) error {

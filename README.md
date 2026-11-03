@@ -1,9 +1,14 @@
-> **Development checkpoint:** implementation and security qualification are incomplete. Do not use with production credentials. See [session handoff](docs/session-handoff.md) for verified results and remaining work.
-
-CircularQuay’s app, command and operations skill are named `cquay` (pronounced “c-key”).
 # CircularQuay
 
 **Portable secrets delivery, with explicit trust boundaries.**
+
+> **Development checkpoint:** implementation and security qualification are incomplete. Do not use with production credentials. See [session handoff](docs/session-handoff.md) for verified results and remaining work.
+
+CircularQuay’s app, command, and operations skill are named `cquay` (pronounced “c-key”).
+
+CircularQuay resolves exact values from existing secret providers under a workload-scoped policy, then delivers one complete generation through native operating-system boundaries. It gives teams a portable way to move from provider authorization to a declared workload without inheriting an ambient shell environment or silently applying a partial refresh.
+
+For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
 
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)

@@ -20,39 +20,46 @@ func repositoryCheck(root string) Check {
 			return check
 		}
 	}
-	seen := map[string]bool{}
-	err := filepath.WalkDir(root, func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return errors.New("repository enumeration failed")
-		}
-		relative, err := filepath.Rel(root, name)
-		if err != nil {
-			return errors.New("invalid repository path")
-		}
-		if relative == "." {
-			return nil
-		}
-		if entry.IsDir() && skipDirectory(entry.Name()) {
-			return filepath.SkipDir
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return errors.New("repository symlink forbidden")
-		}
-		if !validAssetName(entry.Name()) {
-			return errors.New("invalid asset name")
-		}
-		folded := strings.ToLower(filepath.ToSlash(relative))
-		if seen[folded] {
-			return errors.New("case collision")
-		}
-		seen[folded] = true
-		return nil
-	})
+	assets := assetValidator{root: root, seen: map[string]bool{}}
+	err := filepath.WalkDir(root, assets.visit)
 	if err != nil {
 		check.Status = "failed"
 		check.Code = "repository_naming_violation"
 	}
 	return check
+}
+
+type assetValidator struct {
+	root string
+	seen map[string]bool
+}
+
+func (v assetValidator) visit(name string, entry fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return errors.New("repository enumeration failed")
+	}
+	relative, err := filepath.Rel(v.root, name)
+	if err != nil {
+		return errors.New("invalid repository path")
+	}
+	if relative == "." {
+		return nil
+	}
+	if entry.IsDir() && skipDirectory(entry.Name()) {
+		return filepath.SkipDir
+	}
+	if entry.Type()&os.ModeSymlink != 0 {
+		return errors.New("repository symlink forbidden")
+	}
+	if !validAssetName(entry.Name()) {
+		return errors.New("invalid asset name")
+	}
+	folded := strings.ToLower(filepath.ToSlash(relative))
+	if v.seen[folded] {
+		return errors.New("case collision")
+	}
+	v.seen[folded] = true
+	return nil
 }
 
 func sourceFiles(root string) ([]string, error) {

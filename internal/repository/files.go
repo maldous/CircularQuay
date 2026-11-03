@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"bytes"
 	"crypto/sha1" // Git's SHA-1 object format; commit authenticity uses SSH signatures.
 	"crypto/sha256"
 	"encoding/hex"
@@ -44,6 +43,9 @@ func validCommit(commit string) bool {
 func blobID(data []byte, length int) string {
 	header := []byte(fmt.Sprintf("blob %d\x00", len(data)))
 	if length == 40 {
+		// SHA-1 here is Git's legacy object-name format, not a security decision.
+		// Commit authenticity is enforced separately by pinned SSH signatures; this
+		// calculation only proves materialized bytes match the signed object ID.
 		hash := sha1.New()
 		hash.Write(header)
 		hash.Write(data)
@@ -59,47 +61,79 @@ func verifyRelease(directory string, tree map[string]string) error {
 	if err := protectedDirectory(directory); err != nil {
 		return err
 	}
-	count := 0
-	var total int64
-	err := filepath.WalkDir(directory, func(path string, entry os.DirEntry, walkError error) error {
-		if walkError != nil || entry == nil {
-			return failure(fault.Trust, "release_walk")
-		}
-		if entry.IsDir() {
-			if err := platform.EnsurePrivateDirectory(path); err != nil {
-				return failure(fault.Trust, "release_directory")
-			}
-			return nil
-		}
-		relative, err := filepath.Rel(directory, path)
-		if err != nil {
-			return failure(fault.Trust, "release_path")
-		}
-		name := filepath.ToSlash(relative)
-		expected, exists := tree[name]
-		if !exists {
-			return failure(fault.Trust, "release_extra")
-		}
-		data, err := readProtected(path, true, maximumFileBytes)
-		if err != nil {
-			return err
-		}
-		info, err := entry.Info()
-		if err != nil || info.Mode().Perm()&0o111 != 0 || !bytes.Equal([]byte(blobID(data, len(expected))), []byte(expected)) {
-			return failure(fault.Trust, "release_content")
-		}
-		count++
-		total += int64(len(data))
-		if total > maximumReleaseBytes {
-			return failure(fault.Trust, "release_size")
-		}
-		return nil
-	})
+	verifier := releaseVerifier{directory: directory, tree: tree}
+	err := filepath.WalkDir(directory, verifier.visit)
 	if err != nil {
 		return err
 	}
-	if count != len(tree) {
+	if verifier.count != len(tree) {
 		return failure(fault.Trust, "release_missing")
+	}
+	return nil
+}
+
+// releaseVerifier checks that materialized data remains the exact signed tree.
+// It keeps the file and aggregate byte limits separate from Git transport limits.
+type releaseVerifier struct {
+	directory string
+	tree      map[string]string
+	count     int
+	total     int64
+}
+
+func (v *releaseVerifier) visit(path string, entry os.DirEntry, walkError error) error {
+	if walkError != nil || entry == nil {
+		return failure(fault.Trust, "release_walk")
+	}
+	if entry.IsDir() {
+		return verifyReleaseDirectory(path)
+	}
+	return v.verifyFile(path, entry)
+}
+
+func verifyReleaseDirectory(path string) error {
+	if err := platform.EnsurePrivateDirectory(path); err != nil {
+		return failure(fault.Trust, "release_directory")
+	}
+	return nil
+}
+
+func (v *releaseVerifier) verifyFile(path string, entry os.DirEntry) error {
+	expected, err := v.expectedBlob(path)
+	if err != nil {
+		return err
+	}
+	data, err := readProtected(path, true, maximumFileBytes)
+	if err != nil {
+		return err
+	}
+	if err = verifyReleaseFile(entry, data, expected); err != nil {
+		return err
+	}
+	v.count++
+	v.total += int64(len(data))
+	if v.total > maximumReleaseBytes {
+		return failure(fault.Trust, "release_size")
+	}
+	return nil
+}
+
+func (v releaseVerifier) expectedBlob(path string) (string, error) {
+	relative, err := filepath.Rel(v.directory, path)
+	if err != nil {
+		return "", failure(fault.Trust, "release_path")
+	}
+	expected, exists := v.tree[filepath.ToSlash(relative)]
+	if !exists {
+		return "", failure(fault.Trust, "release_extra")
+	}
+	return expected, nil
+}
+
+func verifyReleaseFile(entry os.DirEntry, data []byte, expected string) error {
+	info, err := entry.Info()
+	if err != nil || info.Mode().Perm()&0o111 != 0 || blobID(data, len(expected)) != expected {
+		return failure(fault.Trust, "release_content")
 	}
 	return nil
 }

@@ -67,32 +67,44 @@ func checkNativeSecurity(path string, secret bool) bool {
 		return false
 	}
 	for i := uint32(0); i < uint32(acl.AceCount); i++ {
-		var ace *windows.ACCESS_ALLOWED_ACE
-		if windows.GetAce(acl, i, &ace) != nil || ace == nil {
-			return false
-		}
-		if ace.Header.AceType == windows.ACCESS_DENIED_ACE_TYPE {
-			continue
-		}
-		if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
-			return false
-		}
-		// FILE_DELETE_CHILD is not exported by the pinned x/sys version.
-		// WinNT.h: https://learn.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants
-		const fileDeleteChild = 0x0040
-		const unsafeWrite = windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | fileDeleteChild | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL
-		if !secret && ace.Mask&unsafeWrite == 0 {
-			continue
-		}
-		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
-		text := sid.String()
-		if text == "S-1-5-18" || text == "S-1-5-32-544" || sid.Equals(user.User.Sid) {
-			continue
-		}
-		member, memberErr := windows.GetCurrentProcessToken().IsMember(sid)
-		if memberErr != nil || !member || !isServiceSID(text) {
+		if !allowedACE(acl, i, user.User.Sid, secret) {
 			return false
 		}
 	}
 	return true
+}
+
+func allowedACE(acl *windows.ACL, index uint32, user *windows.SID, secret bool) bool {
+	var ace *windows.ACCESS_ALLOWED_ACE
+	if windows.GetAce(acl, index, &ace) != nil || ace == nil {
+		return false
+	}
+	if ace.Header.AceType == windows.ACCESS_DENIED_ACE_TYPE {
+		return true
+	}
+	if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
+		return false
+	}
+	if !secret && !writesFile(ace.Mask) {
+		return true
+	}
+	return allowedPrincipal(ace, user)
+}
+
+func allowedPrincipal(ace *windows.ACCESS_ALLOWED_ACE, user *windows.SID) bool {
+	sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
+	text := sid.String()
+	if text == "S-1-5-18" || text == "S-1-5-32-544" || sid.Equals(user) {
+		return true
+	}
+	member, err := windows.GetCurrentProcessToken().IsMember(sid)
+	return err == nil && member && isServiceSID(text)
+}
+
+func writesFile(mask windows.ACCESS_MASK) bool {
+	// FILE_DELETE_CHILD is not exported by the pinned x/sys version.
+	// WinNT.h: https://learn.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants
+	const fileDeleteChild = 0x0040
+	const unsafeWrite = windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | fileDeleteChild | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL
+	return mask&unsafeWrite != 0
 }

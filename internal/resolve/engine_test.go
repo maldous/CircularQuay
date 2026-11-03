@@ -217,6 +217,22 @@ func TestFreshReadAndValueChecks(t *testing.T) {
 	}
 }
 
+func TestReadKeyRejectsMissingReaderAndSource(t *testing.T) {
+	e, _ := fixture(t)
+	e.Reader = nil
+	if _, err := e.ReadKey(context.Background(), "demo", "TOKEN"); !fault.Is(err, fault.Unsupported) {
+		t.Fatalf("missing reader: %v", err)
+	}
+
+	e, _ = fixture(t)
+	policy := e.Policy
+	policy.Sources = map[string]model.Source{}
+	e.Policy = policy
+	if _, err := e.ReadKey(context.Background(), "demo", "TOKEN"); !fault.Is(err, fault.Invalid) {
+		t.Fatalf("missing binding source: %v", err)
+	}
+}
+
 func TestMalformedSnapshot(t *testing.T) {
 	e, m := fixture(t)
 	ctx := context.Background()
@@ -241,6 +257,33 @@ func TestMalformedSnapshot(t *testing.T) {
 	m.saved["circularquay_snapshot"] = string(b)
 	if _, err := e.restore(ctx, "demo", e.Policy.Workloads["demo"]); !fault.Is(err, fault.Denied) {
 		t.Fatal("leased cache accepted")
+	}
+}
+
+func TestSnapshotRejectsMismatchedPolicyFingerprint(t *testing.T) {
+	e, snapshots := fixture(t)
+	ctx := context.Background()
+	generation, err := e.Resolve(ctx, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Snapshot(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+
+	var payload snapshotPayload
+	if err = json.Unmarshal([]byte(snapshots.saved["circularquay_snapshot"]), &payload); err != nil {
+		t.Fatal(err)
+	}
+	payload.Policy = "different-valid-policy-fingerprint"
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshots.saved["circularquay_snapshot"] = string(encoded)
+
+	if _, err = e.restore(ctx, "demo", e.Policy.Workloads["demo"]); !fault.Is(err, fault.Trust) {
+		t.Fatalf("mismatched policy fingerprint accepted: %v", err)
 	}
 }
 

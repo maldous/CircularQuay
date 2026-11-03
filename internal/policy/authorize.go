@@ -15,7 +15,7 @@ var operations = map[string]bool{
 
 func validateGrants(policy model.Policy) error {
 	for _, grant := range policy.Grants {
-		if !safePrincipal(grant.Subject) || grant.Client != "" && !safePrincipal(grant.Client) || len(grant.Operations) == 0 {
+		if !validGrantIdentity(grant) {
 			return invalid("grant_identity")
 		}
 		workload, found := policy.Workloads[grant.Workload]
@@ -25,10 +25,21 @@ func validateGrants(policy model.Policy) error {
 		if err := validateGrantOperations(grant); err != nil {
 			return err
 		}
-		for _, key := range grant.Keys {
-			if !bindingExists(workload, key) || forbiddenBindingName(strings.ToUpper(key)) {
-				return invalid("grant_key")
-			}
+		if err := validateGrantKeys(workload, grant.Keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validGrantIdentity(grant model.Grant) bool {
+	return safePrincipal(grant.Subject) && (grant.Client == "" || safePrincipal(grant.Client)) && len(grant.Operations) > 0
+}
+
+func validateGrantKeys(workload model.Workload, keys []string) error {
+	for _, key := range keys {
+		if !bindingExists(workload, key) || forbiddenBindingName(strings.ToUpper(key)) {
+			return invalid("grant_key")
 		}
 	}
 	return nil
@@ -59,17 +70,18 @@ func Authorize(policy model.Policy, subject, client, workload, operation, key st
 		return false
 	}
 	for _, grant := range policy.Grants {
-		if grant.Subject != subject || grant.Client != client || grant.Workload != workload {
-			continue
-		}
-		if !contains(grant.Operations, operation) {
-			continue
-		}
-		if !rawRead(operation) || key != "" && contains(grant.Keys, key) {
+		if matchingGrant(grant, subject, client, workload, operation, key) {
 			return true
 		}
 	}
 	return false
+}
+
+func matchingGrant(grant model.Grant, subject, client, workload, operation, key string) bool {
+	if grant.Subject != subject || grant.Client != client || grant.Workload != workload || !contains(grant.Operations, operation) {
+		return false
+	}
+	return !rawRead(operation) || key != "" && contains(grant.Keys, key)
 }
 
 // VisibleWorkloads lists only workloads for which discovery was granted.

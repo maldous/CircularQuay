@@ -13,15 +13,24 @@ func secureMode(mode os.FileMode, secret bool) bool {
 
 func replaceFile(from, to string) error { return os.Rename(from, to) }
 
-func protectFile(path string) error { return os.Chmod(path, 0o600) }
+func protectFile(path string) error { return chmodInParent(path, 0o600) }
 
-func protectDirectory(path string) error { return os.Chmod(path, 0o700) }
+func protectDirectory(path string) error { return chmodInParent(path, 0o700) }
 
 func syncDirectory(path string) error {
-	f, err := os.Open(path)
+	f, err := openInParent(path, os.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	return f.Sync()
+}
+
+func chmodInParent(path string, mode os.FileMode) error {
+	f, err := openInParent(path, os.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Chmod(mode)
 }
