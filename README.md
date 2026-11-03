@@ -12,6 +12,17 @@ CircularQuay resolves exact values from existing secret providers under a worklo
 
 For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
 
+A shell profile once made a developer's environment feel simple: open a
+terminal, inherit the right variables, and get on with the job. Services,
+containers, Windows sessions, CI runners, and hosted applications introduced
+different startup and identity boundaries. Multiple AI providers and agent
+workflows added more keys, scopes, and places to configure them.
+
+CircularQuay grew out of the frustration of joining those pieces repeatedly. It
+connects existing providers, established encryption, and native runtime
+delivery through one workload-scoped policy. You choose where online
+authorization is required and where an encrypted offline copy is appropriate.
+
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
 ![Implementation: Go](https://img.shields.io/badge/implementation-Go-087f8c)
@@ -66,43 +77,13 @@ with a synthetic value. Do not use environment-dumping commands when a policy
 contains credentials. A declared workload command has access to values that
 policy delivers to it.
 
-### Intended v1 command reference
-
-The interface below is the v1 documentation target and is awaiting its
-implementation-branch change. It is included for review, not as a claim that
-the current public branch already provides it. The default policy name will be
-`cquay.json`.
-
-```text
-cquay config init
-cquay config validate
-cquay config get --pointer /workloads/demo
-cquay config list --pointer /workloads
-cquay config set --pointer /workloads/demo --value-file -
-cquay config delete --pointer /grants/0 --expect-sha256 <current-document-digest>
-cquay config replace --file policy.json --expect-sha256 <current-document-digest>
-cquay doctor [--fix]
-```
-
-Pointers use RFC 6901. `set` replaces one complete JSON node atomically; use
-`--value-file -` to pass JSON on standard input instead of placing
-credential-looking literals on a command line. `replace` accepts one complete
-JSON policy. These operations validate the resulting policy before writing and
-do not retrieve provider values. Configuration literals remain visible to an
-authorized configuration reader; put credentials in the declared providers.
-The optional digest makes
-an edit conditional on the document a caller reviewed. `doctor --fix` is
-limited to safe local formatting corrections; it does not repair provider,
-identity, service, or deployment configuration.
+For policy editing, conditional updates, doctor behavior, and all command
+flags, see the [v1 command reference](#v1-command-reference) below.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-overview-dark.svg">
   <img alt="Explicit provider mappings pass through CircularQuay policy into native workloads, approved snapshots, and individually authorized MCP disclosure." src="docs/assets/architecture-overview-light.svg">
 </picture>
-
-A shell profile once made a developer's environment feel simple: open a terminal, inherit the right variables, and get on with the job. Services, containers, Windows sessions, CI runners, and hosted applications introduced different startup and identity boundaries. Multiple AI providers and agent workflows added more keys, scopes, and places to configure them.
-
-CircularQuay grew out of the frustration of joining those pieces together repeatedly. It connects existing providers, established encryption, and native runtime delivery through one workload-scoped policy. You choose where online authorization is required and where an encrypted offline copy is appropriate.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/environment-evolution-dark.svg">
@@ -133,6 +114,27 @@ A deployed snapshot is a delivery workflow for an offline or hybrid workload,
 not a fourth availability mode. One-way publication into a platform's native
 store gives the destination's permissions, rotation, and audit behavior to the
 copy.
+
+To use online, hybrid, snapshot, or publication operations, start with the
+[complete Linux reference](examples/linux-deployment.json) and the
+[configuration reference](docs/configuration.md). Copy it to an operator-owned
+path and replace only its fabricated resource selectors and protected file
+paths; keep actual credentials in the selected provider or protected identity
+file. After that policy and its prerequisites are valid, use its declared
+workload ID with the normal lifecycle commands:
+
+```sh
+CONFIG=/absolute/operator-owned/cquay.json
+cquay --config "$CONFIG" plan
+cquay --config "$CONFIG" run --workload reference-api -- /absolute/path/to/your/workload
+cquay --config "$CONFIG" snapshot --workload reference-api
+cquay --config "$CONFIG" sync --once --workload reference-api
+```
+
+The reference itself names nonexistent synthetic paths and cannot be run until
+an operator supplies those external prerequisites. `snapshot` needs a completed
+offline or hybrid snapshot declaration; `sync` needs at least one declared
+target and only publishes values explicitly permitted by each binding.
 
 Already delivered values cannot be recalled from process memory, old ciphertext, or an authorized client. Removing a recipient is not a substitute for rotating a compromised credential at its issuer.
 
@@ -207,3 +209,141 @@ CircularQuay focuses on their operational intersection: explicit inheritance and
 ## License
 
 Apache-2.0 for CircularQuay's own code and documentation. Dependencies retain their own licenses and notices.
+
+## v1 command reference
+
+This is the intended v1 interface for review. The documentation preview notice
+above applies to commands whose implementation is being qualified on this
+working branch.
+
+All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
+PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
+need no policy. `version` identifies this working build as `1.0.0-dev`; it is
+not a release assertion.
+
+| Command | Usage and behavior |
+| --- | --- |
+| Create | `cquay init [--output PATH]` or `cquay config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
+| Inspect configuration | `cquay config validate`; `cquay config get --pointer RFC6901`; `cquay config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |
+| Edit configuration | `cquay config set --pointer RFC6901 (--value-json JSON\|--value-file PATH\|-) [--expect-sha256 HEX]`; `cquay config delete --pointer RFC6901 [--expect-sha256 HEX]`; `cquay config replace --file PATH\|- [--expect-sha256 HEX]`. Values are JSON; `-` reads standard input; inputs are capped at 1 MiB. |
+| Doctor | `cquay doctor [--fix\|--identity-only]`. A missing or unsafe selected policy is non-zero. `--identity-only` reports the local kernel-derived subject without checking policy. `--fix` canonically formats a valid protected JSON policy only; it does not alter grants, provider settings, services, or deployment state. |
+| Plan and status | `cquay plan`; `cquay status --workload ID [--json]`. |
+| Workload lifecycle | `cquay run --workload ID [--target ID] [-- ABSOLUTE-PROGRAM ARGS…]`; `cquay snapshot --workload ID [--target ID]`; `cquay apply --workload ID --target ID`; `cquay sync --workload ID [--target ID] [--once]`. `apply` requires an explicit target; only `run` accepts arguments after `--`. |
+| MCP | `cquay mcp serve [--transport stdio\|http] [--tls-cert PATH --tls-key PATH]`. HTTP uses the policy listener address (or loopback `127.0.0.1:8080`); a non-loopback listener requires both TLS paths. |
+
+Configuration operations are cooperative: each writer takes the private local
+configuration lock, validates a candidate, then re-reads the current digest
+before atomically replacing the file. `--expect-sha256` adds an optimistic
+review check; it is not an external distributed CAS. Configuration editing and
+`doctor --fix` accept protected JSON only. YAML may be loaded for normal policy
+execution but is intentionally not mutated. A repeated `set` or `replace` with
+the same value produces the same canonical document; a repeated `delete` fails
+after the node is absent.
+
+The separate assurance binary is for evidence generation, not workload
+delivery: `cquay-audit run --profile source|enterprise --output DIR` with
+optional `--source`, `--go`, `--sonar-url`, `--sonar-token-file`, and
+`--sonar-project-key`. Its enterprise inputs and evidence handling are
+documented in [RELEASE.md](RELEASE.md).
+
+### Configuration CRUD
+
+These examples edit public configuration declarations. They never supply a
+provider token or private key. Start with the synthetic policy from the quick
+start; `set` creates a missing object member or replaces an existing node.
+
+```sh
+# Create a synthetic policy and validate it.
+cquay config init --output cquay.json
+cquay --config cquay.json config validate
+
+# List workloads and read one declaration. Both responses include sha256.
+cquay --config cquay.json config list --pointer /workloads
+cquay --config cquay.json config get --pointer /workloads/demo
+
+# Create or update a complete non-secret environment object.
+cquay --config cquay.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}'
+
+# Read a replacement node from stdin or a protected JSON file.
+printf '%s\n' '{"APP_MODE":"test"}' | cquay --config cquay.json config set --pointer /workloads/demo/environment --value-file -
+cquay --config cquay.json config set --pointer /workloads/demo/environment --value-file environment.json
+
+# Delete that optional object; invalid or referenced-object deletions fail.
+cquay --config cquay.json config delete --pointer /workloads/demo/environment
+
+# Replace the complete policy with a validated, operator-prepared document.
+cquay --config cquay.json config replace --file replacement-policy.json
+```
+
+Add `--expect-sha256` with the digest returned by the preceding `get` or `list`
+to reject an edit based on an out-of-date document. For example, PowerShell can
+read the JSON response without another utility:
+
+```powershell
+$review = .\cquay.exe --config cquay.json config get --pointer /workloads/demo | ConvertFrom-Json
+.\cquay.exe --config cquay.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}' --expect-sha256 $review.sha256
+```
+
+An empty pointer selects the complete document; `~0` escapes `~` and `~1`
+escapes `/` in a member name. Array elements use numeric indices. Replace a
+complete array to add entries. Parents must exist, and the resulting complete
+policy must remain valid. Errors do not replace the previous policy.
+
+### Diagnostics, planning and execution
+
+```sh
+cquay help
+cquay --help
+cquay version
+cquay providers
+cquay --config cquay.json doctor
+cquay --config cquay.json doctor --fix
+cquay doctor --identity-only
+cquay --config cquay.json plan
+cquay --config cquay.json --state-dir /absolute/private/state status --workload demo --json
+cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+```
+
+`doctor --fix` only formats valid protected JSON; it does not choose identities
+or change permissions and grants. `doctor --identity-only` reports identity,
+not workload readiness. A configured command can also be run without an
+override: `cquay --config deployed-policy.json run --workload api`.
+
+### Snapshots and native delivery
+
+Use these commands with a fully provisioned policy such as the Linux reference,
+with eligible bindings and declared snapshots/targets. They write configured
+destinations; native activation occurs only when explicitly declared.
+
+```sh
+cquay --config deployed-policy.json snapshot --workload reference-api
+cquay --config deployed-policy.json apply --workload reference-api --target systemd-credential
+cquay --config deployed-policy.json sync --workload reference-api --once
+cquay --config deployed-policy.json sync --workload reference-api --target systemd-credential --once
+```
+
+### Local and hosted MCP
+
+```sh
+cquay --config local-mcp.json mcp serve --transport stdio
+cquay --config hosted-mcp.json mcp serve --transport http
+cquay --config hosted-mcp.json mcp serve --transport http --tls-cert /absolute/tls/server.crt --tls-key /absolute/private/server.key
+```
+
+Hosted HTTP requires the exact configured issuer, resource, client and grants.
+A listener is not an IdP or a managed multi-tenant service. The
+[hosted identity boundary](docs/hosted-identity.md) describes that distinction.
+
+### Independent assurance
+
+```sh
+cquay-audit run --profile source --source . --output audit-results/source --go /absolute/path/to/go
+cquay-audit run --profile enterprise --source . --output audit-results/enterprise --go /absolute/path/to/go --sonar-url http://127.0.0.1:9000 --sonar-token-file /absolute/private/scanner.token --sonar-project-key circularquay
+cquay-audit sonar-init --directory .local/sonar
+cquay-audit sonar-bootstrap --directory .local/sonar --url http://127.0.0.1:9000 --project circularquay
+```
+
+The Sonar commands are for a new isolated audit instance. Follow the prerequisite,
+bootstrap and evidence-custody instructions in [RELEASE.md](RELEASE.md); do not
+point them at an operational instance. A failing or unexecuted gate remains a
+failing or unexecuted gate.

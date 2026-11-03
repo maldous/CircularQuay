@@ -40,6 +40,51 @@ selected `field` minimizes delivery, but does not reduce an upstream provider
 permission that reads a larger object. Separate source records where upstream
 access boundaries differ.
 
+## Editing a policy locally
+
+`cquay.json` is the default configuration name. `cquay config init [--output
+PATH]` creates a protected JSON policy and its synthetic JSON fixture, refusing
+to overwrite either. The older top-level `init` command remains equivalent.
+Use `cquay --config PATH config validate` to strict-decode and semantically
+validate a protected JSON policy without provider access.
+
+`get --pointer RFC6901` returns the selected JSON value and the SHA-256 of the
+whole document. `list [--pointer RFC6901]` returns sorted object keys or array
+indexes and the same digest. Use that digest with `--expect-sha256` for a
+compare-and-swap write:
+
+```sh
+cquay --config cquay.json config get --pointer /workloads/demo
+cquay --config cquay.json config set --pointer /workloads/demo --value-file - --expect-sha256 "<sha256 from get>"
+cquay --config cquay.json config delete --pointer /grants/0 --expect-sha256 "<sha256 from get>"
+cquay --config cquay.json config replace --file complete-policy.json --expect-sha256 "<sha256 from get>"
+```
+
+`set` accepts exactly one JSON value through `--value-json` or `--value-file
+PATH`; `--value-file -` reads standard input. `delete` requires an existing
+non-root pointer. `replace --file PATH|-` accepts a complete JSON policy and,
+unlike `set` or `delete`, can create a missing policy. Inputs are capped at 1
+MiB. A candidate must strict-decode and pass `policy.Parse`; writes lock the
+policy, recheck the digest, and atomically replace the protected file. `init`
+is not repeatable when its output exists; `get`, `list`, and `validate` are
+read-only; formatting and replacing the same complete document have the same
+canonical document result, while a repeated delete fails after removal.
+
+The editor does not retrieve provider values or expand paths. It deliberately
+accepts JSON only: JSON and YAML can be loaded to run a policy, but YAML cannot
+be edited through `config`. Do not pass credential values by `--value-json`;
+they are command-line-visible. Put them in a declared provider and use
+`--value-file -` for non-secret structured declarations when standard input is
+the safer transport.
+
+`cquay --config PATH doctor` checks the selected declaration and declared
+executables without retrieving values, networking, or changing services. A
+missing or unsafe configuration returns non-zero. `doctor --identity-only`
+returns the local kernel-derived grant subject without checking configuration.
+`doctor --fix` only rewrites an already-valid protected JSON policy in canonical
+format; it is idempotent and does not repair policy meaning, providers,
+identities, services, or deployment state.
+
 ## Root fields
 
 | Field | Type and required state | Meaning and constraints |
@@ -58,6 +103,25 @@ access boundaries differ.
 `akeyless`, and `onepassword`. Current adapter and identity limits are in
 [provider interoperability](providers.md) and
 [credential boundaries](credential-boundaries.md).
+
+Only the field combinations below are accepted; non-empty fields outside an
+adapter's listed contract are rejected before provider I/O. `audit_verified`
+is an additional declaration accepted for every source. Paths become absolute
+relative to the policy during loading.
+
+| Source type | Required contract | Optional accepted fields |
+| --- | --- | --- |
+| `json` | `path` | `identity: ""` or `none` only. |
+| `env` | non-empty `resources` | `path`; `identity: ""` or `none` only. |
+| `sops` | `path`, absolute `sops`, and either an age identity with `identity: none`/empty, or Transit `token_file` with `identity: token_file`, `vault_allowlist`, and `vault_keys` | The selected decryption authority only. Age and Transit authority cannot be mixed. |
+| `openbao`, `vault` | HTTPS `endpoint`, `mount`, `resources`, `identity: token_file`, `token_file` | `namespace`. |
+| `doppler` | `project`, `environment`, `resources`, `identity: token_file`, `token_file` | HTTPS `endpoint`. |
+| `infisical` | `project`, `environment`, `path`, `resources`, `identity: token_file`, `token_file` | HTTPS `endpoint`. |
+| `akeyless` | `resources`, `identity: token_file`, `token_file` | HTTPS `endpoint`. |
+| `bitwarden`, `onepassword` | absolute executable `path`, `project`, `resources`, `identity: token_file`, `token_file` | None. 1Password Environments are unsupported. |
+| `aws-sm`, `aws-ssm` | `account`, `region`, `resources`, `identity: ec2` or `ecs` | None. |
+| `azure` | HTTPS `endpoint`, `account`, `profile`, `resources`, plus either `identity: managed` without a token or `identity: workload` with `token_file` | None. |
+| `gcp` | non-default `account`, `project`, `resources`, `identity: metadata` | None. |
 
 | Field | Type | Required or valid when | Meaning and constraints |
 | --- | --- | --- | --- |
@@ -136,13 +200,22 @@ Target IDs use the root ID rule. `type` is required and is one of `file`,
 | Field | Type | Meaning and constraints |
 | --- | --- | --- |
 | `type` | string | Projection adapter. Platform and provider qualification remains separate. |
-| `path` | string path | Native file, systemd encrypted-credential, or Windows DPAPI projection path; provider-specific binding name where supported. |
-| `endpoint` | string URL | Explicit HTTPS provider endpoint where supported; no credentials in the URL. |
-| `account`, `project`, `environment`, `resource` | strings | Exact destination selectors required by the relevant cloud target. |
+| `path` | string path | Required absolute destination for `file`, `systemd`, and `windows`; optional destination binding name for Cloudflare/Netlify; rejected for Windmill. |
+| `endpoint` | string URL | Required HTTPS Windmill endpoint; optional HTTPS Cloudflare/Netlify API override; no credentials in the URL. |
+| `account`, `project`, `environment`, `resource` | strings | Exact destination selectors; required combinations are listed below. |
 | `token_file` | string path | Protected destination bootstrap credential reference for cloud publication. |
 | `accept_snapshot` | boolean | Must be `true` for every target, acknowledging it receives a deployed static copy. |
 | `service` | string | Native systemd/Windows service name, required when activation is `restart` or `reload`. |
-| `activation` | `""`, `none`, `restart`, or `reload` | Optional native action. `restart`/`reload` are valid only for `systemd` or `windows`; Windows reload is unsupported at execution time. |
+| `activation` | `none`, `restart`, or `reload` | `restart` requires `service`; `reload` is systemd-only. Omit activation and service together when no native action is required. |
+
+`file` accepts only an absolute `path`. `systemd` accepts an absolute `path` and
+optional `restart` or `reload` with `service`. `windows` accepts an absolute
+`path`, an optional Service-SID `resource`, and optional `restart` with
+`service`; reload is rejected. `cloudflare` requires `account`, `resource`,
+and an absolute `token_file`. `netlify` requires `account`, `project`,
+`environment`, and an absolute `token_file`. `windmill` requires HTTPS
+`endpoint`, `project`, `resource`, and an absolute `token_file`. Unsupported
+fields for a target are rejected rather than ignored.
 
 For a `systemd` target, `path` is the encrypted credential file and its basename
 is the credential name. The consuming unit must be separately configured with
