@@ -24,17 +24,15 @@ func TestLinuxQuotaABISizesAndBlockConversion(t *testing.T) {
 	}
 }
 
-func TestStatusForDirectoryRequiresFlagsAndReadsCurrentUIDQuota(t *testing.T) {
+func TestStatusForDirectoryRequiresFlagsAndReadsCurrentEffectiveUIDQuota(t *testing.T) {
 	control := func(_ int, command, id int, address unsafe.Pointer) error {
 		switch command {
 		case qXGetQStatV:
 			stat := (*quotaStatV)(address)
 			stat.Flags = fsQuotaUserAccount | fsQuotaUserEnforced
 		case qXGetQuota:
-			if id != int((*diskQuota)(address).ID) {
-				t.Fatal("quota query did not use disk quota identity")
-			}
 			disk := (*diskQuota)(address)
+			assertCurrentEffectiveQuotaID(t, id, disk)
 			disk.BlockHardLimit = 4
 			disk.BlockCount = 2
 			disk.InodeHardLimit = 7
@@ -50,6 +48,16 @@ func TestStatusForDirectoryRequiresFlagsAndReadsCurrentUIDQuota(t *testing.T) {
 	}
 	if status.HardBytes != 2048 || status.UsedBytes != 1024 || status.HardInodes != 7 || status.UsedInodes != 3 || !status.UserEnforced {
 		t.Fatalf("unexpected quota status: %#v", status)
+	}
+}
+
+func assertCurrentEffectiveQuotaID(t *testing.T, id int, disk *diskQuota) {
+	t.Helper()
+	if id != os.Geteuid() {
+		t.Fatalf("quota query identity = %d, want effective UID %d", id, os.Geteuid())
+	}
+	if id != int(disk.ID) {
+		t.Fatal("quota query did not use disk quota identity")
 	}
 }
 
@@ -73,12 +81,23 @@ func TestQuotaUserIDRejectsUnrepresentableIdentities(t *testing.T) {
 
 func TestStatusForDirectoryRejectsUnrepresentableIdentityBeforeQuery(t *testing.T) {
 	called := false
-	_, err := statusForDirectoryWithIdentity(9, -1, func(int, int, int, unsafe.Pointer) error {
+	_, err := statusForDirectoryWithIdentity(9, -1, -1, func(int, int, int, unsafe.Pointer) error {
 		called = true
 		return nil
 	})
 	if !errors.Is(err, ErrUnsupported) || called {
 		t.Fatalf("invalid identity result = %v, called = %t", err, called)
+	}
+}
+
+func TestStatusForDirectoryRejectsMismatchedIdentityBeforeQuery(t *testing.T) {
+	called := false
+	_, err := statusForDirectoryWithIdentity(9, 1000, 1001, func(int, int, int, unsafe.Pointer) error {
+		called = true
+		return nil
+	})
+	if !errors.Is(err, ErrPrivileged) || called {
+		t.Fatalf("mismatched identity result = %v, called = %t", err, called)
 	}
 }
 
@@ -133,6 +152,9 @@ func TestValidateIdentityRejectsRootAndQuotaBypassCapability(t *testing.T) {
 	clean := []byte("CapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapAmb:\t0000000000000000\n")
 	if err := validateIdentity(1000, 1000, clean); err != nil {
 		t.Fatalf("unprivileged identity rejected: %v", err)
+	}
+	if err := validateIdentity(1000, 1001, clean); !errors.Is(err, ErrPrivileged) {
+		t.Fatalf("mismatched identity accepted: %v", err)
 	}
 	if err := validateIdentity(0, 1000, clean); !errors.Is(err, ErrPrivileged) {
 		t.Fatalf("real root accepted: %v", err)

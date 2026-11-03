@@ -10,7 +10,7 @@ Use an absolute verified executable and protected policy:
 cquay --config /absolute/path/policy.json mcp serve --transport stdio
 ```
 
-Use the client-specific configuration method, with no bootstrap secret values in the client command or manifest. The effective subject comes from the kernel identity: `local:uid:<numericUID>` on Linux/Android and `local:sid:<SID>` on Windows. Copy the `local_subject` reported by `cquay doctor`; a display name, `USER` environment variable or caller-supplied agent name does not establish identity. Agents sharing one OS identity are not strongly separated; use separate OS users/sandboxes or authenticated service connections when needed.
+Use the client-specific configuration method, with no bootstrap secret values in the client command or manifest. The effective subject comes from the kernel identity: `local:uid:<numericUID>` on Linux/Android and `local:sid:<SID>` on Windows. Copy the `local_subject` reported by `cquay doctor`; a display name, `USER` environment variable or caller-supplied agent name does not establish identity. Agents sharing one OS identity are not strongly separated; use separate OS users/sandboxes or authenticated service connections when needed. Read-only shared use is allowed only within that trust boundary. An MCP action that can run untrusted code still requires an exact raw-read grant for every disclosure; action permission alone never releases a value.
 
 The [synthetic policy](../../examples/mcp-local.json) shows an exact key read grant. Its UID is a placeholder; replace it with the observed identity before use. It grants no action execution and contains no operational credential.
 

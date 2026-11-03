@@ -66,7 +66,7 @@ func readCapabilityStatus() []byte {
 }
 
 func validateIdentity(realUID, effectiveUID int, status []byte) error {
-	if realUID == 0 || effectiveUID == 0 {
+	if realUID == 0 || effectiveUID == 0 || realUID != effectiveUID {
 		return ErrPrivileged
 	}
 	sets, ok := capabilitySets(status)
@@ -126,17 +126,20 @@ func (nativeProvider) Status(path string) (Status, error) {
 }
 
 func statusForDirectory(directory int) (Status, error) {
-	return statusForDirectoryWithIdentity(directory, os.Getuid(), quotaControl)
+	return statusForDirectoryWithIdentity(directory, os.Getuid(), os.Geteuid(), quotaControl)
 }
 
 type quotaControlFunc func(int, int, int, unsafe.Pointer) error
 
 func statusForDirectoryWithControl(directory int, control quotaControlFunc) (Status, error) {
-	return statusForDirectoryWithIdentity(directory, os.Getuid(), control)
+	return statusForDirectoryWithIdentity(directory, os.Getuid(), os.Geteuid(), control)
 }
 
-func statusForDirectoryWithIdentity(directory, uid int, control quotaControlFunc) (Status, error) {
-	quotaID, err := quotaUserID(uid)
+func statusForDirectoryWithIdentity(directory, realUID, effectiveUID int, control quotaControlFunc) (Status, error) {
+	if realUID != effectiveUID {
+		return Status{}, ErrPrivileged
+	}
+	quotaID, err := quotaUserID(effectiveUID)
 	if err != nil {
 		return Status{}, err
 	}

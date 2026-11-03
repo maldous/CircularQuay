@@ -323,6 +323,7 @@ func TestAcceptedPointerStrictAndProtected(t *testing.T) {
 func TestSignedRepositoryAcceptanceAndRollback(t *testing.T) {
 	fixture := newSignedRepositoryFixture(t)
 	first := fixture.writeCommit(t, `{"value":"synthetic-first"}`, true)
+	fixture.probeTrustedVerifier(t, first)
 	repo := fixture.repository(first)
 	installSyntheticTransport(t, repo, fixture)
 	accepted := fetchRepository(t, repo)
@@ -498,7 +499,7 @@ func (f signedRepositoryFixture) writeCommit(t *testing.T, value string, sign bo
 		t.Fatal(err)
 	}
 	f.invoke(t, f.git, "add", "--", "values.json")
-	args := []string{"-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "gpg.format=ssh", "-c", "gpg.ssh.program=" + f.sshKeygen, "-c", "user.signingkey=" + f.key, "commit", "--quiet", "-m", "synthetic data"}
+	args := []string{"-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "gpg.format=ssh", "-c", "user.signingkey=" + f.key, "commit", "--quiet", "-m", "synthetic data"}
 	if sign {
 		args = append(args, "-S")
 	} else {
@@ -551,16 +552,86 @@ func installSyntheticTransport(t *testing.T, repo model.Repository, fixture sign
 }
 
 func (f signedRepositoryFixture) verifyFailureDiagnostic(environment, args []string) string {
+	message, err := f.boundedCommandOutput(f.git, environment, args...)
+	return fmt.Sprintf("rerun_error=%v output=%q", err, message)
+}
+
+// probeTrustedVerifier isolates the native SSH verification boundary before
+// repository transport, rollback, and materialization assertions run. It uses
+// Git's environment-backed configuration mechanism, matching production's
+// protected verifier selection without placing credentials in the subprocess.
+func (f signedRepositoryFixture) probeTrustedVerifier(t *testing.T, commit string) {
+	t.Helper()
+	signature := f.commitSignature(t, commit)
+	path := filepath.Join(f.root, "commit.sshsig")
+	writeProtectedRepositoryFixture(t, path, []byte(signature))
+	environment := gitConfigEnvironment(f.environment, [][2]string{
+		{"gpg.format", "ssh"},
+		{"gpg.ssh.allowedSignersFile", f.signers},
+		{"gpg.ssh.program", f.sshKeygen},
+	})
+	gitOutput, gitErr := f.boundedCommandOutput(f.git, environment, "verify-commit", commit)
+	keygenOutput, keygenErr := f.boundedCommandOutput(f.sshKeygen, f.environment, "-Y", "find-principals", "-f", f.signers, "-s", path)
+	if gitErr != nil || keygenErr != nil || !strings.Contains(keygenOutput, "fixture") {
+		t.Fatalf("trusted SSH verification probes failed: git=%s err=%v output=%q; ssh_keygen=%s err=%v output=%q", filepath.Base(f.git), gitErr, gitOutput, filepath.Base(f.sshKeygen), keygenErr, keygenOutput)
+	}
+}
+
+func (f signedRepositoryFixture) commitSignature(t *testing.T, commit string) string {
+	t.Helper()
+	data := f.invoke(t, f.git, "cat-file", "commit", commit)
+	lines := strings.Split(data, "\n")
+	start := sshSignatureStart(lines)
+	if start >= 0 {
+		if signature, complete := collectSSHSignature(lines[start:]); complete {
+			return signature
+		}
+	}
+	t.Fatal("synthetic signed commit has no complete SSH signature")
+	return ""
+}
+
+func sshSignatureStart(lines []string) int {
+	const firstLine = "gpgsig -----BEGIN SSH SIGNATURE-----"
+	for index, line := range lines {
+		if line == firstLine {
+			return index
+		}
+	}
+	return -1
+}
+
+func collectSSHSignature(lines []string) (string, bool) {
+	const lastLine = "-----END SSH SIGNATURE-----"
+	var signature strings.Builder
+	signature.WriteString(strings.TrimPrefix(lines[0], "gpgsig "))
+	signature.WriteByte('\n')
+	for _, continuation := range lines[1:] {
+		if !strings.HasPrefix(continuation, " ") {
+			return "", false
+		}
+		line := strings.TrimPrefix(continuation, " ")
+		signature.WriteString(line)
+		signature.WriteByte('\n')
+		if line == lastLine {
+			return signature.String(), true
+		}
+	}
+	return "", false
+}
+
+func (f signedRepositoryFixture) boundedCommandOutput(program string, environment []string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, f.git, args...)
+	command := exec.CommandContext(ctx, program, args...)
 	command.Env = environment
+	command.Dir = f.remote
 	output := &limitedOutput{remaining: 4096}
 	command.Stdout = output
 	command.Stderr = output
 	err := command.Run()
 	message := strings.ReplaceAll(output.buffer.String(), f.root, "<synthetic-fixture>")
-	return fmt.Sprintf("rerun_error=%v output=%q", err, message)
+	return message, err
 }
 
 func fetchRepository(t *testing.T, repo model.Repository) string {

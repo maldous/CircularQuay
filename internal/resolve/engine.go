@@ -101,18 +101,6 @@ func (e *Engine) readGeneration(ctx context.Context, id string, w model.Workload
 	return g, nil
 }
 
-func validateFreshGeneration(workload model.Workload, generation model.Generation, now time.Time, auditRequired bool) error {
-	if err := validateGeneration(workload, generation, now); err != nil {
-		return err
-	}
-	for _, value := range generation.Values {
-		if err := validateValue(value, now, auditRequired); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (e *Engine) readBinding(ctx context.Context, g *model.Generation, binding model.Binding, auditRequired bool) error {
 	if err := checkCancellation(ctx); err != nil {
 		return err

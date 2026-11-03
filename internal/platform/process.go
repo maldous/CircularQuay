@@ -25,13 +25,13 @@ func Run(ctx context.Context, work model.Workload, gen model.Generation, overrid
 
 // RunWithIO permits an MCP caller to discard application output explicitly.
 func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	args, env, err := launchInputs(work, gen, override)
+	args, env, directory, err := launchInputs(work, gen, override)
 	if err != nil {
 		return 0, err
 	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Env = env
-	cmd.Dir = work.Directory
+	cmd.Dir = directory
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
 	if err := cmd.Run(); err != nil {
 		if exit, ok := err.(*exec.ExitError); ok {
@@ -42,30 +42,34 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 	return 0, nil
 }
 
-func launchInputs(work model.Workload, gen model.Generation, override []string) ([]string, []string, error) {
+func launchInputs(work model.Workload, gen model.Generation, override []string) ([]string, []string, string, error) {
 	args := work.Command
 	if len(override) != 0 {
 		args = override
 	}
 	if !validExecutable(args) {
-		return nil, nil, fault.New(fault.Invalid, "absolute executable required")
+		return nil, nil, "", fault.New(fault.Invalid, "absolute executable required")
 	}
 	if err := ValidateExecutable(args[0]); err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	if len(override) == 0 && work.CommandSHA256 != "" {
 		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
-			return nil, nil, err
+			return nil, nil, "", err
 		}
 	}
 	env, err := Environment(work.Environment, gen)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	if !generationCurrent(gen) {
-		return nil, nil, fault.New(fault.Expired, "generation expired before launch")
+		return nil, nil, "", fault.New(fault.Expired, "generation expired before launch")
 	}
-	return args, env, nil
+	directory, err := launchDirectory(work, gen, args[0], env)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return args, env, directory, nil
 }
 
 func generationCurrent(gen model.Generation) bool {

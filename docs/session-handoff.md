@@ -23,8 +23,8 @@ The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
 The current frozen local batch is recorded in
-`.local/qualification/checkpoint7-20261104/` and is based on the published
-`41a8` checkpoint; its retained source manifest identifies the checked bytes. Its
+`.local/qualification/checkpoint10-20261104/` and is based on the published
+`e553` checkpoint; its retained source manifest identifies the checked bytes. Its
 before/after manifests for Go, JSON, workflows, and canonical model fences are
 identical. Whole-repository normal/race tests, vet, Staticcheck, formatting,
 module tidy/verification, cyclomatic and cognitive-complexity/workflow checks,
@@ -135,9 +135,21 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
-Historical checkpoint6 receipts remain under
-`.local/qualification/checkpoint6-20261104/`; do not treat them as the current
-batch. The current frozen-source receipt is
+Checkpoint10 receipts are retained under
+`.local/qualification/checkpoint10-20261104/`. Whole-repository normal/race tests,
+vet, Staticcheck, formatting, tidy-diff/module verification, cyclomatic and
+exact-recursion cognitive ceilings of 10, actionlint, and 12 Windows test
+compilations passed with identical before/after source manifests. Merged
+whole-module statement coverage is 4,899/5,765 (84.9783%), below 100%. An earlier
+checkpoint8 diagnostic-helper complexity failure is retained; the refactored
+helper passed checkpoint9 without changing the ceiling. Checkpoint10 includes
+explicit DPAPI input/output bounds: Windows gosec no longer reports the two
+length-conversion findings. Its nine remaining G103/G204 findings are retained;
+they are distinct from the Linux lane's nine findings. Windows/macOS cross-static
+checks do not establish native execution.
+
+Historical checkpoint6 and checkpoint7 receipts remain retained. The earlier
+checkpoint7 source receipt is
 `.local/qualification/checkpoint7-20261104/`, with identical before/after
 manifests for Go, JSON, workflows, and canonical model fences. These are local
 evidence, not release evidence.
@@ -168,9 +180,30 @@ The same checks correctly reject a `.local` temporary directory with an unsafe
 After source changes, run the applicable checks from protected temporary
 storage and retain exact command, tool version, revision/tree state, and result.
 The source-profile 100% owned-code coverage gate remains unchanged and is not
-met by checkpoint7 or the last published CI receipt.
+met by checkpoint10 or the last published CI receipt.
 
 ## Qualification and release blockers
+
+Published candidate `e55327d513b0753ce08ae82adffbc4cb3cd5d2d4` has exact tree
+`1523d6ac067ef94270bd015fa60ad296f086f021`. Native Linux/macOS, all 26
+cross-builds, and CodeQL passed; native Windows failed, and the explicit
+verifier hypothesis was refuted. gosec still has nine findings. Its Sonar CE
+task `bb229fa5-0bb7-4db0-bb8e-f88b9f6d99c1` succeeded with analysis
+`50ea05ae-0367-4ca7-aa16-e5111349b6c4` and zero open issues, but the quality
+gate is ERROR at 79.1% overall and 83.4% new coverage; the receipt also warns
+that its token expires 2026-11-10. This is not a pass.
+
+The sealed `e553` managed scan retained eight validated findings: one high
+(auditor-host execution), five medium (assurance binding/PATH, SIGTERM, Windows
+DLL, and fresh-scope controls), and two low (UID and DPAPI ACL). Its completeness
+is partial and it is not an audit pass. Three assurance issues remain open;
+keep sensitive paths in the owner-held report.
+
+The captured remediation batch adds live-generation-versus-snapshot, legacy-state,
+mixed-UID, DPAPI staging ACL, Windows protected-loader-directory, SIGTERM, and
+MCP base-context/active-HTTP-cancellation fixes. Focused tests and cross-builds
+passed, but fresh whole-module, native, Sonar, and independent audit evidence is
+still required. Do not claim every audit finding is fixed.
 
 The Compute Engine task
 `e52a9f8f-b66c-48f2-8a8b-425a533cab12` for revision

@@ -39,7 +39,10 @@ for the current native-storage boundary.
 Unless `--state-dir PATH` is supplied, cquay stores its private runtime
 metadata below the operating system's user configuration directory, in
 `cquay/state` (that is, `os.UserConfigDir()/cquay/state`). This location is
-separate from the policy and from repository state declared in the policy.
+separate from the policy and from repository state declared in the policy. The
+default fails closed when the legacy `circularquay/state` directory exists or
+cannot be inspected; cquay neither deletes nor migrates it. Select and protect
+an explicit `--state-dir` to retain the intended isolation boundary.
 
 The policy itself records names, locations, resource selectors, and grants. A
 selected `field` minimizes delivery, but does not reduce an upstream provider
@@ -164,8 +167,8 @@ not expand shell syntax. An explicit binding `version` is accepted only for
 | `environment` | object string-to-string, optional | Literal non-secret base environment. Names must be valid and cannot collide case-insensitively with bindings or protected bootstrap names. |
 | `command` | string array, optional | Absolute program and arguments for `run`; no shell evaluation. Empty is valid for projection-only policies. |
 | `command_sha256` | 64 lowercase hex characters, optional | Exact executable identity check for the declared command. Compute it from the installed reviewed executable; do not use a placeholder digest. MCP `run` requires both a command and this digest. |
-| `untrusted_code` | boolean, optional, default `false` | Records that the workload may execute untrusted code. It does not reduce authorization or create a sandbox. |
-| `directory` | string path, optional | Working directory for the declared command. |
+| `untrusted_code` | boolean, optional, default `false` | Records that the workload may execute untrusted code. It does not reduce authorization or create a sandbox. A Windows secret-bearing run requires this to be `false`. |
+| `directory` | string path, optional | Working directory for the declared command. A secret-bearing run requires a protected working directory, executable directory, and every directory searched through `PATH`. |
 | `snapshot` | object, optional | Explicit encrypted offline/hybrid snapshot declaration below. `online` workloads cannot set `snapshot.path`. |
 | `targets` | object map, optional | Named one-way projection targets below. All bindings must set `allow_publish`, and each target must set `accept_snapshot: true`. |
 | `audit_required` | boolean, optional, default `false` | Requires every source used by the workload to declare `audit_verified`. It also forbids offline mode and snapshot export. |

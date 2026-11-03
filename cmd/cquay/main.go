@@ -3,13 +3,24 @@ package main
 
 import (
 	"context"
-	"github.com/maldous/CircularQuay/internal/cli"
 	"os"
 	"os/signal"
+	"runtime"
+	"syscall"
+
+	"github.com/maldous/CircularQuay/internal/cli"
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := rootSignalNotifyContext(context.Background())
 	defer cancel()
 	os.Exit(cli.Runner{}.Run(ctx, os.Args[1:]))
+}
+
+func rootSignalNotifyContext(parent context.Context) (context.Context, context.CancelFunc) {
+	signals := []os.Signal{os.Interrupt}
+	if runtime.GOOS != "windows" {
+		signals = append(signals, syscall.SIGTERM)
+	}
+	return signal.NotifyContext(parent, signals...)
 }

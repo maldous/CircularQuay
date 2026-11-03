@@ -81,17 +81,30 @@ func runMCPHTTP(ctx context.Context, configuredAddress string, service *cqmcp.Se
 	if !loopback(host) && (options.cert == "" || options.key == "") {
 		return 0, fault.New(fault.Trust, "public MCP requires TLS")
 	}
-	s := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 32 << 10}
 	// Listener errors must release the shutdown waiter even when the caller's
 	// context remains live. The child also retains ordinary request cancellation.
 	listenerContext, cancel := context.WithCancel(ctx)
 	defer cancel()
+	s := configuredMCPHTTPServer(listenerContext, address, handler)
 	shutdownMCPServerOnCancel(listenerContext, s)
 	err = listenMCPServer(s, options)
 	if err != nil && err != http.ErrServerClosed {
 		return 0, fault.New(fault.Apply, "mcp listener")
 	}
 	return 0, nil
+}
+
+func configuredMCPHTTPServer(listenerContext context.Context, address string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              address,
+		Handler:           handler,
+		BaseContext:       func(net.Listener) context.Context { return listenerContext },
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      65 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		MaxHeaderBytes:    32 << 10,
+	}
 }
 
 func shutdownMCPServerOnCancel(ctx context.Context, server *http.Server) {

@@ -27,6 +27,30 @@ func validVersion(version string) bool {
 	return !strings.ContainsFunc(version, unicode.IsControl)
 }
 
+// validateFreshGeneration checks a complete provider generation without applying
+// snapshot-export restrictions. Live values may be leased, renewable, or bound
+// to a declaration that explicitly forbids offline use; Snapshot enforces those
+// stricter rules separately before it writes an offline artifact.
+func validateFreshGeneration(workload model.Workload, generation model.Generation, now time.Time, auditRequired bool) error {
+	if !completeGeneration(workload, generation, now) {
+		return fault.New(fault.Trust, "fresh generation")
+	}
+	for index, binding := range workload.Bindings {
+		value, found := generation.Values[binding.Name]
+		if !found {
+			return fault.New(fault.Trust, "fresh generation")
+		}
+		receipt := generation.Receipts[index]
+		if receipt.Source != binding.Source || receipt.Resource != binding.Resource || receipt.Version != value.Version {
+			return fault.New(fault.Trust, "fresh provenance")
+		}
+		if err := validateValue(value, now, auditRequired); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func validateGeneration(w model.Workload, g model.Generation, now time.Time) error {
 	if !completeGeneration(w, g, now) {
 		return fault.New(fault.Trust, "snapshot generation")

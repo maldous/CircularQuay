@@ -142,6 +142,10 @@ func (a application) store() (state.Store, error) {
 		if err != nil {
 			return state.Store{}, fault.New(fault.Apply, "state directory")
 		}
+		legacy := filepath.Join(home, "circularquay", "state")
+		if _, err = os.Lstat(legacy); err == nil || !os.IsNotExist(err) {
+			return state.Store{}, fault.New(fault.Trust, "legacy state directory")
+		}
 		dir = filepath.Join(home, "cquay", "state")
 	}
 	return state.Store{Directory: dir}, nil
