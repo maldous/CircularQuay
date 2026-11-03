@@ -22,12 +22,37 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-Last published checkpoint `bfaa66cc116093588dd1053a301bdf90a8ecef28` has tree
-`0afc2f5f7fcaf00f1547b29f849540cf78cfc89f`. Public readback verified all 37
-changed files and preserved all 256 working files. Native Linux, macOS and
-Windows tests, all 26 cross-builds and CodeQL passed. Synthetic merge
-`3be5764a6b551982bfa4962fc7c35a8c7000df2f` has the same tree. Coverage and
-gosec still fail; retain `.local/qualification/ci-bfaa66-native-cross.json`.
+Last published checkpoint `2d1f1003d7c720f8d1ee5884ec576786358548c2` has tree
+`214921fc8eaa2a4e5d995ae2cc224ebcca23d847`. Public readback verified all 29
+changed files and preserved all 266 working files with a clean checkout.
+Exact native CI found failures: source assurance rejects its manifest before
+checks (`tool_manifest_invalid`, 0/0 is not measured coverage); Windows fails
+the environment and post-read name-fence fixtures; macOS fails two drift
+fixtures at a symbolic private-directory path. Do not describe these failures
+as coverage-only. The workflow provisioning and native fixtures are being
+corrected in separate bounded checkouts without relaxing native protections.
+CodeQL passes and actual Linux gosec still reports eight unsuppressed findings.
+
+Exact-head Sonar CE `8ef2b1a0-9fd1-4c4a-8901-79fd23036f14` succeeded with
+analysis `4109f6f5-d61d-4388-962e-44b2f8ab8bcc` and the requested SCM revision.
+The four bfaa issues are absent. Gate ERROR reports 78.3% overall / 79.7% new
+coverage plus one go:S1192 duplicated-literal finding in flow.go. Root replaced
+that repeated operation label with a named constant; exact later scan is
+required for closure. Fresh statements match 5,953/7,055 (84.37987%). Current
+analysis and hotspot-list APIs still return 403; retain that limit and the
+prior Nov10 token-expiry warning. See `.local/sonar/summary-2d1f1003d7c7.txt`.
+
+Managed scan `8341c847-cb2c-4f6c-92f9-2d99de58e3e9` sealed the entire
+29-file `bfaa66c` → `2d1f100` diff with zero findings/candidates and complete
+coverage. Focused assurance validation passed; separate CLI/MCP validation
+was limited by protected temporary-directory trust failures. This remains a
+diff review, not a complete production audit.
+
+Previous published checkpoint `bfaa66cc116093588dd1053a301bdf90a8ecef28`
+has tree `0afc2f5f7fcaf00f1547b29f849540cf78cfc89f`; its native Linux/macOS/
+Windows, all 26 cross-builds and CodeQL passed. Its synthetic merge
+`3be5764a6b551982bfa4962fc7c35a8c7000df2f` has the same tree. Those results
+do not qualify 2d1f or later edits. Retain `ci-bfaa66-native-cross.json`.
 
 The exact-head scanner uploaded its report with the requested SCM revision.
 CE `f8564a8c-d33e-470a-a829-a9b2558305dd` succeeded and returned analysis
@@ -139,6 +164,35 @@ Retain `.local/qualification/checkpoint22-20261104/`,
 `checkpoint22-final-static-20261104`, `checkpoint22-workflow-security`, and
 `workflow-manifest-auditor-green-20261104`. Publication and exact-revision
 readback remain separate guarded steps.
+
+Frozen local checkpoint23 passes all 31 recorded checks with identical source
+manifests after the fixture, provisioning and duplicated-label fixes. Native
+statement coverage is unchanged at 5,953/7,055 (84.37987%); scoped gosec still
+fails eight Linux/nine Windows findings with zero Go errors/suppressions.
+No threshold or platform guard was relaxed. Windows/Darwin compilation is
+not native proof; the actual next-candidate CI must confirm the fixes.
+
+The old shared writable tool layout was reproduced as `tool_manifest_invalid`
+with no coverage. A private copied full Go distribution/Git layout rebuilt
+the actual auditor with the copied compiler and passed a real poisoned-PATH
+tiny source audit (1/1 fixture statements). These are fixture receipts, not
+CircularQuay's coverage gate. Root also checked the pinned setup-go source:
+for modern Go it adds PATH and does not export GOROOT. The workflow derives
+the canonical distribution from that PATH and passes copied GOROOT only to
+children. Selection tests pass with both absent and stale ambient GOROOT.
+Offline strict/no-ignore zizmor auditor collection reports zero findings.
+Retain `checkpoint23-20261104`, `checkpoint23-static-20261104`,
+`checkpoint23-workflow-security`, `audit-runner-provisioning-20261104`, and
+`setup-go-path-contract-20261104` under `.local/qualification`.
+
+The host filesystem exhausted space during an isolated worker's extra test.
+Root cleared only this checkout's disposable `.local/cache/gobuild` using
+pinned `go clean -cache`, freeing about 16 GiB; every working source byte,
+module cache and retained receipt was preserved. No unrelated data, service
+or system configuration was touched. The subsequent full capture passed.
+The intermediate capture with a workflow-only source-fence change is retained
+as `checkpoint23-20261104-before-setup-go-path-contract`; it is not the final
+combined qualification.
 
 ## Latest bounded documentation result
 
@@ -514,12 +568,21 @@ signed repository runtime is wired into `sync`, including `FetchCurrent` and
 its offline/fallback guards. That integration is not deployment qualification:
 quota, recovery, native, and adverse-path evidence remain required.
 
-GitHub protections currently have four required GitHub Actions checks bound;
-code scanning is configured as `Any` / `Any`, tag rules are active, and the
-advanced CodeQL source workflow has completed after the user-approved switch
-from default setup. Verify settings by read-back after any administrative change. Earlier
-administrative writes returned HTTP 403; record permission gaps rather than
-bypassing them.
+Actual GitHub ruleset readback confirms active Gitflow branch protections
+with four required Actions checks, one approval, stale-review dismissal,
+last-push approval and thread resolution, no bypass actors, plus active
+immutable `v*` tag rules. The fetched ruleset does not include a code-scanning
+rule or required Go security/CodeQL status. The earlier `Any` / `Any` UI note
+is not sufficient evidence of enforcement. Legacy branch-protection reads
+for main/develop both return 403 from the integration; do not infer those
+settings. The read-only browser fallback failed before navigation with an undefined
+`timeoutMs` binding, so remaining enforcement/metadata cannot be inferred
+from UI state. No administrative change was made. Issues, Projects, Wiki and Discussions are enabled;
+repository description/topics are empty. Advanced CodeQL has run following
+the user-approved switch. Retain
+`.local/qualification/github-hardening-readback-2d1f-20261104.json`. Earlier
+administrative writes returned 403; preserve permission gaps without creating
+broad credentials or claiming that committed settings are enforced.
 
 The current continuation adds exclusive protected file creation for `init` and
 Sonar test credentials: it validates the parent, anchors creation through

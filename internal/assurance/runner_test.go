@@ -269,8 +269,10 @@ func TestAuditEnvironmentDoesNotInheritCredentials(t *testing.T) {
 	t.Setenv("GH_TOKEN", "never-inherit")
 	t.Setenv("VAULT_TOKEN", "never-inherit")
 	t.Setenv("PATH", "/synthetic/bin")
-	env := strings.Join(auditEnvironment("/private/home"), "\n")
-	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") || !strings.Contains(env, "GOWORK=off") || !strings.Contains(env, "GOENV=off") || !strings.Contains(env, "GOTMPDIR=/private/tmp") || !strings.Contains(env, "-mod=readonly") || !strings.Contains(env, "GIT_NO_REPLACE_OBJECTS=1") || !strings.Contains(env, "GIT_CONFIG_NOSYSTEM=1") {
+	home := filepath.Join(t.TempDir(), "home")
+	temporary := filepath.Join(filepath.Dir(home), "tmp")
+	env := strings.Join(auditEnvironment(home), "\n")
+	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") || !strings.Contains(env, "GOWORK=off") || !strings.Contains(env, "GOENV=off") || !strings.Contains(env, "GOTMPDIR="+temporary) || !strings.Contains(env, "-mod=readonly") || !strings.Contains(env, "GIT_NO_REPLACE_OBJECTS=1") || !strings.Contains(env, "GIT_CONFIG_NOSYSTEM=1") {
 		t.Fatal("unsafe test environment")
 	}
 }

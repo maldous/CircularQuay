@@ -517,7 +517,7 @@ func TestToolInputOverlapAndPostReadNameFence(t *testing.T) {
 		t.Fatal("path overlap relation incorrect")
 	}
 	path := writeRuleInput(t, filepath.Join(root, "input"), "before")
-	file, err := platform.OpenProtected(path, true)
+	file, err := openFixtureRuleInputForReplacement(path)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,10 @@ import (
 	"github.com/maldous/CircularQuay/internal/policy"
 )
 
-const temporaryFlowPolicy = "policy.json"
+const (
+	temporaryFlowPolicy          = "policy.json"
+	flowTemporaryPolicyOperation = "flow temporary policy"
+)
 
 var newFlowTempDir = os.MkdirTemp
 
@@ -93,7 +96,7 @@ func (a application) flowRemote(ctx context.Context, options flowOptions, runner
 	}
 	directory, err := newFlowTempDir(parent, "cquay-flow-")
 	if err != nil {
-		return 0, fault.New(fault.Apply, "flow temporary policy")
+		return 0, fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
 	defer os.RemoveAll(directory)
 	if err = platform.EnsurePrivateDirectory(directory); err != nil {
@@ -170,11 +173,11 @@ func flowEnvironmentSourcePresent() bool {
 func flowTemporaryParent() (string, error) {
 	parent, err := filepath.EvalSymlinks(os.TempDir())
 	if err != nil {
-		return "", fault.New(fault.Apply, "flow temporary policy")
+		return "", fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
 	parent, err = filepath.Abs(parent)
 	if err != nil {
-		return "", fault.New(fault.Apply, "flow temporary policy")
+		return "", fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
 	return parent, nil
 }

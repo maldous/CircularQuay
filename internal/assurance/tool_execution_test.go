@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func TestQualifiedToolsRejectsDigestBeforeVersionProbe(t *testing.T) {
@@ -76,10 +74,7 @@ func TestExternalCheckRejectsRuleInputDriftBeforeLaunchingAnalyzer(t *testing.T)
 		}
 		return commandResult{output: []byte("version-output-gitleaks")}
 	})
-	home := filepath.Join(t.TempDir(), "home")
-	if err := platform.EnsurePrivateDirectory(home); err != nil {
-		t.Fatal(err)
-	}
+	home := privateAssuranceDirectory(t, "home")
 	check := externalCheck(context.Background(), tools, t.TempDir(), []string{"HOME=" + home}, false, externalToolCheck{name: "secret_scan", id: "gitleaks"})
 	if check.Code != "rules_input_drift_before_execution" || calls != 0 {
 		t.Fatalf("changed input launched analyzer or passed: %+v calls=%d", check, calls)
@@ -101,10 +96,7 @@ func TestExternalCheckRejectsRuleInputDriftAfterAnalyzer(t *testing.T) {
 		}
 		return commandResult{output: []byte("version-output-" + toolIDForPath(verified, binary))}
 	})
-	home := filepath.Join(t.TempDir(), "home")
-	if err := platform.EnsurePrivateDirectory(home); err != nil {
-		t.Fatal(err)
-	}
+	home := privateAssuranceDirectory(t, "home")
 	check := externalCheck(context.Background(), tools, t.TempDir(), []string{"HOME=" + home}, false, externalToolCheck{name: "secret_scan", id: "gitleaks"})
 	if check.Code != "rules_input_drift_after_execution" {
 		t.Fatalf("changed input result accepted: %+v", check)

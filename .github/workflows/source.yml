@@ -183,26 +183,51 @@ jobs:
           go-version: '1.27.3'
           cache: false
       - name: Run the actual source profile
-        shell: bash
+        shell: bash --noprofile --norc -eo pipefail {0}
         run: |
           set -euo pipefail
           umask 077
           cquay_audit_dir=''
-          cquay_audit_dir=$(mktemp -d "${RUNNER_TEMP}/cquay-source-audit.XXXXXX")
+          cquay_audit_dir=$(mktemp -d "${HOME}/cquay-source-audit.XXXXXX")
+          chmod 0700 "$cquay_audit_dir"
           cquay_tool_dir="$cquay_audit_dir/tools"
-          mkdir -p "$cquay_tool_dir"
-          go build -trimpath -o "$cquay_audit_dir/cquay-audit" ./cmd/cquay-audit
-          CQUAY_GIT="$(command -v git)"
-          export CQUAY_GIT
-          CQUAY_GO="$(command -v go)"
-          export CQUAY_GO
-          CQUAY_GOFMT="$(dirname "$CQUAY_GO")/gofmt"
-          export CQUAY_GOFMT
+          cquay_home_dir="$cquay_audit_dir/home"
+          cquay_tmp_dir="$cquay_audit_dir/tmp"
+          cquay_cache_dir="$cquay_audit_dir/cache"
+          mkdir -m 0700 "$cquay_tool_dir" "$cquay_home_dir" "$cquay_tmp_dir" "$cquay_cache_dir"
+          mkdir -m 0700 "$cquay_cache_dir/build" "$cquay_cache_dir/mod"
+          CQUAY_SELECTED_GIT=''
+          CQUAY_SELECTED_GOROOT=''
+          CQUAY_SELECTED_GO=''
+          CQUAY_SELECTED_GIT="$(realpath -e /usr/bin/git)"
+          CQUAY_SELECTED_GO="$(realpath -e "$(command -v go)")"
+          CQUAY_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQUAY_SELECTED_GO")/..")"
+          test "$CQUAY_SELECTED_GO" = "$CQUAY_SELECTED_GOROOT/bin/go"
+          test "$(env GOROOT="$CQUAY_SELECTED_GOROOT" "$CQUAY_SELECTED_GO" env GOVERSION)" = go1.27.3
+          test -x "$CQUAY_SELECTED_GIT"
+          test -x "$CQUAY_SELECTED_GO"
+          test -x "$CQUAY_SELECTED_GOROOT/bin/gofmt"
+          test ! -L "$CQUAY_SELECTED_GIT"
+          test -z "$(find "$CQUAY_SELECTED_GOROOT" -type l -print -quit)"
+          install -m 0700 "$CQUAY_SELECTED_GIT" "$cquay_tool_dir/git"
+          cp -R "$CQUAY_SELECTED_GOROOT" "$cquay_tool_dir/go"
+          test -z "$(find "$cquay_tool_dir" -type l -print -quit)"
+          chmod -R go-rwx "$cquay_tool_dir"
+          CQUAY_GIT=''
+          CQUAY_GIT="$(realpath -e "$cquay_tool_dir/git")"
+          CQUAY_GO="$(realpath -e "$cquay_tool_dir/go/bin/go")"
+          CQUAY_GOFMT="$(realpath -e "$cquay_tool_dir/go/bin/gofmt")"
           test -x "$CQUAY_GIT"
           test -x "$CQUAY_GO"
           test -x "$CQUAY_GOFMT"
-          export CQUAY_TOOL_MANIFEST="$cquay_tool_dir/manifest.json"
-          python3 - <<'PY'
+          CQUAY_TOOL_MANIFEST="$cquay_tool_dir/manifest.json"
+          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
+            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 "$CQUAY_GO" build -p 1 -trimpath -o "$cquay_audit_dir/cquay-audit" ./cmd/cquay-audit
+          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
+            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
+            CQUAY_GIT="$CQUAY_GIT" CQUAY_GO="$CQUAY_GO" CQUAY_GOFMT="$CQUAY_GOFMT" \
+            CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" python3 - <<'PY'
           import hashlib
           import json
           import os
@@ -230,4 +255,8 @@ jobs:
               json.dump(manifest, output, separators=(",", ":"))
           os.chmod(os.environ["CQUAY_TOOL_MANIFEST"], 0o600)
           PY
-          "$cquay_audit_dir/cquay-audit" run --profile source --tool-manifest "$CQUAY_TOOL_MANIFEST" --go "$CQUAY_GO" --output "$cquay_audit_dir/evidence"
+          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
+            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQUAY_GIT="$CQUAY_GIT" CQUAY_GO="$CQUAY_GO" \
+            CQUAY_GOFMT="$CQUAY_GOFMT" CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" \
+            "$cquay_audit_dir/cquay-audit" run --profile source --tool-manifest "$CQUAY_TOOL_MANIFEST" --go "$CQUAY_GO" --output "$cquay_audit_dir/evidence"
