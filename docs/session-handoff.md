@@ -22,13 +22,16 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-The checkpoint6 source batch has identical before/after source manifests in
-`.local/qualification/checkpoint6-20261104/`. Its whole-repository normal/race
-tests, vet, Staticcheck, formatting, module tidy/verification, cyclomatic and
-cognitive-complexity/workflow checks, and 12 affected Windows compile-only
-checks passed. No source changed during those checks. Native CI,
-exact-candidate Sonar, and a fresh independent managed audit must assess a
-committed candidate. Keep the unchanged quality gates and prior failed evidence.
+The current frozen local batch is recorded in
+`.local/qualification/checkpoint7-20261104/` and is based on the published
+`41a8` checkpoint; its retained source manifest identifies the checked bytes. Its
+before/after manifests for Go, JSON, workflows, and canonical model fences are
+identical. Whole-repository normal/race tests, vet, Staticcheck, formatting,
+module tidy/verification, cyclomatic and cognitive-complexity/workflow checks,
+and 12 affected Windows compile-only checks passed. This remains local evidence:
+native CI, exact-candidate Sonar, and a fresh independent managed audit must
+assess a committed candidate. Keep the unchanged quality gates and prior failed
+evidence.
 
 ## Latest bounded documentation result
 
@@ -113,7 +116,7 @@ Grant time windows and the six reviewed remediation patches are implemented
 with focused synthetic tests. They are not qualified capabilities until fresh
 combined, full, native, and Sonar checks pass.
 
-The checkpoint6 source batch adds named RFC 9068 and Entra v2 API authorities;
+The checkpoint6 source batch added named RFC 9068 and Entra v2 API authorities;
 configurable all-of scope and roles; exact grants and current-trust
 fingerprints; a strict shared legacy verifier; immutable GitHub bootstrap only
 (full SHA plus trusted SHA-256); signed-repository CLI/MCP runtime with
@@ -132,20 +135,30 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
-The retained frozen-source receipts are under
-`.local/qualification/checkpoint6-20261104/`. The before/after source manifests
-are identical. These are local evidence for this captured source batch, not release
-evidence.
+Historical checkpoint6 receipts remain under
+`.local/qualification/checkpoint6-20261104/`; do not treat them as the current
+batch. The current frozen-source receipt is
+`.local/qualification/checkpoint7-20261104/`, with identical before/after
+manifests for Go, JSON, workflows, and canonical model fences. These are local
+evidence, not release evidence.
 Using a fresh owner-only temporary directory under root-owned sticky `/tmp`,
 Go 1.27.3 normal and race tests, vet, gofmt, `go mod tidy -diff`, `go mod
 verify`, Staticcheck 2026.2.2, `gocyclo -over 10`, exact-recursion `gocognit
 -over 10`, and actionlint passed. Compile-only Windows checks passed for the 12
-affected packages. The local statement coverage is 4,787/5,742 (83.3682%), so
-the unchanged 100% gate still fails.
-The copied 213-file nonignored source scan found zero gitleaks findings. Its
-binary SHA-256 is retained with the receipt, but its version output is the
-build-process default; this is bounded local evidence only. An initial incorrect
-CLI invocation is retained as evidence history and is not a code failure.
+affected packages. The checkpoint7 whole-module merged `-coverpkg` profile is
+4,881/5,744 (84.97562674%), below the unchanged 100% gate. It succeeds older
+checkpoint6 local coverage (4,787/5,742, 83.3682%) and is distinct from the
+41a8 production-assurance CI profile (4,828/5,742, 84.0822%); none passes the
+gate.
+Pinned gitleaks v8.30.1 scanned a captured 216-file inventory before this receipt update (SHA-256
+`0caf87f382e74e55bee6d7ef3f4f7ac9c839bb4d17183764ac3ff0e29752e74b`)
+with zero findings. This remains bounded local working-tree evidence, not a
+history, artifact, credential, or production certification. The old copied
+213-file scan and its incorrect initial invocation remain historical evidence.
+TLC also completed the durable-fence model with trusted-store and lock
+assumptions: 14,818,232 generated states, 76,360 distinct states, depth 20,
+an empty queue, and no error. It does not qualify native Windows permission
+failure behavior, full implementation conformance, or host recovery.
 The `internal/identity` package separately passed normal/race/vet and both
 complexity checks with 183/183 statements covered; that package receipt does
 not qualify the repository as a whole.
@@ -154,38 +167,50 @@ The same checks correctly reject a `.local` temporary directory with an unsafe
 
 After source changes, run the applicable checks from protected temporary
 storage and retain exact command, tool version, revision/tree state, and result.
-The source-profile 100% owned-code coverage
-gate remains unchanged and is not met by the last published CI receipt.
+The source-profile 100% owned-code coverage gate remains unchanged and is not
+met by checkpoint7 or the last published CI receipt.
 
 ## Qualification and release blockers
 
-The Compute Engine task for revision
-`4886fc8660706909376f3543ad7cab186d9256b9` (tree
-`132f80e52ead1f61b08239fec97ad440829d8172`) succeeded as task
-`7dbc9ce0-8aa7-4df5-81e8-5c7cfdba6b71` with analysis ID
-`9ea50dd4-ab95-4a3b-aff7-d1510405f708`, but its quality gate is ERROR: 75.7%
-overall coverage, 78.8% new-line coverage, zero reported bugs/vulnerabilities/
-hotspots/duplication, and one critical MCP-action-literal code smell. The
-working-tree fix requires a fresh exact-candidate Sonar recheck.
+The Compute Engine task
+`e52a9f8f-b66c-48f2-8a8b-425a533cab12` for revision
+`41a8da186c71d94b420303328fbe06fcee708602` succeeded with analysis ID
+`dbe51b3f-8bae-4075-9ce0-0a72482e42c3`, but its gate is ERROR: 78.3% overall
+coverage (6,134/7,833 lines), 82.5% new coverage, and two code smells
+(`go:S107` and `go:S1192`); reported bugs, vulnerabilities, hotspots, and
+duplication are zero. Sonar line coverage is distinct from the Go statement
+profiles and does not change the 100% gate. The two working-tree smell fixes
+require a fresh exact-candidate Sonar recheck.
 Sonar, full unchanged coverage, live providers, native reboot/recovery,
 installers, registry publication, and independent audit remain incomplete.
-The managed static recheck at this checkpoint reported one medium Azure
-workload-identity transport finding. A new cloud test accompanies the local
-fix, but an independent recheck is pending. This static-only review does not
-qualify native behavior, live providers, installations, or services. Keep
-detailed evidence in the owner-held security channel rather than reproducing
-sensitive attack paths in public documentation.
+The sealed static managed audit at this checkpoint reported zero validated
+findings, but its completeness is partial and it is not an audit pass. It
+rejected a documentation contradiction as non-exploitable, while the stale
+repository-sync wording is corrected here. It does not qualify native behavior,
+live providers, installations, or services. Keep detailed evidence in the
+owner-held security channel rather than reproducing sensitive attack paths in
+public documentation.
 
-GitHub source run 41677515031 at revision
-`4886fc8660706909376f3543ad7cab186d9256b9` passed native Linux and macOS and
-all 26 cross-builds. Its Windows job 126061996996 failed two fixtures; local
-fixture repairs require a fresh native Windows run and are not qualified by this
-receipt. The source workflow's Sonar-style coverage was 4,072/4,969 statements
-(81.9481%); the retained local Sonar profile measured 4,071/4,969 (81.928%).
-Both fail the unchanged 100% gate. Security run 41677515226 passed CodeQL but
-failed gosec with 11 unsuppressed findings. Earlier `41ea` evidence remains in
-the qualification matrix as historical evidence. Retained native/cross and
-Sonar artifact checksum manifests bind these receipts to the recorded candidate.
+GitHub source run 41686510514 tested the open PR revision
+`41a8da186c71d94b420303328fbe06fcee708602` through GitHub's synthetic merge
+`6fd454e6bc77888f4e40d7eec37e6bbe4c7a9748`. Native Linux/macOS and all 26
+cross-builds passed. Windows job 126093565982 failed only repository
+`TestSignedRepositoryAcceptanceAndRollback` with `trust_failure:
+repository_signature`; its platform package passed. Source assurance failed at
+84.08220132358063% against the unchanged 100% gate. Security run 41686510624
+passed CodeQL but failed gosec with nine unsuppressed findings. The frozen
+static receipt found zero reachable govulncheck vulnerabilities and one required
+module advisory, `GO-2026-5932` in `golang.org/x/crypto@v0.58.0`. Earlier
+41ea/4886 evidence remains in the qualification matrix as historical evidence.
+The current dependency follow-up updates that module to its fixed pseudo-version
+and reports zero local govulncheck findings; the historical 41a8 advisory is
+retained until a fresh candidate receipt supersedes it. The two Sonar smell
+fixes also need a published exact-candidate scan. The proposed Windows SSH
+fixture explanation remains unverified until native CI reruns.
+
+The current batch also fixes a listener-cleanup deadlock. Its retained
+reproduction failed before the fix and the focused normal/race/vet checks pass
+after it. This is bounded local evidence, not a full or native qualification.
 
 The snapshot at revision `960` contains 25 native archives plus one source
 archive (26 total) with exact checksum/provenance evidence; its Linux smoke is
@@ -194,9 +219,9 @@ build evidence only.
 Native Windows/macOS/Linux runtime, restart/recovery, installer, signed
 artifact, anonymous download, SBOM/provenance, and registry qualification still
 require real evidence. The
-signed repository declaration is not a claim that `sync` can fetch/deploy it
-until its integration, quota, recovery, and adverse-path qualification are
-complete.
+signed repository runtime is wired into `sync`, including `FetchCurrent` and
+its offline/fallback guards. That integration is not deployment qualification:
+quota, recovery, native, and adverse-path evidence remain required.
 
 GitHub protections currently have four required GitHub Actions checks bound;
 code scanning is configured as `Any` / `Any`, tag rules are active, and the

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/model"
@@ -165,6 +166,95 @@ func TestConfigExpectedDigestAndStdinReplace(t *testing.T) {
 	}
 }
 
+func TestConfigCRUDPreservesPolicyContractAndCompareAndSwap(t *testing.T) {
+	config := configFixtureWithBindings(t)
+	_, digest := configSnapshot(t, config)
+
+	created := runConfig(t, config, bytes.NewReader([]byte(`{"type":"json","path":"spare.json"}`)),
+		"config", "set", "--pointer", "/sources/spare", "--value-file", "-", "--expect-sha256", digest)
+	if outputState(t, created) != "updated" {
+		t.Fatalf("create source response: %s", created)
+	}
+
+	listedSources := runConfig(t, config, nil, "config", "list", "--pointer", "/sources")
+	var sourceListing struct {
+		Entries []string `json:"entries"`
+	}
+	if err := json.Unmarshal(listedSources, &sourceListing); err != nil || strings.Join(sourceListing.Entries, ",") != "fixture,spare" {
+		t.Fatalf("source listing: %s", listedSources)
+	}
+
+	_, digest = configSnapshot(t, config)
+	deleted := runConfig(t, config, nil, "config", "delete", "--pointer", "/sources/spare", "--expect-sha256", digest)
+	if outputState(t, deleted) != "updated" {
+		t.Fatalf("delete source response: %s", deleted)
+	}
+
+	listedBindings := runConfig(t, config, nil, "config", "list", "--pointer", "/workloads/demo/bindings")
+	var bindingListing struct {
+		Entries []string `json:"entries"`
+	}
+	if err := json.Unmarshal(listedBindings, &bindingListing); err != nil || strings.Join(bindingListing.Entries, ",") != "0,1" {
+		t.Fatalf("binding listing: %s", listedBindings)
+	}
+
+	_, digest = configSnapshot(t, config)
+	deleted = runConfig(t, config, nil, "config", "delete", "--pointer", "/workloads/demo/bindings/0", "--expect-sha256", digest)
+	if outputState(t, deleted) != "updated" {
+		t.Fatalf("delete binding response: %s", deleted)
+	}
+	remaining := runConfig(t, config, nil, "config", "get", "--pointer", "/workloads/demo/bindings/0")
+	var binding struct {
+		Value struct {
+			Name string `json:"name"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(remaining, &binding); err != nil || binding.Value.Name != "SECOND" {
+		t.Fatalf("remaining binding: %s", remaining)
+	}
+	runConfig(t, config, nil, "config", "validate")
+}
+
+func TestConfigReadOnlyOperationsLeavePolicyUntouchedAndRedactValidationFailure(t *testing.T) {
+	config := configFixture(t)
+	before, digest := configSnapshot(t, config)
+	for _, args := range [][]string{
+		{"config", "validate"},
+		{"config", "get", "--pointer", "/workloads/demo"},
+		{"config", "list", "--pointer", "/workloads"},
+	} {
+		runConfig(t, config, nil, args...)
+	}
+	assertConfigSnapshotUnchanged(t, config, before, digest)
+	if _, err := os.Stat(filepath.Join(filepath.Dir(config), ".cquay-config-lock")); !os.IsNotExist(err) {
+		t.Fatalf("read-only command created a mutation lock: %v", err)
+	}
+
+	marker := "SYNTHETIC_NEVER_ECHO_CONFIG_MARKER"
+	data, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	sources := document["sources"].(map[string]any)
+	source := sources["fixture"].(map[string]any)
+	source["endpoint"] = "https://user:" + marker + "@example.test"
+	invalid, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProtectedFixture(t, config, invalid)
+
+	var output, diagnostics bytes.Buffer
+	code := (Runner{Out: &output, Err: &diagnostics}).Run(context.Background(), []string{"--config", config, "config", "validate"})
+	if code != 2 || output.Len() != 0 || strings.Contains(diagnostics.String(), marker) {
+		t.Fatalf("validation failure leaked policy content or had unexpected result: code=%d output=%q diagnostics=%q", code, output.String(), diagnostics.String())
+	}
+}
+
 func TestConfigInitAndValidate(t *testing.T) {
 	dir := privateCLIDirectory(t)
 	config := filepath.Join(dir, "cquay.json")
@@ -186,6 +276,29 @@ func configFixture(t *testing.T) string {
 	dir := privateCLIDirectory(t)
 	config := filepath.Join(dir, "policy.json")
 	policy := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: "fixture.json"}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Bindings: []model.Binding{{Name: "VALUE", Source: "fixture", Field: "VALUE", AllowOffline: true}}}}}
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProtectedFixture(t, config, data)
+	return config
+}
+
+func configFixtureWithBindings(t *testing.T) string {
+	t.Helper()
+	dir := privateCLIDirectory(t)
+	config := filepath.Join(dir, "policy.json")
+	policy := model.Policy{
+		Version: 1,
+		Sources: map[string]model.Source{"fixture": {Type: "json", Path: "fixture.json"}},
+		Workloads: map[string]model.Workload{"demo": {
+			Mode: "offline",
+			Bindings: []model.Binding{
+				{Name: "FIRST", Source: "fixture", Field: "FIRST", AllowOffline: true},
+				{Name: "SECOND", Source: "fixture", Field: "SECOND", AllowOffline: true},
+			},
+		}},
+	}
 	data, err := json.Marshal(policy)
 	if err != nil {
 		t.Fatal(err)

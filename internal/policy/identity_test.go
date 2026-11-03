@@ -34,11 +34,11 @@ func TestNamedIdentityContractAndExactGrant(t *testing.T) {
 	}
 	grant := p.Grants[0]
 	now := time.Date(2026, 11, 4, 1, 0, 0, 0, time.UTC)
-	if !AuthorizeAuthorityAt(p, "workforce", grant.Subject, grant.Client, "demo", "read", "DEMO_MESSAGE", now) {
+	if !AuthorizeIdentityAt(p, Identity{Authority: "workforce", Subject: grant.Subject, Client: grant.Client}, "demo", "read", "DEMO_MESSAGE", now) {
 		t.Fatal("exact named authority grant denied")
 	}
 	for _, authority := range []string{"", "other"} {
-		if AuthorizeAuthorityAt(p, authority, grant.Subject, grant.Client, "demo", "read", "DEMO_MESSAGE", now) {
+		if AuthorizeIdentityAt(p, Identity{Authority: authority, Subject: grant.Subject, Client: grant.Client}, "demo", "read", "DEMO_MESSAGE", now) {
 			t.Fatal("authority boundary crossed")
 		}
 	}

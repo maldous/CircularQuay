@@ -142,7 +142,7 @@ func (a application) store() (state.Store, error) {
 		if err != nil {
 			return state.Store{}, fault.New(fault.Apply, "state directory")
 		}
-		dir = filepath.Join(home, "circularquay", "state")
+		dir = filepath.Join(home, "cquay", "state")
 	}
 	return state.Store{Directory: dir}, nil
 }

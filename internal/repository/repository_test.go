@@ -12,8 +12,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -322,7 +324,7 @@ func TestSignedRepositoryAcceptanceAndRollback(t *testing.T) {
 	fixture := newSignedRepositoryFixture(t)
 	first := fixture.writeCommit(t, `{"value":"synthetic-first"}`, true)
 	repo := fixture.repository(first)
-	installSyntheticTransport(t, repo, fixture.remote)
+	installSyntheticTransport(t, repo, fixture)
 	accepted := fetchRepository(t, repo)
 	fixture.removeToken(t)
 	requireCurrent(t, repo, accepted)
@@ -346,19 +348,23 @@ func TestSignedRepositoryAcceptanceAndRollback(t *testing.T) {
 }
 
 type signedRepositoryFixture struct {
-	root, remote, git, key, signers, token string
-	environment                            []string
+	root, remote, git, sshKeygen, key, signers, token string
+	environment                                       []string
 }
 
 func newSignedRepositoryFixture(t *testing.T) signedRepositoryFixture {
 	t.Helper()
 	git := fixtureGit(t)
+	sshKeygen, err := trustedSSHKeygen()
+	if err != nil {
+		t.Fatalf("fixture SSH verifier is not trusted: %v", err)
+	}
 	root := privateRepositoryDirectory(t, "signed-repository")
 	temporary := filepath.Join(root, "tmp")
 	if err := platform.EnsurePrivateDirectory(temporary); err != nil {
 		t.Fatal(err)
 	}
-	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
+	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, sshKeygen: sshKeygen, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
 	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "TMPDIR=" + temporary, "TEMP=" + temporary, "TMP=" + temporary, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
 	if err := os.Mkdir(fixture.remote, 0700); err != nil {
 		t.Fatal(err)
@@ -492,7 +498,7 @@ func (f signedRepositoryFixture) writeCommit(t *testing.T, value string, sign bo
 		t.Fatal(err)
 	}
 	f.invoke(t, f.git, "add", "--", "values.json")
-	args := []string{"-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "gpg.format=ssh", "-c", "user.signingkey=" + f.key, "commit", "--quiet", "-m", "synthetic data"}
+	args := []string{"-c", "user.name=Synthetic Fixture", "-c", "user.email=fixture@example.invalid", "-c", "gpg.format=ssh", "-c", "gpg.ssh.program=" + f.sshKeygen, "-c", "user.signingkey=" + f.key, "commit", "--quiet", "-m", "synthetic data"}
 	if sign {
 		args = append(args, "-S")
 	} else {
@@ -525,19 +531,36 @@ func (f signedRepositoryFixture) repository(initial string) model.Repository {
 	return model.Repository{URL: "https://example.invalid/synthetic.git", Directory: filepath.Join(f.root, "cache"), Ref: "refs/heads/data", AllowedSignersFile: f.signers, InitialCommit: initial, TokenFile: f.token}
 }
 
-func installSyntheticTransport(t *testing.T, repo model.Repository, remote string) {
+func installSyntheticTransport(t *testing.T, repo model.Repository, fixture signedRepositoryFixture) {
 	t.Helper()
 	previous := runGit
 	t.Cleanup(func() { runGit = previous })
 	runGit = func(ctx context.Context, environment []string, limit int64, args ...string) ([]byte, error) {
 		for index, arg := range args {
 			if arg == repo.URL {
-				args[index] = remote
+				args[index] = fixture.remote
 			}
 		}
 		args = append([]string{"-c", "protocol.file.allow=always"}, args...)
-		return executeGit(ctx, environment, limit, args...)
+		data, err := executeGit(ctx, environment, limit, args...)
+		if err != nil && slices.Contains(args, "verify-commit") {
+			t.Logf("synthetic verify-commit diagnostic: %s", fixture.verifyFailureDiagnostic(environment, args))
+		}
+		return data, err
 	}
+}
+
+func (f signedRepositoryFixture) verifyFailureDiagnostic(environment, args []string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, f.git, args...)
+	command.Env = environment
+	output := &limitedOutput{remaining: 4096}
+	command.Stdout = output
+	command.Stderr = output
+	err := command.Run()
+	message := strings.ReplaceAll(output.buffer.String(), f.root, "<synthetic-fixture>")
+	return fmt.Sprintf("rerun_error=%v output=%q", err, message)
 }
 
 func fetchRepository(t *testing.T, repo model.Repository) string {

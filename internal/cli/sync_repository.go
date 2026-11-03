@@ -12,6 +12,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/resolve"
 )
 
+const repositorySourceOperation = "repository source"
+
 type repositoryOperations struct {
 	fetch   func(context.Context, model.Repository) (string, error)
 	current func(model.Repository) (string, error)
@@ -59,13 +61,13 @@ func repositorySources(config model.Policy, workload model.Workload) (map[string
 	for _, binding := range workload.Bindings {
 		source, found := config.Sources[binding.Source]
 		if !found {
-			return nil, fault.New(fault.Invalid, "repository source")
+			return nil, fault.New(fault.Invalid, repositorySourceOperation)
 		}
 		if !strings.HasPrefix(source.Path, "repo:") {
 			continue
 		}
 		if !policy.ValidRepositoryPath(strings.TrimPrefix(source.Path, "repo:")) {
-			return nil, fault.New(fault.Trust, "repository source")
+			return nil, fault.New(fault.Trust, repositorySourceOperation)
 		}
 		selected, exists := result[binding.Source]
 		if !exists {
@@ -126,12 +128,12 @@ func expandRepositorySources(config model.Policy, sources map[string]repositoryS
 func repositorySourcePath(release, declared string) (string, error) {
 	path := strings.TrimPrefix(declared, "repo:")
 	if !policy.ValidRepositoryPath(path) || !filepath.IsAbs(release) {
-		return "", fault.New(fault.Trust, "repository source")
+		return "", fault.New(fault.Trust, repositorySourceOperation)
 	}
 	candidate := filepath.Join(release, filepath.FromSlash(path))
 	relative, err := filepath.Rel(release, candidate)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", fault.New(fault.Trust, "repository source")
+		return "", fault.New(fault.Trust, repositorySourceOperation)
 	}
 	return candidate, nil
 }

@@ -87,14 +87,14 @@ func (p Principal) Authorize(config model.Policy, workload, operation, key strin
 }
 
 func (p Principal) localAuthorized(config model.Policy, workload, operation, key string, now time.Time) bool {
-	return p.Authority == "" && p.AuthorityFingerprint == "" && policy.AuthorizeAuthorityAt(config, "", p.Subject, p.Client, workload, operation, key, now)
+	return p.Authority == "" && p.AuthorityFingerprint == "" && policy.AuthorizeIdentityAt(config, policy.Identity{Subject: p.Subject, Client: p.Client}, workload, operation, key, now)
 }
 
 func (p Principal) legacyAuthorized(config model.Policy, workload, operation, key string, now time.Time) bool {
 	if p.Authority != "" || !legacyFingerprintMatches(config.MCP, p.AuthorityFingerprint) {
 		return false
 	}
-	return legacyScopeAllows(p, operation) && policy.AuthorizeAuthorityAt(config, "", p.Subject, p.Client, workload, operation, key, now)
+	return legacyScopeAllows(p, operation) && policy.AuthorizeIdentityAt(config, policy.Identity{Subject: p.Subject, Client: p.Client}, workload, operation, key, now)
 }
 
 func legacyFingerprintMatches(config model.MCP, fingerprint string) bool {
@@ -113,7 +113,7 @@ func (p Principal) namedAuthorized(config model.Policy, workload, operation, key
 	if !authorityAllows(authority, p, operation) {
 		return false
 	}
-	return policy.AuthorizeAuthorityAt(config, p.Authority, p.Subject, p.Client, workload, operation, key, now)
+	return policy.AuthorizeIdentityAt(config, policy.Identity{Authority: p.Authority, Subject: p.Subject, Client: p.Client}, workload, operation, key, now)
 }
 
 func authorityAllows(authority model.IdentityAuthority, p Principal, operation string) bool {

@@ -36,6 +36,11 @@ no symlinks/reparse points, owner-only Unix secret permissions, and protected
 Windows DACLs. See [credential and identity boundaries](credential-boundaries.md)
 for the current native-storage boundary.
 
+Unless `--state-dir PATH` is supplied, cquay stores its private runtime
+metadata below the operating system's user configuration directory, in
+`cquay/state` (that is, `os.UserConfigDir()/cquay/state`). This location is
+separate from the policy and from repository state declared in the policy.
+
 The policy itself records names, locations, resource selectors, and grants. A
 selected `field` minimizes delivery, but does not reduce an upstream provider
 permission that reads a larger object. Separate source records where upstream
@@ -95,7 +100,7 @@ identities, services, or deployment state.
 | `workloads` | object map, required and non-empty | Workload ID to workload declaration; IDs use the same rule as source IDs. |
 | `grants` | array, optional | Exact MCP subject/client/workload/operation grants. An omitted list grants nothing. |
 | `mcp` | object, optional | MCP listener and trusted authorization-server declarations. It does not configure login or token issuance. |
-| `repository` | object, optional | Signed release-source declaration. Current policy validation supports it, but the CLI does not yet fetch it during `sync`; do not rely on it for deployment. |
+| `repository` | object, optional | Signed release-source declaration. `sync` invokes its guarded `FetchCurrent` path; native, recovery, provider, and release qualification remain separate requirements. |
 
 ## `sources.<id>` fields
 
@@ -362,7 +367,7 @@ present, the declaration requires `url`, `directory`, `ref`,
 
 Repository data paths may use `repo:` only for permitted local `json` or `sops`
 source data paths. Bootstrap identities, executables, target destinations,
-commands, snapshots, and state may not come from that repository. Although the
-package validates signed repository declarations, `sync` does not yet invoke
-fetch/current resolution; treat the block as an unsupported deployment path
-until that integration and its quota/recovery qualification are complete.
+commands, snapshots, and state may not come from that repository. `sync` invokes
+the signed repository fetch/current path with its declared trust, quota, and
+offline/fallback guards. Treat it as an unqualified deployment path until native,
+recovery, and adverse-path qualification is retained.

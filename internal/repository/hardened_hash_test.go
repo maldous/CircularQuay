@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -112,6 +113,9 @@ func TestObjectGraphVerifierUsesFixedStrictArguments(t *testing.T) {
 }
 
 func TestNativeGitHashObjectVerifiesProtectedMaterialization(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("Git is absent for optional native feature verification: %v", err)
+	}
 	path := protectedHashFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -122,10 +126,10 @@ func TestNativeGitHashObjectVerifiesProtectedMaterialization(t *testing.T) {
 	}
 	output, err := executeGit(ctx, environment, 128, "hash-object", "--no-filters", "-t", "blob", "--", path)
 	if err != nil {
-		t.Skipf("Git is unavailable for repository feature verification: %v", err)
+		t.Fatalf("installed Git hash-object failed: %v", err)
 	}
 	if err = s.requireHardenedSHA1(ctx); err != nil {
-		t.Skipf("installed Git lacks required SHA-1 hardening: %v", err)
+		t.Fatalf("installed Git SHA-1 hardening check failed: %v", err)
 	}
 	if err = s.verifyMaterializedBlob(ctx, path, strings.TrimSpace(string(output))); err != nil {
 		t.Fatal(err)
@@ -164,7 +168,11 @@ func blobID(data []byte, length int) string {
 	if err = os.WriteFile(path, data, 0o600); err != nil {
 		panic(err)
 	}
-	output, err := executeGit(context.Background(), []string{"PATH=" + os.Getenv("PATH")}, 128, "hash-object", "--no-filters", "-t", "blob", "--", path)
+	environment, err := (&store{}).environment(false, false)
+	if err != nil {
+		panic(err)
+	}
+	output, err := executeGit(context.Background(), environment, 128, "hash-object", "--no-filters", "-t", "blob", "--", path)
 	if err != nil {
 		panic(err)
 	}

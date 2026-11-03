@@ -103,19 +103,28 @@ func Authorize(policy model.Policy, subject, client, workload, operation, key st
 // are inclusive and expiry is exclusive, preventing an expired local grant
 // from widening an already validated remote identity or credential grant.
 func AuthorizeAt(policy model.Policy, subject, client, workload, operation, key string, now time.Time) bool {
-	return AuthorizeAuthorityAt(policy, "", subject, client, workload, operation, key, now)
+	return AuthorizeIdentityAt(policy, Identity{Subject: subject, Client: client}, workload, operation, key, now)
 }
 
-// AuthorizeAuthorityAt requires the exact named authority in addition to the
+// Identity contains an already authenticated caller's exact local-policy key.
+// It contains no credential values. Its caller verifies remote claims before
+// requesting a policy decision; constructing Identity does not authenticate it.
+type Identity struct {
+	Authority string
+	Subject   string
+	Client    string
+}
+
+// AuthorizeIdentityAt requires the exact named authority in addition to the
 // local identity/client/workload grant and time window. An empty authority is
 // reserved for local OS and the single-issuer HTTP contract; it cannot consume
 // a grant that names an authority.
-func AuthorizeAuthorityAt(policy model.Policy, authority, subject, client, workload, operation, key string, now time.Time) bool {
-	if now.IsZero() || !safePrincipal(subject) || !operations[operation] {
+func AuthorizeIdentityAt(policy model.Policy, identity Identity, workload, operation, key string, now time.Time) bool {
+	if now.IsZero() || !safePrincipal(identity.Subject) || !operations[operation] {
 		return false
 	}
 	for _, grant := range policy.Grants {
-		if grant.Authority == authority && matchingGrant(grant, subject, client, workload, operation, key, now) {
+		if grant.Authority == identity.Authority && matchingGrant(grant, identity.Subject, identity.Client, workload, operation, key, now) {
 			return true
 		}
 	}
