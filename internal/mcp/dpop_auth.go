@@ -13,33 +13,52 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/auth"
 )
 
+type accessTokenOptions struct {
+	verifier    auth.TokenVerifier
+	config      model.MCP
+	replay      dpop.Store
+	metadataURL string
+	scopes      []string
+}
+
+type accessTokenHandler struct {
+	accessTokenOptions
+	bearer func(http.Handler) http.Handler
+}
+
 // requireAccessToken accepts Bearer tokens for ordinary authorities and DPoP
 // only for authorities that explicitly select sender constraints. It verifies
 // a raw token once, before proof verification and the SDK middleware handoff.
-func requireAccessToken(verifier auth.TokenVerifier, config model.MCP, replay dpop.Store, metadataURL string, scopes []string) func(http.Handler) http.Handler {
-	bearer := auth.RequireBearerToken(cachedTokenVerifier(), &auth.RequireBearerTokenOptions{ResourceMetadataURL: metadataURL, Scopes: scopes})
+func requireAccessToken(options accessTokenOptions) func(http.Handler) http.Handler {
+	handler := accessTokenHandler{
+		accessTokenOptions: options,
+		bearer: auth.RequireBearerToken(cachedTokenVerifier(), &auth.RequireBearerTokenOptions{
+			ResourceMetadataURL: options.metadataURL,
+			Scopes:              options.scopes,
+		}),
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			handleAccessToken(w, r, verifier, bearer, next, config, replay, metadataURL)
+			handler.serve(w, r, next)
 		})
 	}
 }
 
-func handleAccessToken(w http.ResponseWriter, r *http.Request, verifier auth.TokenVerifier, bearer func(http.Handler) http.Handler, next http.Handler, config model.MCP, replay dpop.Store, metadataURL string) {
-	scheme, token, info, ok := verifiedRequest(r, verifier)
+func (h accessTokenHandler) serve(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	scheme, token, info, ok := verifiedRequest(r, h.verifier)
 	if !ok {
-		writeTokenChallenge(w, metadataURL, challengeScheme(scheme), "")
+		writeTokenChallenge(w, h.metadataURL, challengeScheme(scheme), "")
 		return
 	}
 	if acceptsBearer(scheme, info, r) {
-		serveVerifiedBearer(w, r, token, info, bearer, next)
+		serveVerifiedBearer(w, r, token, info, h.bearer, next)
 		return
 	}
 	if scheme != "DPoP" {
-		writeTokenChallenge(w, metadataURL, "DPoP", "")
+		writeTokenChallenge(w, h.metadataURL, "DPoP", "")
 		return
 	}
-	serveVerifiedDPoP(w, r, token, info, bearer, next, config, replay, metadataURL)
+	h.serveDPoP(w, r, token, info, next)
 }
 
 func verifiedRequest(r *http.Request, verifier auth.TokenVerifier) (string, string, *auth.TokenInfo, bool) {
@@ -61,22 +80,22 @@ func serveVerifiedBearer(w http.ResponseWriter, r *http.Request, token string, i
 	bearer(next).ServeHTTP(w, r.WithContext(ctx))
 }
 
-func serveVerifiedDPoP(w http.ResponseWriter, r *http.Request, token string, info *auth.TokenInfo, bearer func(http.Handler) http.Handler, next http.Handler, config model.MCP, replay dpop.Store, metadataURL string) {
-	constraint, fingerprint, jkt, ok := dpopConstraint(config, info)
-	if r.Header.Values("DPoP") == nil || replay == nil || !ok {
-		writeTokenChallenge(w, metadataURL, "DPoP", "")
+func (h accessTokenHandler) serveDPoP(w http.ResponseWriter, r *http.Request, token string, info *auth.TokenInfo, next http.Handler) {
+	constraint, fingerprint, jkt, ok := dpopConstraint(h.config, info)
+	if r.Header.Values("DPoP") == nil || h.replay == nil || !ok {
+		writeTokenChallenge(w, h.metadataURL, "DPoP", "")
 		return
 	}
-	proof := dpop.Verifier{Config: dpop.Config{Resource: config.Resource, MaxAge: seconds(constraint.ProofMaxAgeSeconds), Skew: seconds(constraint.ClockSkewSeconds)}, Store: replay}
+	proof := dpop.Verifier{Config: dpop.Config{Resource: h.config.Resource, MaxAge: seconds(constraint.ProofMaxAgeSeconds), Skew: seconds(constraint.ClockSkewSeconds)}, Store: h.replay}
 	nextNonce, err := proof.Verify(r.Context(), r, token, fingerprint, jkt, info.Expiration)
-	if writeDPoPFailure(w, metadataURL, err) {
+	if writeDPoPFailure(w, h.metadataURL, err) {
 		return
 	}
-	copy := r.Clone(context.WithValue(r.Context(), verifiedTokenKey{}, verifiedToken{raw: token, info: info}))
-	copy.Header = r.Header.Clone()
-	copy.Header.Set("Authorization", "Bearer "+token)
+	authenticatedRequest := r.Clone(context.WithValue(r.Context(), verifiedTokenKey{}, verifiedToken{raw: token, info: info}))
+	authenticatedRequest.Header = r.Header.Clone()
+	authenticatedRequest.Header.Set("Authorization", "Bearer "+token)
 	w.Header().Set("DPoP-Nonce", nextNonce)
-	bearer(next).ServeHTTP(w, copy)
+	h.bearer(next).ServeHTTP(w, authenticatedRequest)
 }
 
 func dpopConstraint(config model.MCP, info *auth.TokenInfo) (*model.SenderConstraint, string, string, bool) {

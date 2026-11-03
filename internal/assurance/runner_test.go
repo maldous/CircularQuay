@@ -14,13 +14,64 @@ import (
 	"github.com/maldous/CircularQuay/internal/platform"
 )
 
+// runForTest keeps legacy source-identity fixtures isolated from production
+// execution. Production Run and run always require a verified tool manifest.
+func runForTest(ctx context.Context, options Options, command commandFunc) (Report, error) {
+	audit, err := prepareAudit(options)
+	if err != nil {
+		return Report{}, err
+	}
+	if audit.options.GoBinary == "" {
+		audit.options.GoBinary = "go"
+	}
+	identity, err := bindSource(ctx, runCommand, audit.root, audit.output, audit.environment)
+	if err != nil {
+		audit.report.Checks = append(audit.report.Checks, failedSourceIdentityCheck("source_identity_before_checks"))
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	audit.report.Source = &identity
+	recordSourceIdentity(ctx, command, audit.root, audit.options.GoBinary, audit.environment, &audit.report)
+	audit.report.Checks = append(audit.report.Checks, repositoryCheck(audit.root))
+	scope, err := sourceGoScope(audit.root, &identity)
+	if err != nil {
+		audit.report.Checks = append(audit.report.Checks, Check{Name: "source_go_scope", Required: true, Status: "failed", Code: "source_scope_missing"})
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	format, err := checkFormatting(ctx, command, audit.root, audit.options.GoBinary, audit.environment, scope.files)
+	if err != nil {
+		return audit.report, err
+	}
+	audit.report.Checks = append(audit.report.Checks, format)
+	coveragePath := filepath.Join(audit.output, "coverage.out")
+	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
+	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "unit_tests", true, audit.options.GoBinary, testArguments, audit.root, audit.environment))
+	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
+	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "go_vet", true, audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment))
+	addTestExternalChecks(ctx, command, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
+	addSonar(ctx, command, audit.root, audit.environment, audit.options, coveragePath, &audit.report)
+	audit.recordAfterIdentity(ctx, identity, runCommand)
+	audit.report.finish()
+	if err = WriteReport(audit.output, audit.report); err != nil {
+		return audit.report, err
+	}
+	return audit.report, nil
+}
+
+func addTestExternalChecks(ctx context.Context, command commandFunc, root string, environment []string, required bool, scope goSourceScope, report *Report) {
+	for _, check := range []externalToolCheck{{"staticcheck", "staticcheck", scope.packages}, {"gosec", "gosec", append([]string{"-quiet"}, sourcePackageArguments(report.Source)...)}, {"govulncheck", "govulncheck", scope.packages}, {"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}}, {"workflow_lint", "actionlint", nil}} {
+		report.Checks = append(report.Checks, command.execute(ctx, check.name, required, check.id, check.arguments, root, environment))
+	}
+}
+
 func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	root := fixtureRepository(t)
 	output := privateAssuranceDirectory(t, "evidence")
 	const secret = "synthetic-marker-do-not-log"
 	fake := sourceAuditCommand(t, secret)
 
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, fake)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, fake)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +102,7 @@ func assertDirtySourceFails(t *testing.T, root, output string, fake commandFunc)
 		}
 		return fake(ctx, binary, args, directory, environment)
 	}
-	dirtyReport, dirtyErr := run(context.Background(), Options{Source: root, Output: output + "-dirty", Profile: "source"}, dirtyCommand)
+	dirtyReport, dirtyErr := runForTest(context.Background(), Options{Source: root, Output: output + "-dirty", Profile: "source"}, dirtyCommand)
 	if dirtyErr != nil || dirtyReport.Passed || dirtyReport.Coverage.Percent != 100 {
 		t.Fatal("uncommitted source passed despite otherwise complete synthetic checks")
 	}
@@ -219,7 +270,7 @@ func TestAuditEnvironmentDoesNotInheritCredentials(t *testing.T) {
 	t.Setenv("VAULT_TOKEN", "never-inherit")
 	t.Setenv("PATH", "/synthetic/bin")
 	env := strings.Join(auditEnvironment("/private/home"), "\n")
-	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") || !strings.Contains(env, "GOWORK=off") || !strings.Contains(env, "GOENV=off") || !strings.Contains(env, "-mod=readonly") || !strings.Contains(env, "GIT_NO_REPLACE_OBJECTS=1") || !strings.Contains(env, "GIT_CONFIG_NOSYSTEM=1") {
+	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") || !strings.Contains(env, "GOWORK=off") || !strings.Contains(env, "GOENV=off") || !strings.Contains(env, "GOTMPDIR=/private/tmp") || !strings.Contains(env, "-mod=readonly") || !strings.Contains(env, "GIT_NO_REPLACE_OBJECTS=1") || !strings.Contains(env, "GIT_CONFIG_NOSYSTEM=1") {
 		t.Fatal("unsafe test environment")
 	}
 }

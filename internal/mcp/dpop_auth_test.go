@@ -33,7 +33,7 @@ func TestRequireAccessTokenSeparatesBearerAndDPoPAuthorities(t *testing.T) {
 		}
 		return nil, auth.ErrInvalidToken
 	}
-	handler := requireAccessToken(verifier, config, nil, "https://mcp.example.test/.well-known/oauth-protected-resource/mcp", nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	handler := requireAccessToken(accessTokenOptions{verifier: verifier, config: config, metadataURL: "https://mcp.example.test/.well-known/oauth-protected-resource/mcp"})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	request := httptest.NewRequest(http.MethodPost, "https://mcp.example.test/mcp", nil)
 	request.Header.Set("Authorization", "Bearer bearer")
 	response := httptest.NewRecorder()
@@ -97,7 +97,7 @@ func TestRequireAccessTokenValidDPoPProofAndSchemeFence(t *testing.T) {
 	verifier := func(context.Context, string, *http.Request) (*auth.TokenInfo, error) { calls++; return info, nil }
 	store := &dpopTestStore{nonce: "nonce"}
 	reached := 0
-	h := requireAccessToken(verifier, config, store, "https://mcp.example.test/meta", nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := requireAccessToken(accessTokenOptions{verifier: verifier, config: config, replay: store, metadataURL: "https://mcp.example.test/meta"})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if auth.TokenInfoFromContext(r.Context()) != info {
 			t.Error("SDK token missing")
 		}

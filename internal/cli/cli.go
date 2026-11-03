@@ -30,10 +30,11 @@ type Runner struct {
 }
 
 type application struct {
-	config     string
-	directory  string
-	runner     Runner
-	repository repositoryOperations
+	config         string
+	configExplicit bool
+	directory      string
+	runner         Runner
+	repository     repositoryOperations
 }
 
 // Run executes a command and returns a stable CLI or child status.
@@ -61,7 +62,7 @@ func (r Runner) Run(ctx context.Context, args []string) int {
 	if len(commands) == 0 {
 		return r.usage()
 	}
-	a := application{config: *config, directory: *stateDir, runner: r}
+	a := application{config: *config, configExplicit: flagWasSet(f, "config"), directory: *stateDir, runner: r}
 	code, err := a.dispatch(ctx, commands)
 	if err != nil {
 		return r.failure(err)
@@ -81,7 +82,7 @@ func (r Runner) failure(err error) int {
 }
 
 func (r Runner) usage() int {
-	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <bootstrap|init|config|doctor|plan|run|sync|snapshot|apply|status|providers|mcp|version>")
+	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <bootstrap|flow|init|config|doctor|plan|run|sync|snapshot|apply|status|providers|mcp|version>")
 	return 0
 }
 
@@ -95,6 +96,8 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 		return a.print(source.Capabilities())
 	case "bootstrap":
 		return a.bootstrapConfig(ctx, args[1:])
+	case "flow":
+		return a.flow(ctx, args[1:])
 	}
 	return a.dispatchConfigured(ctx, args)
 }

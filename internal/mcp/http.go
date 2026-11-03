@@ -56,7 +56,13 @@ func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error)
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: maximumRequestBytes,
 		PropagateRequestCancellation: true, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
-	protected := requireAccessToken(verifier, cfg, s.dpopStore, metadataURL, requiredTransportScopes(cfg))(boundTokenDeadline(stream))
+	protected := requireAccessToken(accessTokenOptions{
+		verifier:    verifier,
+		config:      cfg,
+		replay:      s.dpopStore,
+		metadataURL: metadataURL,
+		scopes:      requiredTransportScopes(cfg),
+	})(boundTokenDeadline(stream))
 	mux := http.NewServeMux()
 	mux.Handle(path, protected)
 	algorithms, requiresDPoP := dpopMetadata(cfg)

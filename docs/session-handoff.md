@@ -22,19 +22,33 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-Last published checkpoint `97b757af8a91c7dce5227f8b6230fa3d98545d1a` has tree
-`0e155ece0a97e7b432b5381cf7f22bd30bdd5e70`. Public readback verified three
-changed files and preserved all 236 working files. Exact native Linux, macOS
-and Windows tests, all 26 cross-builds and CodeQL passed. Synthetic merge
-`e9f0b1ed25b755ad86bbb18f8d9e01ed1fc81008` has the same tree. The macOS audit
-fixture repair passed natively. Coverage and gosec still fail; these outcomes
-do not qualify later edits. Retain `.local/qualification/ci-97b757-native-cross.json`.
+Last published checkpoint `bfaa66cc116093588dd1053a301bdf90a8ecef28` has tree
+`0afc2f5f7fcaf00f1547b29f849540cf78cfc89f`. Public readback verified all 37
+changed files and preserved all 256 working files. Native Linux, macOS and
+Windows tests, all 26 cross-builds and CodeQL passed. Synthetic merge
+`3be5764a6b551982bfa4962fc7c35a8c7000df2f` has the same tree. Coverage and
+gosec still fail; retain `.local/qualification/ci-bfaa66-native-cross.json`.
 
-Exact Sonar CE `67acd20a-9998-41c7-a011-4ecce249c27a` completed with current
-analysis `1c0550bb-bc88-4d31-b978-af4b070a73cc` matching that revision. Zero
-issues/hotspots are reported, but the unchanged gate is ERROR at 79.4% overall
-and 81.8% new coverage. Fresh statement coverage is 5,224/6,082 (85.89280%).
-Retain the 2026-11-10 token-expiry warning and `.local/sonar/summary-97b757af8a91.txt`.
+The exact-head scanner uploaded its report with the requested SCM revision.
+CE `f8564a8c-d33e-470a-a829-a9b2558305dd` succeeded and returned analysis
+`8a844c31-e83c-4be8-ba85-2bb12be93b69`. Gate ERROR reports 79.9% overall /
+82.4% new coverage and four open code smells (three argument-count findings
+and one shadowed builtin). Fresh statements are 5,554/6,441 (86.22885%).
+The current-analysis and hotspot-list APIs returned HTTP 403; do not claim
+an independent latest-server-analysis fence or hotspot-list clearance from
+these receipts. The scanner's hotspot metric is zero. The separate old audit
+route also failed tool checks and protected token reading because the shared
+cache ancestor is group-writable. No permission was relaxed; direct scanning
+used only the existing task analysis credential in process environment.
+Retain `.local/sonar/summary-bfaa66cc1160.txt`, its artifact hashes, and the
+prior 2026-11-10 token-expiry warning. The four source issues have readable fixes guardedly integrated from a
+separate bounded checkout; only a fresh exact-head scan can confirm closure.
+
+Managed diff scan `56553a87-7692-4deb-9432-d0f716652dc3` sealed all 37 files
+of `97b757a` → `bfaa66c` with zero findings/candidates and complete coverage.
+Pinned Go 1.27.3 focused DPoP/identity/MCP/policy validation passed. Artifacts
+are under `.codex/state/plugins/codex-security/scans/repo/` in the task host's
+Codex home; this is a complete diff review, not a full production audit.
 
 Frozen local checkpoint21 adds optional named-authority DPoP, strict issuer
 `cnf.jkt` binding, required persistent nonce/replay state and a request-local
@@ -70,12 +84,61 @@ failure evidence. Schema review also caught optional-skew decoder tags and
 missing cross-field age/skew constraints; regression tests failed before the
 fixes and cover both sides of every small-age boundary afterward.
 
-Typed audit-tool inputs remain in the separate isolated tool checkout until
-the actual protected-manifest smoke, frozen review and combined qualification
-are complete. It binds tool paths, version probes, rule data and canonical
-helper resolution, denies source waivers, and preserves enterprise failure
-where full runtime closure is not established. Do not represent that isolated
-work as delivered or production qualified.
+Typed audit-tool inputs have been guardedly integrated into the primary
+checkout from a frozen isolated slice. Protected tools and typed rules inputs,
+fixed probes, private canonical Git/Go helpers, pre/post rules checks and
+source-waiver denials are implemented. An actual tiny synthetic source audit
+passed with protected tools under a poisoned ambient PATH. The primary merge
+preserved other files and three-way merged RELEASE.md; focused README audit
+commands now name the required manifest without changing the author's opening.
+
+Integration review caught CI gofmt help being used as a multiline version
+label and an incorrect expected help exit code. The corrected exact workflow
+block generates an accepted protected manifest. Rooted bounded helper copies
+stay non-executable until complete digest verification. Source-profile Sonar
+is explicitly `not_run`, and enterprise Sonar is required failure, until full
+scanner/runtime/remote-rules binding exists; the direct diagnostic route does
+not satisfy that gate. Full runtime provenance, atomic use and child-process
+isolation remain unresolved. Combined checkpoint22 checks and publication
+are separate from the earlier isolated receipts; consult actual HEAD/status.
+
+The primary checkout also integrates `flow run` dispatch for GitHub Actions,
+GitLab CI and Azure Pipelines environment contexts. Explicit local config
+suppresses ambient remote selection; explicit source fields override their
+individual environment defaults. Remote retrieval requires matching immutable
+commit/digest pins, uses a protected per-run temporary policy and removes it
+on return. Tests cover selection, real declared child delivery, error cleanup,
+pre/post-fetch cancellation and inherited CI markers. A sanitized stderr
+receipt identifies configuration provenance and labels the runner context as
+`hint_not_identity`. Child stdout/stderr remains workload-controlled, not
+redacted. The README unattended example now supplies both pins. No CI token
+verification, mutable/enrolled discovery, later-step export or interactive
+login is added by this wrapper. These remain separate v1 requirements.
+
+The first combined checkpoint22 capture failed the new flow integration
+test's cognitive ceiling (20 versus 10). Root split the test into cohesive
+fixture helpers and retained the failed capture. An expanded offline zizmor
+run with the auditor persona also required a rationale for CodeQL's existing
+`security-events: write` grant; the permission is now documented in place,
+with no scope or threshold change. Fresh combined source/static receipts,
+not isolated worker claims, determine publication readiness.
+
+Frozen combined checkpoint22 passed all 31 recorded source/test/static/
+format/module/workflow/compile checks with identical before/after source
+manifests. It includes whole-module normal/race tests, vet, Staticcheck with
+all checks, cyclomatic and exact-recursion cognitive ceilings of 10,
+13 Windows and six Darwin package test compilations. Coverage is
+5,953/7,055 statements (84.37987%), below the unchanged 100% gate. Final scoped
+gosec still fails with eight Linux and nine Windows findings, zero Go errors
+and zero suppressions. Offline config-free/no-ignore zizmor auditor-persona
+collection now reports zero findings. The exact workflow-generated manifest
+and public auditor passed a real tiny synthetic smoke under a poisoned PATH;
+unselected tools were explicitly not run. These receipts do not qualify
+later native CI, exact-head Sonar, a complete audit, providers or production.
+Retain `.local/qualification/checkpoint22-20261104/`,
+`checkpoint22-final-static-20261104`, `checkpoint22-workflow-security`, and
+`workflow-manifest-auditor-green-20261104`. Publication and exact-revision
+readback remain separate guarded steps.
 
 ## Latest bounded documentation result
 
@@ -169,8 +232,9 @@ fingerprints; a strict shared legacy verifier; immutable GitHub bootstrap only
 `FetchCurrent` offline/fallback guards and hardened Git hashing/fsck; strict
 snapshot validation and full-snapshot MCP reads; durable fallback pre-read
 fencing across restart; and the Azure workload-identity transport constructor
-test. It also includes Windows fixture repairs. Branch discovery, `flow`, and
-an authentication UI remain unimplemented. This batch remains unqualified until
+test. It also includes Windows fixture repairs. Mutable branch/enrolled discovery and an authentication UI remain
+unimplemented. Immutable `flow run` dispatch is integrated with the explicit
+limitations above. This batch remains unqualified until
 a combined candidate passes fresh native, Sonar, and independent checks.
 
 README ordering was directly revised by the user and remains preserved.

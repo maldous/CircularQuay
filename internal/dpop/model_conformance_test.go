@@ -41,11 +41,11 @@ func TestModelConformanceSenderConstraint(t *testing.T) {
 	}
 
 	proof := signedProof(t, keyA, resource, token, now, "model-jti-000002", nonceError.Value)
-	assertConformanceInvalid(t, verifier, conformanceRequest(t, resource, proof), token, "fp-b", jktA, now.Add(time.Hour), "authority fingerprint did not fence nonce-bound proof")
-	assertConformanceInvalid(t, verifier, conformanceRequest(t, resource, proof), "other-token", "fp-a", jktA, now.Add(time.Hour), "token binding mismatch accepted")
-	assertConformanceInvalid(t, verifier, conformanceRequest(t, resource, proof), token, "fp-a", conformanceJKT(t, keyB), now.Add(time.Hour), "key binding mismatch accepted")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: conformanceRequest(t, resource, proof), token: token, authority: "fp-b", jkt: jktA, expiry: now.Add(time.Hour)}, "authority fingerprint did not fence nonce-bound proof")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: conformanceRequest(t, resource, proof), token: "other-token", authority: "fp-a", jkt: jktA, expiry: now.Add(time.Hour)}, "token binding mismatch accepted")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: conformanceRequest(t, resource, proof), token: token, authority: "fp-a", jkt: conformanceJKT(t, keyB), expiry: now.Add(time.Hour)}, "key binding mismatch accepted")
 	wrongPath := conformanceRequest(t, "https://mcp.example.test/other", proof)
-	assertConformanceInvalid(t, verifier, wrongPath, token, "fp-a", jktA, now.Add(time.Hour), "resource binding mismatch accepted")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: wrongPath, token: token, authority: "fp-a", jkt: jktA, expiry: now.Add(time.Hour)}, "resource binding mismatch accepted")
 
 	if _, err := verifier.Verify(context.Background(), conformanceRequest(t, resource, proof), token, "fp-a", jktA, now.Add(time.Hour)); err != nil {
 		t.Fatalf("valid binding did not commit atomically: %v", err)
@@ -56,14 +56,22 @@ func TestModelConformanceSenderConstraint(t *testing.T) {
 	}
 	restarted.now = func() time.Time { return now }
 	verifier.Store = restarted
-	assertConformanceInvalid(t, verifier, conformanceRequest(t, resource, proof), token, "fp-a", jktA, now.Add(time.Hour), "restart cleared replay fence")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: conformanceRequest(t, resource, proof), token: token, authority: "fp-a", jkt: jktA, expiry: now.Add(time.Hour)}, "restart cleared replay fence")
 
 	assertConformanceCommitExpiryFence(t, config, keyA, jktA)
 }
 
-func assertConformanceInvalid(t *testing.T, verifier Verifier, request *http.Request, token, authority, jkt string, expiry time.Time, message string) {
+type conformanceAttempt struct {
+	request   *http.Request
+	token     string
+	authority string
+	jkt       string
+	expiry    time.Time
+}
+
+func assertConformanceInvalid(t *testing.T, verifier Verifier, attempt conformanceAttempt, message string) {
 	t.Helper()
-	if _, err := verifier.Verify(context.Background(), request, token, authority, jkt, expiry); !errors.Is(err, ErrInvalid) {
+	if _, err := verifier.Verify(context.Background(), attempt.request, attempt.token, attempt.authority, attempt.jkt, attempt.expiry); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("%s: %v", message, err)
 	}
 }
@@ -91,7 +99,7 @@ func assertConformanceCommitExpiryFence(t *testing.T, config Config, key *ecdsa.
 	store.now = func() time.Time { return commitTime }
 	shortToken := "short-lived-token"
 	proof := signedProof(t, key, config.Resource, shortToken, validationTime, "model-jti-000004", nonceError.Value)
-	assertConformanceInvalid(t, verifier, conformanceRequest(t, config.Resource, proof), shortToken, "fp-a", jkt, commitTime, "store commit accepted proof at expiry")
+	assertConformanceInvalid(t, verifier, conformanceAttempt{request: conformanceRequest(t, config.Resource, proof), token: shortToken, authority: "fp-a", jkt: jkt, expiry: commitTime}, "store commit accepted proof at expiry")
 	cache, err := store.read()
 	if err != nil {
 		t.Fatal(err)

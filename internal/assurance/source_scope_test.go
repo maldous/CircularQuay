@@ -30,7 +30,7 @@ func TestAuditGosecScopeExcludesGeneratedOutputPackages(t *testing.T) {
 		}
 		return fake(ctx, binary, args, directory, environment)
 	}
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
 	if err != nil || !called || !report.Passed {
 		t.Fatalf("bound scanner scope result: called=%t report=%+v err=%v", called, report, err)
 	}
@@ -61,7 +61,7 @@ func TestAuditGoToolsUseManifestScopeAfterOutputGeneratesGo(t *testing.T) {
 		}
 		return fake(ctx, binary, args, directory, environment)
 	}
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
 	if err != nil || !report.Passed {
 		t.Fatalf("manifest tool scope result: report=%+v err=%v", report, err)
 	}
@@ -88,7 +88,7 @@ func TestAuditFailsBeforeTargetToolsWithoutManifestGoScope(t *testing.T) {
 		}
 		return fake(ctx, binary, args, directory, environment)
 	}
-	report, err := run(context.Background(), Options{Source: root, Output: filepath.Join(root, "audit-results", "source"), Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: filepath.Join(root, "audit-results", "source"), Profile: "source"}, command)
 	if err != nil || report.Passed || targetCalled || !hasFailedScopeCheck(report) {
 		t.Fatalf("empty manifest Go scope result: called=%t report=%+v err=%v", targetCalled, report, err)
 	}

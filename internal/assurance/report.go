@@ -22,20 +22,38 @@ type Check struct {
 
 // Report ties honest results to a source revision and the selected platform.
 type Report struct {
-	Version             int             `json:"version"`
-	Profile             string          `json:"profile"`
-	Commit              string          `json:"commit,omitempty"`
-	Platform            string          `json:"platform"`
-	GoVersion           string          `json:"go_version,omitempty"`
-	StartedAt           time.Time       `json:"started_at"`
-	CompletedAt         time.Time       `json:"completed_at"`
-	Passed              bool            `json:"passed"`
-	ProductionQualified bool            `json:"production_qualified"`
-	Coverage            Coverage        `json:"coverage"`
-	Source              *SourceIdentity `json:"source,omitempty"`
-	Sonar               *SonarSummary   `json:"sonar,omitempty"`
-	Checks              []Check         `json:"checks"`
-	Limitations         []string        `json:"limitations"`
+	Version             int                 `json:"version"`
+	Profile             string              `json:"profile"`
+	Commit              string              `json:"commit,omitempty"`
+	Platform            string              `json:"platform"`
+	GoVersion           string              `json:"go_version,omitempty"`
+	StartedAt           time.Time           `json:"started_at"`
+	CompletedAt         time.Time           `json:"completed_at"`
+	Passed              bool                `json:"passed"`
+	ProductionQualified bool                `json:"production_qualified"`
+	Coverage            Coverage            `json:"coverage"`
+	Source              *SourceIdentity     `json:"source,omitempty"`
+	Sonar               *SonarSummary       `json:"sonar,omitempty"`
+	ToolManifest        *ToolManifestReport `json:"tool_manifest,omitempty"`
+	Checks              []Check             `json:"checks"`
+	Limitations         []string            `json:"limitations"`
+}
+
+// ToolManifestReport identifies the manifest and the fixed tool identities
+// used by this audit. A passed probe only confirms the declared version output
+// for that execution; it is not publisher authentication or sandbox evidence.
+type ToolManifestReport struct {
+	SHA256 string         `json:"sha256"`
+	Tools  []ToolIdentity `json:"tools"`
+}
+
+type ToolIdentity struct {
+	ID      string     `json:"id"`
+	Path    string     `json:"path"`
+	SHA256  string     `json:"sha256"`
+	Version string     `json:"declared_version"`
+	Rules   *ToolRules `json:"declared_rules,omitempty"`
+	Probe   ToolProbe  `json:"probe"`
 }
 
 func (r *Report) finish() {

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net"
 	"net/url"
 	"os"
@@ -23,6 +26,7 @@ type Options struct {
 	Output          string
 	Profile         string
 	GoBinary        string
+	ToolManifest    string
 	SonarURL        string
 	SonarTokenFile  string
 	SonarProjectKey string
@@ -37,12 +41,19 @@ type commandFunc func(context.Context, string, []string, string, []string) comma
 
 const auditCommandWaitDelay = 250 * time.Millisecond
 
+const expectedGoVersion = "go1.27.3"
+
 var revisionPattern = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
 var goVersionPattern = regexp.MustCompile(`^go version (go[0-9]+\.[0-9]+(?:\.[0-9]+)?) [a-z0-9]+/[a-z0-9]+\s*$`)
 var projectPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:-]{1,200}$`)
 
 // Run executes a local source audit and creates a sanitized evidence bundle.
-func Run(ctx context.Context, options Options) (Report, error) { return run(ctx, options, runCommand) }
+func Run(ctx context.Context, options Options) (Report, error) {
+	if options.ToolManifest == "" {
+		return Report{}, errors.New("tool manifest is required")
+	}
+	return run(ctx, options, runCommand)
+}
 
 func run(ctx context.Context, options Options, command commandFunc) (Report, error) {
 	audit, err := prepareAudit(options)
@@ -72,9 +83,6 @@ func prepareAudit(options Options) (auditRun, error) {
 	if err != nil {
 		return auditRun{}, err
 	}
-	if options.GoBinary == "" {
-		options.GoBinary = "go"
-	}
 	report := Report{Version: 1, Profile: options.Profile, Platform: runtime.GOOS + "/" + runtime.GOARCH, StartedAt: time.Now().UTC(), Limitations: []string{
 		"Automated source analysis is not security certification.",
 		"Coverage is measured for the current native build, not unexecuted platforms.",
@@ -85,27 +93,50 @@ func prepareAudit(options Options) (auditRun, error) {
 }
 
 func (audit auditRun) run(ctx context.Context, command commandFunc) (Report, error) {
-	identity, err := bindSource(ctx, runCommand, audit.root, audit.output, audit.environment)
+	manifest, err := LoadToolManifest(audit.options.ToolManifest, ToolLocations{Source: audit.root, Output: audit.output})
+	if err != nil {
+		audit.report.Checks = append(audit.report.Checks, Check{Name: "tool_manifest", Required: true, Status: "failed", Code: "tool_manifest_invalid"})
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	tools := newQualifiedTools(manifest, command)
+	if err = audit.bindMandatoryTools(tools); err != nil {
+		audit.report.Checks = append(audit.report.Checks, Check{Name: "tool_manifest", Required: true, Status: "failed", Code: "required_tool_missing"})
+		audit.report.ToolManifest = ptrToolManifest(tools.report())
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	audit.environment, err = tools.environment(audit.environment, filepath.Join(audit.output, "helpers"))
+	if err != nil {
+		audit.report.Checks = append(audit.report.Checks, Check{Name: "tool_manifest", Required: true, Status: "failed", Code: "helper_resolution_invalid"})
+		audit.report.ToolManifest = ptrToolManifest(tools.report())
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	identity, err := bindSource(ctx, tools.commandFor("git"), audit.root, audit.output, audit.environment)
 	if err != nil {
 		audit.report.Checks = append(audit.report.Checks, failedSourceIdentityCheck("source_identity_before_checks"))
+		audit.report.ToolManifest = ptrToolManifest(tools.report())
 		audit.report.finish()
 		return writeFailedReport(audit.output, audit.report)
 	}
 	audit.report.Source = &identity
-	recordSourceIdentity(ctx, command, audit.root, audit.options.GoBinary, audit.environment, &audit.report)
+	recordSourceIdentity(ctx, tools.commandFor("go"), audit.root, audit.options.GoBinary, audit.environment, &audit.report)
 	audit.report.Checks = append(audit.report.Checks, repositoryCheck(audit.root))
 	scope, err := sourceGoScope(audit.root, &identity)
 	if err != nil {
 		audit.report.Checks = append(audit.report.Checks, Check{Name: "source_go_scope", Required: true, Status: "failed", Code: "source_scope_missing"})
 		audit.report.finish()
+		audit.report.ToolManifest = ptrToolManifest(tools.report())
 		return writeFailedReport(audit.output, audit.report)
 	}
-	format, err := checkFormatting(ctx, command, audit.root, audit.options.GoBinary, audit.environment, scope.files)
+	format, err := checkFormatting(ctx, tools.commandFor("gofmt"), audit.root, audit.options.GoBinary, audit.environment, scope.files)
 	if err != nil {
 		return audit.report, err
 	}
-	audit.recordChecks(ctx, command, format, scope)
-	audit.recordAfterIdentity(ctx, identity)
+	audit.recordChecks(ctx, tools, format, scope)
+	audit.recordAfterIdentity(ctx, identity, tools.commandFor("git"))
+	audit.report.ToolManifest = ptrToolManifest(tools.report())
 	audit.report.finish()
 	if err = WriteReport(audit.output, audit.report); err != nil {
 		return audit.report, err
@@ -113,20 +144,42 @@ func (audit auditRun) run(ctx context.Context, command commandFunc) (Report, err
 	return audit.report, nil
 }
 
-func (audit *auditRun) recordChecks(ctx context.Context, command commandFunc, format Check, scope goSourceScope) {
+func ptrToolManifest(report ToolManifestReport) *ToolManifestReport { return &report }
+
+func (audit *auditRun) bindMandatoryTools(tools *qualifiedTools) error {
+	goTool, found := tools.tool("go")
+	if !found {
+		return errors.New("go tool missing")
+	}
+	for _, id := range []string{"git", "gofmt"} {
+		if _, found = tools.tool(id); !found {
+			return errors.New("required tool missing")
+		}
+	}
+	if audit.options.GoBinary == "" {
+		audit.options.GoBinary = goTool.Path
+		return nil
+	}
+	if audit.options.GoBinary != goTool.Path {
+		return errors.New("go tool does not match manifest")
+	}
+	return nil
+}
+
+func (audit *auditRun) recordChecks(ctx context.Context, tools *qualifiedTools, format Check, scope goSourceScope) {
 	audit.report.Checks = append(audit.report.Checks, format)
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
-	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "unit_tests", true, audit.options.GoBinary, testArguments, audit.root, audit.environment))
+	audit.report.Checks = append(audit.report.Checks, tools.commandFor("go").execute(ctx, "unit_tests", true, audit.options.GoBinary, testArguments, audit.root, audit.environment))
 	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
-	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "go_vet", true, audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment))
-	addExternalChecks(ctx, command, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
-	addSonar(ctx, command, audit.root, audit.environment, audit.options, coveragePath, &audit.report)
+	audit.report.Checks = append(audit.report.Checks, tools.commandFor("go").execute(ctx, "go_vet", true, audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment))
+	addExternalChecks(ctx, tools, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
+	addSonarWithTools(audit.options, &audit.report)
 	audit.report.Checks = append(audit.report.Checks, Check{Name: "native_reboot_and_restore", Status: "not_run", Code: "requires_qualified_native_environment"}, Check{Name: "independent_review", Status: "not_run", Code: "requires_independent_reviewer"})
 }
 
-func (audit *auditRun) recordAfterIdentity(ctx context.Context, before SourceIdentity) {
-	after, err := bindSource(ctx, runCommand, audit.root, audit.output, audit.environment)
+func (audit *auditRun) recordAfterIdentity(ctx context.Context, before SourceIdentity, command commandFunc) {
+	after, err := bindSource(ctx, command, audit.root, audit.output, audit.environment)
 	if err != nil || after.ManifestSHA256 != before.ManifestSHA256 || after.Tree != before.Tree || after.Commit != before.Commit {
 		audit.report.Checks = append(audit.report.Checks, failedSourceIdentityCheck("source_identity_after_checks"))
 		return
@@ -153,7 +206,7 @@ func recordSourceIdentity(ctx context.Context, command commandFunc, root, goBina
 	if found := goVersionPattern.FindSubmatch(version.output); len(found) > 1 {
 		report.GoVersion = string(found[1])
 	}
-	report.Checks = append(report.Checks, metadataCheck("source_revision", report.Commit != ""), metadataCheck("go_toolchain", report.GoVersion != ""), metadataCheck("source_identity_before_checks", report.Source != nil))
+	report.Checks = append(report.Checks, metadataCheck("source_revision", report.Commit != ""), metadataCheck("go_toolchain", report.GoVersion == expectedGoVersion), metadataCheck("source_identity_before_checks", report.Source != nil))
 }
 
 func checkFormatting(ctx context.Context, command commandFunc, root, goBinary string, environment, goFiles []string) (Check, error) {
@@ -209,7 +262,7 @@ func allowedOutputPath(relative string) bool {
 
 func auditEnvironment(home string) []string {
 	output := filepath.Dir(home)
-	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "CGO_ENABLED=0", "GOMAXPROCS=2", "GOFLAGS=-p=1 -mod=readonly", "GOMODCACHE=" + filepath.Join(output, "cache", "mod"), "GOCACHE=" + filepath.Join(output, "cache", "build"), "TMPDIR=" + filepath.Join(output, "tmp"), "TEMP=" + filepath.Join(output, "tmp"), "TMP=" + filepath.Join(output, "tmp"), "GIT_NO_REPLACE_OBJECTS=1", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "SONAR_SCANNER_JAVA_OPTS=-Xmx1g -XX:ActiveProcessorCount=2"}
+	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "CGO_ENABLED=0", "GOMAXPROCS=2", "GOFLAGS=-p=1 -mod=readonly", "GOMODCACHE=" + filepath.Join(output, "cache", "mod"), "GOCACHE=" + filepath.Join(output, "cache", "build"), "TMPDIR=" + filepath.Join(output, "tmp"), "GOTMPDIR=" + filepath.Join(output, "tmp"), "TEMP=" + filepath.Join(output, "tmp"), "TMP=" + filepath.Join(output, "tmp"), "GIT_NO_REPLACE_OBJECTS=1", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "SONAR_SCANNER_JAVA_OPTS=-Xmx1g -XX:ActiveProcessorCount=2"}
 	for _, key := range []string{"PATH", "SystemRoot", "SYSTEMROOT", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "GOPROXY", "GOSUMDB"} {
 		if value, ok := os.LookupEnv(key); ok {
 			environment = append(environment, key+"="+value)
@@ -266,24 +319,177 @@ func classifyCommand(name string, required bool, result commandResult, duration 
 	return check
 }
 
-func addExternalChecks(ctx context.Context, command commandFunc, root string, environment []string, required bool, scope goSourceScope, report *Report) {
+func addExternalChecks(ctx context.Context, tools *qualifiedTools, root string, environment []string, required bool, scope goSourceScope, report *Report) {
 	if len(scope.packages) == 0 {
 		report.Checks = append(report.Checks, Check{Name: "gosec", Required: true, Status: "failed", Code: "source_scope_missing"})
 		return
 	}
-	checks := []struct {
-		name, binary string
-		arguments    []string
-	}{
-		{"staticcheck", "staticcheck", scope.packages},
-		{"gosec", "gosec", append([]string{"-quiet"}, sourcePackageArguments(report.Source)...)},
+	checks := []externalToolCheck{
+		{"staticcheck", "staticcheck", append([]string{"-checks=all"}, scope.packages...)},
+		{"gosec", "gosec", append([]string{"-quiet", "-nosec"}, sourcePackageArguments(report.Source)...)},
 		{"govulncheck", "govulncheck", scope.packages},
 		{"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}},
 		{"workflow_lint", "actionlint", nil},
 	}
 	for _, check := range checks {
-		report.Checks = append(report.Checks, command.execute(ctx, check.name, required, check.binary, check.arguments, root, environment))
+		report.Checks = append(report.Checks, externalCheck(ctx, tools, root, environment, required, check))
 	}
+}
+
+type externalToolCheck struct {
+	name, id  string
+	arguments []string
+}
+
+func externalCheck(ctx context.Context, tools *qualifiedTools, root string, environment []string, required bool, check externalToolCheck) Check {
+	if sourceAnalyzerWaiver(root, check.id) {
+		return Check{Name: check.name, Required: required, Status: "failed", Code: "source_controlled_analyzer_waiver"}
+	}
+	if !tools.dependenciesMatch() {
+		return Check{Name: check.name, Required: required, Status: "failed", Code: "dependency_digest_mismatch"}
+	}
+	tool, found := tools.tool(check.id)
+	if !found {
+		return Check{Name: check.name, Required: required, Status: "not_run", Code: "tool_not_selected"}
+	}
+	arguments, commandEnvironment, ok := externalArguments(check, tool, environment)
+	if !ok {
+		return Check{Name: check.name, Required: required, Status: "failed", Code: "rules_not_bound"}
+	}
+	if !toolInputMatches(tool.DeclaredRules) {
+		return Check{Name: check.name, Required: required, Status: "failed", Code: "rules_input_drift_before_execution"}
+	}
+	result := tools.commandFor(check.id).execute(ctx, check.name, required, tool.Path, arguments, root, commandEnvironment)
+	if !toolInputMatches(tool.DeclaredRules) {
+		return Check{Name: check.name, Required: required, Status: "failed", Code: "rules_input_drift_after_execution"}
+	}
+	return result
+}
+
+func sourceAnalyzerWaiver(root, id string) bool {
+	found := false
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || found || entry.IsDir() {
+			return nil
+		}
+		found = analyzerWaiverFile(path, entry.Name(), id)
+		return nil
+	})
+	return found
+}
+
+func analyzerWaiverFile(path, name, id string) bool {
+	if analyzerConfigName(name, id) {
+		return true
+	}
+	if (id != "staticcheck" && id != "gosec") || !strings.HasSuffix(name, ".go") {
+		return false
+	}
+	parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ParseComments)
+	if err != nil {
+		return false
+	}
+	return parsedAnalyzerWaiver(parsed.Comments, id)
+}
+
+func parsedAnalyzerWaiver(groups []*ast.CommentGroup, id string) bool {
+	for _, group := range groups {
+		for _, comment := range group.List {
+			if analyzerWaiverText(comment.Text, id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func analyzerConfigName(name, id string) bool {
+	switch id {
+	case "staticcheck":
+		return name == "staticcheck.conf"
+	case "gosec":
+		return name == ".gosec.json" || name == "gosec.json" || name == "gosec.yaml" || name == "gosec.yml"
+	case "gitleaks":
+		return name == ".gitleaksignore"
+	case "actionlint":
+		return name == "actionlint.yaml" || name == "actionlint.yml"
+	}
+	return false
+}
+
+func analyzerWaiverText(data, id string) bool {
+	if id == "staticcheck" {
+		return strings.Contains(data, "//lint:ignore") || strings.Contains(data, "//lint:file-ignore")
+	}
+	return strings.Contains(data, "#nosec")
+}
+
+func externalArguments(check externalToolCheck, tool VerifiedTool, environment []string) ([]string, []string, bool) {
+	if check.id == "gitleaks" {
+		return gitleaksArguments(tool, environment)
+	}
+	if check.id == "govulncheck" {
+		return vulnDBArguments(check.arguments, tool, environment)
+	}
+	return check.arguments, environment, true
+}
+
+func gitleaksArguments(tool VerifiedTool, environment []string) ([]string, []string, bool) {
+	if tool.DeclaredRules == nil || tool.DeclaredRules.Kind != "file" || tool.DeclaredRules.Input == nil {
+		return nil, nil, false
+	}
+	ignore, ok := emptyGitleaksIgnore(environment)
+	if !ok {
+		return nil, nil, false
+	}
+	return []string{"git", "--config=" + tool.DeclaredRules.Input.Path, "--gitleaks-ignore-path=" + ignore, "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}, environment, true
+}
+
+func emptyGitleaksIgnore(environment []string) (string, bool) {
+	for _, value := range environment {
+		if home, found := strings.CutPrefix(value, "HOME="); found {
+			path := filepath.Join(home, "gitleaks-empty-ignore")
+			if err := platform.WriteProtected(path, nil); err == nil {
+				return path, true
+			}
+		}
+	}
+	return "", false
+}
+
+func vulnDBArguments(arguments []string, tool VerifiedTool, environment []string) ([]string, []string, bool) {
+	if tool.DeclaredRules == nil || tool.DeclaredRules.Kind != "vulndb_snapshot" || tool.DeclaredRules.Input == nil {
+		return nil, nil, false
+	}
+	return arguments, append(environment, "GOVULNDB="+fileURL(tool.DeclaredRules.Input.Path)), true
+}
+
+func fileURL(path string) string { return fileURLForPath(path, runtime.GOOS == "windows") }
+
+func fileURLForPath(path string, windows bool) string {
+	normalized := filepath.ToSlash(path)
+	if windows {
+		normalized = strings.ReplaceAll(normalized, "\\", "/")
+		if len(normalized) > 1 && normalized[1] == ':' {
+			normalized = "/" + normalized
+		}
+	}
+	return (&url.URL{Scheme: "file", Path: normalized}).String()
+}
+
+func addSonarWithTools(options Options, report *Report) {
+	if options.Profile == "enterprise" {
+		report.Checks = append(report.Checks, Check{Name: "sonarqube", Required: true, Status: "failed", Code: "sonar_runtime_binding_unavailable"})
+		return
+	}
+	code := "sonar_runtime_binding_unavailable"
+	if options.SonarURL == "" {
+		code = "sonar_not_configured"
+	}
+	// A manifest declaration alone cannot bind scanner plugins, the JRE, or
+	// current remote rules/profile/gate bytes. Optional source checks must not
+	// turn that missing binding into an apparently qualified Sonar pass.
+	report.Checks = append(report.Checks, Check{Name: "sonarqube", Status: "not_run", Code: code})
 }
 
 func addSonar(ctx context.Context, command commandFunc, root string, environment []string, options Options, coverage string, report *Report) {

@@ -184,11 +184,19 @@ PowerShell uses `New-Item -ItemType Directory -Force ../cquay-build`, explicit `
 From the repository root:
 
 ```sh
-../cquay-build/cquay-audit run --profile source --output ../cquay-evidence/source
-../cquay-build/cquay-audit run --profile enterprise --output ../cquay-evidence/enterprise
+../cquay-build/cquay-audit run --profile source --tool-manifest /absolute/private/tools.json --output ../cquay-evidence/source
+../cquay-build/cquay-audit run --profile enterprise --tool-manifest /absolute/private/tools.json --output ../cquay-evidence/enterprise
 ```
 
-Supported audit inputs include `--source DIR`, `--go ABSOLUTE_GO`, and explicit Sonar connection flags `--sonar-url`, `--sonar-token-file`, and `--sonar-project-key`. The token file must be protected and outside public source. Never place its value in arguments or logs.
+Supported audit inputs include required `--tool-manifest ABSOLUTE_PATH`, optional `--source DIR` and `--go ABSOLUTE_GO`, and explicit Sonar connection flags `--sonar-url`, `--sonar-token-file`, and `--sonar-project-key`. The protected manifest binds every selected executable and rules input; its `go` path must match `--go` when supplied. The token file must be protected and outside public source. Never place its value in arguments or logs.
+
+Create the manifest in a private operator directory from already-selected,
+immutable tool releases: record each absolute executable path, SHA-256, fixed
+probe output digest, and any protected rules/snapshot digest. Protect the file
+with owner-only access and keep it outside source and evidence paths. The
+manifest identifies local bytes and probe output only; it does not authenticate
+a publisher, prove a complete runtime or dependency closure, or make execution
+atomic or sandboxed.
 
 Select the root of a clean, complete Git checkout. The v1 report binds its commit, tree, tracked modes/blob IDs and raw SHA-256 file manifest before and after target checks. Unexpected files, including ignored Go inputs and unrelated prior audit output, block execution. Only the exact selected protected output subtree is excluded; an output inside the checkout must be under `audit-results` or `.local/audit-results`. External evidence directories avoid mixing results from successive profiles. Git replacement objects and ambient global/system Git configuration are disabled. Source manifests detect ordinary drift; they do not provide an atomic snapshot, trusted analyzer provenance or an operating-system sandbox. Run selected source only within an appropriately isolated audit environment.
 

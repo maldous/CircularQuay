@@ -165,12 +165,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      CQUAY_CONFIG_SOURCE: https://github.com/example-org/cquay-config/tree/main/github
-      CQUAY_CONFIG_PATH: cquay.json
+      CQUAY_CONFIG_SOURCE: https://github.com/example-org/cquay-config/tree/${{ vars.CQUAY_CONFIG_REF }}
+      CQUAY_CONFIG_PATH: github/cquay.json
+      CQUAY_CONFIG_REF: ${{ vars.CQUAY_CONFIG_REF }}
+      CQUAY_CONFIG_SHA256: ${{ vars.CQUAY_CONFIG_SHA256 }}
     steps:
       - name: Run the configured build
         run: cquay flow run --workload ci-build --non-interactive
 ```
+
+Set the repository or environment variables `CQUAY_CONFIG_REF` and
+`CQUAY_CONFIG_SHA256` to the reviewed full commit SHA and configuration-file
+SHA-256, obtained through a trusted maintainer channel. The URL's commit must
+match the pin. Missing pins or a URL/commit mismatch stop retrieval; a
+configuration digest mismatch prevents use. Public readability alone cannot
+authorize a configuration.
 
 The configuration declares `ci-build` and its approved command. The job's
 workload identity is verified against the configured issuer, audience,
@@ -182,8 +191,8 @@ uses that token; standalone configurations use their declared provider trust.
 The source URL can also come from a GitHub repository or environment variable,
 or from an earlier step that writes `CQUAY_CONFIG_SOURCE` to `$GITHUB_ENV`.
 GitHub [makes that file's entries available to subsequent steps](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable). For an
-immutable configuration, also set `CQUAY_CONFIG_REF` to its full commit SHA.
-`cquay bootstrap --non-interactive --output ./cquay.json` materializes the
+unattended first enrollment, both the full commit and configuration digest
+are required. `cquay bootstrap --non-interactive --output ./cquay.json` materializes the
 selected configuration for later commands without putting secret values in it.
 
 Without an explicit source, `cquay` checks local configuration, then uses
@@ -527,9 +536,9 @@ Apache-2.0 for CircularQuay's own code and documentation. Dependencies retain th
 
 ## v1 command reference
 
-This is the intended v1 interface for review. Implementation and production
-qualification are incomplete. Use synthetic data only; see the
-[qualification evidence](docs/qualification.md).
+The command reference covers configuration, workload delivery, CI automation
+and optional integrations. Revision-scoped testing and release qualification
+are recorded in the [qualification evidence](docs/qualification.md).
 
 All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
 PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
@@ -559,7 +568,7 @@ the same value produces the same canonical document; a repeated `delete` fails
 after the node is absent.
 
 The separate assurance binary is for evidence generation, not workload
-delivery: `cquay-audit run --profile source|enterprise --output DIR` with
+delivery: `cquay-audit run --profile source|enterprise --tool-manifest PATH --output DIR` with
 optional `--source`, `--go`, `--sonar-url`, `--sonar-token-file`, and
 `--sonar-project-key`. Its enterprise inputs and evidence handling are
 documented in [RELEASE.md](RELEASE.md).
@@ -655,8 +664,8 @@ A listener is not an IdP or a managed multi-tenant service. The
 ### Independent assurance
 
 ```sh
-cquay-audit run --profile source --source . --output audit-results/source --go /absolute/path/to/go
-cquay-audit run --profile enterprise --source . --output audit-results/enterprise --go /absolute/path/to/go --sonar-url http://127.0.0.1:9000 --sonar-token-file /absolute/private/scanner.token --sonar-project-key circularquay
+cquay-audit run --profile source --source . --tool-manifest /absolute/private/tools.json --output audit-results/source --go /absolute/path/to/go
+cquay-audit run --profile enterprise --source . --tool-manifest /absolute/private/tools.json --output audit-results/enterprise --go /absolute/path/to/go --sonar-url http://127.0.0.1:9000 --sonar-token-file /absolute/private/scanner.token --sonar-project-key circularquay
 cquay-audit sonar-init --directory .local/sonar
 cquay-audit sonar-bootstrap --directory .local/sonar --url http://127.0.0.1:9000 --project circularquay
 ```

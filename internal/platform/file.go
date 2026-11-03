@@ -44,6 +44,16 @@ func EnsurePrivateDirectory(path string) error {
 	return nil
 }
 
+// ValidatePrivateDirectory checks an existing private directory without
+// creating it or repairing ownership, ACLs, or permissions. Callers use it
+// before reading an operator-controlled directory tree.
+func ValidatePrivateDirectory(path string) error {
+	if !filepath.IsAbs(path) || !resolvedPathIsOriginal(path) || !privateDirectorySecure(path) {
+		return fault.New(fault.Trust, "private directory permissions")
+	}
+	return nil
+}
+
 func privateDirectoryAbsent(path string) (bool, error) {
 	_, err := os.Lstat(path)
 	if err == nil {

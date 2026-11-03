@@ -41,6 +41,50 @@ The current SOPS Vault-metadata advisory lists affected versions with an allowli
 
 ## Evidence bundle
 
+Every `cquay-audit run` needs a protected v1 [tool manifest](../internal/assurance/tool_manifest.schema.json) outside both the
+source checkout and audit output. The portable schema describes structure;
+the strict decoder also requires the integer spelling `1` and bounds paths to
+4,096 UTF-8 bytes. Native loading enforces the host platform, protected local
+files, canonical paths, location separation and actual digests. Profile tool
+requirements are checked by the runner. The manifest declares fixed absolute paths, SHA-256
+digests, version-output digests, and where applicable protected rules inputs.
+The runner loads it before invoking Git, Go, gofmt, or an analyzer, rehashes
+the selected executable, and checks its fixed version probe before each run.
+`git`, `go`, and `gofmt` are mandatory. `--go` is optional, but a supplied
+value must exactly match the manifest's Go path. The source workflow writes a
+private three-tool manifest beside its temporary audit binary; other analyzers
+are explicitly reported as not selected rather than resolved from PATH.
+
+`gitleaks` needs a manifest-bound protected configuration file and
+`govulncheck` needs a manifest-bound protected vulnerability snapshot. The
+runner constructs the `file://` `GOVULNDB` URL from that snapshot path. An
+enterprise run requires all nine tools and a complete bound Sonar JRE/plugin
+runtime. A missing runtime binding records a required enterprise failure or
+an optional source `not_run` result, and prevents launch of an unbound scanner.
+The direct Sonar route is a separate diagnostic;
+it does not satisfy the enterprise toolchain gate.
+
+The runner supplies gitleaks an owner-only empty ignore file outside source
+and enables `--ignore-gitleaks-allow`; a source `.gitleaksignore` therefore
+cannot turn findings into a pass. Staticcheck runs its fixed `all` checks and
+gosec runs with `-nosec`; source-owned Staticcheck/gosec configuration and
+inline suppression markers, plus Actionlint ignore configuration, fail the
+corresponding check rather than reducing its rules.
+
+These checks identify opened binary bytes and version output, but they do not
+authenticate a publisher, bind transitive Go/runtime inputs, close the
+hash-to-exec race, or sandbox child processes.
+
+Before and after an analyzer that consumes a manifest-bound rules file or
+snapshot, the runner revalidates its protected metadata and complete digest.
+That catches ordinary configuration drift and prevents accepting the result
+after observed drift. It does not make use atomic against an actor able to
+replace and restore files. Child PATH resolution is restricted to private
+verified copies of the canonical `git` and `go` filenames; analyzer directories
+do not contribute helpers. The Go distribution, Git helper/DLL dependencies,
+the operating system, and child-process sandboxing remain separate closure
+evidence.
+
 The audit runner must record commit/artifact hashes, tool and rule versions, exact scope, tests, coverage numerator/denominator, model/mutation results, sanitized raw analysis, review decisions, upstream advisories, and native/provider/client qualification.
 
 Source evidence uses a complete Git checkout rooted at the selected source directory. Before target tools execute, the v1 report binds the commit/tree and an ordered manifest of tracked regular files, Git modes/blob IDs and matching raw SHA-256 bytes. Ignored or untracked inputs fail the inventory check. Only the exact selected protected output subtree is excluded. A second binding detects post-check drift. Git replacement objects and ambient global/system configuration are disabled; checked-out line endings must match the tree. Windows records Git modes without claiming Unix executable-bit enforcement. File counts, individual reads and total source bytes are bounded. Manifest-owned files and package imports define formatting, tests, coverage, vet and Go-aware analyzer arguments, keeping generated output outside those scopes. A manifest directory without a native Go build fails the check instead of silently reducing coverage.

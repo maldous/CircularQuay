@@ -21,7 +21,7 @@ func TestSourceIdentityRejectsIgnoredGoFileBeforeCommands(t *testing.T) {
 		return commandResult{}
 	}
 	output := privateAssuranceDirectory(t, "evidence")
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
 	if err != nil || called || report.Passed || !hasFailedSourceIdentity(report, "source_identity_before_checks") {
 		t.Fatalf("ignored source result = %+v, called = %t, error = %v", report, called, err)
 	}
@@ -48,7 +48,7 @@ func TestSourceIdentityRejectsSymlinkedSourceBeforeCommands(t *testing.T) {
 		called = true
 		return commandResult{}
 	}
-	report, err := run(context.Background(), Options{Source: alias, Output: privateAssuranceDirectory(t, "evidence"), Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: alias, Output: privateAssuranceDirectory(t, "evidence"), Profile: "source"}, command)
 	if err != nil || called || report.Passed || !hasFailedSourceIdentity(report, "source_identity_before_checks") {
 		t.Fatalf("symlink source result = %+v, called = %t, error = %v", report, called, err)
 	}
@@ -66,7 +66,7 @@ func TestSourceIdentityDetectsPostCommandDrift(t *testing.T) {
 		}
 		return command(ctx, binary, args, directory, environment)
 	}
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, drift)
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, drift)
 	if err != nil || report.Passed || !hasFailedSourceIdentity(report, "source_identity_after_checks") {
 		t.Fatalf("post-command drift result = %+v, %v", report, err)
 	}
@@ -75,7 +75,7 @@ func TestSourceIdentityDetectsPostCommandDrift(t *testing.T) {
 func TestSourceIdentityAllowsSelectedPrivateOutput(t *testing.T) {
 	root := fixtureRepository(t)
 	output := filepath.Join(root, ".local", "audit-results", "fixture")
-	report, err := run(context.Background(), Options{Source: root, Output: output, Profile: "source"}, sourceAuditCommand(t, "synthetic"))
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, sourceAuditCommand(t, "synthetic"))
 	if err != nil || !report.Passed || report.Source == nil || report.Source.ManifestSHA256 == "" {
 		t.Fatalf("private output result = %+v, %v", report, err)
 	}
@@ -124,7 +124,7 @@ func TestSourceIdentityRejectsRepositorySubdirectoryBeforeCommands(t *testing.T)
 		called = true
 		return commandResult{}
 	}
-	report, err := run(context.Background(), Options{Source: directory, Output: privateAssuranceDirectory(t, "evidence"), Profile: "source"}, command)
+	report, err := runForTest(context.Background(), Options{Source: directory, Output: privateAssuranceDirectory(t, "evidence"), Profile: "source"}, command)
 	if err != nil || called || report.Passed || !hasFailedSourceIdentity(report, "source_identity_before_checks") {
 		t.Fatalf("subdirectory source result = %+v, called = %t, error = %v", report, called, err)
 	}

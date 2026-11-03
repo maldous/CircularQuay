@@ -38,7 +38,7 @@ func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int 
 		return runSonar(ctx, arguments, stdout, stderr)
 	}
 	if len(arguments) == 0 || arguments[0] != "run" {
-		_, _ = fmt.Fprintln(stderr, "usage: cquay-audit run --profile source|enterprise --output DIR")
+		_, _ = fmt.Fprintln(stderr, "usage: cquay-audit run --profile source|enterprise --output DIR --tool-manifest PATH")
 		return 2
 	}
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
@@ -47,11 +47,12 @@ func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int 
 	flags.StringVar(&options.Source, "source", ".", "source checkout")
 	flags.StringVar(&options.Output, "output", "audit-results", "private evidence directory")
 	flags.StringVar(&options.Profile, "profile", "enterprise", "source or enterprise")
-	flags.StringVar(&options.GoBinary, "go", "go", "qualified Go executable")
+	flags.StringVar(&options.GoBinary, "go", "", "qualified Go executable declared by the manifest")
+	flags.StringVar(&options.ToolManifest, "tool-manifest", "", "protected external tool manifest")
 	flags.StringVar(&options.SonarURL, "sonar-url", "", "qualified SonarQube URL")
 	flags.StringVar(&options.SonarTokenFile, "sonar-token-file", "", "protected scanner token file")
 	flags.StringVar(&options.SonarProjectKey, "sonar-project-key", "circularquay", "SonarQube project key")
-	if flags.Parse(arguments[1:]) != nil || flags.NArg() != 0 {
+	if flags.Parse(arguments[1:]) != nil || flags.NArg() != 0 || options.ToolManifest == "" {
 		_, _ = fmt.Fprintln(stderr, "invalid audit arguments")
 		return 2
 	}

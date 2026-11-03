@@ -187,6 +187,47 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          cquay_audit_dir=''
           cquay_audit_dir=$(mktemp -d "${RUNNER_TEMP}/cquay-source-audit.XXXXXX")
+          cquay_tool_dir="$cquay_audit_dir/tools"
+          mkdir -p "$cquay_tool_dir"
           go build -trimpath -o "$cquay_audit_dir/cquay-audit" ./cmd/cquay-audit
-          "$cquay_audit_dir/cquay-audit" run --profile source --go "$(command -v go)" --output "$cquay_audit_dir/evidence"
+          CQUAY_GIT="$(command -v git)"
+          export CQUAY_GIT
+          CQUAY_GO="$(command -v go)"
+          export CQUAY_GO
+          CQUAY_GOFMT="$(dirname "$CQUAY_GO")/gofmt"
+          export CQUAY_GOFMT
+          test -x "$CQUAY_GIT"
+          test -x "$CQUAY_GO"
+          test -x "$CQUAY_GOFMT"
+          export CQUAY_TOOL_MANIFEST="$cquay_tool_dir/manifest.json"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+
+          def entry(identifier, path, version_args, expected_status=0, declared_version=None):
+              result = subprocess.run([path, *version_args], capture_output=True, check=False)
+              if result.returncode != expected_status:
+                  raise RuntimeError(f"{identifier} probe exited {result.returncode}")
+              version = result.stdout + result.stderr
+              with open(path, "rb") as binary:
+                  digest = hashlib.file_digest(binary, "sha256").hexdigest()
+              return {"id": identifier, "path": path, "sha256": digest,
+                      "version": declared_version or version.decode("ascii").strip(),
+                      "version_output_sha256": hashlib.sha256(version).hexdigest()}
+
+          go_tool = entry("go", os.environ["CQUAY_GO"], ["version"])
+          manifest = {"version": 1, "platform": "linux/amd64", "tools": [
+              entry("git", os.environ["CQUAY_GIT"], ["--version"]),
+              go_tool,
+              entry("gofmt", os.environ["CQUAY_GOFMT"], ["-h"], 0,
+                    declared_version="gofmt from " + go_tool["version"]),
+          ]}
+          with open(os.environ["CQUAY_TOOL_MANIFEST"], "x", encoding="utf-8") as output:
+              json.dump(manifest, output, separators=(",", ":"))
+          os.chmod(os.environ["CQUAY_TOOL_MANIFEST"], 0o600)
+          PY
+          "$cquay_audit_dir/cquay-audit" run --profile source --tool-manifest "$CQUAY_TOOL_MANIFEST" --go "$CQUAY_GO" --output "$cquay_audit_dir/evidence"
