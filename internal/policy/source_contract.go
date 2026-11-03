@@ -1,7 +1,9 @@
 package policy
 
 import (
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/maldous/CircularQuay/internal/model"
 )
@@ -150,7 +152,14 @@ func requireDopplerContract(source model.Source) error {
 }
 
 func requireInfisicalContract(source model.Source) error {
-	return requireTokenContract(source, source.Project != "" && source.Environment != "")
+	return requireTokenContract(source, source.Project != "" && source.Environment != "" && validInfisicalPath(source.Path))
+}
+
+// validInfisicalPath permits the provider's root scope and exact folder paths.
+// A declared path must have one unambiguous slash-separated representation so
+// the policy scope cannot differ from the provider request's scope.
+func validInfisicalPath(value string) bool {
+	return value == "/" || (strings.HasPrefix(value, "/") && value == path.Clean(value) && safeSelector(value) && !strings.Contains(value, "#"))
 }
 
 func requireAkeylessContract(source model.Source) error { return requireTokenContract(source, true) }

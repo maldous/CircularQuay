@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,6 +187,132 @@ func TestInjectedClientWithoutTimeoutGetsBoundedRequest(t *testing.T) {
 	if err := client.DoJSON(context.Background(), http.MethodGet, u, nil, nil, nil); err != nil || !deadlineSet {
 		t.Fatal("injected client request was not bounded")
 	}
+}
+
+func TestHardenedHTTPClientRejectsRedirectsAndOversizedBodies(t *testing.T) {
+	t.Run("redirect", assertHardenedRedirect)
+	t.Run("content length", assertHardenedDeclaredOversize)
+	t.Run("chunked", assertHardenedChunkedOversize)
+	t.Run("limit exact", assertHardenedExactLimit)
+}
+
+func TestHardenedResponseSizeClassifiesAsTrust(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		contentLength int64
+		status        int
+		out           any
+	}{
+		{name: "decoded chunked", contentLength: -1, status: http.StatusOK, out: &map[string]any{}},
+		{name: "discarded chunked", contentLength: -1, status: http.StatusOK},
+		{name: "declared", contentLength: maxPayload + 1, status: http.StatusOK},
+		{name: "error response body", contentLength: -1, status: http.StatusInternalServerError},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := hardenedOversizedClient(test.status, test.contentLength)
+			err := client.DoJSON(context.Background(), http.MethodGet, testProviderURL(t), nil, nil, test.out)
+			if !fault.Is(err, fault.Trust) || fault.Is(err, fault.Unavailable) {
+				t.Fatalf("oversized response classification = %v", err)
+			}
+		})
+	}
+}
+
+func hardenedOversizedClient(status int, contentLength int64) Client {
+	return Client{HTTP: NewHTTPClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    status,
+			ContentLength: contentLength,
+			Body:          io.NopCloser(strings.NewReader(strings.Repeat("x", maxPayload+1))),
+		}, nil
+	}))}
+}
+
+func testProviderURL(t *testing.T) *url.URL {
+	t.Helper()
+	u, err := URL("https://provider.invalid", "resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
+func assertHardenedRedirect(t *testing.T) {
+	t.Helper()
+	requests := 0
+	client := NewHTTPClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return &http.Response{StatusCode: http.StatusFound, Header: http.Header{"Location": {"https://redirect.invalid"}}, Body: io.NopCloser(strings.NewReader(""))}, nil
+	}))
+	if _, err := client.Get("https://provider.invalid"); !errors.Is(err, errRedirectDenied) || requests != 1 {
+		t.Fatalf("redirect result = %v after %d requests", err, requests)
+	}
+}
+
+func assertHardenedDeclaredOversize(t *testing.T) {
+	t.Helper()
+	body := &trackedReadCloser{Reader: strings.NewReader("oversized")}
+	client := NewHTTPClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, ContentLength: maxPayload + 1, Body: body}, nil
+	}))
+	if _, err := client.Get("https://provider.invalid"); !errors.Is(err, ErrResponseTooLarge) || !body.closed {
+		t.Fatalf("declared oversized response result = %v, closed = %t", err, body.closed)
+	}
+}
+
+func assertHardenedChunkedOversize(t *testing.T) {
+	t.Helper()
+	body := &trackedReadCloser{Reader: strings.NewReader(strings.Repeat("x", maxPayload+1))}
+	client := NewHTTPClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, ContentLength: -1, Body: body}, nil
+	}))
+	response, err := client.Get("https://provider.invalid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = io.ReadAll(response.Body); !errors.Is(err, ErrResponseTooLarge) {
+		t.Fatalf("chunked oversized response result = %v", err)
+	}
+	assertBodyClosed(t, response.Body, body)
+}
+
+func assertHardenedExactLimit(t *testing.T) {
+	t.Helper()
+	data := strings.Repeat("x", maxPayload)
+	body := &trackedReadCloser{Reader: strings.NewReader(data)}
+	client := NewHTTPClient(roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, ContentLength: -1, Body: body}, nil
+	}))
+	response, err := client.Get("https://provider.invalid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	read, err := io.ReadAll(response.Body)
+	if err != nil || string(read) != data {
+		t.Fatalf("exact response result = %d bytes, %v", len(read), err)
+	}
+	var probe [1]byte
+	if count, err := response.Body.Read(probe[:]); count != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("exact response EOF = %d bytes, %v", count, err)
+	}
+	assertBodyClosed(t, response.Body, body)
+}
+
+func assertBodyClosed(t *testing.T, response io.Closer, body *trackedReadCloser) {
+	t.Helper()
+	if err := response.Close(); err != nil || !body.closed {
+		t.Fatalf("response close result = %v, closed = %t", err, body.closed)
+	}
+}
+
+type trackedReadCloser struct {
+	io.Reader
+	closed bool
+}
+
+func (body *trackedReadCloser) Close() error {
+	body.closed = true
+	return nil
 }
 
 func TestCredentialFileBoundary(t *testing.T) {

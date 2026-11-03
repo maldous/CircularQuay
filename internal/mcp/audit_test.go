@@ -29,7 +29,7 @@ func privateAuditPath(t *testing.T) string {
 func TestProtectedFileAudit(t *testing.T) {
 	path := privateAuditPath(t)
 	a := newTestAuditor(t, path)
-	event := Event{Time: time.Now().UTC(), Subject: "local:alice", Workload: "alpha", Operation: "read", Key: "SERVICE_KEY", Outcome: "released"}
+	event := Event{Time: time.Now().UTC(), Subject: "local:alice", Workload: "alpha", Operation: "read", Key: "SERVICE_KEY", Outcome: "release_authorized"}
 	assertAuditRecord(t, a, path, event)
 	assertCancelledAuditRejected(t, a, event)
 	assertPrivateAuditPermissions(t, path)
@@ -141,7 +141,7 @@ func TestAuditFileReplacementAndConcurrency(t *testing.T) {
 func recordAuditEvents(auditor *FileAuditor, done chan<- error, count int) {
 	for range count {
 		go func() {
-			done <- auditor.Record(context.Background(), Event{Time: time.Now().UTC(), Operation: "read", Outcome: "released"})
+			done <- auditor.Record(context.Background(), Event{Time: time.Now().UTC(), Operation: "read", Outcome: "release_authorized"})
 		}()
 	}
 }

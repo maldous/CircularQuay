@@ -76,10 +76,25 @@ func validateSource(source model.Source) error {
 	if err := uniqueExact(source.Resources); err != nil {
 		return err
 	}
+	if err := validateEnvironmentSourceResources(source); err != nil {
+		return err
+	}
 	if err := validateSourceContract(source); err != nil {
 		return err
 	}
 	return validateSourceIdentity(source)
+}
+
+func validateEnvironmentSourceResources(source model.Source) error {
+	if source.Type != "env" {
+		return nil
+	}
+	for _, resource := range source.Resources {
+		if IsProtectedEnvironmentName(resource) {
+			return invalid("source_environment_input")
+		}
+	}
+	return nil
 }
 
 func validSourceText(source model.Source) bool {
@@ -248,7 +263,7 @@ func validateBindingMode(workload model.Workload, source model.Source, binding m
 }
 
 func validBindingName(name, upperName string, seen map[string]bool) bool {
-	return environmentName.MatchString(name) && !forbiddenBindingName(upperName) && !seen[upperName]
+	return environmentName.MatchString(name) && !IsProtectedEnvironmentName(upperName) && !seen[upperName]
 }
 
 func validBindingScope(source model.Source, exists bool, binding model.Binding) bool {

@@ -19,6 +19,12 @@ func ValidateEnvironment(values map[string]string) error {
 	return nil
 }
 
+// IsProtectedEnvironmentName reports whether name controls process bootstrap
+// or execution behavior and therefore cannot be supplied by a secret source.
+func IsProtectedEnvironmentName(name string) bool {
+	return forbiddenBindingName(strings.ToUpper(name))
+}
+
 func forbiddenBindingName(name string) bool {
 	if bootstrapName(name) || strings.HasPrefix(name, "LD_") || strings.HasPrefix(name, "DYLD_") {
 		return true

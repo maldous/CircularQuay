@@ -106,13 +106,17 @@ type Target struct {
 	Activation     string `json:"activation,omitempty" yaml:"activation,omitempty"`
 }
 
-// Grant is enforced before fetching values or invoking actions.
+// Grant is enforced before fetching values or invoking actions. Its optional
+// time bounds constrain local cquay authorization; they do not extend remote
+// identity claims or provider credential validity.
 type Grant struct {
-	Subject    string   `json:"subject" yaml:"subject"`
-	Client     string   `json:"client,omitempty" yaml:"client,omitempty"`
-	Workload   string   `json:"workload" yaml:"workload"`
-	Operations []string `json:"operations" yaml:"operations"`
-	Keys       []string `json:"keys,omitempty" yaml:"keys,omitempty"`
+	Subject    string     `json:"subject" yaml:"subject"`
+	Client     string     `json:"client,omitempty" yaml:"client,omitempty"`
+	Workload   string     `json:"workload" yaml:"workload"`
+	Operations []string   `json:"operations" yaml:"operations"`
+	Keys       []string   `json:"keys,omitempty" yaml:"keys,omitempty"`
+	NotBefore  *time.Time `json:"not_before,omitempty" yaml:"not_before,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
 }
 
 // MCP configures a protected resource; it is not an authorization server.

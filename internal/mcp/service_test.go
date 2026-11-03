@@ -25,7 +25,10 @@ type fakeBackend struct {
 	status                Status
 	run                   RunResult
 	principal             Principal
+	deadline              time.Time
+	hasDeadline           bool
 	onRead                func()
+	onStatus              func()
 }
 
 func (b *fakeBackend) Read(ctx context.Context, _, _ string) (model.Value, error) {
@@ -33,6 +36,7 @@ func (b *fakeBackend) Read(ctx context.Context, _, _ string) (model.Value, error
 	defer b.mu.Unlock()
 	b.reads++
 	b.principal, _ = PrincipalFromContext(ctx)
+	b.deadline, b.hasDeadline = ctx.Deadline()
 	if b.onRead != nil {
 		b.onRead()
 	}
@@ -50,13 +54,17 @@ func (b *fakeBackend) Status(ctx context.Context, _ string) (Status, error) {
 	defer b.mu.Unlock()
 	b.statuses++
 	b.principal, _ = PrincipalFromContext(ctx)
+	if b.onStatus != nil {
+		b.onStatus()
+	}
 	return b.status, b.err
 }
 
 type memoryAudit struct {
-	mu     sync.Mutex
-	events []Event
-	fail   bool
+	mu       sync.Mutex
+	events   []Event
+	fail     bool
+	onRecord func()
 }
 
 func (a *memoryAudit) Record(_ context.Context, e Event) error {
@@ -66,6 +74,9 @@ func (a *memoryAudit) Record(_ context.Context, e Event) error {
 		return errors.New("internal details must not escape")
 	}
 	a.events = append(a.events, e)
+	if a.onRecord != nil {
+		a.onRecord()
+	}
 	return nil
 }
 
@@ -128,7 +139,7 @@ func TestDisclosureReceiptAndIsolation(t *testing.T) {
 	if b.principal.Subject != p.Subject {
 		t.Fatal("backend lost verified actor")
 	}
-	if len(a.events) != 1 || a.events[0].Outcome != "released" {
+	if len(a.events) != 1 || a.events[0].Outcome != "release_authorized" {
 		t.Fatal("missing pre-response receipt")
 	}
 	if strings.Contains(a.events[0].Subject+a.events[0].Workload+a.events[0].Key+a.events[0].Outcome, marker) {
@@ -227,7 +238,7 @@ func TestScopesAndClientAreIndependent(t *testing.T) {
 	p.Grants = []model.Grant{{Subject: "https://issuer|alice", Client: "agent-a", Workload: "alpha", Operations: []string{"read"}, Keys: []string{"SERVICE_KEY"}}}
 	b := &fakeBackend{value: model.Value{Data: "value"}}
 	s := makeService(t, p, b, Options{Audit: &memoryAudit{}})
-	actor := Principal{Subject: "https://issuer|alice", Client: "agent-a", HTTP: true, Scopes: []string{"cquay:mcp"}}
+	actor := Principal{Subject: "https://issuer|alice", Client: "agent-a", HTTP: true, Scopes: []string{"cquay:mcp"}, ExpiresAt: time.Now().Add(time.Minute)}
 	if _, err := s.ReadSecret(context.Background(), actor, "alpha", "SERVICE_KEY"); !fault.Is(err, fault.Denied) {
 		t.Fatal("scope bypass")
 	}

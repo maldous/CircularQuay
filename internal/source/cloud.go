@@ -55,7 +55,7 @@ func awsConfiguration(ctx context.Context, s model.Source) (aws.Config, error) {
 	if err != nil {
 		return aws.Config{}, err
 	}
-	cfg := aws.Config{Region: s.Region, Credentials: aws.NewCredentialsCache(provider), HTTPClient: transport.New().HTTP}
+	cfg := aws.Config{Region: s.Region, Credentials: aws.NewCredentialsCache(provider), HTTPClient: cloudHTTPClient(nil)}
 	result, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return aws.Config{}, cloudError(err)
@@ -97,10 +97,18 @@ func validateAWSResource(s model.Source, b model.Binding, service string) error 
 
 // Link-local metadata traffic must not cross a proxy or redirect trust boundary.
 func metadataHTTPClient() *http.Client {
+	client := cloudHTTPClient(metadataTransport())
+	client.Timeout = 5 * time.Second
+	return client
+}
+
+func metadataTransport() *http.Transport {
 	base := http.DefaultTransport.(*http.Transport).Clone()
 	base.Proxy = nil
-	return &http.Client{Transport: base, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return base
 }
+
+func cloudHTTPClient(base http.RoundTripper) *http.Client { return transport.NewHTTPClient(base) }
 
 func readAWSSecret(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
 	if err := validateAWSResource(s, b, "secretsmanager"); err != nil {
@@ -302,7 +310,7 @@ func readAzure(ctx context.Context, s model.Source, b model.Binding) (model.Valu
 	if err != nil {
 		return model.Value{}, err
 	}
-	client, err := azsecrets.NewClient(s.Endpoint, cred, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: transport.New().HTTP}})
+	client, err := azsecrets.NewClient(s.Endpoint, cred, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: cloudHTTPClient(nil)}})
 	if err != nil {
 		return model.Value{}, fault.New(fault.Invalid, "azure_client")
 	}

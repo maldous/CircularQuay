@@ -261,21 +261,21 @@ func testEnvironmentLiteralSource(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("CQUAY_TEST_LITERAL", "literal-env")
-	es := model.Source{Type: "env", Resources: []string{"CQUAY_TEST_LITERAL"}}
-	v, err := r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"})
+	t.Setenv("TEST_LITERAL_VALUE", "literal-env")
+	es := model.Source{Type: "env", Resources: []string{"TEST_LITERAL_VALUE"}}
+	v, err := r.Read(ctx, es, model.Binding{Resource: "TEST_LITERAL_VALUE"})
 	if err != nil || v.Data != "literal-env" {
 		t.Fatal("explicit environment failed")
 	}
 	es.Path = file
-	write("CQUAY_TEST_LITERAL=literal-dotenv\n#comment\n")
-	v, err = r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"})
+	write("TEST_LITERAL_VALUE=literal-dotenv\n#comment\n")
+	v, err = r.Read(ctx, es, model.Binding{Resource: "TEST_LITERAL_VALUE"})
 	if err != nil || v.Data != "literal-dotenv" {
 		t.Fatal("literal dotenv failed")
 	}
 	for _, data := range []string{"KEY=$(command)", "KEY=${EXPAND}", "KEY=`command`", "invalid", "KEY=one\nKEY=two"} {
 		write(data)
-		if _, err := r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"}); err == nil {
+		if _, err := r.Read(ctx, es, model.Binding{Resource: "TEST_LITERAL_VALUE"}); err == nil {
 			t.Fatal("unsafe dotenv accepted")
 		}
 	}
@@ -412,7 +412,7 @@ func writeDopplerContract(t *testing.T, w http.ResponseWriter, request *http.Req
 }
 
 func writeInfisicalContract(t *testing.T, w http.ResponseWriter, request *http.Request) {
-	if request.URL.Query().Get("includeImports") != "false" || request.URL.Query().Get("expandSecretReferences") != "false" {
+	if request.URL.Query().Get("secretPath") != "/application" || request.URL.Query().Get("includeImports") != "false" || request.URL.Query().Get("expandSecretReferences") != "false" {
 		t.Error("implicit inheritance enabled")
 	}
 	fmt.Fprint(w, `{"secret":{"secretValue":"infisical-value","version":4}}`)
@@ -426,17 +426,17 @@ func writeAkeylessContract(t *testing.T, w http.ResponseWriter, request *http.Re
 	fmt.Fprint(w, `{"KEY":"akeyless-value"}`)
 }
 
-type hostedContractCase struct{ typ, resource, version, want string }
+type hostedContractCase struct{ typ, resource, version, path, want string }
 
 func assertHostedContracts(t *testing.T, registry *Registry, endpoint, token string) {
-	for _, test := range []hostedContractCase{{"openbao", "app", "2", "vault-value"}, {"vault", "app", "2", "vault-value"}, {"doppler", "KEY", "", "doppler-value"}, {"infisical", "KEY", "4", "infisical-value"}, {"akeyless", "KEY", "", "akeyless-value"}} {
+	for _, test := range []hostedContractCase{{"openbao", "app", "2", "", "vault-value"}, {"vault", "app", "2", "", "vault-value"}, {"doppler", "KEY", "", "", "doppler-value"}, {"infisical", "KEY", "4", "/application", "infisical-value"}, {"akeyless", "KEY", "", "", "akeyless-value"}} {
 		test.assert(t, registry, endpoint, token)
 	}
 }
 
 func (test hostedContractCase) assert(t *testing.T, registry *Registry, endpoint, token string) {
 	t.Helper()
-	source := model.Source{Type: test.typ, Endpoint: endpoint, Mount: "kv", TokenFile: token, Project: "project", Environment: "test", Resources: []string{test.resource}}
+	source := model.Source{Type: test.typ, Endpoint: endpoint, Mount: "kv", Path: test.path, TokenFile: token, Project: "project", Environment: "test", Resources: []string{test.resource}}
 	value, err := registry.Read(context.Background(), source, model.Binding{Name: "KEY", Resource: test.resource, Version: test.version})
 	if err != nil || value.Data != test.want {
 		t.Fatalf("%s contract failed: %v", test.typ, err)
@@ -462,7 +462,11 @@ func TestProviderDenialAndMalformedResponse(t *testing.T) {
 			fmt.Fprint(w, "RAW-ERROR-MUST-NOT-LEAK")
 		}))
 		r := NewRegistryWithClient(server.Client())
-		_, err := r.Read(context.Background(), model.Source{Type: typ, Endpoint: server.URL, Mount: "kv", Project: "project", Environment: "test", TokenFile: tokenFixture(t), Resources: []string{"app"}}, model.Binding{Name: "KEY", Resource: "app"})
+		source := model.Source{Type: typ, Endpoint: server.URL, Mount: "kv", Project: "project", Environment: "test", TokenFile: tokenFixture(t), Resources: []string{"app"}}
+		if typ == "infisical" {
+			source.Path = "/application"
+		}
+		_, err := r.Read(context.Background(), source, model.Binding{Name: "KEY", Resource: "app"})
 		server.Close()
 		if !fault.Is(err, fault.Denied) || strings.Contains(err.Error(), "RAW-") {
 			t.Fatal("denial not safely classified")

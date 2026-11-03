@@ -153,6 +153,7 @@ func actionIdentityAllowed(w model.Workload) bool {
 type backend struct {
 	app               application
 	resolveGeneration func(context.Context, model.Policy, string) (model.Generation, error)
+	now               func() time.Time
 }
 
 func (b backend) authorized(ctx context.Context, id, op, key string) (model.Policy, error) {
@@ -161,10 +162,17 @@ func (b backend) authorized(ctx context.Context, id, op, key string) (model.Poli
 		return model.Policy{}, err
 	}
 	principal, ok := cqmcp.PrincipalFromContext(ctx)
-	if !ok || !policy.Authorize(p, principal.Subject, principal.Client, id, op, key) {
+	if !ok || !principal.ValidAt(b.clock()) || !policy.Authorize(p, principal.Subject, principal.Client, id, op, key) {
 		return model.Policy{}, fault.New(fault.Denied, "current MCP grant")
 	}
 	return p, nil
+}
+
+func (b backend) clock() time.Time {
+	if b.now == nil {
+		return time.Now()
+	}
+	return b.now()
 }
 
 func (b backend) Status(ctx context.Context, id string) (cqmcp.Status, error) {

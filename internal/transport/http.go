@@ -22,12 +22,96 @@ import (
 
 const maxPayload = 4 << 20
 
+// ErrResponseTooLarge rejects a provider response before an SDK can decode a
+// truncated valid prefix.
+var ErrResponseTooLarge = errors.New("provider response exceeds limit")
+
 // Client holds a pinned-origin HTTP client. Redirects are never followed.
 type Client struct{ HTTP *http.Client }
 
 // New preserves the system trust store and session proxy configuration.
 func New() Client {
-	return Client{HTTP: &http.Client{Timeout: 30 * time.Second}}
+	return Client{HTTP: NewHTTPClient(nil)}
+}
+
+// NewHTTPClient returns a client which never follows redirects and bounds every
+// response body before a provider SDK can parse it. A caller-owned base is
+// wrapped without mutation; nil preserves the default transport's proxy and
+// system trust behavior.
+func NewHTTPClient(base http.RoundTripper) *http.Client {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return &http.Client{
+		Timeout:       30 * time.Second,
+		Transport:     boundedResponseTransport{base: base},
+		CheckRedirect: DenyRedirect,
+	}
+}
+
+// DenyRedirect prevents a credentialed provider request from reaching a
+// provider-controlled location. It is exported for SDK transports that need
+// their own network restrictions.
+func DenyRedirect(*http.Request, []*http.Request) error {
+	return errRedirectDenied
+}
+
+var errRedirectDenied = errors.New("provider redirect denied")
+
+type boundedResponseTransport struct{ base http.RoundTripper }
+
+func (t boundedResponseTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := t.base.RoundTrip(request)
+	if err != nil || response == nil || response.Body == nil {
+		return response, err
+	}
+	if response.ContentLength > maxPayload {
+		_ = response.Body.Close()
+		return nil, ErrResponseTooLarge
+	}
+	response.Body = &boundedResponseBody{ReadCloser: response.Body, remaining: maxPayload}
+	return response, nil
+}
+
+type boundedResponseBody struct {
+	io.ReadCloser
+	remaining int64
+}
+
+func (body *boundedResponseBody) Read(buffer []byte) (int, error) {
+	if len(buffer) == 0 {
+		return body.ReadCloser.Read(buffer)
+	}
+	if body.remaining == 0 {
+		return body.readOverflow()
+	}
+	if int64(len(buffer)) > body.remaining {
+		buffer = buffer[:body.remaining]
+	}
+	count, err := body.ReadCloser.Read(buffer)
+	body.remaining -= int64(count)
+	if body.remaining != 0 || err != nil {
+		return count, err
+	}
+	return body.probeBoundary(count)
+}
+
+func (body *boundedResponseBody) probeBoundary(count int) (int, error) {
+	var probe [1]byte
+	read, err := body.ReadCloser.Read(probe[:])
+	if read > 0 {
+		return 0, ErrResponseTooLarge
+	}
+	return count, err
+}
+
+func (body *boundedResponseBody) readOverflow() (int, error) {
+	var probe [1]byte
+	read, err := body.ReadCloser.Read(probe[:])
+	if read > 0 {
+		return 0, ErrResponseTooLarge
+	}
+	return 0, err
 }
 
 // Endpoint validates a configured provider URL before it sees credentials.
@@ -178,7 +262,7 @@ func decodeResponse(body io.Reader, out any) error {
 func discardBounded(body io.Reader) error {
 	size, err := io.Copy(io.Discard, io.LimitReader(body, maxPayload+1))
 	if err != nil {
-		return fault.New(fault.Unavailable, "response_read")
+		return responseReadFailure(err)
 	}
 	if size > maxPayload {
 		return fault.New(fault.Trust, "response_size")
@@ -189,7 +273,7 @@ func discardBounded(body io.Reader) error {
 func decodeJSON(body io.Reader, out any) error {
 	data, err := io.ReadAll(io.LimitReader(body, maxPayload+1))
 	if err != nil {
-		return fault.New(fault.Unavailable, "response_read")
+		return responseReadFailure(err)
 	}
 	if len(data) > maxPayload {
 		return fault.New(fault.Trust, "response_size")
@@ -204,6 +288,13 @@ func decodeJSON(body io.Reader, out any) error {
 		return fault.New(fault.Trust, "response_encoding")
 	}
 	return nil
+}
+
+func responseReadFailure(err error) error {
+	if errors.Is(err, ErrResponseTooLarge) {
+		return fault.New(fault.Trust, "response_size")
+	}
+	return fault.New(fault.Unavailable, "response_read")
 }
 
 // EndpointWithoutQuery validates an already constructed request without discarding selectors.
@@ -231,6 +322,9 @@ func Status(status int) error {
 }
 
 func classifyTransport(err error) error {
+	if errors.Is(err, ErrResponseTooLarge) {
+		return fault.New(fault.Trust, "provider_response_size")
+	}
 	var cert x509.CertificateInvalidError
 	var unknown x509.UnknownAuthorityError
 	var host x509.HostnameError

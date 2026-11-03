@@ -6,13 +6,63 @@ installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
+## Resumption and retained scope
+
+The user resumed CircularQuay delivery on 4 November 2026. The earlier pause
+for BAU priority is revoked for this isolated project. Preserve the saved
+source/security patch and existing task ownership. No BAU service,
+operational credential, system/service installation, production deployment,
+paid purchase, main merge, or release tag is authorized by the resumption.
+
+The expanded v1 scope is published in the README and managed-service contract:
+one-command session bootstrap, verified repository/tree configuration,
+authenticated enterprise discovery, Azure Pipelines/GitHub Actions/GitLab CI
+workload identity, complete overrides/CLI CRUD, optional MCP management and
+delegation, and managed identity-to-age-key access with authorized UI/API.
+The README and product/design/operator documents describe the final North Star;
+actual implementation and qualification belong in status/evidence records.
+
+The preserved combined patch still exactly matches the Go/schema/module
+manifests in `.local/qualification/checkpoint5-20261104/`. Its whole-repository
+normal/race tests, vet, Staticcheck, formatting, module tidy/verification,
+cyclomatic/workflow checks and affected Windows compile-only checks passed.
+No source changed during the documentation-only continuations. Native CI,
+exact-candidate Sonar and a fresh independent managed audit must assess the
+published candidate. Keep the unchanged quality gates and prior failed evidence.
+
+## Latest bounded documentation result
+
+The documentation-only commit `1d89ffbf65a03e4e6ef8f146944416b97356e38c`
+is published and byte-verified on `feature/initial-implementation`. It adds the
+standalone [managed key service](managed-key-service.md), a concise README link,
+and architecture/operator/MCP/recovery references. The service uses an existing
+trusted identity provider and explicit key mappings; scoped UI/API administration
+manages allowed principals, grants, windows, changes, and revocation. Existing
+paid Netlify/Cloudflare capabilities take preference over a custom UI; any missing
+key-specific UI is hosted there. There is no email/onboarding suite. Distribution
+cannot revoke already copied private keys; local custody and remote unlocking
+remain explicitly distinct models. Financial scenarios are assumptions, not
+chosen prices, benchmarks, traction, or deployment approval.
+
+The README repository/tree bootstrap and CI/discovery scenario was already
+published at `7b68c6116786779392e01024c102093c33254a0d`. The bounded product
+presentation is a final v1 North Star, while actual managed-service status is
+separate in [qualification](qualification.md#managed-service-design-status).
+The updated user-supplied UIF diagram presents the same architecture without
+promoting its old operational snapshot into a current BAU claim. Its artifact
+and visual/structural receipts are retained in the private continuation record.
+No implementation, service, credential, paid subscription, or BAU deployment
+was changed. All existing uncommitted source was preserved during that documentation-only
+turn. The later user resumption above reactivates isolated development and
+qualification only.
+
 ## Start here
 
 - Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
   binary, release-asset prefix, and skill are `cquay` ("c-key");
   `cquay-audit` is separate.
 - Development branch: `feature/initial-implementation`. This continuation
-  includes `960ef56f458da9b245152c185b1ef641536eb4f8`; use `git rev-parse HEAD`
+  includes `41ea71365464417875c7162cc98c87262cda47f8`; use `git rev-parse HEAD`
   and `git status` to establish the actual checkpoint and subsequent changes.
 - Read [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md),
   the durable [implementation plan](implementation-plan.md), and
@@ -59,6 +109,10 @@ client, subject, resource, context, and grant declarations. Do not hard-code
 development/production identity assumptions. DPoP, mTLS, private-key JWT, and
 offline-artifact binding are not implemented or qualified.
 
+Grant time windows and the six reviewed remediation patches are implemented
+with focused synthetic tests. They are not qualified capabilities until fresh
+combined, full, native, and Sonar checks pass.
+
 README ordering was directly revised by the user and remains preserved.
 The Android rendering investigation found the raw Markdown, fences, HTML, and
 linked SVGs clean; browser rendering worked. Treat that as an app/cache issue
@@ -68,12 +122,12 @@ the README without a user-directed reason.
 ## Recent local evidence
 
 The retained frozen-source receipts are under
-`.local/qualification/checkpoint3-20261104/`. Before/after Go, module and schema
+`.local/qualification/checkpoint5-20261104/`. Before/after Go, module and schema
 hash manifests match. These are local evidence for this checkpoint's source,
 not release evidence.
 Using a fresh owner-only temporary directory under root-owned sticky `/tmp`,
-the latest normal tests,
-race tests, vet, gofmt, Staticcheck 2026.2.2, and `gocyclo -over 10` passed.
+the frozen checkpoint's normal tests, race tests, vet, gofmt, Staticcheck
+2026.2.2, `gocyclo -over 10`, actionlint, and module verification passed.
 The same checks correctly reject a `.local` temporary directory with an unsafe
 `0775` ancestor; do not relax that protection to make tests pass.
 
@@ -84,29 +138,43 @@ gate remains unchanged and is not met by the last published CI receipt.
 
 ## Qualification and release blockers
 
-The Compute Engine task for revision `960ef56f458da9b245152c185b1ef641536eb4f8`
-(tree `528f00015df464c210f32ab90efd8deb8650d762`) succeeded with analysis ID
-`8971b6dd-6cd6-4d55-96ac-acc91cd39af2`,
-but its quality gate is ERROR: one `containsJSONNull` complexity code smell,
-75.2% overall coverage, 78.7% new-line coverage, zero reported bugs/
-vulnerabilities/hotspots/duplication, and one analysis-token expiry warning.
-Later code fixes require an exact-candidate Sonar recheck.
+The Compute Engine task for published revision
+`41ea71365464417875c7162cc98c87262cda47f8` (tree
+`d6bfeedf511434a9d09afef931c6109a295e19c7`) succeeded with analysis ID
+`06a03452-7d22-4590-9c47-8dfdb6f0d455`, but its quality gate is ERROR: one
+`go:S3776` cognitive-complexity smell at `internal/cli/init_test.go` line 40
+(cognitive complexity 16; allowed 10), 75.5% overall coverage, 78.7% new-line
+coverage, zero reported bugs/vulnerabilities/hotspots/duplication, and one
+analysis-token expiry warning. The current patch requires an exact-candidate
+Sonar recheck.
 Sonar, full unchanged coverage, live providers, native reboot/recovery,
 installers, registry publication, and independent audit remain incomplete.
+The independent managed audit at the published checkpoint confirmed six
+findings: three high and three medium. The high findings cover Windows path
+ownership/ancestor trust and environment bootstrap aliases/field narrowing; the
+medium findings cover HTTP authorization expiry, cloud-SDK transport controls,
+and an empty Infisical path scope. Remediations for all six findings, plus
+grant time windows, are implemented with focused synthetic tests; fresh
+combined/full/native/Sonar qualification is pending. This static-only audit did
+not qualify native behavior, live providers, installations, or services. Keep
+detailed evidence in the owner-held security channel rather than reproducing
+sensitive attack paths in public documentation.
 
-GitHub source run 41655349719 at PR merge
-`f925adb284b5f077c64d221fd63493e10bfc3f50` passed Linux normal tests and vet;
-20 cross-build jobs succeeded and six were cancelled. Native Windows still
-failed CLI/policy/repository fixtures, although platform/source/deliver/
-assurance packages passed including DACL coverage. macOS still failed
-canonical-fixture, executable-trust, and case-collision cases. Source assurance
-failed its unchanged coverage gate at 3,924/4,823 statements (81.360149%).
-Security run 41655349752 completed CodeQL build/analyze/upload and passed
-Staticcheck/govulncheck, but gosec failed with 14 unsuppressed findings.
-The G115, G118, and local-JSON G304 fixes are in revision `960`, which
-supersedes the earlier 17-finding receipt. Anchored exclusive-create and
-`OpenProtected` coverage changes are newer working-tree changes and require a
-full rerun.
+GitHub source run 41660198848 at published revision
+`41ea71365464417875c7162cc98c87262cda47f8` failed Linux job 126002042064 at
+`go mod tidy` before tests because a new test's SSH import left a metadata-only
+module diff. The preserved patch contains the resulting `go.mod`/`go.sum`
+repair; its local tidy-diff check passed and fresh CI is required. Its coverage job 126002042348 failed the
+unchanged 100% gate at 3,967/4,860 statements (81.6255%). macOS job
+126002042623 completed `go test ./...`, and all 26 cross-builds succeeded.
+Windows job 126002042419 failed only platform
+`TestFailedCreationCleanupPreservesAReplacement` and a signed-repository Git
+commit exit 128; its other packages, including the new Windows CreateDACL tests,
+passed. The cleanup-fixture correction is a newer working-tree change that
+needs a native rerun; the Git failure is not fixed or diagnosed. Security run
+41660198518 completed CodeQL build/analyze/upload and passed
+Staticcheck/govulncheck, but gosec job 126001310144 failed with 11 unsuppressed
+findings. All three G304 findings are resolved in this revision.
 
 The snapshot at revision `960` contains 25 native archives plus one source
 archive (26 total) with exact checksum/provenance evidence; its Linux smoke is

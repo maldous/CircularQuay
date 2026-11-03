@@ -72,10 +72,7 @@ func TestFailedCreationCleanupPreservesAReplacement(t *testing.T) {
 	if err := CreateProtectedExclusive(path, []byte("first")); err != nil {
 		t.Fatal(err)
 	}
-	created, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	created := createdFileIdentity(t, path)
 	if err := os.Rename(path, filepath.Join(directory, "moved")); err != nil {
 		t.Fatal(err)
 	}
@@ -89,11 +86,31 @@ func TestFailedCreationCleanupPreservesAReplacement(t *testing.T) {
 	defer root.Close()
 	removeCreatedFile(root, "created", created)
 	actual, err := ReadProtected(path, true)
-	if err != nil || string(actual) != "replacement" {
+	if err != nil {
+		t.Fatalf("replacement cannot be read after cleanup: %v", err)
+	}
+	if string(actual) != "replacement" {
 		t.Fatal("failed creator removed another writer's replacement")
 	}
 	removeCreatedFile(root, "moved", created)
 	if _, err := os.Lstat(filepath.Join(directory, "moved")); !os.IsNotExist(err) {
 		t.Fatal("failed creator did not remove its own file")
 	}
+}
+
+func createdFileIdentity(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	file, err := OpenProtected(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	// Match production's descriptor-based identity capture. On Windows,
+	// os.Stat may defer its file-ID lookup until SameFile, after the name has
+	// been replaced. File.Stat binds the identity while this handle is open.
+	created, err := file.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return created
 }

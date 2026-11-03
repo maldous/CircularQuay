@@ -53,11 +53,11 @@ func TestCloudAWSWorkloadProviderSelectionAndMetadataTransport(t *testing.T) {
 		}
 	}
 	client := metadataHTTPClient()
-	transport, ok := client.Transport.(*http.Transport)
-	if !ok || transport.Proxy != nil || client.Timeout != 5*time.Second {
+	transport := metadataTransport()
+	if transport.Proxy != nil || client.Timeout != 5*time.Second {
 		t.Fatal("metadata client can inherit a proxy or lacks its fixed deadline")
 	}
-	if err := client.CheckRedirect(nil, nil); !errors.Is(err, http.ErrUseLastResponse) {
+	if err := client.CheckRedirect(nil, nil); err == nil || errors.Is(err, http.ErrUseLastResponse) {
 		t.Fatalf("metadata redirect was not rejected: %v", err)
 	}
 }

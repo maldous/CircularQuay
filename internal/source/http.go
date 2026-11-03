@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -94,6 +97,9 @@ func leasedVaultValue(value string, result vaultResult, s model.Source) model.Va
 }
 
 func readHosted(ctx context.Context, c transport.Client, provider string, s model.Source, b model.Binding) (model.Value, error) {
+	if provider == "infisical" && !validInfisicalPath(s.Path) {
+		return model.Value{}, fault.New(fault.Invalid, "infisical_scope")
+	}
 	token, err := transport.ReadCredentialFile(s.TokenFile)
 	if err != nil {
 		return model.Value{}, err
@@ -152,7 +158,7 @@ func readInfisical(ctx context.Context, c transport.Client, s model.Source, b mo
 	if err := validateVersionCapability(s, b); err != nil {
 		return model.Value{}, err
 	}
-	if s.Project == "" || s.Environment == "" {
+	if s.Project == "" || s.Environment == "" || !validInfisicalPath(s.Path) {
 		return model.Value{}, fault.New(fault.Invalid, "infisical_scope")
 	}
 	u, err := infisicalURL(s, b)
@@ -170,6 +176,10 @@ func readInfisical(ctx context.Context, c transport.Client, s model.Source, b mo
 		return model.Value{}, err
 	}
 	return infisicalValue(result.Secret.SecretValue, result.Secret.Version, result.Secret.Hidden, s, b)
+}
+
+func validInfisicalPath(value string) bool {
+	return value == "/" || (utf8.ValidString(value) && strings.HasPrefix(value, "/") && value == path.Clean(value) && !strings.ContainsAny(value, "*?[]\\\x00\r\n#") && len(value) <= 4096)
 }
 
 func infisicalURL(s model.Source, b model.Binding) (*url.URL, error) {

@@ -50,8 +50,16 @@ type RunResult struct {
 type Principal struct {
 	Subject, Client string
 	// HTTP scopes are verified token claims, never tool arguments.
-	HTTP   bool
-	Scopes []string
+	HTTP      bool
+	Scopes    []string
+	ExpiresAt time.Time
+}
+
+// ValidAt reports whether this principal remains authorized at now. Local OS
+// principals have no token lifetime. HTTP principals require a verified,
+// nonzero future expiration.
+func (p Principal) ValidAt(now time.Time) bool {
+	return !p.HTTP || !p.ExpiresAt.IsZero() && !now.IsZero() && now.Before(p.ExpiresAt)
 }
 
 type principalContextKey struct{}
@@ -83,6 +91,7 @@ type Service struct {
 	configured model.Policy
 	backend    Backend
 	options    Options
+	now        func() time.Time
 }
 
 // New validates policy before exposing any protocol transport.
@@ -100,7 +109,7 @@ func New(p model.Policy, backend Backend, options Options) (*Service, error) {
 		}
 		options.Audit = audit
 	}
-	return &Service{configured: p, backend: backend, options: options}, nil
+	return &Service{configured: p, backend: backend, options: options, now: time.Now}, nil
 }
 
 func (s *Service) current() model.Policy {
@@ -115,7 +124,14 @@ func (s *Service) current() model.Policy {
 }
 
 func (s *Service) authorized(p Principal, workload, operation, key string) bool {
-	return validHandle(workload) && scopeAllows(p, operation) && policy.Authorize(s.current(), p.Subject, p.Client, workload, operation, key)
+	return p.ValidAt(s.clock()) && validHandle(workload) && scopeAllows(p, operation) && policy.Authorize(s.current(), p.Subject, p.Client, workload, operation, key)
+}
+
+func (s *Service) clock() time.Time {
+	if s.now == nil {
+		return time.Now()
+	}
+	return s.now()
 }
 
 func scopeAllows(p Principal, operation string) bool {
@@ -173,6 +189,9 @@ func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (
 	if err != nil {
 		return Status{}, safeError(err, "mcp status")
 	}
+	if err := s.recheck(ctx, p, workload, "status", "", "mcp status revoked"); err != nil {
+		return Status{}, err
+	}
 	status.Workload = workload
 	status.Mode = s.current().Workloads[workload].Mode
 	if !oneOf(status.State, "unprovisioned", "ready", "pending", "error", "running", "stopped", "unknown", "not_provisioned", "blocked", "resolved", "snapshotted", "applied", "activated", "apply_failed", "pending_activation", "partial_resolved", "partial_applied", "partial_activated", "partial_apply_failed", "partial_pending_activation") {
@@ -193,6 +212,12 @@ func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string)
 	if err := s.record(ctx, p, workload, "run", "", "authorized", w.AuditRequired); err != nil {
 		return RunResult{}, err
 	}
+	if _, err := s.authorizeRun(p, workload); err != nil {
+		return RunResult{}, err
+	}
+	if ctx.Err() != nil {
+		return RunResult{}, fault.New(fault.Unavailable, mcpRequest)
+	}
 	result, err := s.backend.Run(withPrincipal(ctx, p), workload)
 	if err != nil {
 		return RunResult{}, safeError(err, "mcp action")
@@ -207,6 +232,11 @@ func (s *Service) authorizeRun(p Principal, workload string) (model.Workload, er
 	w := s.current().Workloads[workload]
 	if w.UntrustedCode && !s.mayReadAll(p, workload, w) {
 		return model.Workload{}, fault.New(fault.Denied, "mcp code disclosure")
+	}
+	// ActionAllowed may perform enrolled executable trust work. Recheck the
+	// identity and current grant after it finishes, immediately before effect.
+	if !s.authorized(p, workload, "run", "") {
+		return model.Workload{}, fault.New(fault.Denied, "mcp action")
 	}
 	return w, nil
 }
@@ -254,17 +284,28 @@ func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key str
 		return SecretResult{}, err
 	}
 	// The provider call may have blocked while an operator revoked the grant.
-	// Recheck current policy before recording a disclosure and releasing data.
-	if !s.authorized(p, workload, "read", key) {
-		return SecretResult{}, fault.New(fault.Denied, "mcp disclosure revoked")
+	// Recheck current policy before recording authorization to release plaintext.
+	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
+		return SecretResult{}, err
 	}
-	if ctx.Err() != nil {
-		return SecretResult{}, fault.New(fault.Unavailable, mcpRequest)
+	// This receipt proves durable release authorization, not client delivery.
+	if err := s.record(ctx, p, workload, "read", key, "release_authorized", true); err != nil {
+		return SecretResult{}, err
 	}
-	if err := s.record(ctx, p, workload, "read", key, "released", true); err != nil {
+	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
 		return SecretResult{}, err
 	}
 	return SecretResult{Alias: key, Value: value.Data, Version: value.Version, ExpiresAt: value.ExpiresAt}, nil
+}
+
+func (s *Service) recheck(ctx context.Context, p Principal, workload, operation, key, denied string) error {
+	if !s.authorized(p, workload, operation, key) {
+		return fault.New(fault.Denied, denied)
+	}
+	if ctx.Err() != nil {
+		return fault.New(fault.Unavailable, mcpRequest)
+	}
+	return nil
 }
 
 func (s *Service) validateDisclosure(workload string, value model.Value) error {

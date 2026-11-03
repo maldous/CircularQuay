@@ -91,32 +91,65 @@ func grant(path, sid, inheritance string) error {
 	return windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil)
 }
 
-// checkNativeSecurity rejects secret access by principals other than this
-// process's identities, SYSTEM or Administrators. Public ciphertext may be read
-// broadly, but must remain protected against unauthorized replacement. The
-// unsafe conversion is limited to native ACEs returned by x/sys.
+const (
+	systemSID           = "S-1-5-18"
+	administratorsSID   = "S-1-5-32-544"
+	trustedInstallerSID = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
+)
+
+// checkNativeSecurity rejects an untrusted owner or a DACL that lets an
+// untrusted principal replace the protected object through any ancestor.
+// TrustedInstaller is deliberately an exact SID: it is the Windows component
+// servicing principal, not a general NT SERVICE allowance.
 func checkNativeSecurity(path string, secret bool) bool {
-	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
-	if err != nil || sd == nil {
-		return false
-	}
-	acl, _, err := sd.DACL()
-	if err != nil || acl == nil {
+	// Name-based security descriptor queries do not establish that the lexical
+	// path reaches the reviewed object. Reject reparse components first while
+	// retaining case and short-name aliases accepted by resolvedPathIsOriginal.
+	if !resolvedPathIsOriginal(path) {
 		return false
 	}
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		return false
 	}
+	for current, ancestor := filepath.Clean(path), false; ; ancestor = true {
+		if !securityDescriptorSecure(current, user.User.Sid, secret, ancestor) {
+			return false
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return true
+		}
+		current = parent
+	}
+}
+
+func securityDescriptorSecure(path string, user *windows.SID, secret, ancestor bool) bool {
+	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION)
+	if err != nil || sd == nil {
+		return false
+	}
+	return descriptorSecure(sd, user, secret, ancestor)
+}
+
+func descriptorSecure(sd *windows.SECURITY_DESCRIPTOR, user *windows.SID, secret, ancestor bool) bool {
+	owner, _, err := sd.Owner()
+	if err != nil || !trustedOwnerSID(owner, user) {
+		return false
+	}
+	acl, _, err := sd.DACL()
+	if err != nil || acl == nil {
+		return false
+	}
 	for i := uint32(0); i < uint32(acl.AceCount); i++ {
-		if !allowedACE(acl, i, user.User.Sid, secret) {
+		if !allowedACE(acl, i, user, secret, ancestor) {
 			return false
 		}
 	}
 	return true
 }
 
-func allowedACE(acl *windows.ACL, index uint32, user *windows.SID, secret bool) bool {
+func allowedACE(acl *windows.ACL, index uint32, user *windows.SID, secret, ancestor bool) bool {
 	var ace *windows.ACCESS_ALLOWED_ACE
 	if windows.GetAce(acl, index, &ace) != nil || ace == nil {
 		return false
@@ -127,20 +160,46 @@ func allowedACE(acl *windows.ACL, index uint32, user *windows.SID, secret bool) 
 	if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
 		return false
 	}
-	if !secret && !writesFile(ace.Mask) {
+	if ace.Header.AceFlags&windows.INHERIT_ONLY_ACE != 0 {
 		return true
 	}
-	return allowedPrincipal(ace, user)
+	if trustedACEPrincipal(aceSID(ace), user) {
+		return true
+	}
+	if ancestor {
+		return !replacesChild(ace.Mask)
+	}
+	return !secret && !writesFile(ace.Mask)
 }
 
-func allowedPrincipal(ace *windows.ACCESS_ALLOWED_ACE, user *windows.SID) bool {
-	sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
-	text := sid.String()
-	if text == "S-1-5-18" || text == "S-1-5-32-544" || sid.Equals(user) {
-		return true
+func aceSID(ace *windows.ACCESS_ALLOWED_ACE) *windows.SID {
+	return (*windows.SID)(unsafe.Pointer(&ace.SidStart))
+}
+
+// trustedOwnerSID intentionally does not include arbitrary service SIDs: an
+// owner can rewrite its DACL. TrustedInstaller is an exact OS principal.
+func trustedOwnerSID(sid, user *windows.SID) bool {
+	return sid != nil && (sid.Equals(user) || trustedSystemSID(sid.String()))
+}
+
+func trustedACEPrincipal(sid, user *windows.SID) bool {
+	return trustedOwnerSID(sid, user) || activeServiceSID(sid)
+}
+
+func trustedSystemSID(value string) bool {
+	return value == systemSID || value == administratorsSID || value == trustedInstallerSID
+}
+
+func activeServiceSID(sid *windows.SID) bool {
+	return serviceSIDMember(sid, windows.GetCurrentProcessToken().IsMember)
+}
+
+func serviceSIDMember(sid *windows.SID, isMember func(*windows.SID) (bool, error)) bool {
+	if sid == nil || !isServiceSID(sid.String()) {
+		return false
 	}
-	member, err := windows.GetCurrentProcessToken().IsMember(sid)
-	return err == nil && member && isServiceSID(text)
+	member, err := isMember(sid)
+	return err == nil && member
 }
 
 func writesFile(mask windows.ACCESS_MASK) bool {
@@ -149,4 +208,13 @@ func writesFile(mask windows.ACCESS_MASK) bool {
 	const fileDeleteChild = 0x0040
 	const unsafeWrite = windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | fileDeleteChild | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL
 	return mask&unsafeWrite != 0
+}
+
+func replacesChild(mask windows.ACCESS_MASK) bool {
+	// FILE_DELETE_CHILD is directory-specific. Generic write intentionally does
+	// not appear here: on a directory it grants creation/metadata rights, not
+	// deletion of an existing protected child or its security descriptor.
+	const fileDeleteChild = 0x0040
+	const replacementRights = fileDeleteChild | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_ALL
+	return mask&replacementRights != 0
 }

@@ -239,7 +239,7 @@ func (b bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func TestAuthenticatedHTTPClient(t *testing.T) {
-	client, b, audit, issuer, ctx := authenticatedHTTPClient(t)
+	client, b, audit, issuer, expires, ctx := authenticatedHTTPClient(t)
 	tools, err := client.ListTools(ctx, nil)
 	if err != nil || len(tools.Tools) != 2 || tools.CacheScope != "private" {
 		t.Fatal("bad discovery", tools, err)
@@ -248,10 +248,10 @@ func TestAuthenticatedHTTPClient(t *testing.T) {
 	if err != nil || result.IsError {
 		t.Fatal(result, err)
 	}
-	assertAuthenticatedHTTPRead(t, result, b, audit, issuer)
+	assertAuthenticatedHTTPRead(t, result, b, audit, issuer, expires)
 }
 
-func authenticatedHTTPClient(t *testing.T) (*sdk.ClientSession, *fakeBackend, *memoryAudit, *issuerFixture, context.Context) {
+func authenticatedHTTPClient(t *testing.T) (*sdk.ClientSession, *fakeBackend, *memoryAudit, *issuerFixture, time.Time, context.Context) {
 	t.Helper()
 	issuer := newIssuer(t)
 	p := testPolicy(t)
@@ -275,16 +275,17 @@ func authenticatedHTTPClient(t *testing.T) (*sdk.ClientSession, *fakeBackend, *m
 	t.Cleanup(server.Close)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
-	httpClient := &http.Client{Transport: bearerTransport{base: http.DefaultTransport, token: issuer.token(t, nil)}}
+	expires := time.Now().Add(20 * time.Second).Truncate(time.Second)
+	httpClient := &http.Client{Transport: bearerTransport{base: http.DefaultTransport, token: issuer.token(t, map[string]any{"exp": expires.Unix()})}}
 	client, err := sdk.NewClient(&sdk.Implementation{Name: "http-fixture", Version: "1"}, nil).Connect(ctx, &sdk.StreamableClientTransport{Endpoint: server.URL + "/mcp", HTTPClient: httpClient}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { client.Close() })
-	return client, b, audit, issuer, ctx
+	return client, b, audit, issuer, expires, ctx
 }
 
-func assertAuthenticatedHTTPRead(t *testing.T, result *sdk.CallToolResult, backend *fakeBackend, audit *memoryAudit, issuer *issuerFixture) {
+func assertAuthenticatedHTTPRead(t *testing.T, result *sdk.CallToolResult, backend *fakeBackend, audit *memoryAudit, issuer *issuerFixture, expires time.Time) {
 	t.Helper()
 	if !strings.Contains(result.Content[0].(*sdk.TextContent).Text, "HTTP_SYNTHETIC_MARKER") {
 		t.Fatal("authorized HTTP read failed")
@@ -295,6 +296,33 @@ func assertAuthenticatedHTTPRead(t *testing.T, result *sdk.CallToolResult, backe
 	// Self-reported MCP client name never changes the token-bound principal.
 	if backend.principal.Subject != issuer.server.URL+"|alice" {
 		t.Fatal("untrusted client label became identity")
+	}
+	if !backend.principal.ExpiresAt.Equal(expires) {
+		t.Fatalf("backend token expiry = %s, want %s", backend.principal.ExpiresAt, expires)
+	}
+	if !backend.hasDeadline || !backend.deadline.Equal(expires) {
+		t.Fatalf("backend deadline = %s, want %s", backend.deadline, expires)
+	}
+}
+
+func TestHTTPRejectsMissingOrExpiredTokenDeadline(t *testing.T) {
+	p := testPolicy(t)
+	p.MCP = model.MCP{Issuer: "https://issuer.example", JWKSURL: "https://issuer.example/keys", Audience: "https://cq.example/mcp", Hosts: []string{"cq.example"}}
+	for _, expires := range []time.Time{{}, time.Unix(0, 0)} {
+		s := makeService(t, p, &fakeBackend{}, Options{})
+		h, err := s.httpHandler(func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
+			return &auth.TokenInfo{UserID: "fixture|alice", Scopes: []string{"cquay:mcp"}, Expiration: expires}, nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodPost, "https://cq.example/mcp", strings.NewReader(`{}`))
+		r.Header.Set("Authorization", "Bearer synthetic")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("token deadline %s status = %d, want %d", expires, w.Code, http.StatusUnauthorized)
+		}
 	}
 }
 

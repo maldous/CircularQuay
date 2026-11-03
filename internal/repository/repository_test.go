@@ -462,9 +462,24 @@ func (f signedRepositoryFixture) invoke(t *testing.T, program string, args ...st
 	cmd.Dir = f.remote
 	data, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("synthetic fixture command failed: %s: %v", filepath.Base(program), err)
+		t.Fatalf("synthetic fixture command failed: %s: %v; %s", filepath.Base(program), err, f.commandFailureDiagnostic(err))
 	}
 	return strings.TrimSpace(string(data))
+}
+
+func (f signedRepositoryFixture) commandFailureDiagnostic(err error) string {
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
+		return "no subprocess diagnostic"
+	}
+	// Only this isolated fixture's fixed Git/OpenSSH commands reach here. It
+	// has no inherited credentials; retain bounded failure evidence without
+	// publishing the generated key path or the temporary fixture location.
+	message := strings.ReplaceAll(string(exit.Stderr), f.root, "<synthetic-fixture>")
+	if len(message) > 4096 {
+		message = message[:4096]
+	}
+	return fmt.Sprintf("stderr=%q", message)
 }
 
 func (f signedRepositoryFixture) writeCommit(t *testing.T, value string, sign bool) string {

@@ -14,6 +14,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
+	"github.com/maldous/CircularQuay/internal/policy"
 )
 
 func readJSON(_ context.Context, s model.Source, b model.Binding) (model.Value, error) {
@@ -41,20 +42,26 @@ func readEnvironment(_ context.Context, s model.Source, b model.Binding) (model.
 		return model.Value{}, err
 	}
 	if s.Path == "" {
-		return readEnvironmentVariable(b.Resource, s.AuditVerified)
+		return readEnvironmentVariable(b.Resource, b.Field, s.AuditVerified)
 	}
 	return readDotenv(s, b)
 }
 
-func readEnvironmentVariable(name string, auditVerified bool) (model.Value, error) {
+func readEnvironmentVariable(name, field string, auditVerified bool) (model.Value, error) {
+	if err := validateEnvironmentInput(name); err != nil {
+		return model.Value{}, err
+	}
 	value, ok := os.LookupEnv(name)
 	if !ok {
 		return model.Value{}, fault.New(fault.Missing, "environment_value")
 	}
-	return literal(value, auditVerified)
+	return selectedLiteral(value, field, auditVerified)
 }
 
 func readDotenv(s model.Source, b model.Binding) (model.Value, error) {
+	if err := validateEnvironmentInput(b.Resource); err != nil {
+		return model.Value{}, err
+	}
 	data, version, err := readLiteralFileVersion(s.Path)
 	if err != nil {
 		return model.Value{}, err
@@ -67,9 +74,24 @@ func readDotenv(s model.Source, b model.Binding) (model.Value, error) {
 	if !ok {
 		return model.Value{}, fault.New(fault.Missing, "dotenv_value")
 	}
-	v, err := literal(value, s.AuditVerified)
+	v, err := selectedLiteral(value, b.Field, s.AuditVerified)
 	v.Version = version
 	return v, err
+}
+
+func validateEnvironmentInput(name string) error {
+	if policy.IsProtectedEnvironmentName(name) {
+		return fault.New(fault.Invalid, "environment_input")
+	}
+	return nil
+}
+
+func selectedLiteral(data, field string, auditVerified bool) (model.Value, error) {
+	value, err := selectValue(data, field)
+	if err != nil {
+		return model.Value{}, err
+	}
+	return literal(value, auditVerified)
 }
 
 func dotenvValues(data []byte) (map[string]string, error) {

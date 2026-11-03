@@ -51,12 +51,12 @@ func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error)
 			return nil
 		}
 		client, _ := ti.Extra["client"].(string)
-		return s.server(Principal{Subject: ti.UserID, Client: client, Scopes: ti.Scopes, HTTP: true})
+		return s.server(Principal{Subject: ti.UserID, Client: client, Scopes: ti.Scopes, ExpiresAt: ti.Expiration, HTTP: true})
 	}, &sdk.StreamableHTTPOptions{
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: maximumRequestBytes,
 		PropagateRequestCancellation: true, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
-	protected := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{ResourceMetadataURL: metadataURL, Scopes: []string{"cquay:mcp"}})(stream)
+	protected := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{ResourceMetadataURL: metadataURL, Scopes: []string{"cquay:mcp"}})(boundTokenDeadline(stream))
 	mux := http.NewServeMux()
 	mux.Handle(path, protected)
 	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{
@@ -72,6 +72,23 @@ func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error)
 		hosts = []string{resource.Host}
 	}
 	return protectHTTP(mux, hosts, cfg.Origins), nil
+}
+
+// boundTokenDeadline constrains a request to the lifetime of its verified
+// bearer token. It runs after RequireBearerToken has established TokenInfo and
+// before MCP dispatch, so provider or tool work cannot outlive the identity
+// that authorized it. context.WithDeadline retains any earlier server deadline.
+func boundTokenDeadline(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := auth.TokenInfoFromContext(r.Context())
+		if token == nil || token.Expiration.IsZero() || !time.Now().Before(token.Expiration) {
+			http.Error(w, "invalid access token", http.StatusUnauthorized)
+			return
+		}
+		ctx, cancel := context.WithDeadline(r.Context(), token.Expiration)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func secureResource(u *url.URL) bool {

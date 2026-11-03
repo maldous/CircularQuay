@@ -176,6 +176,13 @@ Each `bindings` entry has these fields:
 | `allow_offline` | boolean, optional, default `false` | Required for every offline binding and for any value intended for an encrypted snapshot. |
 | `allow_publish` | boolean, optional, default `false` | Required for every binding when the workload defines any target. It grants no destination by itself. |
 
+For process-environment and dotenv sources, a non-empty `field` selects one
+top-level JSON string from the selected variable's value. Missing fields,
+non-string fields, malformed JSON, and trailing documents fail instead of
+returning the complete variable. Protected bootstrap and process-loader names
+are rejected as input resources as well as output names; renaming an input such
+as a provider bootstrap token does not grant permission to deliver it.
+
 ### `snapshot`
 
 | Field | Type | Meaning |
@@ -232,6 +239,38 @@ not patterns; an empty client is local-only and does not match hosted clients.
 of exact declared binding names. Keys constrain only `read`; `run` authorizes
 the whole enrolled workload. Request cancellation follows the caller's request
 context and is not a grant operation.
+
+`not_before` and `expires_at` are optional RFC3339 local authorization bounds
+on a grant. A grant is active from `not_before` inclusively until `expires_at`
+exclusively; when both are present, `not_before` must precede `expires_at`.
+They bound only cquay's policy decision. They do not change remote identity
+claim validation, provider credential validity, or schedule work. Grants are
+additive: an active unbounded grant can authorize an operation even when a
+separate matching grant is not yet active or has expired.
+
+For example, a bounded status grant can be expressed without assigning special
+meaning to a project or environment name:
+
+```json
+{
+  "subject": "https://identity.example.invalid|operator-123",
+  "client": "reporting-assistant",
+  "workload": "reference-api",
+  "operations": ["status"],
+  "not_before": "2030-01-02T09:00:00Z",
+  "expires_at": "2030-01-02T10:00:00Z"
+}
+```
+
+HTTP access also remains bounded by the verified access token's expiry. Its
+deadline caps the request context and is checked again before disclosure or
+workload launch after provider resolution. These deadlines stop new access
+through CircularQuay; they do not recall plaintext or revoke an upstream
+credential already delivered to another process.
+
+`release_authorized` records durable authorization for a plaintext release
+before attempting the response. It is not proof that a client received the value;
+a final expiry, revocation, or cancellation check can still withhold the response.
 
 | `mcp` field | Type | Meaning |
 | --- | --- | --- |
