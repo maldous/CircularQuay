@@ -22,31 +22,41 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-Last published checkpoint `2d1f1003d7c720f8d1ee5884ec576786358548c2` has tree
-`214921fc8eaa2a4e5d995ae2cc224ebcca23d847`. Public readback verified all 29
-changed files and preserved all 266 working files with a clean checkout.
-Exact native CI found failures: source assurance rejects its manifest before
-checks (`tool_manifest_invalid`, 0/0 is not measured coverage); Windows fails
-the environment and post-read name-fence fixtures; macOS fails two drift
-fixtures at a symbolic private-directory path. Do not describe these failures
-as coverage-only. The workflow provisioning and native fixtures are being
-corrected in separate bounded checkouts without relaxing native protections.
-CodeQL passes and actual Linux gosec still reports eight unsuppressed findings.
+Exact published checkpoint `6b0888307ebb15ea3ca13a4da42d4056102fe1e4`
+has tree `35781cc4c4eca892e156e7cbc19abca8a0f82507`. Public readback verified
+all nine changed files and all 268 working files. These receipts qualify only
+that revision, not later source edits.
 
-Exact-head Sonar CE `8ef2b1a0-9fd1-4c4a-8901-79fd23036f14` succeeded with
-analysis `4109f6f5-d61d-4388-962e-44b2f8ab8bcc` and the requested SCM revision.
-The four bfaa issues are absent. Gate ERROR reports 78.3% overall / 79.7% new
-coverage plus one go:S1192 duplicated-literal finding in flow.go. Root replaced
-that repeated operation label with a named constant; exact later scan is
-required for closure. Fresh statements match 5,953/7,055 (84.37987%). Current
-analysis and hotspot-list APIs still return 403; retain that limit and the
-prior Nov10 token-expiry warning. See `.local/sonar/summary-2d1f1003d7c7.txt`.
+Source workflow `41733653552` passed Linux/macOS native tests and all 26
+cross-builds. Windows job `126257137168` still fails
+`TestToolInputOverlapAndPostReadNameFence` at protected-file activation;
+the prior environment-path failure is absent. Source assurance accepts its
+manifest and all Git/Go/gofmt probes, then fails `unit_tests` (exit 1) and
+coverage at 5,810/7,055 statements (82.35294%). Do not call this coverage-only.
+A separate restricted-PATH reproduction isolates the signed-repository
+fixture's missing `ssh-keygen` dependency. CodeQL passes with zero annotations;
+actual Linux gosec still reports eight unsuppressed findings. Retain
+`.local/qualification/ci-6b08883-native-cross.json` and
+`source-profile-helper-closure-20261104/before.json`.
 
-Managed scan `8341c847-cb2c-4f6c-92f9-2d99de58e3e9` sealed the entire
-29-file `bfaa66c` → `2d1f100` diff with zero findings/candidates and complete
-coverage. Focused assurance validation passed; separate CLI/MCP validation
-was limited by protected temporary-directory trust failures. This remains a
-diff review, not a complete production audit.
+Exact-head direct Sonar CE `707d4da6-6bd9-4042-b4a5-56a854f3e8f0` succeeded
+with analysis `d936850a-ee82-4581-8a03-429f94e20fb6` and the requested SCM
+revision. All open issues, including S1192, are zero. Gate ERROR is solely
+coverage: 78.3% overall / 79.7% new versus the unchanged 100% gate. Fresh Go
+union statements match 5,953/7,055 (84.37987%). Scanner warnings are zero.
+Current-analysis and hotspot-list APIs still return 403; do not claim an
+independent latest-analysis fence or hotspot-list clearance. Retain the
+prior Nov10 token-expiry warning and `.local/sonar/summary-6b0888307ebb.txt`.
+This diagnostic does not satisfy the auditor's runtime-binding gate.
+
+Fresh managed scan `e53999d5-b8a8-4190-95a4-2b40c48bd43d` sealed all nine
+files of `2d1f100` to `6b088830`, with actual populated and closed inventory,
+zero candidates/findings and no exclusions. Focused assurance validation
+passed; CLI validation exceeded its observation window and is not counted.
+An earlier sealed scan with zero populated review rows is invalid qualification
+evidence, regardless of its zero findings or semantic completeness claim.
+Canonical evidence remains under the task's Codex Security scan store. This
+is diff evidence, not a complete independent production audit.
 
 Previous published checkpoint `bfaa66cc116093588dd1053a301bdf90a8ecef28`
 has tree `0afc2f5f7fcaf00f1547b29f849540cf78cfc89f`; its native Linux/macOS/
@@ -193,6 +203,38 @@ or system configuration was touched. The subsequent full capture passed.
 The intermediate capture with a workflow-only source-fence change is retained
 as `checkpoint23-20261104-before-setup-go-path-contract`; it is not the final
 combined qualification.
+
+## Bounded continuation after the 6b088 receipt
+
+The next source slice declares `ssh-keygen` as an optional fixed native helper
+in the v1 audit manifest, distinct from probed analyzers. Its protected original
+and private canonical copy are checked around commands; case-insensitive PATH
+and GOROOT aliases are removed. No ambient helper directory or invented
+version probe is accepted. The source workflow declares the copied dependency.
+Schema/parser, drift and private-PATH tests accompany the implementation.
+
+The Windows name-fence fixture now renames its open original aside and creates
+a same-size/mode replacement, proving the original descriptor remains readable
+and the named identity differs. Production sharing/ACL protections are unchanged.
+A separate workload lifecycle fix preserves context cancellation/deadline errors
+and bounds waiting for inherited output pipes with a 250ms WaitDelay. This is
+not descendant containment or a bound on an arbitrary blocked caller writer.
+
+A BAU capacity notice arrived during this slice. Local heavy tests, scanners,
+builds, downloads and cache copies were held; no task-owned Go/test/scanner
+process remained at the resource readback. Free space was about 11.9GiB versus
+the coordinator's 70GiB recovery reserve. The read-only inventory retained
+exact ownership/size evidence under `.local/qualification/resource-hold-20261104.json`;
+no cross-project cleanup, service or permission change occurred. Existing
+source and nonreproducible evidence were preserved. No new complete local
+qualification is claimed for this slice. GitHub-hosted CI can independently
+qualify a published candidate without consuming Foo build storage; Sonar and
+other Foo-heavy qualification remain subject to the capacity hold.
+
+Synthetic cloud-response contract tests are separately preserved, unimported,
+in `/home/user/src/2026-11-04/circularquay-provider-contracts`. Their formatting
+and diff checks passed, but tests/coverage/static checks did not run because of
+the hold. Do not transfer or claim their assertions passed without validation.
 
 ## Latest bounded documentation result
 

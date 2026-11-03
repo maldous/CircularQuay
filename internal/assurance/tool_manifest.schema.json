@@ -159,6 +159,14 @@
     "platform": {
       "type": "string",
       "pattern": "^[a-z0-9]+/[a-z0-9]+$"
+    },
+    "helpers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/helper"
+      }
     }
   },
   "$defs": {
@@ -541,6 +549,36 @@
         "sha256"
       ],
       "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "^(?:/[^/\\x00-\\x1f\\x7f].*|[A-Za-z]:[\\\\/][^\\x00-\\x1f\\x7f].*)$",
+          "allOf": [
+            {
+              "not": {
+                "pattern": "[\\x00-\\x1f\\x7f]"
+              }
+            }
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "helper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "const": "ssh-keygen"
+        },
         "path": {
           "type": "string",
           "minLength": 1,

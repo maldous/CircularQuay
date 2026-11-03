@@ -16,6 +16,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 )
 
+const pipeDrainWaitDelay = 250 * time.Millisecond
+
 // Run executes a workload with a clean environment. It never passes bootstrap
 // credentials to the workload. Override is for an explicitly local CLI caller;
 // MCP actions must use the enrolled workload command and never pass an override.
@@ -25,16 +27,33 @@ func Run(ctx context.Context, work model.Workload, gen model.Generation, overrid
 
 // RunWithIO permits an MCP caller to discard application output explicitly.
 func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	args, env, directory, err := launchInputs(work, gen, override)
 	if err != nil {
+		return 0, err
+	}
+	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Env = env
 	cmd.Dir = directory
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
-	if err := cmd.Run(); err != nil {
-		if exit, ok := err.(*exec.ExitError); ok {
+	// A child can exit while a descendant retains its standard streams. Bound
+	// the pipe drain so that such a descriptor does not indefinitely retain the
+	// caller, but do not claim this closes or contains that descendant.
+	cmd.WaitDelay = pipeDrainWaitDelay
+	runErr := cmd.Run()
+	if err := ctx.Err(); err != nil {
+		// CommandContext can surface cancellation as an ExitError after killing
+		// the immediate child. Preserve the caller's cancellation contract rather
+		// than misrepresenting it as an ordinary workload exit status.
+		return 0, err
+	}
+	if runErr != nil {
+		if exit, ok := runErr.(*exec.ExitError); ok {
 			return exit.ExitCode(), nil
 		}
 		return 0, fault.New(fault.Apply, "launch workload")

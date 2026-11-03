@@ -43,8 +43,17 @@ type Report struct {
 // used by this audit. A passed probe only confirms the declared version output
 // for that execution; it is not publisher authentication or sandbox evidence.
 type ToolManifestReport struct {
-	SHA256 string         `json:"sha256"`
-	Tools  []ToolIdentity `json:"tools"`
+	SHA256  string           `json:"sha256"`
+	Tools   []ToolIdentity   `json:"tools"`
+	Helpers []HelperIdentity `json:"helpers,omitempty"`
+}
+
+// HelperIdentity records verified bytes and whether a private helper copy was
+// prepared. Prepared is not evidence of invocation or a successful version probe.
+type HelperIdentity struct {
+	VerifiedHelper
+	Prepared         bool `json:"prepared"`
+	IntegrityCurrent bool `json:"integrity_current"`
 }
 
 type ToolIdentity struct {

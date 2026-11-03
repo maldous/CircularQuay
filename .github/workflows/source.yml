@@ -197,19 +197,24 @@ jobs:
           mkdir -m 0700 "$cquay_tool_dir" "$cquay_home_dir" "$cquay_tmp_dir" "$cquay_cache_dir"
           mkdir -m 0700 "$cquay_cache_dir/build" "$cquay_cache_dir/mod"
           CQUAY_SELECTED_GIT=''
+          CQUAY_SELECTED_SSH_KEYGEN=''
           CQUAY_SELECTED_GOROOT=''
           CQUAY_SELECTED_GO=''
           CQUAY_SELECTED_GIT="$(realpath -e /usr/bin/git)"
+          CQUAY_SELECTED_SSH_KEYGEN="$(realpath -e /usr/bin/ssh-keygen)"
           CQUAY_SELECTED_GO="$(realpath -e "$(command -v go)")"
           CQUAY_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQUAY_SELECTED_GO")/..")"
           test "$CQUAY_SELECTED_GO" = "$CQUAY_SELECTED_GOROOT/bin/go"
           test "$(env GOROOT="$CQUAY_SELECTED_GOROOT" "$CQUAY_SELECTED_GO" env GOVERSION)" = go1.27.3
           test -x "$CQUAY_SELECTED_GIT"
+          test -x "$CQUAY_SELECTED_SSH_KEYGEN"
           test -x "$CQUAY_SELECTED_GO"
           test -x "$CQUAY_SELECTED_GOROOT/bin/gofmt"
           test ! -L "$CQUAY_SELECTED_GIT"
+          test ! -L "$CQUAY_SELECTED_SSH_KEYGEN"
           test -z "$(find "$CQUAY_SELECTED_GOROOT" -type l -print -quit)"
           install -m 0700 "$CQUAY_SELECTED_GIT" "$cquay_tool_dir/git"
+          install -m 0700 "$CQUAY_SELECTED_SSH_KEYGEN" "$cquay_tool_dir/ssh-keygen"
           cp -R "$CQUAY_SELECTED_GOROOT" "$cquay_tool_dir/go"
           test -z "$(find "$cquay_tool_dir" -type l -print -quit)"
           chmod -R go-rwx "$cquay_tool_dir"
@@ -217,9 +222,11 @@ jobs:
           CQUAY_GIT="$(realpath -e "$cquay_tool_dir/git")"
           CQUAY_GO="$(realpath -e "$cquay_tool_dir/go/bin/go")"
           CQUAY_GOFMT="$(realpath -e "$cquay_tool_dir/go/bin/gofmt")"
+          CQUAY_SSH_KEYGEN="$(realpath -e "$cquay_tool_dir/ssh-keygen")"
           test -x "$CQUAY_GIT"
           test -x "$CQUAY_GO"
           test -x "$CQUAY_GOFMT"
+          test -x "$CQUAY_SSH_KEYGEN"
           CQUAY_TOOL_MANIFEST="$cquay_tool_dir/manifest.json"
           env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
             GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
@@ -227,7 +234,7 @@ jobs:
           env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
             GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
             CQUAY_GIT="$CQUAY_GIT" CQUAY_GO="$CQUAY_GO" CQUAY_GOFMT="$CQUAY_GOFMT" \
-            CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" python3 - <<'PY'
+            CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" CQUAY_SSH_KEYGEN="$CQUAY_SSH_KEYGEN" python3 - <<'PY'
           import hashlib
           import json
           import os
@@ -245,7 +252,11 @@ jobs:
                       "version_output_sha256": hashlib.sha256(version).hexdigest()}
 
           go_tool = entry("go", os.environ["CQUAY_GO"], ["version"])
-          manifest = {"version": 1, "platform": "linux/amd64", "tools": [
+          with open(os.environ["CQUAY_SSH_KEYGEN"], "rb") as helper:
+              helper_digest = hashlib.file_digest(helper, "sha256").hexdigest()
+          manifest = {"version": 1, "platform": "linux/amd64",
+                      "helpers": [{"id": "ssh-keygen", "path": os.environ["CQUAY_SSH_KEYGEN"],
+                                   "sha256": helper_digest}], "tools": [
               entry("git", os.environ["CQUAY_GIT"], ["--version"]),
               go_tool,
               entry("gofmt", os.environ["CQUAY_GOFMT"], ["-h"], 0,

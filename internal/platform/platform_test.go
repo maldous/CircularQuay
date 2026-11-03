@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -22,19 +23,69 @@ import (
 
 func TestMain(m *testing.M) {
 	if len(os.Args) > 1 && os.Args[1] == "--platform-helper" {
-		if os.Getenv("PARENT_SECRET") != "" || os.Getenv("SOPS_AGE_KEY") != "" {
-			os.Exit(90)
-		}
-		if len(os.Args) > 2 && os.Args[2] == "exit" {
-			os.Exit(7)
-		}
-		if os.Getenv("APP_SECRET") != "synthetic-✓-$()\nline" {
-			os.Exit(91)
-		}
-		_, _ = io.WriteString(os.Stdout, "allowed-status")
-		os.Exit(0)
+		os.Exit(platformHelper())
 	}
 	os.Exit(m.Run())
+}
+
+func platformHelper() int {
+	if os.Getenv("PARENT_SECRET") != "" || os.Getenv("SOPS_AGE_KEY") != "" {
+		return 90
+	}
+	if os.Getenv("APP_SECRET") != "synthetic-✓-$()\nline" {
+		return 91
+	}
+	if len(os.Args) < 3 {
+		_, _ = io.WriteString(os.Stdout, "allowed-status")
+		return 0
+	}
+	switch os.Args[2] {
+	case "exit":
+		return 7
+	case "mark-and-wait":
+		return markAndWait(os.Args[3:])
+	case "orphan-pipe":
+		return orphanPipe(os.Args[3:])
+	case "hold-pipe":
+		return holdPipe(os.Args[3:])
+	default:
+		_, _ = io.WriteString(os.Stdout, "allowed-status")
+		return 0
+	}
+}
+
+func markAndWait(args []string) int {
+	if !writeHelperMarker(args) {
+		return 92
+	}
+	// The natural exit must remain later than the deadline test's bound so
+	// that only context cancellation can satisfy that test's observation.
+	time.Sleep(30 * time.Second)
+	return 0
+}
+
+func orphanPipe(args []string) int {
+	if len(args) != 2 {
+		return 92
+	}
+	child := exec.Command(os.Args[0], "--platform-helper", "hold-pipe", args[1])
+	child.Stdout, child.Stderr = os.Stdout, os.Stderr
+	if child.Start() != nil || !writeHelperMarker(args[:1]) {
+		return 92
+	}
+	return 0
+}
+
+func holdPipe(args []string) int {
+	time.Sleep(10 * time.Second)
+	if !writeHelperMarker(args) {
+		return 92
+	}
+	return 0
+}
+
+func writeHelperMarker(args []string) bool {
+	return len(args) == 1 && os.WriteFile(args[0], []byte("started"), 0o600) == nil
 }
 
 func fixtureGeneration() model.Generation {

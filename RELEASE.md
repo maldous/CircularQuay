@@ -198,6 +198,14 @@ manifest identifies local bytes and probe output only; it does not authenticate
 a publisher, prove a complete runtime or dependency closure, or make execution
 atomic or sandboxed.
 
+Signed-repository tests also need an explicitly declared native helper. Add
+`"helpers": [{"id": "ssh-keygen", "path": "/absolute/private/ssh-keygen",
+"sha256": "<64 lowercase hexadecimal characters>"}]` to the v1 manifest,
+using the actual protected helper digest and the native `.exe` filename on
+Windows. This category accepts only `ssh-keygen` and has no invented version
+probe. The auditor prepares a private canonical copy; it never adds an
+ambient system directory to the child PATH to satisfy a missing dependency.
+
 Select the root of a clean, complete Git checkout. The v1 report binds its commit, tree, tracked modes/blob IDs and raw SHA-256 file manifest before and after target checks. Unexpected files, including ignored Go inputs and unrelated prior audit output, block execution. Only the exact selected protected output subtree is excluded; an output inside the checkout must be under `audit-results` or `.local/audit-results`. External evidence directories avoid mixing results from successive profiles. Git replacement objects and ambient global/system Git configuration are disabled. Source manifests detect ordinary drift; they do not provide an atomic snapshot, trusted analyzer provenance or an operating-system sandbox. Run selected source only within an appropriately isolated audit environment.
 
 The source profile is not the enterprise profile. Enterprise requirements that are missing or not run must produce a non-pass result, not a green qualification. Raw tool stdout/stderr is not automatically public evidence.

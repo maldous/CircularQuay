@@ -35,6 +35,36 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 6b088 development receipt
+
+At `6b0888307ebb15ea3ca13a4da42d4056102fe1e4` (tree
+`35781cc4c4eca892e156e7cbc19abca8a0f82507`),
+[source workflow 41733653552](https://github.com/maldous/CircularQuay/actions/runs/41733653552)
+passed Linux/macOS native tests and all 26 cross-builds. Windows still failed
+one named-replacement fixture. The source audit accepted its manifest and
+three tool probes, then failed unit tests and measured 5,810/7,055 statements
+(82.35294%); a missing private-PATH SSH verifier was separately reproduced.
+These are actual failures, not a coverage-only result.
+
+[Security workflow 41733653564](https://github.com/maldous/CircularQuay/actions/runs/41733653564)
+passed advanced CodeQL with zero annotations. Gosec still failed eight
+unsuppressed Linux findings. The frozen local union profile measured
+5,953/7,055 statements (84.37987%), below the unchanged 100% requirement.
+
+Direct Sonar CE `707d4da6-6bd9-4042-b4a5-56a854f3e8f0` completed with analysis
+`d936850a-ee82-4581-8a03-429f94e20fb6`, zero open issues and zero fresh scanner
+warnings. Its gate remained ERROR solely at 78.3% overall / 79.7% new coverage.
+The current-analysis and hotspot-list APIs returned 403, so no independent
+latest-analysis fence or hotspot-list clearance is claimed. The prior Nov10
+analysis-token expiry warning is retained. This direct diagnostic is separate
+from the still-unqualified auditor scanner-runtime binding.
+
+Fresh managed diff scan `e53999d5-b8a8-4190-95a4-2b40c48bd43d` covered and
+closed all nine changed files from `2d1f100` to `6b088830`, with zero candidates
+or findings. A previous scan with no populated review rows is invalid evidence
+and was replaced. Neither result is a complete production audit. Later source
+changes need their own exact-revision evidence.
+
 ## Bounded receipts
 
 The README receipt badges link here. A receipt applies only to the listed

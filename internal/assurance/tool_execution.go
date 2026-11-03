@@ -19,9 +19,10 @@ import (
 // requested command. It does not establish publisher provenance or sandbox
 // the program it starts.
 type qualifiedTools struct {
-	manifest VerifiedToolManifest
-	command  commandFunc
-	probes   map[string]ToolProbe
+	manifest     VerifiedToolManifest
+	command      commandFunc
+	probes       map[string]ToolProbe
+	helperCopies map[string]string
 }
 
 // ToolProbe records the observed status of a tool's fixed version probe.
@@ -32,7 +33,7 @@ type ToolProbe struct {
 }
 
 func newQualifiedTools(manifest VerifiedToolManifest, command commandFunc) *qualifiedTools {
-	return &qualifiedTools{manifest: manifest, command: command, probes: map[string]ToolProbe{}}
+	return &qualifiedTools{manifest: manifest, command: command, probes: map[string]ToolProbe{}, helperCopies: map[string]string{}}
 }
 
 func (tools *qualifiedTools) tool(id string) (VerifiedTool, bool) {
@@ -51,7 +52,7 @@ func (tools *qualifiedTools) dependenciesMatch() bool {
 			return false
 		}
 	}
-	return true
+	return tools.helpersMatch()
 }
 
 func (tools *qualifiedTools) commandFor(id string) commandFunc {
@@ -70,6 +71,9 @@ func (tools *qualifiedTools) run(ctx context.Context, id string, arguments []str
 }
 
 func (tools *qualifiedTools) runVerified(ctx context.Context, id string, tool VerifiedTool, arguments []string, directory string, environment []string) commandResult {
+	if !tools.helpersMatch() {
+		return tools.failed(id, "helper_digest_mismatch")
+	}
 	if !toolMatchesDigest(tool) {
 		return tools.failed(id, "binary_digest_mismatch")
 	}
@@ -83,8 +87,15 @@ func (tools *qualifiedTools) runVerified(ctx context.Context, id string, tool Ve
 	if !toolMatchesDigest(tool) {
 		return tools.failed(id, "binary_changed_after_probe")
 	}
+	if !tools.helpersMatch() {
+		return tools.failed(id, "helper_changed_after_probe")
+	}
 	tools.probes[id] = ToolProbe{ID: id, Status: "passed"}
-	return tools.command(ctx, tool.Path, arguments, directory, environment)
+	result := tools.command(ctx, tool.Path, arguments, directory, environment)
+	if !tools.helpersMatch() {
+		return tools.failed(id, "helper_changed_during_execution")
+	}
+	return result
 }
 
 func (tools *qualifiedTools) failed(id, code string) commandResult {
@@ -143,7 +154,7 @@ func sameGofmtToolchain(gofmt, goBinary string) bool {
 }
 
 func (tools *qualifiedTools) report() ToolManifestReport {
-	report := ToolManifestReport{SHA256: tools.manifest.ManifestSHA256}
+	report := ToolManifestReport{SHA256: tools.manifest.ManifestSHA256, Helpers: tools.helperIdentities()}
 	for _, tool := range tools.manifest.Tools {
 		probe, found := tools.probes[tool.ID]
 		if !found {
@@ -164,18 +175,23 @@ func (tools *qualifiedTools) environment(environment []string, helperDirectory s
 			return nil, os.ErrPermission
 		}
 	}
+	if err := tools.copyNativeHelpers(helperDirectory); err != nil {
+		return nil, err
+	}
 	goRoot, err := tools.goRoot()
 	if err != nil {
 		return nil, err
 	}
 	filtered := make([]string, 0, len(environment)+1)
 	for _, value := range environment {
-		if !strings.HasPrefix(value, "PATH=") && !strings.HasPrefix(value, "GOROOT=") {
+		name, _, _ := strings.Cut(value, "=")
+		if !strings.EqualFold(name, "PATH") && !strings.EqualFold(name, "GOROOT") {
 			filtered = append(filtered, value)
 		}
 	}
 	// Child tools can only resolve the mandatory helper names from their own
-	// already-qualified directories. Commands themselves always use absolute
+	// already-qualified copies, including explicitly declared native dependencies.
+	// Commands themselves always use absolute
 	// manifest paths; this PATH is deliberately not an analyzer tool directory.
 	return append(filtered, "PATH="+helperDirectory, "GOROOT="+goRoot), nil
 }
@@ -200,20 +216,28 @@ func canonicalToolName(id string) string {
 }
 
 func copyQualifiedHelper(tool VerifiedTool, target string) error {
-	if filepath.Base(tool.Path) != canonicalToolName(tool.ID) {
+	return copyHelperBinary(helperBinary{id: tool.ID, path: tool.Path, sha256: tool.SHA256}, target)
+}
+
+type helperBinary struct {
+	id, path, sha256 string
+}
+
+func copyHelperBinary(binary helperBinary, target string) error {
+	if filepath.Base(binary.path) != canonicalToolName(binary.id) {
 		return os.ErrInvalid
 	}
-	if existingHelperMatches(tool, target) {
+	if existingHelperBinaryMatches(binary, target) {
 		return nil
 	}
 	if _, err := os.Lstat(target); err == nil {
 		return os.ErrInvalid
 	}
-	if err := writeHelper(tool.Path, target); err != nil {
+	if err := writeHelper(binary.path, target); err != nil {
 		return err
 	}
 	digest, err := executableSHA256(target)
-	if err != nil || digest != tool.SHA256 {
+	if err != nil || digest != binary.sha256 {
 		_ = os.Remove(target)
 		return os.ErrInvalid
 	}
@@ -221,8 +245,15 @@ func copyQualifiedHelper(tool VerifiedTool, target string) error {
 }
 
 func existingHelperMatches(tool VerifiedTool, target string) bool {
+	return existingHelperBinaryMatches(helperBinary{id: tool.ID, path: tool.Path, sha256: tool.SHA256}, target)
+}
+
+func existingHelperBinaryMatches(binary helperBinary, target string) bool {
+	if platform.ValidateFileMetadata(target, false) != nil {
+		return false
+	}
 	digest, err := executableSHA256(target)
-	return err == nil && digest == tool.SHA256 && helperExecutable(target)
+	return err == nil && digest == binary.sha256 && helperExecutable(target)
 }
 
 func helperExecutable(path string) bool {

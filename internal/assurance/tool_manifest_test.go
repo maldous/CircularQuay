@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -526,10 +527,39 @@ func TestToolInputOverlapAndPostReadNameFence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = platform.WriteProtected(path, []byte("after!")); err != nil {
+	named := replaceFixtureRuleInput(t, path)
+	assertReplacementIsDetected(t, file, path, before, named)
+}
+
+func replaceFixtureRuleInput(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	if err := os.Rename(path, path+"-original"); err != nil {
 		t.Fatal(err)
 	}
-	if inputFileUnchanged(file, path, before, before.Size()) {
+	if err := platform.CreateProtectedExclusive(path, []byte("after!")); err != nil {
+		t.Fatal(err)
+	}
+	named, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return named
+}
+
+func assertReplacementIsDetected(t *testing.T, file *os.File, path string, before, named os.FileInfo) {
+	t.Helper()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || named.Size() != before.Size() || named.Mode() != before.Mode() {
+		t.Fatal("replacement did not preserve a readable original descriptor and matching metadata")
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil || string(data) != "before" {
+		t.Fatal("replacement invalidated the original descriptor")
+	}
+	if os.SameFile(before, named) || inputFileUnchanged(file, path, before, before.Size()) {
 		t.Fatal("replaced named path accepted after descriptor read")
 	}
 }

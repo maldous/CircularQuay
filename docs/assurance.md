@@ -52,7 +52,8 @@ The runner loads it before invoking Git, Go, gofmt, or an analyzer, rehashes
 the selected executable, and checks its fixed version probe before each run.
 `git`, `go`, and `gofmt` are mandatory. `--go` is optional, but a supplied
 value must exactly match the manifest's Go path. The source workflow writes a
-private three-tool manifest beside its temporary audit binary; other analyzers
+private manifest for these three tools and its declared `ssh-keygen` native
+helper beside the temporary audit binary; other analyzers
 are explicitly reported as not selected rather than resolved from PATH.
 
 `gitleaks` needs a manifest-bound protected configuration file and
@@ -80,8 +81,16 @@ snapshot, the runner revalidates its protected metadata and complete digest.
 That catches ordinary configuration drift and prevents accepting the result
 after observed drift. It does not make use atomic against an actor able to
 replace and restore files. Child PATH resolution is restricted to private
-verified copies of the canonical `git` and `go` filenames; analyzer directories
-do not contribute helpers. The Go distribution, Git helper/DLL dependencies,
+verified copies of the canonical `git` and `go` filenames and the optional,
+explicitly declared `ssh-keygen` helper. Analyzer directories do not contribute
+helpers. The optional v1 `helpers` array accepts only `ssh-keygen`, with its
+absolute path and SHA-256; unknown helpers, empty arrays, extra fields and
+source/output overlap are rejected. Canonical path collisions with tools are
+also rejected; this is not a hard-link uniqueness guarantee. The helper is
+copied privately and both original and copy are revalidated around every
+command. Its separate report records preparation and current integrity, not
+a version probe or proof that the helper ran. Omit it only when the audited
+source does not require it; a missing dependency remains a real test failure. The Go distribution, Git helper/DLL dependencies,
 the operating system, and child-process sandboxing remain separate closure
 evidence.
 

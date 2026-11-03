@@ -35,15 +35,17 @@ var ToolManifestSchema []byte
 // ToolManifest is an operator declaration. Its metadata is not evidence that
 // a tool was executed, that a probe succeeded, or that a publisher is trusted.
 type ToolManifest struct {
-	Version  int         `json:"version"`
-	Platform string      `json:"platform"`
-	Tools    []ToolEntry `json:"tools"`
+	Version  int          `json:"version"`
+	Platform string       `json:"platform"`
+	Tools    []ToolEntry  `json:"tools"`
+	Helpers  []ToolHelper `json:"helpers,omitempty"`
 }
 
 type toolManifestPresence struct {
 	Version  int                 `json:"version"`
 	Platform string              `json:"platform"`
 	Tools    []toolEntryPresence `json:"tools"`
+	Helpers  json.RawMessage     `json:"helpers,omitempty"`
 }
 
 type toolEntryPresence struct {
@@ -93,8 +95,9 @@ type ToolLocations struct {
 // SHA-256 values verified from protected external files. It is not a tool
 // probe, publisher-provenance attestation, or host-isolation guarantee.
 type VerifiedToolManifest struct {
-	ManifestSHA256 string         `json:"manifest_sha256"`
-	Tools          []VerifiedTool `json:"tools"`
+	ManifestSHA256 string           `json:"manifest_sha256"`
+	Tools          []VerifiedTool   `json:"tools"`
+	Helpers        []VerifiedHelper `json:"helpers,omitempty"`
 }
 
 // VerifiedTool records a verified executable identity and unverified declared
@@ -145,10 +148,14 @@ func LoadToolManifest(path string, locations ToolLocations) (VerifiedToolManifes
 	if err != nil {
 		return VerifiedToolManifest{}, err
 	}
+	helpers, err := verifyToolHelpers(manifest.Helpers, tools, source, output)
+	if err != nil {
+		return VerifiedToolManifest{}, err
+	}
 	if err = bindToolInputs(manifest.Tools, source, output); err != nil {
 		return VerifiedToolManifest{}, err
 	}
-	return VerifiedToolManifest{ManifestSHA256: digest(data), Tools: tools}, nil
+	return VerifiedToolManifest{ManifestSHA256: digest(data), Tools: tools, Helpers: helpers}, nil
 }
 
 func validManifest(manifest ToolManifest, presence toolManifestPresence) bool {
@@ -162,7 +169,7 @@ func validManifest(manifest ToolManifest, presence toolManifestPresence) bool {
 		}
 		seen[strings.ToLower(tool.ID)] = true
 	}
-	return len(seen) == len(manifest.Tools)
+	return len(seen) == len(manifest.Tools) && validToolHelpers(manifest.Helpers, presence.Helpers)
 }
 
 func validToolEntry(tool ToolEntry, presence toolEntryPresence) bool {
@@ -361,25 +368,33 @@ func verifyTools(entries []ToolEntry, source, output string) ([]VerifiedTool, er
 }
 
 func verifyTool(entry ToolEntry, source, output string, seen map[string]bool) (VerifiedTool, error) {
-	if !localAbsoluteToolPath(entry.Path) {
-		return VerifiedTool{}, errors.New("invalid tool path")
+	path, actual, err := verifyExecutableIdentity(entry.Path, entry.SHA256, source, output, seen)
+	if err != nil {
+		return VerifiedTool{}, err
 	}
-	if err := platform.ValidateFileMetadata(entry.Path, false); err != nil {
-		return VerifiedTool{}, errors.New("invalid tool protection")
+	return VerifiedTool{ID: entry.ID, Path: path, SHA256: actual, DeclaredVersion: entry.Version, DeclaredVersionOutputSHA256: entry.VersionOutputSHA256, DeclaredRules: entry.Rules}, nil
+}
+
+func verifyExecutableIdentity(declaredPath, expected, source, output string, seen map[string]bool) (string, string, error) {
+	if !localAbsoluteToolPath(declaredPath) {
+		return "", "", errors.New("invalid tool path")
 	}
-	path, err := canonicalRegularPath(entry.Path)
+	if err := platform.ValidateFileMetadata(declaredPath, false); err != nil {
+		return "", "", errors.New("invalid tool protection")
+	}
+	path, err := canonicalRegularPath(declaredPath)
 	if err != nil || containedBy(path, source) || containedBy(path, output) || seen[strings.ToLower(path)] {
-		return VerifiedTool{}, errors.New("invalid tool path")
+		return "", "", errors.New("invalid tool path")
 	}
 	if err = platform.ValidateExecutable(path); err != nil {
-		return VerifiedTool{}, errors.New("invalid tool protection")
+		return "", "", errors.New("invalid tool protection")
 	}
 	actual, err := executableSHA256(path)
-	if err != nil || actual != entry.SHA256 {
-		return VerifiedTool{}, errors.New("tool digest mismatch")
+	if err != nil || actual != expected {
+		return "", "", errors.New("tool digest mismatch")
 	}
 	seen[strings.ToLower(path)] = true
-	return VerifiedTool{ID: entry.ID, Path: path, SHA256: actual, DeclaredVersion: entry.Version, DeclaredVersionOutputSHA256: entry.VersionOutputSHA256, DeclaredRules: entry.Rules}, nil
+	return path, actual, nil
 }
 
 func executableSHA256(path string) (string, error) {
