@@ -122,6 +122,44 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 
 This is an early implementation. A compiled adapter is not proof of live-provider compatibility, a passing unit test is not a reboot test, and a clean scanner is not a security certification. The [qualification matrix](docs/qualification.md) separates implementation from operational evidence.
 
+## How CircularQuay fits with existing secret systems
+
+This is a product comparison, not a migration recommendation. Each system has
+its own authority model and operational evidence. Links point to the relevant
+vendor documentation rather than inferring capabilities from a product name.
+
+| Product | Authority and provider integration | Identity and time | Offline artifact |
+| --- | --- | --- | --- |
+| [OpenBao](https://openbao.org/docs/what-is-openbao/) | Store, policy, dynamic secrets, and revocation | [Auth policies and leases](https://openbao.org/docs/concepts/auth/) | [Agent cache](https://openbao.org/docs/agent-and-proxy/agent/caching/): partial offline support for cached tokens and leased secrets |
+| [Vault](https://developer.hashicorp.com/vault/docs) | Store, identity, dynamic credentials, and audit | [Managed identities and workload federation](https://developer.hashicorp.com/vault/docs) | Not assessed here |
+| [Infisical](https://infisical.com/docs/documentation/getting-started/introduction) | Store, rotation, certificates, and integrations | [Machine identities and per-server policy](https://infisical.com/blog/managing-secrets-mcp-servers) | [CLI runtime injection](https://infisical.com/blog/your-ai-coding-agent-is-reading-your-env-file) fetches at launch; no offline-artifact comparison claim |
+| [Doppler](https://docs.doppler.com/docs/service-tokens) | Project/config service-token access | Token governs access to one config | [Encrypted fallback file](https://docs.doppler.com/docs/automatic-fallbacks) |
+| [1Password](https://www.1password.dev/service-accounts) | Vault and action-scoped service accounts | Service-account access and usage reporting | Not assessed here |
+| [SOPS + age](https://getsops.io/) | Encrypted configuration artifact and recipient/key authority | Recipient or key-service authorization | Offline and online encryption modes |
+| **CircularQuay — v1 product contract** | Keep the chosen store authoritative; declare exact resources, fields, workloads, and delivery targets | Associate trusted identities, applications, contexts, operations, and expiry with local policy | Declared encrypted snapshot for offline or hybrid workload availability |
+
+| Product | MCP, actions, and raw values | Platforms and delivery |
+| --- | --- | --- |
+| OpenBao | No MCP comparison claim made here | [Agent templates, process-environment injection, and Windows service mode](https://openbao.org/docs/agent-and-proxy/agent/) are documented |
+| Vault | [Official MCP server](https://developer.hashicorp.com/vault/ai/mcp-server/reference/protocols); its binary is documented as beta | Compatible OS/architecture is a deployment prerequisite for its MCP binary |
+| Infisical | [MCP-server injection](https://infisical.com/blog/managing-secrets-mcp-servers) keeps values in the server process rather than giving them to the model | Cloud or self-hosted deployment is documented |
+| Doppler | [Experimental MCP server](https://docs.doppler.com/docs/mcp): reads values and offers config/write operations; read-only mode limits tools while scoped API tokens enforce permissions | CLI fallback file and Kubernetes sync are documented separately |
+| 1Password | [SaaS Manager MCP](https://support.1password.com/saas-manager-mcp-server/) covers the separate SaaS Manager product and its APIs | [Platform-specific desktop requirements](https://support.1password.com/system-requirements/) and CLI delivery are documented |
+| SOPS + age | Encryption tool; no action or MCP interface claimed | Ciphertext works with offline identities or online key services |
+| **CircularQuay — v1 product contract** | Named status/action operations are separate from deliberate, exact-key raw-secret disclosure | Declared native delivery interfaces for Linux, macOS, and Windows |
+
+CircularQuay’s added boundary is the workload policy: it describes what may
+reach a named application, where it may be delivered, and whether online,
+offline, or hybrid availability is allowed. It does not make an upstream
+provider’s lease, token, or revocation stronger than that provider.
+
+Vendor cells above are **documented** claims; “Not assessed here” makes no
+absence claim. The **v1 product contract** row describes the intended
+product boundary, not a test receipt. The [qualification matrix](docs/qualification.md)
+records actual implementation and synthetic evidence; live-provider, native,
+and recovery behavior is **not verified**, while hosted IdP and advanced proof
+mechanisms remain **integration needed**.
+
 ## Choose an availability policy
 
 | Mode | Intended use | Boundary |
