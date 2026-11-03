@@ -2,16 +2,6 @@
 
 **Portable secrets delivery, with explicit trust boundaries.**
 
-> **v1 documentation preview:** this working branch presents the intended
-> CircularQuay v1 experience. Implementation and production qualification are
-> incomplete. Use synthetic data only; see the [qualification evidence](docs/qualification.md).
-
-CircularQuay’s app, command, and operations skill are named `cquay` (pronounced “c-key”).
-
-CircularQuay resolves exact values from existing secret providers under a workload-scoped policy, then delivers one complete generation through native operating-system boundaries. It gives teams a portable way to move from provider authorization to a declared workload without inheriting an ambient shell environment or silently applying a partial refresh.
-
-For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
-
 A shell profile once made a developer's environment feel simple: open a
 terminal, inherit the right variables, and get on with the job. Services,
 containers, Windows sessions, CI runners, and hosted applications introduced
@@ -22,6 +12,13 @@ CircularQuay grew out of the frustration of joining those pieces repeatedly. It
 connects existing providers, established encryption, and native runtime
 delivery through one workload-scoped policy. You choose where online
 authorization is required and where an encrypted offline copy is appropriate.
+
+CircularQuay’s app, command, and operations skill are named `cquay` (pronounced “c-key”).
+
+CircularQuay resolves exact values from existing secret providers under a workload-scoped policy, then delivers one complete generation through native operating-system boundaries. It gives teams a portable way to move from provider authorization to a declared workload without inheriting an ambient shell environment or silently applying a partial refresh.
+
+For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
+
 
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
