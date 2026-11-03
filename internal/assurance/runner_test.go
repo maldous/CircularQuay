@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
@@ -110,7 +112,7 @@ func writeSyntheticCoverage(t *testing.T, args []string) {
 func TestEnterpriseCannotPassWithoutSonar(t *testing.T) {
 	root := fixtureRepository(t)
 	file := filepath.Join(privateAssuranceDirectory(t, "credential"), "token")
-	if err := os.WriteFile(file, []byte("synthetic-token\n"), 0600); err != nil {
+	if err := platform.WriteProtected(file, []byte("synthetic-token\n")); err != nil {
 		t.Fatal(err)
 	}
 	report := Report{Commit: strings.Repeat("a", 40)}
@@ -156,7 +158,7 @@ func writeSonarTaskMetadata(t *testing.T, args []string) {
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-Dsonar.scanner.metadataFilePath=") {
 			path := strings.TrimPrefix(arg, "-Dsonar.scanner.metadataFilePath=")
-			if err := os.WriteFile(path, []byte("ceTaskId=fixture-"+project+"task\nprojectKey="+project+"\n"), 0600); err != nil {
+			if err := platform.WriteProtected(path, []byte("ceTaskId=fixture-"+project+"task\nprojectKey="+project+"\n")); err != nil {
 				t.Fatal(err)
 			}
 			return
@@ -178,7 +180,7 @@ func TestTokenHandling(t *testing.T) {
 	directory := privateAssuranceDirectory(t, "token")
 	file := filepath.Join(directory, "token")
 	assertInvalidTokens(t, file)
-	if err := os.WriteFile(file, []byte("safe-value"), 0600); err != nil {
+	if err := platform.WriteProtected(file, []byte("safe-value")); err != nil {
 		t.Fatal(err)
 	}
 	if token, err := readToken(file); err != nil || token != "safe-value" {
@@ -200,7 +202,7 @@ func TestTokenHandling(t *testing.T) {
 func assertInvalidTokens(t *testing.T, file string) {
 	t.Helper()
 	for _, value := range []string{"", "a\nb", "x\x00y", strings.Repeat("x", 4097)} {
-		if err := os.WriteFile(file, []byte(value), 0600); err != nil {
+		if err := platform.WriteProtected(file, []byte(value)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := readToken(file); err == nil {

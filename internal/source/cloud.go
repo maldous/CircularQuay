@@ -37,6 +37,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/transport"
 )
 
+const awsVersionStagePrefix = "stage:"
+
 func registerCloud(r *Registry) {
 	r.Register("aws-sm", ReadFunc(readAWSSecret))
 	r.Register("aws-ssm", ReadFunc(readAWSParameter))
@@ -113,8 +115,8 @@ func readAWSSecret(ctx context.Context, s model.Source, b model.Binding) (model.
 
 func awsSecretValue(ctx context.Context, client *secretsmanager.Client, s model.Source, b model.Binding) (model.Value, error) {
 	in := &secretsmanager.GetSecretValueInput{SecretId: aws.String(b.Resource)}
-	if strings.HasPrefix(b.Version, "stage:") {
-		in.VersionStage = aws.String(strings.TrimPrefix(b.Version, "stage:"))
+	if strings.HasPrefix(b.Version, awsVersionStagePrefix) {
+		in.VersionStage = aws.String(strings.TrimPrefix(b.Version, awsVersionStagePrefix))
 	} else if b.Version != "" {
 		in.VersionId = aws.String(b.Version)
 	}
@@ -139,7 +141,7 @@ func validateAWSSecretVersion(b model.Binding, result *secretsmanager.GetSecretV
 	if b.Version == "" {
 		return nil
 	}
-	if stage, ok := strings.CutPrefix(b.Version, "stage:"); ok {
+	if stage, ok := strings.CutPrefix(b.Version, awsVersionStagePrefix); ok {
 		if stage == "" {
 			return fault.New(fault.Invalid, "source_version")
 		}

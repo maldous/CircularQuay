@@ -159,9 +159,11 @@ func ValidateProtectedPath(path string) error {
 	return nil
 }
 
-// ReadProtected reads a regular file without following a final symbolic link.
-// Secret files must deny group and other access on Unix platforms.
-func ReadProtected(path string, secret bool) ([]byte, error) {
+// OpenProtected opens a trusted regular file without following its final
+// symbolic link. The returned descriptor refers to the same protected file
+// that was validated; callers must close it. Secret files must deny group and
+// other access on Unix platforms.
+func OpenProtected(path string, secret bool) (*os.File, error) {
 	before, err := protectedFileInfo(path, secret)
 	if err != nil {
 		return nil, err
@@ -170,11 +172,21 @@ func ReadProtected(path string, secret bool) ([]byte, error) {
 	if err != nil {
 		return nil, fault.New(fault.Denied, "open protected file")
 	}
-	defer f.Close()
 	after, err := f.Stat()
 	if err != nil || !os.SameFile(before, after) {
+		_ = f.Close()
 		return nil, fault.New(fault.Trust, "protected file changed")
 	}
+	return f, nil
+}
+
+// ReadProtected reads a bounded protected file using OpenProtected.
+func ReadProtected(path string, secret bool) ([]byte, error) {
+	f, err := OpenProtected(path, secret)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, MaxDocumentSize+1))
 	if err != nil || len(data) > MaxDocumentSize {
 		return nil, fault.New(fault.Invalid, "protected file size")

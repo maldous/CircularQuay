@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
 )
@@ -171,8 +172,8 @@ func TestLoadRejectsUntrustedFiles(t *testing.T) {
 
 func rejectMissingAndDirectory(t *testing.T, directory string) {
 	t.Helper()
-	if _, err := Load(filepath.Join(directory, "missing")); err == nil {
-		t.Fatal("missing policy accepted")
+	if _, err := Load(filepath.Join(directory, "missing")); !fault.Is(err, fault.Trust) {
+		t.Fatalf("missing policy error = %v", err)
 	}
 	if _, err := Load(directory); err == nil {
 		t.Fatal("directory accepted")
@@ -252,8 +253,50 @@ func TestBoundedIOFaultsAreSanitized(t *testing.T) {
 	if err := os.WriteFile(file, policyBytes(t), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readPolicyWithOpen(file, func(string) (*os.File, error) { return nil, errors.New("SYNTHETIC_PRIVATE_OPEN_DIAGNOSTIC") }); err == nil || strings.Contains(err.Error(), "SYNTHETIC_PRIVATE") {
+	if _, err := readPolicyWithOpen(file, func(string, bool) (*os.File, error) { return nil, errors.New("SYNTHETIC_PRIVATE_OPEN_DIAGNOSTIC") }); err == nil || strings.Contains(err.Error(), "SYNTHETIC_PRIVATE") {
 		t.Fatal("unsafe open diagnostic")
+	}
+}
+
+func TestLoadRequiresNativeProtectedPolicyPath(t *testing.T) {
+	directory := privatePolicyDirectory(t)
+	path := filepath.Join(directory, "policy.json")
+	if err := os.WriteFile(path, policyBytes(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatalf("protected public-readable policy rejected: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if err := os.Chmod(directory, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); !fault.Is(err, fault.Trust) {
+		t.Fatalf("policy below writable ancestor error = %v", err)
+	}
+}
+
+func TestLoadRejectsPolicySymlinkAncestor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating symbolic links requires additional Windows privileges")
+	}
+	directory := privatePolicyDirectory(t)
+	target := filepath.Join(directory, "target")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(target, "policy.json")
+	if err := os.WriteFile(path, policyBytes(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(directory, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(filepath.Join(link, "policy.json")); !fault.Is(err, fault.Trust) {
+		t.Fatalf("policy symlink ancestor error = %v", err)
 	}
 }
 

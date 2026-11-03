@@ -23,7 +23,11 @@ type memorySnapshot struct {
 
 func privateResolveDirectory(t *testing.T, name string) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), name)
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, name)
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}

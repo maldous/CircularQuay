@@ -57,14 +57,26 @@ func syncDirectory(_ string) error { return nil }
 
 func protectFile(path string) error { return grantFile(path, "") }
 
-func protectDirectory(path string) error { return grantFile(path, "") }
+func protectDirectory(path string) error { return grantDirectory(path) }
 
 func grantFile(path, sid string) error {
+	return grant(path, sid, "")
+}
+
+func grantDirectory(path string) error {
+	// OI and CI propagate the private DACL to ordinary files and directories
+	// subsequently created beneath this directory. File and service-SID grants
+	// remain non-inheritable and therefore cannot widen child access.
+	return grant(path, "", "OICI")
+}
+
+func grant(path, sid, inheritance string) error {
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
 		return err
 	}
-	sddl := "D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FA;;;" + user.User.Sid.String() + ")"
+	ace := "(A;" + inheritance + ";FA;;;"
+	sddl := "D:P" + ace + "SY)" + ace + "BA)" + ace + user.User.Sid.String() + ")"
 	if sid != "" {
 		sddl += "(A;;FR;;;" + sid + ")"
 	}

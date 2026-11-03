@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -12,7 +13,11 @@ import (
 
 func privateStateDirectory(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "state")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, "state")
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -73,16 +78,12 @@ func TestInvalidAndCorruptState(t *testing.T) {
 	}
 	p := filepath.Join(s.Directory, "demo.json")
 	for _, body := range []string{"not-json", `{"workload":"other"}`, `{"workload":"demo","extra":"field"}`} {
-		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		writeProtectedStateFixture(t, p, []byte(body))
 		if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
 			t.Fatal("corrupt state accepted")
 		}
 	}
-	if err := os.WriteFile(p, make([]byte, (1<<20)+1), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedStateFixture(t, p, make([]byte, (1<<20)+1))
 	if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
 		t.Fatal("oversized state accepted")
 	}
@@ -97,11 +98,13 @@ func TestUnsafeStateDirectory(t *testing.T) {
 	if _, err := (Store{Directory: p}).Read("demo"); err == nil {
 		t.Fatal("non-directory accepted")
 	}
-	if err := os.Chmod(d, 0o777); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := (Store{Directory: d}).Read("demo"); !fault.Is(err, fault.Trust) {
-		t.Fatal("writable state directory accepted")
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(d, 0o777); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := (Store{Directory: d}).Read("demo"); !fault.Is(err, fault.Trust) {
+			t.Fatal("writable state directory accepted")
+		}
 	}
 }
 
@@ -109,12 +112,17 @@ func TestStateRejectsTrailingJSON(t *testing.T) {
 	s := Store{Directory: privateStateDirectory(t)}
 	p := filepath.Join(s.Directory, "demo.json")
 	for _, body := range []string{`{"workload":"demo"} {}`, `{"workload":"demo"} trailing`, `{"workload":"demo","workload":"demo"}`} {
-		if err := os.WriteFile(p, []byte(body), 0600); err != nil {
-			t.Fatal(err)
-		}
+		writeProtectedStateFixture(t, p, []byte(body))
 		if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
 			t.Errorf("ambiguous metadata accepted: %q", body)
 		}
+	}
+}
+
+func writeProtectedStateFixture(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := platform.WriteProtected(path, data); err != nil {
+		t.Fatal(err)
 	}
 }
 

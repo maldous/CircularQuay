@@ -17,7 +17,11 @@ import (
 
 func privateCLIDirectory(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "cli")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, "cli")
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -47,18 +51,14 @@ func TestRunReleasesLockBeforeChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture := filepath.Join(dir, "values.json")
-	if err := os.WriteFile(fixture, []byte(`{"message":"synthetic"}`), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, fixture, []byte(`{"message":"synthetic"}`))
 	p := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: fixture}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{executable, "-test.run=^TestLockProbeChild$", "--", "cquay-lock-probe", stateDir}}}}
 	data, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := filepath.Join(dir, "policy.json")
-	if err := os.WriteFile(config, data, 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, config, data)
 	var out, diagnostics bytes.Buffer
 	code := (Runner{Out: &out, Err: &diagnostics}).Run(context.Background(), []string{"--config", config, "--state-dir", stateDir, "run", "--workload", "demo"})
 	if code != 0 {
@@ -97,9 +97,7 @@ func syncFixture(t *testing.T) (config, fixture, destination string, modified ti
 	dir := privateCLIDirectory(t)
 	fixture = filepath.Join(dir, "values.json")
 	destination = filepath.Join(dir, "published.json")
-	if err := os.WriteFile(fixture, []byte(`{"message":"first"}`), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, fixture, []byte(`{"message":"first"}`))
 	info, err := os.Stat(fixture)
 	if err != nil {
 		t.Fatal(err)
@@ -110,17 +108,13 @@ func syncFixture(t *testing.T) (config, fixture, destination string, modified ti
 		t.Fatal(err)
 	}
 	config = filepath.Join(dir, "policy.json")
-	if err = os.WriteFile(config, data, 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, config, data)
 	return config, fixture, destination, info.ModTime()
 }
 
 func assertSyncedValue(t *testing.T, config, fixture, destination string, modified time.Time, value string) {
 	t.Helper()
-	if err := os.WriteFile(fixture, []byte(`{"message":"`+value+`"}`), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, fixture, []byte(`{"message":"`+value+`"}`))
 	if err := os.Chtimes(fixture, modified, modified); err != nil {
 		t.Fatal(err)
 	}
@@ -146,5 +140,12 @@ func assertSyncedValue(t *testing.T, config, fixture, destination string, modifi
 	}
 	if record.State != "applied" || record.Health != "unknown" {
 		t.Fatal("sync exaggerated activation/health")
+	}
+}
+
+func writeProtectedFixture(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := platform.WriteProtected(path, data); err != nil {
+		t.Fatal(err)
 	}
 }

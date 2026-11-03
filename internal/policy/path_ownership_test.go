@@ -9,21 +9,26 @@ import (
 )
 
 func TestPathOwnershipRejectsWritersOverInputsAndEachOther(t *testing.T) {
+	base := t.TempDir()
 	for name, change := range map[string]func(*model.Policy){
 		"source": func(policy *model.Policy) {
-			setSnapshotPath(policy, "/fixtures/values.json")
+			path := filepath.Join(base, "values.json")
+			changeSource(policy, func(source *model.Source) { source.Path = path })
+			setSnapshotPath(policy, path)
 		},
 		"bootstrap": func(policy *model.Policy) {
-			changeSource(policy, func(source *model.Source) { source.TokenFile = "/private/token" })
-			setFileTarget(policy, "sink", "/private/token")
+			path := filepath.Join(base, "token")
+			changeSource(policy, func(source *model.Source) { source.TokenFile = path })
+			setFileTarget(policy, "sink", path)
 		},
 		"command": func(policy *model.Policy) {
-			changeWorkload(policy, func(workload *model.Workload) { workload.Command = []string{"/private/worker"} })
-			setFileTarget(policy, "sink", "/private/worker")
+			path := filepath.Join(base, "worker")
+			changeWorkload(policy, func(workload *model.Workload) { workload.Command = []string{path} })
+			setFileTarget(policy, "sink", path)
 		},
 		"cross writer case fold": func(policy *model.Policy) {
-			setSnapshotPath(policy, "/private/Output")
-			setFileTarget(policy, "sink", "/private/output")
+			setSnapshotPath(policy, filepath.Join(base, "Output"))
+			setFileTarget(policy, "sink", filepath.Join(base, "output"))
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -37,15 +42,16 @@ func TestPathOwnershipRejectsWritersOverInputsAndEachOther(t *testing.T) {
 }
 
 func TestPathOwnershipRejectsRepositoryAndPolicyOutputs(t *testing.T) {
+	base := t.TempDir()
 	policy := validPolicy()
 	policy.Repository = model.Repository{
 		URL:                "https://repository.example.test/config",
-		Directory:          "/private/repository",
+		Directory:          filepath.Join(base, "repository"),
 		Ref:                "refs/heads/main",
-		AllowedSignersFile: "/private/signers",
+		AllowedSignersFile: filepath.Join(base, "signers"),
 		InitialCommit:      "0123456789012345678901234567890123456789",
 	}
-	setSnapshotPath(&policy, "/private/repository/snapshot")
+	setSnapshotPath(&policy, filepath.Join(base, "repository", "snapshot"))
 	if Validate(policy) == nil {
 		t.Fatal("repository output accepted")
 	}
@@ -59,30 +65,36 @@ func TestPathOwnershipRejectsRepositoryAndPolicyOutputs(t *testing.T) {
 }
 
 func TestPathOwnershipAllowsSeparateInputsAndWriters(t *testing.T) {
+	base := t.TempDir()
 	policy := validPolicy()
-	policy.MCP.AuditPath = "/private/audit.jsonl"
-	setFileTarget(&policy, "sink", "/private/output")
+	policy.MCP.AuditPath = filepath.Join(base, "audit.jsonl")
+	setFileTarget(&policy, "sink", filepath.Join(base, "output"))
 	if err := Validate(policy); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestAuditPathOwnershipRejectsInputsAndWriters(t *testing.T) {
+	base := t.TempDir()
 	for name, change := range map[string]func(*model.Policy){
 		"source": func(policy *model.Policy) {
-			policy.MCP.AuditPath = "/fixtures/values.json"
+			path := filepath.Join(base, "values.json")
+			changeSource(policy, func(source *model.Source) { source.Path = path })
+			policy.MCP.AuditPath = path
 		},
 		"repository signer": func(policy *model.Policy) {
-			policy.Repository = testRepository()
+			policy.Repository = testRepository(base)
 			policy.MCP.AuditPath = policy.Repository.AllowedSignersFile
 		},
 		"snapshot": func(policy *model.Policy) {
-			setSnapshotPath(policy, "/private/snapshot")
-			policy.MCP.AuditPath = "/private/snapshot"
+			path := filepath.Join(base, "snapshot")
+			setSnapshotPath(policy, path)
+			policy.MCP.AuditPath = path
 		},
 		"target": func(policy *model.Policy) {
-			setFileTarget(policy, "sink", "/private/output")
-			policy.MCP.AuditPath = "/private/output"
+			path := filepath.Join(base, "output")
+			setFileTarget(policy, "sink", path)
+			policy.MCP.AuditPath = path
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -148,12 +160,13 @@ func TestParseAllowsSeparateConfigLockAndPolicyPaths(t *testing.T) {
 }
 
 func TestRemoteTargetOwnershipRejectsWholeNetlifyVariable(t *testing.T) {
+	base := t.TempDir()
 	policy := validPolicy()
 	changeWorkload(&policy, func(workload *model.Workload) {
 		workload.Bindings[0].AllowPublish = true
 		workload.Targets = map[string]model.Target{
-			"first":  netlifyTarget("production"),
-			"second": netlifyTarget("deploy-preview"),
+			"first":  netlifyTarget(base, "production"),
+			"second": netlifyTarget(base, "deploy-preview"),
 		}
 	})
 	if Validate(policy) == nil {
@@ -162,14 +175,15 @@ func TestRemoteTargetOwnershipRejectsWholeNetlifyVariable(t *testing.T) {
 }
 
 func TestRemoteTargetOwnershipNormalizesImplementedDestinations(t *testing.T) {
+	base := t.TempDir()
 	for name, targets := range map[string]map[string]model.Target{
 		"cloudflare": {
-			"first":  {Type: "cloudflare", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: "/private/first", AcceptSnapshot: true},
-			"second": {Type: "cloudflare", Endpoint: "https://api.cloudflare.com/", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: "/private/second", AcceptSnapshot: true},
+			"first":  {Type: "cloudflare", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "first"), AcceptSnapshot: true},
+			"second": {Type: "cloudflare", Endpoint: "https://api.cloudflare.com/", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "second"), AcceptSnapshot: true},
 		},
 		"windmill": {
-			"first":  {Type: "windmill", Endpoint: "https://windmill.example", Project: "workspace", Resource: "variable", TokenFile: "/private/first", AcceptSnapshot: true},
-			"second": {Type: "windmill", Endpoint: "https://windmill.example/", Project: "workspace", Resource: "variable", TokenFile: "/private/second", AcceptSnapshot: true},
+			"first":  {Type: "windmill", Endpoint: "https://windmill.example", Project: "workspace", Resource: "variable", TokenFile: filepath.Join(base, "first"), AcceptSnapshot: true},
+			"second": {Type: "windmill", Endpoint: "https://windmill.example/", Project: "workspace", Resource: "variable", TokenFile: filepath.Join(base, "second"), AcceptSnapshot: true},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -185,20 +199,20 @@ func TestRemoteTargetOwnershipNormalizesImplementedDestinations(t *testing.T) {
 	}
 }
 
-func testRepository() model.Repository {
+func testRepository(base string) model.Repository {
 	return model.Repository{
 		URL:                "https://repository.example.test/config",
-		Directory:          "/private/repository",
+		Directory:          filepath.Join(base, "repository"),
 		Ref:                "refs/heads/main",
-		AllowedSignersFile: "/private/signers",
+		AllowedSignersFile: filepath.Join(base, "signers"),
 		InitialCommit:      "0123456789012345678901234567890123456789",
 	}
 }
 
-func netlifyTarget(environment string) model.Target {
+func netlifyTarget(base, environment string) model.Target {
 	return model.Target{
 		Type: "netlify", Account: "account", Project: "site", Environment: environment,
-		Path: "CQUAY_CONFIG", TokenFile: "/private/netlify-token", AcceptSnapshot: true,
+		Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "netlify-token"), AcceptSnapshot: true,
 	}
 }
 
@@ -207,8 +221,8 @@ func setSnapshotPath(policy *model.Policy, path string) {
 		workload.Snapshot = model.Snapshot{
 			Path:         path,
 			Recipients:   []string{"age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"},
-			IdentityFile: "/private/snapshot.age",
-			SOPS:         "/usr/bin/sops",
+			IdentityFile: filepath.Join(filepath.Dir(path), "snapshot.age"),
+			SOPS:         filepath.Join(filepath.Dir(path), "sops"),
 		}
 	})
 }

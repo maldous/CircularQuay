@@ -3,6 +3,7 @@ package assurance
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/platform"
@@ -10,7 +11,20 @@ import (
 
 func privateAssuranceDirectory(t *testing.T, name string) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), name)
+	base := os.TempDir()
+	if runtime.GOOS != "windows" {
+		base = "/tmp"
+	}
+	canonical, err := filepath.EvalSymlinks(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := os.MkdirTemp(canonical, "cquay-assurance-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(parent) })
+	directory := filepath.Join(parent, name)
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -21,11 +35,11 @@ func fixtureRepository(t *testing.T) string {
 	t.Helper()
 	root := privateAssuranceDirectory(t, "repository")
 	for _, name := range requiredFiles {
-		if err := os.WriteFile(filepath.Join(root, name), []byte("synthetic\n"), 0600); err != nil {
+		if err := platform.WriteProtected(filepath.Join(root, name), []byte("synthetic\n")); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0600); err != nil {
+	if err := platform.WriteProtected(filepath.Join(root, "main.go"), []byte("package main\n")); err != nil {
 		t.Fatal(err)
 	}
 	return root
@@ -45,11 +59,13 @@ func TestRepositoryPolicy(t *testing.T) {
 	if result := repositoryCheck(root); result.Status != "passed" {
 		t.Fatal("git internals were scanned")
 	}
-	if err := os.WriteFile(filepath.Join(root, "Main.go"), nil, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if result := repositoryCheck(root); result.Code != "repository_naming_violation" {
-		t.Fatal("case collision accepted")
+	if runtime.GOOS != "windows" {
+		if err := platform.WriteProtected(filepath.Join(root, "Main.go"), nil); err != nil {
+			t.Fatal(err)
+		}
+		if result := repositoryCheck(root); result.Code != "repository_naming_violation" {
+			t.Fatal("case collision accepted")
+		}
 	}
 	if err := os.Remove(filepath.Join(root, "README.md")); err != nil {
 		t.Fatal(err)

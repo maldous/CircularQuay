@@ -2,6 +2,7 @@ package policy
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -141,6 +142,7 @@ func TestPolicyRejectsUnsafeDeclarations(t *testing.T) {
 }
 
 func TestValidNativeScopes(t *testing.T) {
+	native := filepath.Join(t.TempDir(), "native")
 	policy := validPolicy()
 	changeSource(&policy, func(s *model.Source) {
 		s.Type = "openbao"
@@ -149,7 +151,7 @@ func TestValidNativeScopes(t *testing.T) {
 		s.Mount = "kv"
 		s.Resources = []string{"demo"}
 		s.Identity = "token_file"
-		s.TokenFile = "/protected/bootstrap"
+		s.TokenFile = filepath.Join(native, "bootstrap")
 		s.AuditVerified = true
 	})
 	changeWorkload(&policy, func(w *model.Workload) {
@@ -161,7 +163,7 @@ func TestValidNativeScopes(t *testing.T) {
 		w.Command = []string{"/opt/worker", "--once"}
 		w.CommandSHA256 = strings.Repeat("a", 64)
 		w.Environment = map[string]string{"PATH": "/usr/bin", "SystemRoot": `C:\Windows`}
-		w.Targets = map[string]model.Target{"sink": {Type: "file", Path: "/protected/output", AcceptSnapshot: true}}
+		w.Targets = map[string]model.Target{"sink": {Type: "file", Path: filepath.Join(native, "output"), AcceptSnapshot: true}}
 	})
 	policy.MCP = model.MCP{
 		Issuer: "https://issuer.example.test", Audience: "http://127.0.0.1:8787/mcp",
@@ -174,12 +176,13 @@ func TestValidNativeScopes(t *testing.T) {
 }
 
 func TestSOPSAuthority(t *testing.T) {
+	native := filepath.Join(t.TempDir(), "native")
 	policy := validPolicy()
 	changeSource(&policy, func(s *model.Source) {
 		s.Type = "sops"
 		s.Identity = "token_file"
-		s.TokenFile = "/protected/transit"
-		s.SOPS = "/usr/bin/sops"
+		s.TokenFile = filepath.Join(native, "transit")
+		s.SOPS = filepath.Join(native, "sops")
 	})
 	changeWorkload(&policy, func(w *model.Workload) { w.Mode = "online" })
 	if Validate(policy) == nil {

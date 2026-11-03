@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -52,10 +53,7 @@ func providerTestMain() bool {
 
 func tokenFixture(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "credential")
-	if err := platform.EnsurePrivateDirectory(directory); err != nil {
-		t.Fatal(err)
-	}
+	directory := privateSourceDirectory(t, "credential")
 	p := filepath.Join(directory, "token")
 	if err := os.WriteFile(p, []byte("synthetic-token"), 0600); err != nil {
 		t.Fatal(err)
@@ -220,7 +218,7 @@ func testRegistryScope(t *testing.T) {
 func testJSONLiteralSource(t *testing.T) {
 	ctx := context.Background()
 	r := NewRegistry()
-	file := filepath.Join(t.TempDir(), "values.json")
+	file := privateLiteralFile(t, "values.json")
 	write := func(s string) {
 		t.Helper()
 		if err := os.WriteFile(file, []byte(s), 0600); err != nil {
@@ -232,6 +230,9 @@ func testJSONLiteralSource(t *testing.T) {
 	v, err := r.Read(ctx, s, model.Binding{Name: "KEY"})
 	if err != nil || v.Data != "$(literal)" {
 		t.Fatal("literal data interpreted")
+	}
+	if !strings.HasPrefix(v.Version, "file:") {
+		t.Fatal("literal metadata hint was not preserved")
 	}
 	for _, field := range []string{"MISSING", "NUMBER"} {
 		if _, err := r.Read(ctx, s, model.Binding{Field: field}); err == nil {
@@ -247,12 +248,13 @@ func testJSONLiteralSource(t *testing.T) {
 	if _, err := readJSON(ctx, model.Source{Path: "relative"}, model.Binding{}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("relative file accepted")
 	}
+	testLiteralSourceProtection(t, r)
 }
 
 func testEnvironmentLiteralSource(t *testing.T) {
 	ctx := context.Background()
 	r := NewRegistry()
-	file := filepath.Join(t.TempDir(), "values.env")
+	file := privateLiteralFile(t, "values.env")
 	write := func(s string) {
 		t.Helper()
 		if err := os.WriteFile(file, []byte(s), 0600); err != nil {
@@ -276,6 +278,84 @@ func testEnvironmentLiteralSource(t *testing.T) {
 		if _, err := r.Read(ctx, es, model.Binding{Resource: "CQUAY_TEST_LITERAL"}); err == nil {
 			t.Fatal("unsafe dotenv accepted")
 		}
+	}
+}
+
+func privateLiteralFile(t *testing.T, name string) string {
+	t.Helper()
+	return filepath.Join(privateSourceDirectory(t, "literal"), name)
+}
+
+func privateSourceDirectory(t *testing.T, name string) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, name)
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
+func testLiteralSourceProtection(t *testing.T, registry *Registry) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
+	marker := "MUST-NOT-READ"
+	t.Run("public file", func(t *testing.T) { testUntrustedLiteralSource(t, registry, publicLiteralFile(t, marker), marker) })
+	t.Run("symlink", func(t *testing.T) { testUntrustedLiteralSource(t, registry, symlinkLiteralFile(t, marker), marker) })
+	t.Run("unsafe parent", func(t *testing.T) {
+		testUntrustedLiteralSource(t, registry, unsafeParentLiteralFile(t, marker), marker)
+	})
+}
+
+func testUntrustedLiteralSource(t *testing.T, registry *Registry, path, marker string) {
+	t.Helper()
+	value, err := registry.Read(context.Background(), model.Source{Type: "json", Path: path}, model.Binding{Name: "KEY"})
+	if !fault.Is(err, fault.Trust) || value.Data == marker {
+		t.Fatalf("untrusted literal source result = %#v, %v", value, err)
+	}
+}
+
+func publicLiteralFile(t *testing.T, marker string) string {
+	t.Helper()
+	path := privateLiteralFile(t, "public.json")
+	writeLiteralMarker(t, path, marker)
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func symlinkLiteralFile(t *testing.T, marker string) string {
+	t.Helper()
+	target := privateLiteralFile(t, "target.json")
+	writeLiteralMarker(t, target, marker)
+	link := filepath.Join(filepath.Dir(target), "link.json")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	return link
+}
+
+func unsafeParentLiteralFile(t *testing.T, marker string) string {
+	t.Helper()
+	directory := filepath.Dir(privateLiteralFile(t, "placeholder"))
+	path := filepath.Join(directory, "parent.json")
+	writeLiteralMarker(t, path, marker)
+	if err := os.Chmod(directory, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeLiteralMarker(t *testing.T, path, marker string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(`{"KEY":"`+marker+`"}`), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

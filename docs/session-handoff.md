@@ -11,9 +11,9 @@ Do not claim a passed gate without its retained evidence.
 - Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
   binary, release-asset prefix, and skill are `cquay` ("c-key");
   `cquay-audit` is separate.
-- Development branch: `feature/initial-implementation`. This implementation
-  checkpoint builds on README-only commit `0023fef`; use `git rev-parse HEAD`
-  and `git status` to establish the actual revision and subsequent changes.
+- Development branch: `feature/initial-implementation`. This continuation
+  builds on `c2b929c7c2ad66ae8c05ca1740192d93dbe208a3`; use `git rev-parse HEAD`
+  and `git status` to establish the actual checkpoint and subsequent changes.
 - Read [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md),
   the durable [implementation plan](implementation-plan.md), and
   [RELEASE.md](../RELEASE.md) before editing. The plan is the scope contract;
@@ -59,7 +59,7 @@ client, subject, resource, context, and grant declarations. Do not hard-code
 development/production identity assumptions. DPoP, mTLS, private-key JWT, and
 offline-artifact binding are not implemented or qualified.
 
-README ordering was directly revised by the user and preserved in `0023fef`.
+README ordering was directly revised by the user and remains preserved.
 The Android rendering investigation found the raw Markdown, fences, HTML, and
 linked SVGs clean; browser rendering worked. Treat that as an app/cache issue
 unless new evidence reproduces a source-side rendering defect. Do not reorder
@@ -67,9 +67,10 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
-The retained fresh-worktree receipts are under
-`.local/qualification/fresh-current-tree-20261104/`. They are local evidence
-for the source captured by this checkpoint, not release evidence for `0023fef`.
+The retained frozen-source receipts are under
+`.local/qualification/checkpoint2-20261104/`. Before/after Go, module and schema
+hash manifests match. These are local evidence for this checkpoint's source,
+not release evidence.
 Using a fresh owner-only temporary directory under root-owned sticky `/tmp`,
 the latest normal tests,
 race tests, vet, gofmt, Staticcheck 2026.2.2, and `gocyclo -over 10` passed.
@@ -83,14 +84,21 @@ gate remains unchanged and is not met by the last published CI receipt.
 
 ## Qualification and release blockers
 
-The latest recorded SonarQube analysis of `24d8401` failed: two issues,
-72.1% overall coverage, and 76.7% new-line coverage. The recorded source
-coverage is 78.3714% (3,051/3,893 statements). It reported zero bugs and
-vulnerabilities, but that does not pass the quality gate. This checkpoint
-contains fixes for five managed findings, pending a fresh recheck. Sonar, full
-unchanged coverage, live providers,
-native reboot/recovery, installers, registry publication, and independent audit
-remain incomplete.
+The completed SonarQube Compute Engine analysis for `c2b929c`,
+`47a5039c-2699-4a65-80db-839236cfc09c`, has quality gate ERROR: 11 code smells, 72.8%
+overall coverage, 75.0% new coverage, zero reported bugs/vulnerabilities/
+hotspots/duplication, and one analysis warning. Later Sonar remediations and
+adversarial test additions require an exact-candidate recheck.
+Sonar, full unchanged coverage, live providers, native reboot/recovery,
+installers, registry publication, and independent audit remain incomplete.
+
+GitHub source run 41649406181 at `c2b929c` passed its Linux synthetic job and
+all 26 cross-builds, but Windows fixtures/timing, macOS temporary-directory
+aliases, and the 78.971476% unchanged source-coverage gate failed. The
+advanced CodeQL transition was user-approved and run 41649406421 completed
+build/analyze/upload; it is not an audit or zero-alert assertion. Its gosec job
+failed with 17 unsuppressed findings. G115/G118 remediations have passed their
+local checks; the complete security workflow still requires a fresh recheck.
 
 Cross-build/package work is build evidence only. Native Windows/macOS/Linux
 runtime, restart/recovery, installer, signed artifact, anonymous download,
@@ -101,11 +109,19 @@ complete.
 
 GitHub protections currently have four required GitHub Actions checks bound;
 code scanning is configured as `Any` / `Any`, tag rules are active, and the
-advanced CodeQL source workflow accompanies this checkpoint while default
-setup is still active; complete and verify that transition before claiming an
-advanced scan. Verify settings by read-back after any administrative change. Earlier
+advanced CodeQL source workflow has completed after the user-approved switch
+from default setup. Verify settings by read-back after any administrative change. Earlier
 administrative writes returned HTTP 403; record permission gaps rather than
 bypassing them.
+
+The current continuation also hardens native policy and literal-source reads,
+adds schema/Parse parity regressions and cloud/CLI/doctor negative tests, repairs
+relative/default-path config replacement, and corrects native test fixtures.
+Windows directory ACL inheritance now preserves the private allowed principals
+for ordinary child creation; its Windows-native tests still need the next CI
+run. The bounded Go engineering review found the config-repair defect, which
+failed both regression cases before the fix and passed afterward. This is a
+scoped review, not the independent managed security recheck or release audit.
 
 ## Priority continuation
 

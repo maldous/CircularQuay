@@ -12,13 +12,14 @@ import (
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"gopkg.in/yaml.v3"
 )
 
 const maximumPolicyBytes = 1 << 20
 
-// Load reads one regular, non-writable-by-others policy. Relative file references
-// are bound to the policy directory, rather than the caller's working directory.
+// Load reads one native-protected policy. Relative file references are bound to
+// the policy directory, rather than the caller's working directory.
 func Load(path string) (model.Policy, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -58,21 +59,21 @@ func Parse(data []byte, configPath string) (model.Policy, error) {
 }
 
 func readPolicy(path string) ([]byte, error) {
-	return readPolicyWithOpen(path, os.Open)
+	return readPolicyWithOpen(path, platform.OpenProtected)
 }
 
-func readPolicyWithOpen(path string, open func(string) (*os.File, error)) ([]byte, error) {
-	before, err := os.Lstat(path)
-	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o022 != 0 {
-		return nil, fault.New(fault.Trust, "policy_file")
-	}
-	file, err := open(path)
+// readPolicyWithOpen accepts only an opener which returns an already verified
+// descriptor. Production passes platform.OpenProtected, which checks native
+// ownership, ACLs and ancestors, opens without following the final link, and
+// verifies descriptor identity. The seam permits fault-sanitization tests.
+func readPolicyWithOpen(path string, open func(string, bool) (*os.File, error)) ([]byte, error) {
+	file, err := open(path, false)
 	if err != nil {
 		return nil, fault.New(fault.Trust, "policy_file")
 	}
 	defer file.Close()
-	after, err := file.Stat()
-	if err != nil || !os.SameFile(before, after) || after.Size() > maximumPolicyBytes {
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() > maximumPolicyBytes {
 		return nil, fault.New(fault.Trust, "policy_file")
 	}
 	return readBounded(file)

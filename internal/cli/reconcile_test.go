@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -16,10 +15,7 @@ import (
 
 func reconciliationFixture(t *testing.T) (state.Store, model.Workload, model.Generation) {
 	t.Helper()
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
+	dir := privateCLIDirectory(t)
 	w := model.Workload{Mode: "offline", Targets: map[string]model.Target{"a": {Type: "systemd", Service: "synthetic-a.service", Activation: "restart"}, "b": {Type: "systemd", Service: "synthetic-b.service", Activation: "reload"}}}
 	g := model.Generation{Workload: "demo", RetrievedAt: time.Now().UTC(), Values: map[string]model.Value{"TOKEN": {Data: "synthetic"}}}
 	return state.Store{Directory: filepath.Join(dir, "state")}, w, g

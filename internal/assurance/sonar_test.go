@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func sonarFixture(writer http.ResponseWriter, request *http.Request) {
@@ -244,8 +245,7 @@ func TestSonarCredentialFilesHaveNoPublicPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"compose.env", "admin.password"} {
-		info, err := os.Stat(filepath.Join(directory, name))
-		if err != nil || info.Mode().Perm()&0077 != 0 {
+		if err := platform.ValidateFileMetadata(filepath.Join(directory, name), true); err != nil {
 			t.Fatal("bootstrap file not private")
 		}
 	}

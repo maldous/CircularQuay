@@ -15,7 +15,11 @@ import (
 
 func privateAuditPath(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "audit")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, "audit")
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}

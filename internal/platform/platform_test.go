@@ -147,6 +147,23 @@ func TestProtectedFileRejections(t *testing.T) {
 	}
 }
 
+func TestOpenProtectedReturnsVerifiedDescriptor(t *testing.T) {
+	dir := secureTempDir(t)
+	path := filepath.Join(dir, "source")
+	if err := os.WriteFile(path, []byte("synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := OpenProtected(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil || string(data) != "synthetic" {
+		t.Fatalf("verified descriptor read = %q, %v", data, err)
+	}
+}
+
 func testRelativeAndDirectoryRejections(t *testing.T) {
 	t.Helper()
 	if _, err := ReadProtected("relative", true); !fault.Is(err, fault.Trust) {

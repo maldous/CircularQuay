@@ -13,6 +13,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func readJSON(_ context.Context, s model.Source, b model.Binding) (model.Value, error) {
@@ -119,26 +120,19 @@ func readLiteralFileVersion(path string) ([]byte, string, error) {
 	if !filepath.IsAbs(path) {
 		return nil, "", fault.New(fault.Invalid, "source_path")
 	}
-	info, err := os.Lstat(path)
+	f, err := platform.OpenProtected(path, true)
 	if err != nil {
-		return nil, "", fault.New(fault.Missing, "source_file")
-	}
-	if !info.Mode().IsRegular() || info.Size() > 4<<20 {
-		return nil, "", fault.New(fault.Trust, "source_file")
-	}
-	return readStableLiteralFile(path, info)
-}
-
-func readStableLiteralFile(path string, expected os.FileInfo) ([]byte, string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, "", fault.New(fault.Denied, "source_file")
+		return nil, "", err
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !os.SameFile(expected, opened) {
+	if err != nil || opened.Size() > 4<<20 {
 		return nil, "", fault.New(fault.Trust, "source_file")
 	}
+	return readStableLiteralFile(f, opened)
+}
+
+func readStableLiteralFile(f *os.File, opened os.FileInfo) ([]byte, string, error) {
 	data, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
 	if err != nil || len(data) > 4<<20 {
 		return nil, "", fault.New(fault.Trust, "source_file")

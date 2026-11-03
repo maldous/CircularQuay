@@ -6,6 +6,25 @@ workload, operation and key that authenticated caller may access. Provider
 credentials remain separately bound to declared source and target identities.
 This separation also applies when the authorization server is self-hosted.
 
+Keycloak is an optional implementation of that external role, not a CircularQuay
+dependency. An existing IdP can supply the role directly when it can register a
+custom API and issue access tokens for that API's audience and permissions. No
+additional hosted broker is required for that arrangement. A provider's OIDC
+login support alone does not establish custom-API authorization support.
+
+For example, Auth0 supports a custom API with the RFC 9068 access-token profile
+used by the current verifier; its hosted Free plan has provider-defined usage
+and feature limits. Microsoft Entra supports custom-API scopes and application
+roles, but its access-token claim profile differs from the current verifier and
+requires a separately implemented and qualified profile. Okta's custom
+authorization server supports custom APIs; its free Integrator plan is for
+testing, while production requires the appropriate API Access Management
+entitlement. These are integration paths, not live-provider qualification
+receipts. See [Auth0 token profiles](https://auth0.com/docs/get-started/apis/configure-access-token-profile),
+[Auth0 plan limits](https://auth0.com/pricing),
+[Entra API permissions](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-expose-scopes),
+and [Okta authorization servers](https://developer.okta.com/docs/concepts/auth-servers/).
+
 ## Executable support
 
 | Capability | Current behavior |
@@ -40,7 +59,7 @@ The hosted authorization boundary distinguishes these associations:
 | --- | --- |
 | External login to an organization principal | Explicit organization membership and an approved link to the verified issuer/subject. Linking an existing principal requires proof or administrator-governed recovery; matching email is insufficient. |
 | Principal to an application | Registered OAuth client and the caller's current grant. Authentication of a person does not authorize every application that acts for them. |
-| Principal/application to an environment | Explicit environment membership and operation grants. Development membership does not grant production access. |
+| Principal/application to an environment | Explicit membership and operation grants for each operator-defined context. Membership in one context grants no authority in another. |
 | Environment/workload to a provider connection | Exact declared provider account, tenant/project/namespace, resources and dedicated workload identity reference. |
 | Delegated caller to an action | Separate subject and current actor, intended resource, allowed operation, expiry and current policy. A downstream identity is not inferred from a human login. |
 

@@ -19,7 +19,17 @@ import (
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
-const maximumConfigInput = 1 << 20
+const (
+	maximumConfigInput = 1 << 20
+	flagPointer        = "pointer"
+	flagValueJSON      = "value-json"
+	flagValueFile      = "value-file"
+	flagExpectedSHA256 = "expect-sha256"
+	errorConfigPointer = "config pointer"
+	errorConfigJSON    = "config JSON"
+	errorConfigPath    = "config path"
+	errorConfigChanged = "config changed"
+)
 
 // configCommand edits declarations only. It never contacts a provider or reads
 // values from a configured source; validation is deliberately local and
@@ -52,10 +62,10 @@ func (a application) configValidate(args []string) (int, error) {
 func configFlags(name string, args []string) (*flag.FlagSet, string, string, string, string, error) {
 	f := flag.NewFlagSet(name, flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	pointer := f.String("pointer", "", "RFC 6901 JSON Pointer")
-	valueJSON := f.String("value-json", "", "JSON literal")
-	valueFile := f.String("value-file", "", "JSON value file or - for stdin")
-	expected := f.String("expect-sha256", "", "current configuration SHA-256")
+	pointer := f.String(flagPointer, "", "RFC 6901 JSON Pointer")
+	valueJSON := f.String(flagValueJSON, "", "JSON literal")
+	valueFile := f.String(flagValueFile, "", "JSON value file or - for stdin")
+	expected := f.String(flagExpectedSHA256, "", "current configuration SHA-256")
 	if f.Parse(args) != nil || f.NArg() != 0 {
 		return nil, "", "", "", "", fault.New(fault.Invalid, "config arguments")
 	}
@@ -67,8 +77,8 @@ func (a application) configGet(args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if !readFlagsOnly(f) || !flagWasSet(f, "pointer") {
-		return 0, fault.New(fault.Invalid, "config pointer")
+	if !readFlagsOnly(f) || !flagWasSet(f, flagPointer) {
+		return 0, fault.New(fault.Invalid, errorConfigPointer)
 	}
 	document, digest, err := a.readConfigDocument()
 	if err != nil {
@@ -109,10 +119,10 @@ func (a application) configSet(args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if !flagWasSet(f, "pointer") {
-		return 0, fault.New(fault.Invalid, "config pointer")
+	if !flagWasSet(f, flagPointer) {
+		return 0, fault.New(fault.Invalid, errorConfigPointer)
 	}
-	value, err := a.configValue(valueJSON, valueFile, flagWasSet(f, "value-json"), flagWasSet(f, "value-file"))
+	value, err := a.configValue(valueJSON, valueFile, flagWasSet(f, flagValueJSON), flagWasSet(f, flagValueFile))
 	if err != nil {
 		return 0, err
 	}
@@ -124,7 +134,7 @@ func (a application) configDelete(args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if flagWasSet(f, "value-json") || flagWasSet(f, "value-file") || !flagWasSet(f, "pointer") {
+	if flagWasSet(f, flagValueJSON) || flagWasSet(f, flagValueFile) || !flagWasSet(f, flagPointer) {
 		return 0, fault.New(fault.Invalid, "config delete arguments")
 	}
 	return a.mutateConfig(expected, false, false, func(document *any) error { return jsonPointerDelete(document, pointer) })
@@ -134,7 +144,7 @@ func (a application) configReplace(args []string) (int, error) {
 	f := flag.NewFlagSet("config replace", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	file := f.String("file", "", "complete JSON policy file or - for stdin")
-	expected := f.String("expect-sha256", "", "current configuration SHA-256")
+	expected := f.String(flagExpectedSHA256, "", "current configuration SHA-256")
 	if f.Parse(args) != nil || f.NArg() != 0 || *file == "" {
 		return 0, fault.New(fault.Invalid, "config replace arguments")
 	}
@@ -189,17 +199,17 @@ func readConfigInput(in io.Reader, path string) ([]byte, error) {
 
 func strictJSON(data []byte) (any, error) {
 	if !bytes.HasPrefix(bytes.TrimSpace(data), []byte("{")) && !bytes.HasPrefix(bytes.TrimSpace(data), []byte("[")) && !jsonPrimitive(data) {
-		return nil, fault.New(fault.Invalid, "config JSON")
+		return nil, fault.New(fault.Invalid, errorConfigJSON)
 	}
 	var checked any
 	if jsondocument.Decode(data, &checked) != nil {
-		return nil, fault.New(fault.Invalid, "config JSON")
+		return nil, fault.New(fault.Invalid, errorConfigJSON)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var value any
 	if decoder.Decode(&value) != nil || decoder.More() {
-		return nil, fault.New(fault.Invalid, "config JSON")
+		return nil, fault.New(fault.Invalid, errorConfigJSON)
 	}
 	return value, nil
 }
@@ -212,7 +222,7 @@ func jsonPrimitive(data []byte) bool {
 func (a application) readConfigDocument() (any, string, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
-		return nil, "", fault.New(fault.Invalid, "config path")
+		return nil, "", fault.New(fault.Invalid, errorConfigPath)
 	}
 	data, err := platform.ReadProtected(path, false)
 	if err != nil {
@@ -234,7 +244,7 @@ func (a application) readConfigDocument() (any, string, error) {
 func (a application) mutateConfig(expected string, create, repair bool, mutate func(*any) error) (int, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
-		return 0, fault.New(fault.Invalid, "config path")
+		return 0, fault.New(fault.Invalid, errorConfigPath)
 	}
 	unlock, err := configLock(path)
 	if err != nil {
@@ -255,7 +265,7 @@ func (a application) mutateConfig(expected string, create, repair bool, mutate f
 	if err != nil {
 		return 0, err
 	}
-	if err = a.ensureConfigUnchanged(digest, repair); err != nil {
+	if err = a.ensureConfigUnchanged(path, digest, repair); err != nil {
 		return 0, err
 	}
 	if err = platform.WriteProtected(path, data); err != nil {
@@ -301,7 +311,7 @@ func validateExpectedDigest(expected, digest string) error {
 		return nil
 	}
 	if len(expected) != 64 || !validDigest(expected) || expected != digest {
-		return fault.New(fault.Denied, "config changed")
+		return fault.New(fault.Denied, errorConfigChanged)
 	}
 	return nil
 }
@@ -318,16 +328,16 @@ func marshalConfigCandidate(document any, path string) ([]byte, error) {
 	return data, nil
 }
 
-func (a application) ensureConfigUnchanged(digest string, repair bool) error {
+func (a application) ensureConfigUnchanged(path, digest string, repair bool) error {
 	if digest == "" {
 		return nil
 	}
 	_, current, err := a.readConfigDocument()
 	if repair {
-		current, err = a.rawConfigDigest(filepath.Clean(a.config))
+		current, err = a.rawConfigDigest(path)
 	}
 	if err != nil || current != digest {
-		return fault.New(fault.Denied, "config changed")
+		return fault.New(fault.Denied, errorConfigChanged)
 	}
 	return nil
 }
@@ -340,7 +350,7 @@ func configLock(path string) (func() error, error) {
 func configDigest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
 func validDigest(value string) bool   { _, err := hex.DecodeString(value); return err == nil }
 func readFlagsOnly(flags *flag.FlagSet) bool {
-	return !flagWasSet(flags, "value-json") && !flagWasSet(flags, "value-file") && !flagWasSet(flags, "expect-sha256")
+	return !flagWasSet(flags, flagValueJSON) && !flagWasSet(flags, flagValueFile) && !flagWasSet(flags, flagExpectedSHA256)
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -380,7 +390,7 @@ func jsonPointerGet(value any, pointer string) (any, error) {
 			var found bool
 			value, found = node[part]
 			if !found {
-				return nil, fault.New(fault.Missing, "config pointer")
+				return nil, fault.New(fault.Missing, errorConfigPointer)
 			}
 		case []any:
 			index, err := pointerIndex(part, len(node))
@@ -389,7 +399,7 @@ func jsonPointerGet(value any, pointer string) (any, error) {
 			}
 			value = node[index]
 		default:
-			return nil, fault.New(fault.Invalid, "config pointer")
+			return nil, fault.New(fault.Invalid, errorConfigPointer)
 		}
 	}
 	return value, nil
@@ -418,7 +428,7 @@ func jsonPointerSet(document *any, pointer string, replacement any) error {
 		}
 		node[index] = replacement
 	default:
-		return fault.New(fault.Invalid, "config pointer")
+		return fault.New(fault.Invalid, errorConfigPointer)
 	}
 	return nil
 }
@@ -426,7 +436,7 @@ func jsonPointerSet(document *any, pointer string, replacement any) error {
 func jsonPointerDelete(document *any, pointer string) error {
 	parts, err := parsePointer(pointer)
 	if err != nil || len(parts) == 0 {
-		return fault.New(fault.Invalid, "config pointer")
+		return fault.New(fault.Invalid, errorConfigPointer)
 	}
 	parent, key, err := jsonPointerParent(*document, parts)
 	if err != nil {
@@ -435,7 +445,7 @@ func jsonPointerDelete(document *any, pointer string) error {
 	switch node := parent.(type) {
 	case map[string]any:
 		if _, found := node[key]; !found {
-			return fault.New(fault.Missing, "config pointer")
+			return fault.New(fault.Missing, errorConfigPointer)
 		}
 		delete(node, key)
 	case []any:
@@ -448,7 +458,7 @@ func jsonPointerDelete(document *any, pointer string) error {
 		replacement := node[:len(node)-1]
 		return replaceArray(document, parts[:len(parts)-1], replacement)
 	default:
-		return fault.New(fault.Invalid, "config pointer")
+		return fault.New(fault.Invalid, errorConfigPointer)
 	}
 	return nil
 }
@@ -472,7 +482,7 @@ func replaceArray(document *any, parentParts []string, replacement []any) error 
 		}
 		node[index] = replacement
 	default:
-		return fault.New(fault.Invalid, "config pointer")
+		return fault.New(fault.Invalid, errorConfigPointer)
 	}
 	return nil
 }
@@ -499,7 +509,7 @@ func parsePointer(pointer string) ([]string, error) {
 		return nil, nil
 	}
 	if !strings.HasPrefix(pointer, "/") {
-		return nil, fault.New(fault.Invalid, "config pointer")
+		return nil, fault.New(fault.Invalid, errorConfigPointer)
 	}
 	raw := strings.Split(pointer[1:], "/")
 	for i := range raw {
@@ -519,7 +529,7 @@ func unescapePointer(value string) (string, error) {
 			continue
 		}
 		if i+1 == len(value) || (value[i+1] != '0' && value[i+1] != '1') {
-			return "", fault.New(fault.Invalid, "config pointer")
+			return "", fault.New(fault.Invalid, errorConfigPointer)
 		}
 		if value[i+1] == '0' {
 			b.WriteByte('~')
@@ -558,7 +568,7 @@ func canonicalPointerIndex(value string) bool {
 func (a application) formatConfig() (bool, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
-		return false, fault.New(fault.Invalid, "config path")
+		return false, fault.New(fault.Invalid, errorConfigPath)
 	}
 	unlock, err := configLock(path)
 	if err != nil {
@@ -575,7 +585,7 @@ func (a application) formatConfig() (bool, error) {
 	}
 	current, err := platform.ReadProtected(path, false)
 	if err != nil || configDigest(current) != digest {
-		return false, fault.New(fault.Denied, "config changed")
+		return false, fault.New(fault.Denied, errorConfigChanged)
 	}
 	if bytes.Equal(current, data) {
 		return false, nil

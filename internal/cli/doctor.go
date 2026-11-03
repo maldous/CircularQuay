@@ -97,8 +97,14 @@ func doctorPrincipal() string {
 }
 
 func declaredDependencies(policy model.Policy) []doctorDependency {
-	paths := make([]string, 0)
-	for _, source := range policy.Sources {
+	paths := sourceExecutablePaths(policy.Sources)
+	paths = append(paths, workloadExecutablePaths(policy.Workloads)...)
+	return append(doctorDependencies(paths), doctorPolicyMetadata(policy)...)
+}
+
+func sourceExecutablePaths(sources map[string]model.Source) []string {
+	paths := make([]string, 0, len(sources))
+	for _, source := range sources {
 		if source.SOPS != "" {
 			paths = append(paths, source.SOPS)
 		}
@@ -106,7 +112,12 @@ func declaredDependencies(policy model.Policy) []doctorDependency {
 			paths = append(paths, source.Path)
 		}
 	}
-	for _, workload := range policy.Workloads {
+	return paths
+}
+
+func workloadExecutablePaths(workloads map[string]model.Workload) []string {
+	paths := make([]string, 0, len(workloads))
+	for _, workload := range workloads {
 		if workload.Snapshot.SOPS != "" {
 			paths = append(paths, workload.Snapshot.SOPS)
 		}
@@ -119,7 +130,7 @@ func declaredDependencies(policy model.Policy) []doctorDependency {
 			}
 		}
 	}
-	return append(doctorDependencies(paths), doctorPolicyMetadata(policy)...)
+	return paths
 }
 
 func doctorPolicyMetadata(policy model.Policy) []doctorDependency {
@@ -140,26 +151,36 @@ func doctorPolicyMetadata(policy model.Policy) []doctorDependency {
 }
 
 func doctorDependencies(paths []string) []doctorDependency {
-	seen := make(map[string]bool)
 	result := make([]doctorDependency, 0, len(paths))
-	for _, path := range paths {
-		if path == "" || seen[path] {
-			continue
-		}
-		seen[path] = true
-		state := "ready"
-		if !filepath.IsAbs(path) {
-			state = "invalid_name"
-		} else if err := platform.ValidateExecutable(path); err != nil {
-			if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
-				state = "missing"
-			} else {
-				state = "untrusted"
-			}
-		}
-		result = append(result, doctorDependency{Kind: "executable", Path: path, State: state})
+	for _, path := range uniquePaths(paths) {
+		result = append(result, doctorDependency{Kind: "executable", Path: path, State: executableState(path)})
 	}
 	return result
+}
+
+func uniquePaths(paths []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if path != "" && !seen[path] {
+			seen[path] = true
+			result = append(result, path)
+		}
+	}
+	return result
+}
+
+func executableState(path string) string {
+	if !filepath.IsAbs(path) {
+		return "invalid_name"
+	}
+	if err := platform.ValidateExecutable(path); err == nil {
+		return "ready"
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "missing"
+	}
+	return "untrusted"
 }
 
 func doctorMetadata(paths []string) []doctorDependency {

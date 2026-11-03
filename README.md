@@ -22,9 +22,11 @@ For example, a developer can use a synthetic configuration to plan the `demo` wo
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
 ![Implementation: Go](https://img.shields.io/badge/implementation-Go-087f8c)
-[![Source workflow status](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/runs/41633578905)
+[![Source workflow status](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/source.yml)
+[![Security workflow status](https://github.com/maldous/CircularQuay/actions/workflows/security.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/security.yml)
 
-[![Linux synthetic receipt](https://img.shields.io/badge/Linux%20synthetic%20receipt-24d%20passed-2f855a)](docs/qualification.md#bounded-receipts)
+[![Linux synthetic receipt](https://img.shields.io/badge/Linux%20synthetic%20receipt-c2%20passed-2f855a)](docs/qualification.md#bounded-receipts)
+[![CodeQL scoped receipt](https://img.shields.io/badge/CodeQL%20advanced%20receipt-c2%20passed-2f855a)](docs/qualification.md#bounded-receipts)
 [![Staticcheck scoped receipt](https://img.shields.io/badge/Staticcheck%20scoped%20receipt-passed-2f855a)](docs/qualification.md#bounded-receipts)
 [![govulncheck scoped receipt](https://img.shields.io/badge/govulncheck%20scoped%20receipt-0%20reachable-2f855a)](docs/qualification.md#bounded-receipts)
 [![Cyclomatic scope](https://img.shields.io/badge/gocyclo%20scoped%20receipt-%E2%89%A410-2f855a)](docs/qualification.md#bounded-receipts)
@@ -133,6 +135,120 @@ offline or hybrid snapshot declaration; `sync` needs at least one declared
 target and only publishes values explicitly permitted by each binding.
 
 Already delivered values cannot be recalled from process memory, old ciphertext, or an authorized client. Removing a recipient is not a substitute for rotating a compromised credential at its issuer.
+
+## Identity, key access, and expiry
+
+**Our v1 north star: the right identity, using the right application, receives
+only its approved secrets, for exactly the permitted time.**
+
+CircularQuay connects identity, policy, secret delivery, and expiry into one
+verifiable decision. Think of it as a collection desk: your identity provider
+establishes who you are, a signed permission ticket states what you may
+collect, and CircularQuay checks that ticket against the exact key and
+workload before handing anything over.
+
+### One identity, explicit permissions
+
+A person or service authenticates through the organization's identity provider
+(IdP). Its OAuth authorization server issues a signed, time-limited access
+grant for the registered application and CircularQuay service. These roles
+can belong to the same existing enterprise provider or to a self-hosted
+service such as Keycloak. The policy selects the trusted authority and its
+supported authentication profile.
+
+Permissions describe the organization's own contexts: projects, teams,
+environments, workloads, operations, and individual secret keys. For example,
+`invoice-reporting` in `warehouse-eu` can receive its approved database key
+without receiving the authority assigned to another workload. Context names
+and associations are defined in configuration.
+
+```mermaid
+flowchart TD
+  IDP["Trusted identity provider"] --> AS["Authorization server"]
+  AS --> TICKET["Signed permission ticket"]
+  TICKET --> CHECK{"cquay checks identity, policy and time"}
+  APP["Registered application and client proof"] --> CHECK
+  POLICY["Protected policy and key associations"] --> CHECK
+  CHECK -- "Approved" --> SOURCE["Read the exact permitted secret"]
+  CHECK -- "Expired or denied" --> DENY["Withhold access"]
+  SOURCE --> WORKLOAD["Deliver to the approved workload"]
+```
+
+### A cryptographic chain of trust
+
+The permission ticket binds the issuing authority, stable identity,
+application, intended service, permitted operations, and expiry. CircularQuay
+verifies the issuer's digital signature using its trusted public key and
+checks the complete association against local policy. Editing a signed
+identity, permission, or deadline invalidates the ticket. The foundation is
+the standard [OAuth access-token model](https://www.rfc-editor.org/rfc/rfc9068.html).
+
+Three keys have distinct jobs:
+
+- The **issuer's signing key** authenticates the permission ticket.
+- The **client's private key** proves possession by the enrolled application.
+- The **application secret** is the API key, password, or credential delivered
+  to the approved workload.
+
+[DPoP](https://www.rfc-editor.org/rfc/rfc9449.html) or
+[certificate-bound mutual TLS](https://www.rfc-editor.org/rfc/rfc8705.html)
+connects the access token to the client's key. Each request proves possession
+of the matching private key. Private-key JWT authentication establishes the
+application's identity when it obtains its grant from the authorization server.
+The configured profile keeps issuance, request authentication, and secret
+access tied to their respective authorities.
+
+### Online and offline, one expiry policy
+
+Online access uses current authorization and fresh provider retrieval. Approved
+offline access uses an encrypted snapshot accompanied by a signed approval
+for that exact snapshot, identity, application, policy, workload, and key set.
+The issuing authority approves the complete association. Encryption protects
+the contents; the signature authenticates who may release them and for how long.
+
+The effective access deadline is the **earliest** of:
+
+1. The signed identity authorization's expiry.
+2. The end of the approved offline window.
+3. Any expiry imposed by the original credential provider.
+
+For example, an approval obtained at 14:00 with a one-hour offline window ends
+at 15:00, even if the identity grant lasts until 17:00 and the provider
+credential lasts until 16:30.
+
+```mermaid
+flowchart TD
+  APPROVAL["Online approval: 14:00"] --> WINDOW["One-hour offline window: 15:00"]
+  IDENTITY["Identity grant expires: 17:00"] --> EARLIEST["Earliest deadline wins"]
+  SECRET["Provider credential expires: 16:30"] --> EARLIEST
+  WINDOW --> EARLIEST
+  EARLIEST --> DEADLINE["Secret access through cquay ends: 15:00"]
+  DEADLINE --> RENEW["Fresh authorization renews access"]
+```
+
+Reads and file copies retain the original deadline. Renewal requires a fresh
+authorization decision. Reconnection applies the issuer's current account
+status, policy, and revocations before granting another window. Protected local
+state and clock-rollback checks preserve the deadline across restarts.
+
+### A clear, verifiable security contract
+
+| Control | End-state behavior |
+| --- | --- |
+| Identity and application association | Verify the trusted issuer, stable subject, registered client, and intended CircularQuay service. |
+| Exact permission | Match the configured context, workload, operation, and key before retrieving a value. |
+| Client key binding | Verify possession of the private key associated with the access token. |
+| Offline approval | Verify the signed association to the exact encrypted snapshot and policy. |
+| Permission lifetime | Enforce the earliest authorization, offline-window, or provider deadline for new access through CircularQuay. |
+| Credential lifetime | Preserve the original provider's expiry, rotation, and revocation policy. |
+| Protected enforcement | Use OS access controls, protected state, and clock checks at the local trust boundary. |
+| Decision checks | Recheck authorization and value expiry before disclosure or workload launch; deny failed checks. |
+| Auditability | Record identity, application, policy decision, and outcome without recording secret values. |
+
+This is the v1 product contract. The [identity architecture](docs/hosted-identity.md),
+[configuration reference](docs/configuration.md), and
+[security model](docs/threat-model.md) describe its trust relationships and
+policy boundaries.
 
 ## Try a credential-free workload
 

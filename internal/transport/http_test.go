@@ -18,7 +18,11 @@ import (
 
 func privateCredentialPath(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "credential")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, "credential")
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +207,7 @@ func TestCredentialFileBoundary(t *testing.T) {
 
 func writeCredential(t *testing.T, path, data string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+	if err := platform.WriteProtected(path, []byte(data)); err != nil {
 		t.Fatal(err)
 	}
 }

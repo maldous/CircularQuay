@@ -2,6 +2,7 @@ package policy
 
 import (
 	"net"
+	"net/url"
 	"strings"
 
 	"github.com/maldous/CircularQuay/internal/model"
@@ -11,10 +12,25 @@ func validateMCP(config model.MCP) error {
 	if config.Issuer == "" && config.Audience == "" && config.JWKSURL == "" {
 		return validateMCPLists(config)
 	}
-	if !secureEndpoint(config.Issuer, false) || !secureEndpoint(config.Audience, true) || !secureEndpoint(config.JWKSURL, false) {
+	if !validMCPAuthority(config) {
 		return invalid("mcp_authority")
 	}
+	if !mcpKeySetMatchesIssuer(config) {
+		return invalid("mcp_key_origin")
+	}
 	return validateMCPLists(config)
+}
+
+func validMCPAuthority(config model.MCP) bool {
+	return secureEndpoint(config.Issuer, false) && secureEndpoint(config.Audience, true) && secureEndpoint(config.JWKSURL, false)
+}
+
+// mcpKeySetMatchesIssuer keeps key retrieval inside the issuer origin. The
+// runtime applies the same constraint before constructing an OIDC verifier.
+func mcpKeySetMatchesIssuer(config model.MCP) bool {
+	issuer, issuerErr := url.Parse(config.Issuer)
+	keys, keysErr := url.Parse(config.JWKSURL)
+	return issuerErr == nil && keysErr == nil && issuer.Scheme == keys.Scheme && issuer.Host == keys.Host
 }
 
 func validateMCPLists(config model.MCP) error {

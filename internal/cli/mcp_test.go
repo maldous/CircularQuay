@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	cqmcp "github.com/maldous/CircularQuay/internal/mcp"
@@ -46,6 +47,28 @@ func TestLoopback(t *testing.T) {
 	}
 }
 
+func TestMCPShutdownContextPreservesValuesWithoutCancellation(t *testing.T) {
+	t.Parallel()
+
+	type contextKey struct{}
+	parent, stopParent := context.WithCancel(context.WithValue(context.Background(), contextKey{}, "synthetic"))
+	stopParent()
+	shutdown, stopShutdown := newMCPShutdownContext(parent)
+	defer stopShutdown()
+	if shutdown.Value(contextKey{}) != "synthetic" {
+		t.Fatal("shutdown context lost request values")
+	}
+	select {
+	case <-shutdown.Done():
+		t.Fatalf("shutdown context inherited cancellation: %v", shutdown.Err())
+	default:
+	}
+	deadline, ok := shutdown.Deadline()
+	if !ok || time.Until(deadline) <= 0 || time.Until(deadline) > 5*time.Second {
+		t.Fatal("shutdown context is not bounded to five seconds")
+	}
+}
+
 func TestMCPHTTPRejectsPublicPlaintextBeforeListening(t *testing.T) {
 	t.Parallel()
 
@@ -79,9 +102,7 @@ func TestActionAllowedRequiresExactExecutableDigest(t *testing.T) {
 	}
 	dir := privateCLIDirectory(t)
 	fixture := filepath.Join(dir, "synthetic.json")
-	if err = os.WriteFile(fixture, []byte(`{"TOKEN":"synthetic"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, fixture, []byte(`{"TOKEN":"synthetic"}`))
 	config := filepath.Join(dir, "policy.json")
 	policy := model.Policy{
 		Version: 1,
@@ -169,9 +190,7 @@ func mcpRunTestApplication(t *testing.T, marker string) (application, string, mo
 	}
 	dir := privateCLIDirectory(t)
 	fixture := filepath.Join(dir, "synthetic.json")
-	if err := os.WriteFile(fixture, []byte(`{"TOKEN":"synthetic","OTHER":"synthetic"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, fixture, []byte(`{"TOKEN":"synthetic","OTHER":"synthetic"}`))
 	policy := model.Policy{
 		Version: 1,
 		Sources: map[string]model.Source{"fixture": {Type: "json", Path: fixture}},
@@ -215,7 +234,5 @@ func writeMCPTestPolicy(t *testing.T, path string, policy model.Policy) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, path, data)
 }

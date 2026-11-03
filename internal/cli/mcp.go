@@ -93,10 +93,17 @@ func runMCPHTTP(ctx context.Context, configuredAddress string, service *cqmcp.Se
 func shutdownMCPServerOnCancel(ctx context.Context, server *http.Server) {
 	go func() {
 		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdown, cancel := newMCPShutdownContext(ctx)
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
+}
+
+func newMCPShutdownContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	// The initiating request is canceled before shutdown starts. Preserve its
+	// context values while removing that cancellation, then bound cleanup so a
+	// stuck client cannot leave the shutdown goroutine alive indefinitely.
+	return context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 }
 
 func listenMCPServer(server *http.Server, options mcpServeOptions) error {

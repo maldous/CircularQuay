@@ -26,7 +26,11 @@ func validatePolicyFileOwnership(policy model.Policy, policyFile string) error {
 
 func validateReservedPolicyPaths(policy model.Policy, policyFile string) error {
 	reserved := canonicalPath(filepath.Join(filepath.Dir(policyFile), configLockDirectory))
-	for _, path := range policyLocalPaths(policy) {
+	return rejectReservedMetadataPaths(policyLocalPaths(policy), reserved)
+}
+
+func rejectReservedMetadataPaths(paths []string, reserved string) error {
+	for _, path := range paths {
 		if withinPath(reserved, canonicalPath(path)) {
 			return invalid("reserved_metadata_path")
 		}

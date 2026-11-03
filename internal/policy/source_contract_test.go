@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,11 +26,12 @@ func TestSourceContractsRejectUnsupportedIdentityAndFields(t *testing.T) {
 }
 
 func TestSourceContractsAcceptSupportedConfigurations(t *testing.T) {
+	native := filepath.Join(t.TempDir(), "native")
 	for name, source := range map[string]model.Source{
-		"literal json":  {Type: "json", Path: "/values.json"},
+		"literal json":  {Type: "json", Path: filepath.Join(native, "values.json")},
 		"process env":   {Type: "env", Resources: []string{"VALUE"}},
-		"age sops":      {Type: "sops", Path: "/values.sops.json", SOPS: "/usr/bin/sops", AgeIdentityFile: "/identities/age", Identity: "none"},
-		"vault":         {Type: "vault", Endpoint: "https://vault.example", Mount: "kv", Resources: []string{"app"}, Identity: "token_file", TokenFile: "/bootstrap"},
+		"age sops":      {Type: "sops", Path: filepath.Join(native, "values.sops.json"), SOPS: filepath.Join(native, "sops"), AgeIdentityFile: filepath.Join(native, "age"), Identity: "none"},
+		"vault":         {Type: "vault", Endpoint: "https://vault.example", Mount: "kv", Resources: []string{"app"}, Identity: "token_file", TokenFile: filepath.Join(native, "bootstrap")},
 		"azure managed": {Type: "azure", Endpoint: "https://vault.example", Account: "tenant", Profile: "client", Resources: []string{"secret"}, Identity: "managed"},
 		"gcp metadata":  {Type: "gcp", Account: "service@example", Project: "project", Resources: []string{"projects/project/secrets/value"}, Identity: "metadata"},
 	} {

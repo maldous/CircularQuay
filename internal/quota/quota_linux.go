@@ -126,15 +126,23 @@ func (nativeProvider) Status(path string) (Status, error) {
 }
 
 func statusForDirectory(directory int) (Status, error) {
-	return statusForDirectoryWithControl(directory, quotaControl)
+	return statusForDirectoryWithIdentity(directory, os.Getuid(), quotaControl)
 }
 
 type quotaControlFunc func(int, int, int, unsafe.Pointer) error
 
 func statusForDirectoryWithControl(directory int, control quotaControlFunc) (Status, error) {
+	return statusForDirectoryWithIdentity(directory, os.Getuid(), control)
+}
+
+func statusForDirectoryWithIdentity(directory, uid int, control quotaControlFunc) (Status, error) {
+	quotaID, err := quotaUserID(uid)
+	if err != nil {
+		return Status{}, err
+	}
 	var stat quotaStatV
 	stat.Version = quotaVersion
-	if err := control(directory, qXGetQStatV, 0, unsafe.Pointer(&stat)); err != nil {
+	if err = control(directory, qXGetQStatV, 0, unsafe.Pointer(&stat)); err != nil {
 		return Status{}, ErrUnsupported
 	}
 	if stat.Flags&fsQuotaUserAccount == 0 || stat.Flags&fsQuotaUserEnforced == 0 {
@@ -143,8 +151,8 @@ func statusForDirectoryWithControl(directory int, control quotaControlFunc) (Sta
 	var disk diskQuota
 	disk.Version = quotaVersion
 	disk.Flags = fsUserQuota
-	disk.ID = uint32(os.Getuid())
-	if err := control(directory, qXGetQuota, int(disk.ID), unsafe.Pointer(&disk)); err != nil {
+	disk.ID = quotaID
+	if err = control(directory, qXGetQuota, int(disk.ID), unsafe.Pointer(&disk)); err != nil {
 		return Status{}, ErrUnsupported
 	}
 	return Status{
@@ -154,6 +162,16 @@ func statusForDirectoryWithControl(directory int, control quotaControlFunc) (Sta
 		UsedInodes:   disk.InodeCount,
 		UserEnforced: true,
 	}, nil
+}
+
+// quotaUserID validates the kernel ABI's unsigned 32-bit account field before
+// converting the process identity. An unrepresentable identity cannot safely
+// be queried, so quota enforcement remains unproven.
+func quotaUserID(uid int) (uint32, error) {
+	if uid < 0 || uint64(uid) > uint64(^uint32(0)) {
+		return 0, ErrUnsupported
+	}
+	return uint32(uid), nil
 }
 
 func quotaControl(directory, command, id int, address unsafe.Pointer) error {

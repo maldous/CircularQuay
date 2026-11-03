@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/model"
@@ -51,6 +52,87 @@ func TestConfigInvalidMutationsLeavePolicyUnchanged(t *testing.T) {
 	assertConfigUnchanged(t, config, original)
 	assertConfigFailure(t, config, nil, "config", "set", "--pointer", "/sources/~2bad", "--value-json", `1`)
 	assertConfigUnchanged(t, config, original)
+}
+
+func TestConfigRejectsInvalidMutationPointersWithoutChangingPolicy(t *testing.T) {
+	config := configFixture(t)
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "invalid escape", args: []string{"config", "set", "--pointer", "/sources/~", "--value-json", `1`}},
+		{name: "plus array index", args: []string{"config", "set", "--pointer", "/workloads/demo/bindings/+0", "--value-json", `{}`}},
+		{name: "negative zero array index", args: []string{"config", "set", "--pointer", "/workloads/demo/bindings/-0", "--value-json", `{}`}},
+		{name: "leading zero array index", args: []string{"config", "set", "--pointer", "/workloads/demo/bindings/00", "--value-json", `{}`}},
+		{name: "out of range array index", args: []string{"config", "set", "--pointer", "/workloads/demo/bindings/1", "--value-json", `{}`}},
+		{name: "append array index", args: []string{"config", "set", "--pointer", "/workloads/demo/bindings/-", "--value-json", `{}`}},
+		{name: "root delete", args: []string{"config", "delete", "--pointer", ""}},
+		{name: "missing map item", args: []string{"config", "delete", "--pointer", "/sources/missing"}},
+		{name: "scalar parent", args: []string{"config", "set", "--pointer", "/version/value", "--value-json", `1`}},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			original, digest := configSnapshot(t, config)
+			assertConfigFailure(t, config, nil, test.args...)
+			assertConfigSnapshotUnchanged(t, config, original, digest)
+		})
+	}
+}
+
+func TestConfigRejectsInvalidMutationInputsWithoutChangingPolicy(t *testing.T) {
+	config := configFixture(t)
+	valueFile := filepath.Join(filepath.Dir(config), "value.json")
+	writeProtectedFixture(t, valueFile, []byte(`1`))
+	largeValueFile := filepath.Join(filepath.Dir(config), "large-value.json")
+	writeProtectedFixture(t, largeValueFile, bytes.Repeat([]byte("0"), maximumConfigInput+1))
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "malformed expected digest", args: []string{"config", "set", "--pointer", "/version", "--value-json", `1`, "--expect-sha256", "not-a-digest"}},
+		{name: "stale expected digest", args: []string{"config", "set", "--pointer", "/version", "--value-json", `1`, "--expect-sha256", stringsRepeat("0", 64)}},
+		{name: "both value flags", args: []string{"config", "set", "--pointer", "/version", "--value-json", `1`, "--value-file", valueFile}},
+		{name: "delete value flag", args: []string{"config", "delete", "--pointer", "/sources/fixture", "--value-json", `1`}},
+		{name: "replace unknown value flag", args: []string{"config", "replace", "--file", valueFile, "--value-json", `1`}},
+		{name: "oversized value file", args: []string{"config", "set", "--pointer", "/version", "--value-file", largeValueFile}},
+	}
+	if runtime.GOOS != "windows" {
+		unsafeValueFile := filepath.Join(filepath.Dir(config), "unsafe-value.json")
+		writeProtectedFixture(t, unsafeValueFile, []byte(`1`))
+		if err := os.Chmod(unsafeValueFile, 0666); err != nil {
+			t.Fatal(err)
+		}
+		cases = append(cases, struct {
+			name string
+			args []string
+		}{name: "unsafe value file", args: []string{"config", "set", "--pointer", "/version", "--value-file", unsafeValueFile}})
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			original, digest := configSnapshot(t, config)
+			assertConfigFailure(t, config, nil, test.args...)
+			assertConfigSnapshotUnchanged(t, config, original, digest)
+		})
+	}
+}
+
+func TestConfigCommandsDoNotReadDeclaredSources(t *testing.T) {
+	config := configFixture(t)
+	missingSource := filepath.Join(filepath.Dir(config), "provider-input-does-not-exist.json")
+	out := runConfig(t, config, nil, "config", "set", "--pointer", "/sources/fixture/path", "--value-json", `"`+missingSource+`"`)
+	if outputState(t, out) != "updated" {
+		t.Fatalf("set response: %s", out)
+	}
+	validation := runConfig(t, config, nil, "config", "validate")
+	var response struct {
+		Valid bool `json:"valid"`
+	}
+	if err := json.Unmarshal(validation, &response); err != nil || !response.Valid {
+		t.Fatalf("validate response: %s", validation)
+	}
+	if len(runConfig(t, config, nil, "config", "get", "--pointer", "/sources/fixture")) == 0 {
+		t.Fatal("get returned no source declaration")
+	}
 }
 
 func TestConfigRejectsDuplicateOrOversizedInput(t *testing.T) {
@@ -104,9 +186,7 @@ func configFixture(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(config, data, 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, config, data)
 	return config
 }
 
@@ -142,6 +222,32 @@ func assertConfigUnchanged(t *testing.T, config string, original []byte) {
 		t.Fatal("invalid mutation changed policy")
 	}
 }
+
+func configSnapshot(t *testing.T, config string) ([]byte, string) {
+	t.Helper()
+	data, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := runConfig(t, config, nil, "config", "get", "--pointer", "")
+	var response struct {
+		SHA string `json:"sha256"`
+	}
+	if err := json.Unmarshal(out, &response); err != nil || response.SHA == "" {
+		t.Fatalf("config digest response: %s", out)
+	}
+	return data, response.SHA
+}
+
+func assertConfigSnapshotUnchanged(t *testing.T, config string, original []byte, digest string) {
+	t.Helper()
+	assertConfigUnchanged(t, config, original)
+	_, now := configSnapshot(t, config)
+	if now != digest {
+		t.Fatalf("failed mutation changed config digest: got %s, want %s", now, digest)
+	}
+}
+
 func outputState(t *testing.T, data []byte) string {
 	t.Helper()
 	var response struct {
@@ -160,7 +266,7 @@ func stringsRepeat(s string, n int) string {
 	return result
 }
 
-func TestConfigFormatAndUnsafePathRejection(t *testing.T) {
+func TestConfigFormatIsIdempotent(t *testing.T) {
 	config := configFixture(t)
 	before, err := os.ReadFile(config)
 	if err != nil {
@@ -174,19 +280,25 @@ func TestConfigFormatAndUnsafePathRejection(t *testing.T) {
 	if err != nil || formatted {
 		t.Fatalf("idempotent format: %v, %v", formatted, err)
 	}
-	if err = os.Chmod(config, 0666); err != nil {
-		t.Fatal(err)
-	}
-	assertConfigFailure(t, config, nil, "config", "validate")
-	if err = os.Chmod(config, 0600); err != nil {
-		t.Fatal(err)
-	}
-	link := filepath.Join(filepath.Dir(config), "link.json")
-	if err = os.Symlink(config, link); err == nil {
-		assertConfigFailure(t, link, nil, "config", "validate")
-	}
 	if len(before) == 0 {
 		t.Fatal("empty fixture")
+	}
+}
+
+func TestConfigRejectsUnsafePaths(t *testing.T) {
+	config := configFixture(t)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(config, 0666); err != nil {
+			t.Fatal(err)
+		}
+		assertConfigFailure(t, config, nil, "config", "validate")
+		if err := os.Chmod(config, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := filepath.Join(filepath.Dir(config), "link.json")
+	if err := os.Symlink(config, link); err == nil {
+		assertConfigFailure(t, link, nil, "config", "validate")
 	}
 }
 
@@ -223,9 +335,7 @@ func TestConfigReadCommandsRejectWriteFlags(t *testing.T) {
 func TestConfigReplaceRepairsInvalidExistingPolicy(t *testing.T) {
 	config := configFixture(t)
 	invalid := []byte(`{"version":1,"sources":{},"workloads":{}}`)
-	if err := os.WriteFile(config, invalid, 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedFixture(t, config, invalid)
 	replacement := configFixtureData(t)
 	out := runConfig(t, config, bytes.NewReader(replacement), "config", "replace", "--file", "-")
 	if outputState(t, out) != "updated" {
@@ -237,6 +347,27 @@ func TestConfigReplaceRepairsInvalidExistingPolicy(t *testing.T) {
 	before, _ := os.ReadFile(config)
 	assertConfigFailure(t, config, bytes.NewReader([]byte(`{"version":1}`)), "config", "replace", "--file", "-")
 	assertConfigUnchanged(t, config, before)
+}
+
+func TestConfigReplaceRepairsRelativePolicy(t *testing.T) {
+	for _, name := range []string{"cquay.json", "relative-policy.json"} {
+		t.Run(name, func(t *testing.T) {
+			directory := filepath.Dir(configFixture(t))
+			t.Chdir(directory)
+			path := filepath.Join(directory, name)
+			writeProtectedFixture(t, path, []byte(`{"version":1,"sources":{},"workloads":{}}`))
+			args := []string{"config", "replace", "--file", "-"}
+			if name != "cquay.json" {
+				args = append([]string{"--config", name}, args...)
+			}
+			var out, diagnostics bytes.Buffer
+			status := (Runner{In: bytes.NewReader(configFixtureData(t)), Out: &out, Err: &diagnostics}).Run(context.Background(), args)
+			if status != 0 || outputState(t, out.Bytes()) != "updated" {
+				t.Fatalf("relative repair failed: status %d, %s", status, diagnostics.Bytes())
+			}
+			runConfig(t, path, nil, "config", "validate")
+		})
+	}
 }
 
 func TestPointerIndexRejectsNonDigits(t *testing.T) {

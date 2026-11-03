@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,14 +11,15 @@ import (
 
 func TestSnapshotDeclarationContract(t *testing.T) {
 	validRecipient := "age1" + strings.Repeat("q", 58)
+	native := filepath.Join(t.TempDir(), "native")
 	valid := model.Workload{
 		Mode:     "hybrid",
 		Bindings: []model.Binding{{AllowOffline: true}},
 		Snapshot: model.Snapshot{
-			Path:         "/var/lib/cquay/snapshot.sops.json",
+			Path:         filepath.Join(native, "snapshot.sops.json"),
 			Recipients:   []string{validRecipient},
-			IdentityFile: "/etc/cquay/age.txt",
-			SOPS:         "/usr/bin/sops",
+			IdentityFile: filepath.Join(native, "age.txt"),
+			SOPS:         filepath.Join(native, "sops"),
 		},
 	}
 	if err := validateSnapshotDeclaration(model.Workload{}); err != nil {

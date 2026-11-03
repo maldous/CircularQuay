@@ -19,7 +19,11 @@ import (
 
 func privateRepositoryDirectory(t *testing.T, name string) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), name)
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, name)
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -138,9 +142,7 @@ func testTokensAndReadLimit(t *testing.T) {
 		t.Fatal("safe token rejected")
 	}
 	path := filepath.Join(privateRepositoryDirectory(t, "input"), "input")
-	if err := os.WriteFile(path, []byte("synthetic"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedRepositoryFixture(t, path, []byte("synthetic"))
 	if _, err := readProtected(path, true, 1); !fault.Is(err, fault.Trust) {
 		t.Fatal("read limit did not reject oversized input")
 	}
@@ -160,15 +162,18 @@ func TestVerifyReleaseRejectsChangedMaterialization(t *testing.T) {
 }
 
 func TestVerifyReleaseRejectsIncorrectContentAndModes(t *testing.T) {
-	for _, change := range []func(string, map[string]string){
+	changes := []func(string, map[string]string){
 		func(directory string, _ map[string]string) {
 			_ = os.WriteFile(filepath.Join(directory, "values.json"), []byte("changed"), 0600)
 		},
-		func(directory string, _ map[string]string) {
-			_ = os.Chmod(filepath.Join(directory, "values.json"), 0700)
-		},
 		func(_ string, tree map[string]string) { tree["missing.json"] = blobID([]byte("missing"), 40) },
-	} {
+	}
+	if runtime.GOOS != "windows" {
+		changes = append(changes, func(directory string, _ map[string]string) {
+			_ = os.Chmod(filepath.Join(directory, "values.json"), 0700)
+		})
+	}
+	for _, change := range changes {
 		directory, tree := materializedReleaseFixture(t, map[string]string{"values.json": "synthetic"})
 		change(directory, tree)
 		if err := verifyRelease(directory, tree); !fault.Is(err, fault.Trust) {
@@ -179,11 +184,13 @@ func TestVerifyReleaseRejectsIncorrectContentAndModes(t *testing.T) {
 
 func TestVerifyReleaseRejectsInsecureDirectoryAndWalkError(t *testing.T) {
 	directory, tree := materializedReleaseFixture(t, map[string]string{"values.json": "synthetic"})
-	if err := os.Chmod(directory, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyRelease(directory, tree); !fault.Is(err, fault.Trust) {
-		t.Fatal("public release directory accepted")
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(directory, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := verifyRelease(directory, tree); !fault.Is(err, fault.Trust) {
+			t.Fatal("public release directory accepted")
+		}
 	}
 	verifier := releaseVerifier{directory: directory, tree: tree}
 	if err := verifier.visit(directory, nil, errors.New("synthetic walk failure")); !fault.Is(err, fault.Trust) {
@@ -200,9 +207,7 @@ func TestGitOutputAndEnvironmentBoundaries(t *testing.T) {
 		t.Fatal("oversized Git output accepted")
 	}
 	token := filepath.Join(privateRepositoryDirectory(t, "credential"), "token")
-	if err := os.WriteFile(token, []byte("synthetic-token"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedRepositoryFixture(t, token, []byte("synthetic-token"))
 	s := &store{repo: model.Repository{URL: "https://example.invalid/repository", TokenFile: token}}
 	local, err := s.environment(false, false)
 	if err != nil || strings.Contains(strings.Join(local, "\n"), "synthetic-token") {
@@ -273,12 +278,10 @@ func materializedReleaseFixture(t *testing.T, files map[string]string) (string, 
 	tree := make(map[string]string, len(files))
 	for name, content := range files {
 		path := filepath.Join(directory, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		if err := platform.EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-			t.Fatal(err)
-		}
+		writeProtectedRepositoryFixture(t, path, []byte(content))
 		tree[name] = blobID([]byte(content), 40)
 	}
 	return directory, tree
@@ -362,9 +365,7 @@ func newSignedRepositoryFixture(t *testing.T) signedRepositoryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(fixture.signers, append([]byte("fixture "), publicKey...), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeProtectedRepositoryFixture(t, fixture.signers, append([]byte("fixture "), publicKey...))
 	fixture.invoke(t, git, "init", "--quiet", "--object-format=sha1", "--initial-branch=data")
 	fixture.writeToken(t)
 	return fixture
@@ -400,7 +401,12 @@ func (f signedRepositoryFixture) writeCommit(t *testing.T, value string, sign bo
 
 func (f signedRepositoryFixture) writeToken(t *testing.T) {
 	t.Helper()
-	if err := os.WriteFile(f.token, []byte("synthetic-fetch-token"), 0600); err != nil {
+	writeProtectedRepositoryFixture(t, f.token, []byte("synthetic-fetch-token"))
+}
+
+func writeProtectedRepositoryFixture(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := platform.WriteProtected(path, data); err != nil {
 		t.Fatal(err)
 	}
 }

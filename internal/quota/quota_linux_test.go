@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -49,6 +50,35 @@ func TestStatusForDirectoryRequiresFlagsAndReadsCurrentUIDQuota(t *testing.T) {
 	}
 	if status.HardBytes != 2048 || status.UsedBytes != 1024 || status.HardInodes != 7 || status.UsedInodes != 3 || !status.UserEnforced {
 		t.Fatalf("unexpected quota status: %#v", status)
+	}
+}
+
+func TestQuotaUserIDRejectsUnrepresentableIdentities(t *testing.T) {
+	if _, err := quotaUserID(-1); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("negative UID error = %v", err)
+	}
+	if strconv.IntSize > 32 {
+		overflow := int(uint64(^uint32(0)) + 1)
+		if _, err := quotaUserID(overflow); !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("overflow UID error = %v", err)
+		}
+	}
+	if strconv.IntSize > 32 {
+		maximum := int(uint64(^uint32(0)))
+		if got, err := quotaUserID(maximum); err != nil || got != ^uint32(0) {
+			t.Fatalf("maximum UID = %d, %v", got, err)
+		}
+	}
+}
+
+func TestStatusForDirectoryRejectsUnrepresentableIdentityBeforeQuery(t *testing.T) {
+	called := false
+	_, err := statusForDirectoryWithIdentity(9, -1, func(int, int, int, unsafe.Pointer) error {
+		called = true
+		return nil
+	})
+	if !errors.Is(err, ErrUnsupported) || called {
+		t.Fatalf("invalid identity result = %v, called = %t", err, called)
 	}
 }
 
