@@ -22,10 +22,10 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-The current source-integrity and native-environment batch is based on published
-`8ed18f35be811f722068a3cf62d3093038fa8d93`; its frozen local evidence is retained
-under `.local/qualification/checkpoint17-20261104/`. The source manifest identifies
-the checked bytes rather than claiming an uncommitted batch is a published revision. Its
+The current native-verification follow-up is based on published
+`4a485258c3a72a7227502f359b4a049996b4ba61`; its frozen local evidence is retained
+under `.local/qualification/checkpoint18-20261104/`. The source manifest identifies
+the local capture separately from any later published revision. Its
 before/after manifests for Go, JSON, workflows, and canonical model fences are
 identical. Whole-repository normal/race tests, vet, Staticcheck, formatting,
 module tidy/verification, cyclomatic and cognitive-complexity/workflow checks,
@@ -136,6 +136,15 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
+Checkpoint18 receipts under `.local/qualification/checkpoint18-20261104/`
+record whole-repository normal/race tests, vet, Staticcheck, formatting,
+tidy-diff/module verification, both complexity ceilings of 10, actionlint and
+12 Windows test-compilation checks passing with identical source manifests.
+Merged coverage is 5,133/6,048 statements (84.87103%), below the unchanged 100%
+gate. The real signed-repository regression verifies protected offline Git
+temporary state without fetch credentials and its cleanup after return.
+Native Windows execution and exact-candidate Sonar remain separate evidence.
+
 Checkpoint17 receipts under `.local/qualification/checkpoint17-20261104/`
 record Go 1.27.3 whole-module normal/race tests, vet, Staticcheck, formatting,
 tidy-diff/module verification, both complexity ceilings of 10, actionlint and
@@ -190,9 +199,38 @@ The same checks correctly reject a `.local` temporary directory with an unsafe
 After source changes, run the applicable checks from protected temporary
 storage and retain exact command, tool version, revision/tree state, and result.
 The source-profile 100% owned-code coverage gate remains unchanged and is not
-met by checkpoint10 or the last published CI receipt.
+met by checkpoint18 or the last published CI receipt.
 
 ## Qualification and release blockers
+
+Published candidate `4a485258c3a72a7227502f359b4a049996b4ba61` has exact tree
+`f8c53890e348cf8b7fdb56a749b0f8aaca0d00d5`. Native Linux/macOS, all 26
+cross-builds, and CodeQL passed. gosec failed with nine findings and source
+assurance was 5,114/6,022 (84.92195284%), below the unchanged 100% gate.
+
+Native Windows failed in more than one way: a googleapi module-proxy timeout
+blocked CLI/resolve/source setup, while tests that ran failed trusted-directory
+preflight and offline `Current` Git temporary-file creation. Do not attribute
+all failures to the proxy or treat all tests as inconclusive.
+
+Sonar CE task `79b7e0cd-e546-4d68-848e-be7ab4e90113` and analysis
+`9c02dbab-ce75-4d3b-828e-de1bf483d2c9` completed with zero bugs,
+vulnerabilities, hotspots, and duplication, but its gate is ERROR at 78.4%
+overall and 81.6% new coverage, with `go:S1192` (five `rev-parse` literals)
+and `go:S978` (rune issue). Its token-expiry warning for 2026-11-10 remains.
+This is not a pass.
+
+Sealed managed audit delta `cad20f55-3074-47e5-8dce-f7648dc9141b` from e553
+to 4a has zero new reportable findings but partial completeness; host sandbox,
+tool provenance, and native Windows are deferred. It is not an audit pass.
+
+The captured follow-up replaces the repeated Git command literal and renames
+the shadowing identifier. It adds protected working/executable directories to
+positive platform/CLI fixtures and a protected per-call temporary directory for
+offline `Current` verification, with prior-temp restoration and cleanup. Whole
+checkpoint18 checks passed locally; exact-candidate native, Sonar and independent
+qualification remain required. No native configuration, credentials or
+infrastructure changed.
 
 Published candidate `8ed18f35be811f722068a3cf62d3093038fa8d93` has exact tree
 `b42f899e839d85febc7ff06105b60cf07c41e5bc`. Native Linux/macOS and all 26
@@ -205,7 +243,7 @@ with analysis `81a9ef98-5a95-4e3d-a706-39362381c61e` and zero open issues, but
 its quality gate is ERROR at 78.6% overall and 82.1% new coverage. The retained
 receipt warns that its token expires 2026-11-10. This is not a pass.
 
-The captured follow-up integrates the v1 source manifest before and after target
+The captured 4a follow-up integrated the v1 source manifest before and after target
 checks, rejects unexpected/ignored files, disables Git replacement/global/system
 configuration, and requires the actual repository root. It bounds file reads and
 preserves worktree metadata support. A source-root alias is now rejected before
@@ -213,7 +251,7 @@ Go version probing; its prior later formatting failure already prevented source
 tests, so the regression does not demonstrate arbitrary test execution. Manifest
 checks do not provide an atomic snapshot, host sandbox, or analyzer provenance.
 
-The same batch supplies the Windows OS-known ProgramData folder to native Git/SSH
+That 4a batch supplies the Windows OS-known ProgramData folder to native Git/SSH
 without inheriting a caller override; compares canonical Windows directories by
 filesystem identity; and adds a real SDK tool-catalog no-read-grant regression.
 CI audit binaries/evidence and Sonar scratch are outside the reviewed source

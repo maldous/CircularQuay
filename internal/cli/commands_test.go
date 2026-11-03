@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,13 +47,9 @@ func TestDoctorReportsGrantIdentity(t *testing.T) {
 func TestRunReleasesLockBeforeChild(t *testing.T) {
 	dir := privateCLIDirectory(t)
 	stateDir := filepath.Join(dir, "state")
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
 	fixture := filepath.Join(dir, "values.json")
 	writeProtectedFixture(t, fixture, []byte(`{"message":"synthetic"}`))
-	p := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: fixture}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{executable, "-test.run=^TestLockProbeChild$", "--", "cquay-lock-probe", stateDir}}}}
+	p := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: fixture}}, Workloads: map[string]model.Workload{"demo": lockProbeWorkload(t, dir, stateDir)}}
 	data, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
@@ -64,6 +61,57 @@ func TestRunReleasesLockBeforeChild(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("child could not reconcile while workload runs: status %d, %s", code, diagnostics.String())
 	}
+}
+
+func lockProbeWorkload(t *testing.T, directory, stateDirectory string) model.Workload {
+	t.Helper()
+	workingDirectory := filepath.Join(directory, "work")
+	programDirectory := filepath.Join(directory, "bin")
+	for _, path := range []string{workingDirectory, programDirectory} {
+		if err := platform.EnsurePrivateDirectory(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	executable := copyProtectedTestExecutable(t, programDirectory)
+	return model.Workload{
+		Mode:      "offline",
+		Directory: workingDirectory,
+		Bindings:  []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}},
+		Command:   []string{executable, "-test.run=^TestLockProbeChild$", "--", "cquay-lock-probe", stateDirectory},
+	}
+}
+
+func copyProtectedTestExecutable(t *testing.T, directory string) string {
+	t.Helper()
+	source, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, err := os.Open(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	target := filepath.Join(directory, "lock-probe"+filepath.Ext(source))
+	output, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = io.Copy(output, input); err == nil {
+		err = output.Close()
+	} else {
+		_ = output.Close()
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chmod(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err = platform.ValidateExecutable(target); err != nil {
+		t.Fatalf("protected test executable does not meet launch contract: %v", err)
+	}
+	return target
 }
 
 func TestLockProbeChild(t *testing.T) {

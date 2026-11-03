@@ -141,6 +141,33 @@ func prepareFetchTemporary(s *store) (func(), error) {
 	return func() { s.temporary = "" }, nil
 }
 
+// prepareCurrentVerificationTemporary gives native Git and OpenSSH a protected
+// temporary directory for offline signature verification. Current deliberately
+// does not inherit a caller's temporary environment or reuse Fetch's lifetime.
+func prepareCurrentVerificationTemporary(s *store) (func() error, error) {
+	directory, err := os.MkdirTemp(s.repo.Directory, ".verify-tmp-")
+	if err != nil {
+		return nil, failure(fault.Trust, "verification_temporary")
+	}
+	if err = platform.EnsurePrivateDirectory(directory); err != nil {
+		_ = os.RemoveAll(directory)
+		return nil, failure(fault.Trust, "verification_temporary")
+	}
+	if err = protectedDirectory(directory); err != nil {
+		_ = os.RemoveAll(directory)
+		return nil, err
+	}
+	previous := s.temporary
+	s.temporary = directory
+	return func() error {
+		s.temporary = previous
+		if err := os.RemoveAll(directory); err != nil {
+			return failure(fault.Trust, "verification_temporary")
+		}
+		return nil
+	}, nil
+}
+
 func acquireFetchLock(directory string) (func(), error) {
 	lock := filepath.Join(directory, "fetch.lock")
 	if err := os.Mkdir(lock, 0o700); err != nil {
@@ -213,30 +240,46 @@ func (s *store) currentRelease(ctx context.Context, repo model.Repository) (stri
 	if state.Commit == "" {
 		return "", failure(fault.Missing, "accepted_release")
 	}
-	if err = s.checkGitConfig(); err != nil {
-		return "", err
-	}
-	if err = s.verifyCommit(ctx, state.Commit); err != nil {
-		return "", err
-	}
-	if err = s.ancestor(ctx, repo.InitialCommit, state.Commit); err != nil {
-		return "", err
-	}
-	if err = s.requireHardenedSHA1(ctx); err != nil {
-		return "", err
-	}
-	if err = s.verifyObjectGraph(ctx, state.Commit); err != nil {
-		return "", err
-	}
-	tree, err := s.readTree(ctx, state.Commit)
+	cleanup, err := prepareCurrentVerificationTemporary(s)
 	if err != nil {
 		return "", err
 	}
-	directory := filepath.Join(repo.Directory, "releases", state.Commit)
-	if err = s.verifyRelease(ctx, directory, tree); err != nil {
+	release, verificationErr := s.verifyCurrentRelease(ctx, repo, state.Commit)
+	cleanupErr := cleanup()
+	if verificationErr != nil {
+		return "", verificationErr
+	}
+	if cleanupErr != nil {
+		return "", cleanupErr
+	}
+	return release, nil
+}
+
+func (s *store) verifyCurrentRelease(ctx context.Context, repo model.Repository, commit string) (string, error) {
+	if err := s.checkGitConfig(); err != nil {
 		return "", err
 	}
-	return directory, nil
+	if err := s.verifyCommit(ctx, commit); err != nil {
+		return "", err
+	}
+	if err := s.ancestor(ctx, repo.InitialCommit, commit); err != nil {
+		return "", err
+	}
+	if err := s.requireHardenedSHA1(ctx); err != nil {
+		return "", err
+	}
+	if err := s.verifyObjectGraph(ctx, commit); err != nil {
+		return "", err
+	}
+	tree, err := s.readTree(ctx, commit)
+	if err != nil {
+		return "", err
+	}
+	release := filepath.Join(repo.Directory, "releases", commit)
+	if err = s.verifyRelease(ctx, release, tree); err != nil {
+		return "", err
+	}
+	return release, nil
 }
 
 func openStore(repo model.Repository, create bool) (*store, error) {

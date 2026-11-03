@@ -19,6 +19,7 @@ const (
 	maxSourceBytes     = 32 << 20
 	maxSourceFileBytes = 1 << 20
 	sourceBindTimeout  = 2 * time.Minute
+	gitRevParseCommand = "rev-parse"
 )
 
 var errSourceChangedDuringRead = errors.New("source file changed during read")
@@ -52,11 +53,11 @@ func bindSource(ctx context.Context, command commandFunc, root, output string, e
 	if err := sourceRepositoryRoot(ctx, command, root, environment); err != nil {
 		return SourceIdentity{}, err
 	}
-	commit, err := gitValue(ctx, command, root, environment, "rev-parse", "HEAD")
+	commit, err := gitValue(ctx, command, root, environment, gitRevParseCommand, "HEAD")
 	if err != nil || !revisionPattern.MatchString(commit) {
 		return SourceIdentity{}, errors.New("source revision unavailable")
 	}
-	tree, err := gitValue(ctx, command, root, environment, "rev-parse", "HEAD^{tree}")
+	tree, err := gitValue(ctx, command, root, environment, gitRevParseCommand, "HEAD^{tree}")
 	if err != nil || !revisionPattern.MatchString(tree) {
 		return SourceIdentity{}, errors.New("source tree unavailable")
 	}
@@ -80,15 +81,15 @@ func physicalSourceRoot(root string) bool {
 }
 
 func sourceRepositoryRoot(ctx context.Context, command commandFunc, root string, environment []string) error {
-	bare, err := gitValue(ctx, command, root, environment, "rev-parse", "--is-bare-repository")
+	bare, err := gitValue(ctx, command, root, environment, gitRevParseCommand, "--is-bare-repository")
 	if err != nil || bare != "false" {
 		return errors.New("source must be a nonbare repository")
 	}
-	top, err := gitValue(ctx, command, root, environment, "rev-parse", "--show-toplevel")
+	top, err := gitValue(ctx, command, root, environment, gitRevParseCommand, "--show-toplevel")
 	if err != nil || !sameDirectory(root, top) {
 		return errors.New("source must be repository top level")
 	}
-	prefix, err := gitValue(ctx, command, root, environment, "rev-parse", "--show-prefix")
+	prefix, err := gitValue(ctx, command, root, environment, gitRevParseCommand, "--show-prefix")
 	if err != nil || prefix != "" {
 		return errors.New("source must not select a repository subdirectory")
 	}
@@ -157,8 +158,8 @@ func safeRepositoryPath(path string) bool {
 }
 
 func hasUnsafePathRune(path string) bool {
-	for _, rune := range path {
-		if rune < 0x20 || rune == 0x7f || rune == '\\' || rune == ':' {
+	for _, character := range path {
+		if character < 0x20 || character == 0x7f || character == '\\' || character == ':' {
 			return true
 		}
 	}

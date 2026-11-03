@@ -44,11 +44,8 @@ func fixtureGeneration() model.Generation {
 func TestRunNoInheritanceAndPreservesArguments(t *testing.T) {
 	t.Setenv("PARENT_SECRET", "must-not-reach-child")
 	t.Setenv("SOPS_AGE_KEY", "must-not-reach-child")
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := model.Workload{Command: []string{exe, "--platform-helper", "$(not-executed)", "spaces and Unicode-✓"}}
+	exe, directory := protectedPlatformHelper(t)
+	w := model.Workload{Command: []string{exe, "--platform-helper", "$(not-executed)", "spaces and Unicode-✓"}, Directory: directory}
 	var out bytes.Buffer
 	code, err := RunWithIO(context.Background(), w, fixtureGeneration(), nil, nil, &out, io.Discard)
 	if err != nil || code != 0 || out.String() != "allowed-status" {
@@ -61,19 +58,69 @@ func TestRunNoInheritanceAndPreservesArguments(t *testing.T) {
 }
 
 func TestRunRejectsExpiredGenerationBeforeLaunch(t *testing.T) {
-	exe, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
+	exe, directory := protectedPlatformHelper(t)
 	gen := fixtureGeneration()
 	value := gen.Values["APP_SECRET"]
 	value.ExpiresAt = time.Now().Add(-time.Second)
 	gen.Values["APP_SECRET"] = value
 	var out bytes.Buffer
-	_, err = RunWithIO(context.Background(), model.Workload{Command: []string{exe, "--platform-helper"}}, gen, nil, nil, &out, io.Discard)
+	_, err := RunWithIO(context.Background(), model.Workload{Command: []string{exe, "--platform-helper"}, Directory: directory}, gen, nil, nil, &out, io.Discard)
 	if !fault.Is(err, fault.Expired) || out.Len() != 0 {
 		t.Fatal("expired generation reached child launch")
 	}
+}
+
+// protectedPlatformHelper copies this test binary beneath test-owned protected
+// directories. Windows validates every DLL search directory before exposing a
+// generation, so the Go test runner's working and build directories are not a
+// valid positive fixture for a secret-bearing child process.
+func protectedPlatformHelper(t *testing.T) (string, string) {
+	t.Helper()
+	root := filepath.Join(secureTempDir(t), "helper")
+	bin := filepath.Join(root, "bin")
+	work := filepath.Join(root, "work")
+	for _, directory := range []string{bin, work} {
+		if err := EnsurePrivateDirectory(directory); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := copyPlatformTestBinary(t, bin)
+	if err := ValidateExecutable(target); err != nil {
+		t.Fatalf("protected helper rejected: %v", err)
+	}
+	return target, work
+}
+
+func copyPlatformTestBinary(t *testing.T, bin string) string {
+	t.Helper()
+	sourcePath, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.Open(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.Close()
+	target := filepath.Join(bin, "platform-helper"+filepath.Ext(sourcePath))
+	destination, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = io.Copy(destination, source); err != nil {
+		_ = destination.Close()
+		t.Fatal(err)
+	}
+	if err = destination.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = protectFile(target); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chmod(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return target
 }
 
 func TestInvalidLaunchAndEnvironment(t *testing.T) {
