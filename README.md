@@ -15,13 +15,30 @@ authorization is required and where an encrypted offline copy is appropriate.
 
 CircularQuay’s app, command, and operations skill are named `cquay` (pronounced “c-key”).
 
-CircularQuay resolves exact values from existing secret providers under a workload-scoped policy, then delivers one complete generation through native operating-system boundaries. It gives teams a portable way to move from provider authorization to a declared workload without inheriting an ambient shell environment or silently applying a partial refresh.
+CircularQuay gets the right secrets to the right apps, wherever they run.
+Keep your existing secret stores, choose what each app can access, and manage
+it all from one configuration.
 
-Its [identity-linked access model](#identity-key-access-and-expiry) connects each
-approved person or service to a registered application, explicitly permitted
-secrets, and a signed access deadline.
+Use it on its own, or connect an **optional identity provider** to tie access
+to a person or service and a time limit. An **optional MCP connector** brings
+the same controls to AI assistants and agents.
 
-For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
+Your enterprise identity server can give an AI tool a short, approved window
+to use the credentials it needs. CircularQuay checks who is asking, which
+application is acting, which secrets it may access, and whether that window
+is still open. Its [identity-linked access model](#identity-key-access-and-expiry)
+lets you put that into practice:
+
+- **An incident teammate:** let an on-call assistant run approved diagnostics
+  for the duration of an incident.
+- **A deployment copilot:** make deployment credentials available to an
+  approved tool only during an authorized change window.
+- **A visiting specialist:** give a contractor's assistant temporary access
+  to one project's tools, without pasting keys into a chat.
+- **A scheduled reporting assistant:** let an agent use a read-only reporting
+  tool during its approved reporting window.
+- **Safer AI automation:** keep credentials inside the approved tool process
+  and return task results to the model instead of handing it the raw secrets.
 
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
@@ -83,7 +100,7 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-overview-dark.svg">
-  <img alt="The v1 model connects trusted IdP and authorization-server grants with exact provider mappings in the CircularQuay policy core, enforcing identity, permissions, and expiry before workload delivery, approved snapshots, or MCP disclosure." src="docs/assets/architecture-overview-light.svg">
+  <img alt="CircularQuay connects existing secret providers to approved apps, with optional identity-provider access controls and an optional MCP connector for AI tools." src="docs/assets/architecture-overview-light.svg">
 </picture>
 
 <picture>
@@ -94,8 +111,8 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 ## What it delivers
 
 - **Explicit interoperability:** select exact provider resources and string fields; keep existing stores authoritative.
-- **Identity-bound authorization:** connect trusted IdP identities and registered applications to configurable contexts, workloads, operations, and exact secret keys.
-- **Time-bound access:** verify signed grants and client-key possession; enforce the earliest identity, approved offline-window, or provider expiry.
+- **Optional enterprise identity:** connect trusted IdP identities and registered applications to configurable contexts, workloads, operations, and exact secret keys.
+- **Time-bound access:** respect provider and offline deadlines; with identity integration enabled, also verify signed access grants and client-key possession.
 - **Workload isolation:** reject duplicate names and undeclared resource access; keep provider bootstrap credentials out of application environments.
 - **Complete generations:** resolve required inputs before activation instead of applying a partial refresh.
 - **Portable encryption:** use upstream SOPS and age rather than a new encryption format.
@@ -146,16 +163,20 @@ Already delivered values cannot be recalled from process memory, old ciphertext,
 **Our v1 north star: the right identity, using the right application, receives
 only its approved secrets, for exactly the permitted time.**
 
-CircularQuay connects identity, policy, secret delivery, and expiry into one
-verifiable decision. Think of it as a collection desk: your identity provider
-establishes who you are, a signed permission ticket states what you may
-collect, and CircularQuay checks that ticket against the exact key and
-workload before handing anything over.
+Use CircularQuay on its own with local policy, or add an optional identity
+provider for centrally approved access. The MCP connector is optional too;
+apps and services can use CircularQuay directly.
+
+With identity integration enabled, think of CircularQuay as a collection desk:
+your identity provider establishes who you are, a signed permission ticket
+states what you may collect and when, and CircularQuay checks that ticket
+against the exact key and workload before handing anything over.
 
 ### One identity, explicit permissions
 
-A person or service authenticates through the organization's identity provider
-(IdP). Its OAuth authorization server issues a signed, time-limited access
+When identity integration is enabled, a person or service authenticates through
+the organization's identity provider (IdP). Its OAuth authorization server
+issues a signed, time-limited access
 grant for the registered application and CircularQuay service. These roles
 can belong to the same existing enterprise provider or to a self-hosted
 service such as Keycloak. The policy selects the trusted authority and its
