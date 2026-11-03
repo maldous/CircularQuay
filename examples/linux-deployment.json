@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "sources": {
+    "service-sops": {
+      "type": "sops",
+      "path": "/etc/circularquay/reference/service.sops.json",
+      "sops": "/usr/bin/sops",
+      "age_identity_file": "/etc/circularquay/identities/reference-age.txt",
+      "identity": "none"
+    }
+  },
+  "workloads": {
+    "reference-api": {
+      "mode": "hybrid",
+      "bindings": [
+        {
+          "name": "API_TOKEN",
+          "source": "service-sops",
+          "field": "api_token",
+          "allow_offline": true,
+          "allow_publish": true
+        }
+      ],
+      "environment": {
+        "APP_MODE": "production"
+      },
+      "directory": "/var/lib/reference-api",
+      "snapshot": {
+        "path": "/var/lib/circularquay/snapshots/reference-api.sops.json",
+        "recipients": [
+          "age1cy0su9fwf3gf9mw868g5yut09p6nytfmmnktexz2ya5uqg9vl9sss4euqm"
+        ],
+        "identity_file": "/etc/circularquay/identities/reference-age.txt",
+        "sops": "/usr/bin/sops"
+      },
+      "targets": {
+        "systemd-credential": {
+          "type": "systemd",
+          "path": "/etc/credstore.encrypted/reference-api",
+          "accept_snapshot": true,
+          "service": "reference-api.service",
+          "activation": "restart"
+        }
+      }
+    }
+  },
+  "grants": [
+    {
+      "subject": "https://id.example.test|reference-operator-001",
+      "client": "reference-console",
+      "workload": "reference-api",
+      "operations": [
+        "list",
+        "status"
+      ]
+    }
+  ],
+  "mcp": {
+    "issuer": "https://id.example.test",
+    "audience": "https://mcp.example.test/mcp",
+    "jwks_url": "https://id.example.test/.well-known/jwks.json",
+    "address": "127.0.0.1:8787",
+    "origins": [
+      "https://console.example.test"
+    ],
+    "hosts": [
+      "mcp.example.test"
+    ],
+    "audit_path": "/var/lib/circularquay/audit/reference-api.jsonl"
+  }
+}

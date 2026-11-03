@@ -1,6 +1,6 @@
 # Provider interoperability
 
-The provider registry resolves exact source declarations. Existing managers stay authoritative. CircularQuay does not need to copy all values into OpenBao.
+The provider registry resolves exact source declarations. Existing managers stay authoritative. CircularQuay does not need to copy all values into OpenBao. See [credential and identity boundaries](credential-boundaries.md) for the current native-storage, workload-identity, hosted-connection, and unsupported-feature surface.
 
 ## Separate capabilities
 
@@ -19,9 +19,27 @@ Authentication, KMS/Transit key release, value retrieval and publication are dis
 | Infisical | Project/environment/path/key; imports/reference expansion disabled unless approved. |
 | Bitwarden | Project/secret identity and supported vendor decryption. |
 | Akeyless | Exact item/identity within account entitlement. |
-| 1Password | Approved item field or Environment; service authentication differs from desktop approval. |
+| 1Password | Service-account CLI read of one exact `op://vault/item/field` reference. 1Password Environments are unsupported. |
 
 `cquay providers` reports what this executable implements. A source whose dependency, authentication or lifecycle combination is unsupported must fail explicitly. No table entry alone qualifies a live provider.
+
+## Current adapter constraints
+
+The provider table describes selector shape, not every upstream authentication
+method. Current cloud readers accept only AWS EC2/ECS credentials, Azure
+managed/workload identity, and a GCE metadata service account; they do not
+fall back to a developer profile, interactive login, service-account key file,
+or arbitrary metadata endpoint. The hosted-manager adapters consume an
+operator-provisioned protected token file; they do not create or renew a
+provider session.
+
+For vendor CLIs, Bitwarden is a fixed `bws secret get` invocation using a
+machine-account access token, and 1Password is a fixed service-account `op
+read` invocation. CircularQuay does not use desktop approval, a user vault
+session, `op run`, `op inject`, or 1Password Environments. Infisical reads an
+exact value with imports and reference expansion disabled; its Universal Auth
+and OIDC flows are not implemented by this adapter. These boundaries are
+intentional and are detailed in [credential and identity boundaries](credential-boundaries.md).
 
 ## Composition
 

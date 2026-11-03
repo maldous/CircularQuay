@@ -49,3 +49,8 @@ An HTTP caller is identified by verified issuer/subject/client claims, not `clie
 `read_secret` deliberately discloses one approved alias. It is separate from workload invocation and native provider retrieval. An arbitrary coding-agent action with injected keys is disclosure-capable; hiding raw reads behind a mutable script is not a confidentiality boundary.
 
 Implementation and live qualification status are recorded in [qualification.md](qualification.md).
+
+The [hosted identity boundary](hosted-identity.md) separates external login,
+application identity, environment grants and provider connections. The
+[credential boundary](credential-boundaries.md) distinguishes protected files
+and native projections from keychain, biometric and mobile integrations.

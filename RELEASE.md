@@ -2,7 +2,7 @@
 
 This is the maintainer/operator entry point. It covers public distribution, account setup, independent installation/auditing, and every post-installation enrollment step. The product README covers functionality and user-facing usage; publisher credentials and registry procedures belong here.
 
-All commands use a chosen immutable version. `v0.1.0` below is an example until a release with that tag is published. Do not interpret a manifest, example URL, generated report, or successful build as evidence of publication or operational qualification.
+All commands use a chosen immutable version. `v1.0.0` below is an example until a release with that tag is published. Do not interpret a manifest, example URL, generated report, or successful build as evidence of publication or operational qualification.
 
 ## 1. Identity, versions and current state
 
@@ -37,7 +37,7 @@ Update this ledger from evidence, not intention. Record **not attempted**, **acc
 
 Use Semantic Versioning and Gitflow. `feature/<purpose>` and `hotfix/<purpose>` describe work; `develop` integrates reviewed changes; `release/<major.minor.patch>` stabilizes a selected release; `main` contains qualified stable releases. Preserve merge commits and back-merge release/hotfix fixes into `develop`. Do not use direct feature pushes to `main` or rewrite published history.
 
-Every release has an immutable tag and a GitHub Release. Use `v0.1.0-rc.1`, `v0.1.0-rc.2`, then `v0.1.0` as the naming pattern. Candidate tags belong to the reviewed release branch, are marked **Pre-release**, and never become **Latest**. Stable tags belong to the reviewed stable merge on `main`; mark the selected stable release **Latest** only after verification. Never move an RC tag to a corrected commit or rename an RC into a stable release. Build the stable version from its own exact tag and record the comparison with the candidate.
+Every release has an immutable tag and a GitHub Release. Use `v1.0.0-rc.1`, `v1.0.0-rc.2`, then `v1.0.0` as the naming pattern. Candidate tags belong to the reviewed `release/1.0.0` branch, are marked **Pre-release**, and never become **Latest**. Stable tags belong to the reviewed stable merge on `main`; mark the selected stable release **Latest** only after verification. Never move an RC tag to a corrected commit or rename an RC into a stable release. Build the stable version from its own exact tag and record the comparison with the candidate.
 
 An RC is a supported feedback stage for its explicitly listed test matrix, not a waiver of security or integrity gates. Complete the applicable source/security/artifact gates before any public tag, including an RC. Record wider native/provider acceptance still being collected. Stable promotion additionally requires the complete declared qualification matrix and independent review. The current development checkpoint qualifies for neither promotion.
 
@@ -49,7 +49,7 @@ Draft the release first, attach and inspect every asset, then publish once. Immu
 
 Each release must provide:
 
-- A title such as `cquay v0.1.0-rc.1`, maturity label, exact source commit, release date, changelog and links to reviewed changes.
+- A title such as `cquay v1.0.0-rc.1`, maturity label, exact source commit, release date, changelog and links to reviewed changes.
 - A platform/architecture table with direct links to each qualified asset, its size, verification instructions and required external tools. Never label a cross-build as a native acceptance pass.
 - `cquay_<version>_<os>_<arch>.tar.gz` for Linux/macOS and `.zip` for Windows. Each archive includes `cquay`, `cquay-audit`, the `cquay` skill, license, release/install instructions, security/support guidance and qualification matrix.
 - `cquay_<version>_checksums.txt`, authenticated provenance and a complete SBOM including shipped external executables. Publish offline verification inputs when supported. A checksum beside a download is not independent publisher authentication.
@@ -57,7 +57,7 @@ Each release must provide:
 - Installation, upgrade, removal, migration and recovery directions; known limitations; compatibility changes; security-advisory links; and the community/private-support routes.
 - Separate publication receipts for Go module indexing, GHCR, MCP Registry/MCPB and any qualified package-manager listing. Do not advertise a channel merely because its manifest exists.
 
-The release page is `https://github.com/maldous/CircularQuay/releases/tag/<tag>` and asset URLs follow `https://github.com/maldous/CircularQuay/releases/download/<tag>/<asset>`. Replace every placeholder with an existing verified asset. The [Releases index](https://github.com/maldous/CircularQuay/releases) is the entry point until releases exist; do not present example `v0.1.0` links as current downloads.
+The release page is `https://github.com/maldous/CircularQuay/releases/tag/<tag>` and asset URLs follow `https://github.com/maldous/CircularQuay/releases/download/<tag>/<asset>`. Replace every placeholder with an existing verified asset. The [Releases index](https://github.com/maldous/CircularQuay/releases) is the entry point until releases exist; do not present example `v1.0.0` links as current downloads.
 
 ### Download and install a qualified native archive
 
@@ -66,12 +66,12 @@ These are operator instructions for a published qualified version; no such relea
 Where a compatible GitHub CLI is installed, an example Linux/amd64 route is:
 
 ```sh
-gh release verify v0.1.0 --repo maldous/CircularQuay
-gh release download v0.1.0 --repo maldous/CircularQuay --pattern cquay_0.1.0_linux_amd64.tar.gz --pattern cquay_0.1.0_checksums.txt
-gh release verify-asset v0.1.0 ./cquay_0.1.0_linux_amd64.tar.gz --repo maldous/CircularQuay
-sha256sum --ignore-missing --check cquay_0.1.0_checksums.txt
-mkdir cquay-0.1.0
-tar -xzf cquay_0.1.0_linux_amd64.tar.gz -C cquay-0.1.0
+gh release verify v1.0.0 --repo maldous/CircularQuay
+gh release download v1.0.0 --repo maldous/CircularQuay --pattern cquay_1.0.0_linux_amd64.tar.gz --pattern cquay_1.0.0_checksums.txt
+gh release verify-asset v1.0.0 ./cquay_1.0.0_linux_amd64.tar.gz --repo maldous/CircularQuay
+sha256sum --ignore-missing --check cquay_1.0.0_checksums.txt
+mkdir cquay-1.0.0
+tar -xzf cquay_1.0.0_linux_amd64.tar.gz -C cquay-1.0.0
 ```
 
 Check archive entries before extraction; reject absolute/traversal paths and unexpected executables. The maintainer must verify these exact CLI commands against the qualified GitHub CLI version; source archives generated on demand are not the same as verified release assets. The [official verification documentation](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity) describes the trust route. For browser/offline downloads, use the release's authenticated verification bundle and platform hash tools; do not execute an unauthenticated installer.
@@ -223,22 +223,22 @@ There is no separate Go publisher account. Go publishes a public module through 
 After the audited commit/tag and release assets are ready, trigger discovery:
 
 ```sh
-GOPROXY=https://proxy.golang.org go list -m -json github.com/maldous/CircularQuay@v0.1.0
-go install github.com/maldous/CircularQuay/cmd/cquay@v0.1.0
-go install github.com/maldous/CircularQuay/cmd/cquay-audit@v0.1.0
+GOPROXY=https://proxy.golang.org go list -m -json github.com/maldous/CircularQuay@v1.0.0
+go install github.com/maldous/CircularQuay/cmd/cquay@v1.0.0
+go install github.com/maldous/CircularQuay/cmd/cquay-audit@v1.0.0
 ```
 
 PowerShell equivalent for discovery:
 
 ```powershell
 $env:GOPROXY = 'https://proxy.golang.org'
-go list -m -json github.com/maldous/CircularQuay@v0.1.0
+go list -m -json github.com/maldous/CircularQuay@v1.0.0
 ```
 
 Verify the installed commands from a clean module/cache location and inspect:
 
-- `https://pkg.go.dev/github.com/maldous/CircularQuay@v0.1.0`
-- `https://pkg.go.dev/github.com/maldous/CircularQuay/cmd/cquay@v0.1.0`
+- `https://pkg.go.dev/github.com/maldous/CircularQuay@v1.0.0`
+- `https://pkg.go.dev/github.com/maldous/CircularQuay/cmd/cquay@v1.0.0`
 
 Use Go tooling rather than manually lowercasing or constructing escaped proxy paths. Version v2+ needs `/v2` in module/import/install paths. Private dependencies require `GOPRIVATE` before resolution; the operational ciphertext repository must not become a public Go module.
 

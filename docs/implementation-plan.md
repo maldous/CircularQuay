@@ -33,11 +33,24 @@ No automatic history rewrite, estate-wide rotation or production service restart
 | Providers | Core | Narrow value adapters with identity, version, lifecycle, typed failure and export contracts. |
 | Native delivery | Core | Protected process/file/native projections, correct restart/recreation behavior and scoped ownership. |
 | MCP | Core/provider boundaries | Per-request verified identity, filtered discovery, action/read separation and safe output/audit behavior. |
+| Managed hosted connections | Qualified MCP and explicit hosted scope | External IdP/resource-server separation; typed tenant/environment/principal/connection isolation; approved identity associations; client and operation grants; lifecycle/revocation bounds and administrative audit. See [hosted identity](hosted-identity.md). |
 | Assurance | Starts with foundation | Fresh independent Sonar route, scope/coverage validation, complementary checks, formal/conformance and negative tests. |
 | Distribution | Tested artifacts | Immutable native/Go/OCI/MCP/MCPB metadata, signatures, provenance, free account directions and clean install. |
 | Operator qualification | Relevant implementations | Real reboot/device/provider/client/restore receipts, not merely compilation. |
 
-Independent packages can proceed in parallel after their contracts are fixed. Publish v0.x with honest maturity labels; optional unqualified channels do not become prerequisites for the working local core.
+Independent packages can proceed in parallel after their contracts are fixed.
+The initial public product and policy contract are v1. Release stabilization
+uses `release/1.0.0` and `v1.0.0-rc.1` candidates before a qualified `v1.0.0`.
+An optional channel is advertised only for its implemented, qualified scope;
+its absence does not imply that an incomplete promised v1 capability is ready.
+
+Capability reviews distinguish value storage, bootstrap custody, human login,
+machine identity, non-exportable key operations, application authorization and
+native delivery. A connector name does not establish all of these capabilities.
+Host keychains and biometric/mobile approvals are separate integrations from
+protected filesystem or systemd/DPAPI projections; their actual boundaries are
+recorded in [credential boundaries](credential-boundaries.md). Interactive
+user-presence requirements cannot silently replace unattended recovery.
 
 ## Interface and data contract
 

@@ -2,7 +2,9 @@
 
 **Portable secrets delivery, with explicit trust boundaries.**
 
-> **Development checkpoint:** implementation and security qualification are incomplete. Do not use with production credentials. See [session handoff](docs/session-handoff.md) for verified results and remaining work.
+> **v1 documentation preview:** this working branch presents the intended
+> CircularQuay v1 experience. Implementation and production qualification are
+> incomplete. Use synthetic data only; see the [qualification evidence](docs/qualification.md).
 
 CircularQuay’s app, command, and operations skill are named `cquay` (pronounced “c-key”).
 
@@ -13,6 +15,85 @@ For example, a developer can use a synthetic configuration to plan the `demo` wo
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
 ![Implementation: Go](https://img.shields.io/badge/implementation-Go-087f8c)
+[![Source workflow status](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/runs/41633578905)
+
+[![Linux synthetic receipt](https://img.shields.io/badge/Linux%20synthetic%20receipt-24d%20passed-2f855a)](docs/qualification.md#bounded-receipts)
+[![Staticcheck scoped receipt](https://img.shields.io/badge/Staticcheck%20scoped%20receipt-passed-2f855a)](docs/qualification.md#bounded-receipts)
+[![govulncheck scoped receipt](https://img.shields.io/badge/govulncheck%20scoped%20receipt-0%20reachable-2f855a)](docs/qualification.md#bounded-receipts)
+[![Cyclomatic scope](https://img.shields.io/badge/gocyclo%20scoped%20receipt-%E2%89%A410-2f855a)](docs/qualification.md#bounded-receipts)
+[![Script and workflow analyzers](https://img.shields.io/badge/script%20and%20workflow%20receipts-passed%20scope-2f855a)](docs/qualification.md#bounded-receipts)
+[![TLC finite model](https://img.shields.io/badge/TLC%20finite%20model-bounded%20pass-2f855a)](docs/qualification.md#bounded-receipts)
+
+## Quick start
+
+Until the first qualified release, build `cquay` from this development source
+with Go 1.27.3. The following creates only a local synthetic fixture; it does
+not contact a provider, read credentials, or start a service. Future verified
+native downloads will appear on the [GitHub Releases page](https://github.com/maldous/CircularQuay/releases). Consumer installation, verification, release-candidate, and publisher procedures belong in [RELEASE.md](RELEASE.md).
+
+### Linux and macOS
+
+```sh
+umask 077
+cd -P "$(mktemp -d)"
+git clone --branch feature/initial-implementation https://github.com/maldous/CircularQuay.git
+cd CircularQuay
+go version # requires Go 1.27.3
+go build -o ./cquay ./cmd/cquay
+
+./cquay init --output cquay.json
+./cquay --config cquay.json doctor
+./cquay --config cquay.json plan
+./cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+```
+
+### Windows PowerShell
+
+```powershell
+git clone --branch feature/initial-implementation https://github.com/maldous/CircularQuay.git
+Set-Location CircularQuay
+go version # requires Go 1.27.3
+go build -o .\cquay.exe .\cmd\cquay
+
+.\cquay.exe init --output cquay.json
+.\cquay.exe --config cquay.json doctor
+.\cquay.exe --config cquay.json plan
+.\cquay.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Synthetic workload completed.'
+```
+
+The final command runs an explicitly named, trusted operating-system program
+with a synthetic value. Do not use environment-dumping commands when a policy
+contains credentials. A declared workload command has access to values that
+policy delivers to it.
+
+### Intended v1 command reference
+
+The interface below is the v1 documentation target and is awaiting its
+implementation-branch change. It is included for review, not as a claim that
+the current public branch already provides it. The default policy name will be
+`cquay.json`.
+
+```text
+cquay config init
+cquay config validate
+cquay config get --pointer /workloads/demo
+cquay config list --pointer /workloads
+cquay config set --pointer /workloads/demo --value-file -
+cquay config delete --pointer /grants/0 --expect-sha256 <current-document-digest>
+cquay config replace --file policy.json --expect-sha256 <current-document-digest>
+cquay doctor [--fix]
+```
+
+Pointers use RFC 6901. `set` replaces one complete JSON node atomically; use
+`--value-file -` to pass JSON on standard input instead of placing
+credential-looking literals on a command line. `replace` accepts one complete
+JSON policy. These operations validate the resulting policy before writing and
+do not retrieve provider values. Configuration literals remain visible to an
+authorized configuration reader; put credentials in the declared providers.
+The optional digest makes
+an edit conditional on the document a caller reviewed. `doctor --fix` is
+limited to safe local formatting corrections; it does not repair provider,
+identity, service, or deployment configuration.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-overview-dark.svg">
@@ -47,7 +128,11 @@ This is an early implementation. A compiled adapter is not proof of live-provide
 | Offline | Provisioned static values from local, approved artifacts | No central per-read audit or immediate remote revocation. |
 | Online | Fresh provider retrieval or unwrap at each launch | Startup depends on the provider; auditing depends on the actual backend configuration. |
 | Hybrid | Online retrieval with an explicitly approved encrypted fallback | Only qualifying availability failures permit fallback. Denial, TLS failure, malformed data, and expiry do not. |
-| Deployed snapshot | One-way publication into a platform's native store | Destination permissions, rotation, and audit behavior apply to the copy. |
+
+A deployed snapshot is a delivery workflow for an offline or hybrid workload,
+not a fourth availability mode. One-way publication into a platform's native
+store gives the destination's permissions, rotation, and audit behavior to the
+copy.
 
 Already delivered values cannot be recalled from process memory, old ciphertext, or an authorized client. Removing a recipient is not a substitute for rotating a compromised credential at its issuer.
 
@@ -100,6 +185,10 @@ Self-reported agent names are not identity. Strong separation between agents sha
 
 ## Design and evidence
 
+- [Configuration reference](docs/configuration.md) and [complete Linux deployment example](examples/linux-deployment.json)
+- [Platform and architecture matrix](docs/platform-support.md)
+- [Credential and native-store boundaries](docs/credential-boundaries.md)
+- [Hosted identity and application connections](docs/hosted-identity.md)
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Security model](docs/threat-model.md)
 - [Assurance contract](docs/assurance.md)
@@ -107,7 +196,7 @@ Self-reported agent names are not identity. Strong separation between agents sha
 - [Provider interoperability](docs/providers.md)
 - [Security reporting](SECURITY.md)
 
-The target is clean first-party analysis, meaningful coverage, and reproducible evidence. Published metrics must identify the commit, tools, rules, platform scope, and remaining upstream advisories. No audit badge should imply a test that was not run.
+The target is clean first-party analysis, meaningful coverage, and reproducible evidence. The receipt badges above link to exact bounded results; they do not represent a release gate, a complete audit, or current-head qualification. Published metrics must identify the commit, tools, rules, platform scope, and remaining upstream advisories.
 
 ## Related work
 
