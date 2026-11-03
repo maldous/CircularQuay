@@ -15,14 +15,15 @@ import (
 )
 
 func TestDoctorDependenciesClassifiesOnlyDeclaredAbsolutePaths(t *testing.T) {
-	dependencies := doctorDependencies([]string{"relative-tool", "/definitely/missing/cquay-tool", "relative-tool"})
+	missing := filepath.Join(t.TempDir(), "missing-cquay-tool")
+	dependencies := doctorDependencies([]string{"relative-tool", missing, "relative-tool"})
 	if len(dependencies) != 2 || dependencies[0].State != "invalid_name" || dependencies[1].State != "missing" {
 		t.Fatal("doctor dependency classification changed")
 	}
 }
 
 func TestDoctorMetadataDoesNotReadMissingFile(t *testing.T) {
-	metadata := doctorMetadata([]string{"/definitely/missing/cquay-bootstrap"})
+	metadata := doctorMetadata([]string{filepath.Join(t.TempDir(), "missing-cquay-bootstrap")})
 	if len(metadata) != 1 || metadata[0].Kind != "protected_file" || metadata[0].State != "missing" {
 		t.Fatal("doctor metadata classification changed")
 	}

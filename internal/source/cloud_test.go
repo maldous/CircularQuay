@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -148,20 +146,9 @@ func syntheticTenantToken(t *testing.T, tenant string) string {
 
 func privateCloudTokenFile(t *testing.T) string {
 	t.Helper()
-	base := t.TempDir()
-	if runtime.GOOS != "windows" {
-		base = "/tmp"
-	}
-	directory, err := os.MkdirTemp(base, "cquay-cloud-test-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(directory) })
-	if err = platform.EnsurePrivateDirectory(directory); err != nil {
-		t.Fatal(err)
-	}
+	directory := privateSourceDirectory(t, "cloud")
 	path := filepath.Join(directory, "token")
-	if err = os.WriteFile(path, []byte("synthetic-token"), 0o600); err != nil {
+	if err := platform.WriteProtected(path, []byte("synthetic-token")); err != nil {
 		t.Fatal(err)
 	}
 	return path

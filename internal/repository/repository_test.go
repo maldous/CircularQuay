@@ -2,10 +2,15 @@ package repository
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -15,6 +20,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/maldous/CircularQuay/internal/quota"
+	"golang.org/x/crypto/ssh"
 )
 
 func privateRepositoryDirectory(t *testing.T, name string) string {
@@ -346,29 +352,107 @@ type signedRepositoryFixture struct {
 
 func newSignedRepositoryFixture(t *testing.T) signedRepositoryFixture {
 	t.Helper()
+	git := fixtureGit(t)
+	root := privateRepositoryDirectory(t, "signed-repository")
+	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
+	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
+	if err := os.Mkdir(fixture.remote, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixture.writeSigningKey(t)
+	fixture.invoke(t, git, "init", "--quiet", "--object-format=sha1", "--initial-branch=data")
+	fixture.writeToken(t)
+	return fixture
+}
+
+func fixtureGit(t *testing.T) string {
+	t.Helper()
 	git, err := exec.LookPath("git")
 	if err != nil {
 		t.Skip("Git required for signed repository fixture")
 	}
-	keygen, err := exec.LookPath("ssh-keygen")
-	if err != nil {
-		t.Skip("OpenSSH required for signed repository fixture")
+	if err := platform.ValidateExecutable(git); err != nil {
+		t.Fatalf("fixture Git is not trusted: %v; %s", err, executableTrustDiagnostic(git))
 	}
-	root := privateRepositoryDirectory(t, "signed-repository")
-	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
-	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
-	if err = os.Mkdir(fixture.remote, 0700); err != nil {
+	return git
+}
+
+// executableTrustDiagnostic is emitted only when the fixture refuses the
+// resolved Git binary. It includes filesystem metadata needed to diagnose an
+// untrusted ancestor without reading credentials, environment values, or file
+// contents. Reflection keeps the test cross-compiled where UID metadata is
+// represented differently or unavailable.
+func executableTrustDiagnostic(path string) string {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return fmt.Sprintf("look_path=%q resolve_error=%q", path, err)
+	}
+	var result strings.Builder
+	fmt.Fprintf(&result, "look_path=%q resolved_path=%q", path, resolved)
+	for current := resolved; ; current = filepath.Dir(current) {
+		fmt.Fprintf(&result, "; %s", pathMetadataDiagnostic(current))
+		parent := filepath.Dir(current)
+		if parent == current {
+			return result.String()
+		}
+	}
+}
+
+func pathMetadataDiagnostic(path string) string {
+	lstat, lstatErr := os.Lstat(path)
+	stat, statErr := os.Stat(path)
+	return fmt.Sprintf("path=%q lstat=%s stat=%s", path, fileMetadataDiagnostic(lstat, lstatErr), fileMetadataDiagnostic(stat, statErr))
+}
+
+func fileMetadataDiagnostic(info os.FileInfo, err error) string {
+	if err != nil {
+		return fmt.Sprintf("error=%q", err)
+	}
+	return fmt.Sprintf("mode=%s uid=%s", info.Mode(), metadataUID(info))
+}
+
+func metadataUID(info os.FileInfo) string {
+	value := reflect.ValueOf(info.Sys())
+	if value.Kind() == reflect.Pointer && !value.IsNil() {
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return "unavailable"
+	}
+	uid := value.FieldByName("Uid")
+	if !uid.IsValid() {
+		return "unavailable"
+	}
+	switch uid.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", uid.Uint())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", uid.Int())
+	default:
+		return "unavailable"
+	}
+}
+
+// writeSigningKey creates an OpenSSH-compatible key in process memory. Git
+// still delegates signing and verification to its native SSH implementation;
+// generating the fixture this way avoids platform-specific ssh-keygen CLI
+// parsing, notably the empty-passphrase invocation on Windows.
+func (f signedRepositoryFixture) writeSigningKey(t *testing.T) {
+	t.Helper()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.invoke(t, keygen, "-q", "-t", "ed25519", "-N", "", "-f", fixture.key)
-	publicKey, err := os.ReadFile(fixture.key + ".pub")
+	privateBlock, err := ssh.MarshalPrivateKey(private, "synthetic fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeProtectedRepositoryFixture(t, fixture.signers, append([]byte("fixture "), publicKey...))
-	fixture.invoke(t, git, "init", "--quiet", "--object-format=sha1", "--initial-branch=data")
-	fixture.writeToken(t)
-	return fixture
+	publicKey, err := ssh.NewPublicKey(public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProtectedRepositoryFixture(t, f.key, pem.EncodeToMemory(privateBlock))
+	writeProtectedRepositoryFixture(t, f.signers, append([]byte("fixture "), ssh.MarshalAuthorizedKey(publicKey)...))
 }
 
 func (f signedRepositoryFixture) invoke(t *testing.T, program string, args ...string) string {

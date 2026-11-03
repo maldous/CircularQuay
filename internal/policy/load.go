@@ -111,16 +111,26 @@ func containsJSONNull(value any) bool {
 	case nil:
 		return true
 	case []any:
-		for _, item := range value {
-			if containsJSONNull(item) {
-				return true
-			}
-		}
+		return sliceContainsJSONNull(value)
 	case map[string]any:
-		for _, item := range value {
-			if containsJSONNull(item) {
-				return true
-			}
+		return mapContainsJSONNull(value)
+	}
+	return false
+}
+
+func sliceContainsJSONNull(values []any) bool {
+	for _, value := range values {
+		if containsJSONNull(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func mapContainsJSONNull(values map[string]any) bool {
+	for _, value := range values {
+		if containsJSONNull(value) {
+			return true
 		}
 	}
 	return false

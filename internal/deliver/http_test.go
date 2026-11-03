@@ -14,15 +14,33 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func deliveryToken(t *testing.T) string {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(p, []byte("synthetic-token"), 0600); err != nil {
+	p := filepath.Join(privateDeliveryDirectory(t), "token")
+	if err := platform.WriteProtected(p, []byte("synthetic-token")); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+func privateDeliveryDirectory(t *testing.T) string {
+	t.Helper()
+	base, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory, err := os.MkdirTemp(base, "cquay-delivery-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	if err = platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
 }
 func generation() model.Generation {
 	return model.Generation{Workload: "synthetic", Values: map[string]model.Value{"KEY": {Data: "synthetic-value"}}}

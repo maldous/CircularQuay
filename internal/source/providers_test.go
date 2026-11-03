@@ -55,7 +55,7 @@ func tokenFixture(t *testing.T) string {
 	t.Helper()
 	directory := privateSourceDirectory(t, "credential")
 	p := filepath.Join(directory, "token")
-	if err := os.WriteFile(p, []byte("synthetic-token"), 0600); err != nil {
+	if err := platform.WriteProtected(p, []byte("synthetic-token")); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -221,7 +221,7 @@ func testJSONLiteralSource(t *testing.T) {
 	file := privateLiteralFile(t, "values.json")
 	write := func(s string) {
 		t.Helper()
-		if err := os.WriteFile(file, []byte(s), 0600); err != nil {
+		if err := platform.WriteProtected(file, []byte(s)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -257,7 +257,7 @@ func testEnvironmentLiteralSource(t *testing.T) {
 	file := privateLiteralFile(t, "values.env")
 	write := func(s string) {
 		t.Helper()
-		if err := os.WriteFile(file, []byte(s), 0600); err != nil {
+		if err := platform.WriteProtected(file, []byte(s)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -288,10 +288,15 @@ func privateLiteralFile(t *testing.T, name string) string {
 
 func privateSourceDirectory(t *testing.T, name string) string {
 	t.Helper()
-	root, err := filepath.EvalSymlinks(t.TempDir())
+	base, err := filepath.EvalSymlinks(os.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	root, err := os.MkdirTemp(base, "cquay-source-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
 	directory := filepath.Join(root, name)
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
@@ -354,7 +359,7 @@ func unsafeParentLiteralFile(t *testing.T, marker string) string {
 
 func writeLiteralMarker(t *testing.T, path, marker string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(`{"KEY":"`+marker+`"}`), 0o600); err != nil {
+	if err := platform.WriteProtected(path, []byte(`{"KEY":"`+marker+`"}`)); err != nil {
 		t.Fatal(err)
 	}
 }

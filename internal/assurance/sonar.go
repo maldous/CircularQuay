@@ -320,16 +320,7 @@ func randomSecret() (string, error) {
 }
 
 func writeNewPrivate(path string, data []byte) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return errors.New("private state creation failed")
-	}
-	_, writeErr := file.Write(data)
-	closeErr := file.Close()
-	if writeErr != nil || closeErr != nil {
-		return errors.New("private state write failed")
-	}
-	return nil
+	return platform.CreateProtectedExclusive(path, data)
 }
 
 // BootstrapSonar initializes only a dedicated loopback test server, never an arbitrary remote instance.

@@ -57,16 +57,7 @@ func (a application) initialize(args []string) (int, error) {
 }
 
 func writeNew(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return fault.New(fault.Apply, "create file")
-	}
-	_, w := f.Write(data)
-	c := f.Close()
-	if w != nil || c != nil {
-		return fault.New(fault.Apply, "write file")
-	}
-	return nil
+	return platform.CreateProtectedExclusive(path, data)
 }
 
 func (a application) plan() (int, error) {

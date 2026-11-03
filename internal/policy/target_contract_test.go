@@ -9,7 +9,7 @@ import (
 )
 
 func TestTargetContractsAcceptImplementedShapes(t *testing.T) {
-	nativePath := filepath.Join(string(filepath.Separator), "protected", "target")
+	nativePath := filepath.Join(t.TempDir(), "protected", "target")
 	for name, target := range map[string]model.Target{
 		"file":       {Type: "file", Path: nativePath, AcceptSnapshot: true},
 		"systemd":    {Type: "systemd", Path: nativePath, Service: "demo.service", Activation: "reload", AcceptSnapshot: true},
@@ -27,7 +27,7 @@ func TestTargetContractsAcceptImplementedShapes(t *testing.T) {
 }
 
 func TestTargetContractsRejectIgnoredOrIncompleteFields(t *testing.T) {
-	nativePath := filepath.Join(string(filepath.Separator), "protected", "target")
+	nativePath := filepath.Join(t.TempDir(), "protected", "target")
 	cases := map[string]model.Target{
 		"file_remote_token":              {Type: "file", Path: nativePath, TokenFile: nativePath},
 		"file_activation":                {Type: "file", Path: nativePath, Activation: "none"},

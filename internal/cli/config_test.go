@@ -119,7 +119,11 @@ func TestConfigRejectsInvalidMutationInputsWithoutChangingPolicy(t *testing.T) {
 func TestConfigCommandsDoNotReadDeclaredSources(t *testing.T) {
 	config := configFixture(t)
 	missingSource := filepath.Join(filepath.Dir(config), "provider-input-does-not-exist.json")
-	out := runConfig(t, config, nil, "config", "set", "--pointer", "/sources/fixture/path", "--value-json", `"`+missingSource+`"`)
+	pathJSON, err := json.Marshal(missingSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := runConfig(t, config, nil, "config", "set", "--pointer", "/sources/fixture/path", "--value-json", string(pathJSON))
 	if outputState(t, out) != "updated" {
 		t.Fatalf("set response: %s", out)
 	}

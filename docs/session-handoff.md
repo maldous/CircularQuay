@@ -12,7 +12,7 @@ Do not claim a passed gate without its retained evidence.
   binary, release-asset prefix, and skill are `cquay` ("c-key");
   `cquay-audit` is separate.
 - Development branch: `feature/initial-implementation`. This continuation
-  builds on `c2b929c7c2ad66ae8c05ca1740192d93dbe208a3`; use `git rev-parse HEAD`
+  includes `960ef56f458da9b245152c185b1ef641536eb4f8`; use `git rev-parse HEAD`
   and `git status` to establish the actual checkpoint and subsequent changes.
 - Read [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md),
   the durable [implementation plan](implementation-plan.md), and
@@ -68,7 +68,7 @@ the README without a user-directed reason.
 ## Recent local evidence
 
 The retained frozen-source receipts are under
-`.local/qualification/checkpoint2-20261104/`. Before/after Go, module and schema
+`.local/qualification/checkpoint3-20261104/`. Before/after Go, module and schema
 hash manifests match. These are local evidence for this checkpoint's source,
 not release evidence.
 Using a fresh owner-only temporary directory under root-owned sticky `/tmp`,
@@ -84,25 +84,37 @@ gate remains unchanged and is not met by the last published CI receipt.
 
 ## Qualification and release blockers
 
-The completed SonarQube Compute Engine analysis for `c2b929c`,
-`47a5039c-2699-4a65-80db-839236cfc09c`, has quality gate ERROR: 11 code smells, 72.8%
-overall coverage, 75.0% new coverage, zero reported bugs/vulnerabilities/
-hotspots/duplication, and one analysis warning. Later Sonar remediations and
-adversarial test additions require an exact-candidate recheck.
+The Compute Engine task for revision `960ef56f458da9b245152c185b1ef641536eb4f8`
+(tree `528f00015df464c210f32ab90efd8deb8650d762`) succeeded with analysis ID
+`8971b6dd-6cd6-4d55-96ac-acc91cd39af2`,
+but its quality gate is ERROR: one `containsJSONNull` complexity code smell,
+75.2% overall coverage, 78.7% new-line coverage, zero reported bugs/
+vulnerabilities/hotspots/duplication, and one analysis-token expiry warning.
+Later code fixes require an exact-candidate Sonar recheck.
 Sonar, full unchanged coverage, live providers, native reboot/recovery,
 installers, registry publication, and independent audit remain incomplete.
 
-GitHub source run 41649406181 at `c2b929c` passed its Linux synthetic job and
-all 26 cross-builds, but Windows fixtures/timing, macOS temporary-directory
-aliases, and the 78.971476% unchanged source-coverage gate failed. The
-advanced CodeQL transition was user-approved and run 41649406421 completed
-build/analyze/upload; it is not an audit or zero-alert assertion. Its gosec job
-failed with 17 unsuppressed findings. G115/G118 remediations have passed their
-local checks; the complete security workflow still requires a fresh recheck.
+GitHub source run 41655349719 at PR merge
+`f925adb284b5f077c64d221fd63493e10bfc3f50` passed Linux normal tests and vet;
+20 cross-build jobs succeeded and six were cancelled. Native Windows still
+failed CLI/policy/repository fixtures, although platform/source/deliver/
+assurance packages passed including DACL coverage. macOS still failed
+canonical-fixture, executable-trust, and case-collision cases. Source assurance
+failed its unchanged coverage gate at 3,924/4,823 statements (81.360149%).
+Security run 41655349752 completed CodeQL build/analyze/upload and passed
+Staticcheck/govulncheck, but gosec failed with 14 unsuppressed findings.
+The G115, G118, and local-JSON G304 fixes are in revision `960`, which
+supersedes the earlier 17-finding receipt. Anchored exclusive-create and
+`OpenProtected` coverage changes are newer working-tree changes and require a
+full rerun.
 
-Cross-build/package work is build evidence only. Native Windows/macOS/Linux
-runtime, restart/recovery, installer, signed artifact, anonymous download,
-SBOM/provenance, and registry qualification still require real evidence. The
+The snapshot at revision `960` contains 25 native archives plus one source
+archive (26 total) with exact checksum/provenance evidence; its Linux smoke is
+only a smoke test, not production qualification. Cross-build/package work is
+build evidence only.
+Native Windows/macOS/Linux runtime, restart/recovery, installer, signed
+artifact, anonymous download, SBOM/provenance, and registry qualification still
+require real evidence. The
 signed repository declaration is not a claim that `sync` can fetch/deploy it
 until its integration, quota, recovery, and adverse-path qualification are
 complete.
@@ -114,12 +126,30 @@ from default setup. Verify settings by read-back after any administrative change
 administrative writes returned HTTP 403; record permission gaps rather than
 bypassing them.
 
+The current continuation adds exclusive protected file creation for `init` and
+Sonar test credentials: it validates the parent, anchors creation through
+`os.Root`, refuses existing names, applies native protection before writing,
+and syncs the file and directory. Audit coverage is opened through the protected
+file boundary. Concurrent-creator, no-clobber, cleanup-identity, usable-init,
+and Windows DACL tests cover the new behavior; native rechecks remain required.
+Initialization writes a synthetic fixture and policy separately; a failure
+between those creations can leave the synthetic fixture and is not reported
+as successful initialization.
+
+The native fixture corrections use JSON encoding for Windows paths, canonical
+temporary roots for macOS, and in-memory synthetic signing-key generation while
+retaining real Git signing/verification. Case-collision decisions have a pure
+cross-platform oracle plus filesystem integration where distinct names are
+representable. The Unix executable-alias test now creates the alias rather
+than assuming a `/bin/true` layout. Native macOS CI prefers the protected OS
+Git/OpenSSH paths; a rejected helper reports only sanitized file metadata.
+
 The current continuation also hardens native policy and literal-source reads,
 adds schema/Parse parity regressions and cloud/CLI/doctor negative tests, repairs
 relative/default-path config replacement, and corrects native test fixtures.
-Windows directory ACL inheritance now preserves the private allowed principals
-for ordinary child creation; its Windows-native tests still need the next CI
-run. The bounded Go engineering review found the config-repair defect, which
+Windows directory ACL inheritance preserves the private allowed principals
+for ordinary child creation; these tests passed in the native Windows package
+run at revision `960`. The new exclusive-create DACL tests require a fresh run. The bounded Go engineering review found the config-repair defect, which
 failed both regression cases before the fix and passed afterward. This is a
 scoped review, not the independent managed security recheck or release audit.
 

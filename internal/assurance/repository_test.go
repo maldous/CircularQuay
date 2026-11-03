@@ -47,32 +47,84 @@ func fixtureRepository(t *testing.T) string {
 
 func TestRepositoryPolicy(t *testing.T) {
 	root := fixtureRepository(t)
+	assertRepositoryPasses(t, root)
+	assertGitDirectoryIgnored(t, root)
+	assertFilesystemCaseCollision(t, root)
+	assertMissingMetadataRejected(t, root)
+}
+
+func assertRepositoryPasses(t *testing.T, root string) {
+	t.Helper()
 	if result := repositoryCheck(root); result.Status != "passed" {
 		t.Fatalf("valid fixture rejected: %+v", result)
 	}
+}
+
+func assertGitDirectoryIgnored(t *testing.T, root string) {
+	t.Helper()
 	if err := os.Mkdir(filepath.Join(root, ".git"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, ".git", "invalid:name"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if result := repositoryCheck(root); result.Status != "passed" {
-		t.Fatal("git internals were scanned")
+	assertRepositoryPasses(t, root)
+}
+
+func assertFilesystemCaseCollision(t *testing.T, root string) {
+	t.Helper()
+	if !fixtureSupportsDistinctCaseNames(t, root) {
+		return
 	}
-	if runtime.GOOS != "windows" {
-		if err := platform.WriteProtected(filepath.Join(root, "Main.go"), nil); err != nil {
+	if result := repositoryCheck(root); result.Code != "repository_naming_violation" {
+		t.Fatal("case collision accepted")
+	}
+	for _, name := range []string{"case-probe", "CASE-PROBE"} {
+		if err := os.Remove(filepath.Join(root, name)); err != nil {
 			t.Fatal(err)
 		}
-		if result := repositoryCheck(root); result.Code != "repository_naming_violation" {
-			t.Fatal("case collision accepted")
-		}
 	}
+}
+
+func assertMissingMetadataRejected(t *testing.T, root string) {
+	t.Helper()
 	if err := os.Remove(filepath.Join(root, "README.md")); err != nil {
 		t.Fatal(err)
 	}
 	if result := repositoryCheck(root); result.Code != "required_metadata_missing" {
 		t.Fatal("missing metadata accepted")
 	}
+}
+
+func TestCaseCollisionInvariant(t *testing.T) {
+	seen := map[string]bool{}
+	if !uniqueAssetPath(seen, "cmd/cquay/main.go") {
+		t.Fatal("first portable path rejected")
+	}
+	if uniqueAssetPath(seen, "cmd/cquay/Main.go") {
+		t.Fatal("case-folded collision accepted")
+	}
+}
+
+func fixtureSupportsDistinctCaseNames(t *testing.T, root string) bool {
+	t.Helper()
+	lower := filepath.Join(root, "case-probe")
+	upper := filepath.Join(root, "CASE-PROBE")
+	if err := platform.WriteProtected(lower, []byte("synthetic\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(upper); err == nil {
+		if removeErr := os.Remove(lower); removeErr != nil {
+			t.Fatal(removeErr)
+		}
+		return false
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if err := platform.WriteProtected(upper, []byte("synthetic\n")); err != nil {
+		t.Fatal(err)
+	}
+	return true
 }
 
 func TestAssetNames(t *testing.T) {

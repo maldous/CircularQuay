@@ -85,6 +85,9 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          # Exercise Apple's protected Git/OpenSSH installation rather than a
+          # package-manager helper under a potentially mutable PATH ancestor.
+          export PATH="/usr/bin:/bin:$PATH"
           go test -count=1 -p 1 ./...
   native-windows:
     name: Windows synthetic tests

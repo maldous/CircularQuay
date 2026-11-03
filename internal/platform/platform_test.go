@@ -328,8 +328,12 @@ func testExecutableDigest(t *testing.T) string {
 func testUnixExecutableTrust(t *testing.T, exe string) {
 	t.Helper()
 	if runtime.GOOS != "windows" {
-		if err := ValidateExecutable("/bin/true"); err != nil {
-			t.Fatal("stable system executable alias rejected")
+		alias := filepath.Join(secureTempDir(t), "trusted-helper-link")
+		if err := os.Symlink(exe, alias); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateExecutable(alias); err != nil {
+			t.Fatal("trusted executable alias rejected")
 		}
 		unsafe := filepath.Join(secureTempDir(t), "unsafe-helper")
 		if err := os.WriteFile(unsafe, []byte("synthetic"), 0o666); err != nil {

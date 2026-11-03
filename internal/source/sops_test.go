@@ -83,10 +83,7 @@ func writeSOPSTestPlaintext(value map[string]json.RawMessage) int {
 
 func sopsFixture(t *testing.T, metadata string) (model.Source, string) {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "sops")
-	if err := platform.EnsurePrivateDirectory(directory); err != nil {
-		t.Fatal(err)
-	}
+	directory := privateSourceDirectory(t, "sops")
 	file := filepath.Join(directory, "fixture.json")
 	data := []byte(`{"sops":` + metadata + `,"test_data":{"KEY":"synthetic-only"}}`)
 	if err := platform.WriteProtected(file, data); err != nil {
@@ -114,7 +111,7 @@ func TestSOPSReaderIsolatedAge(t *testing.T) {
 
 func TestSOPSRejectsMetadataBeforeToken(t *testing.T) {
 	config, _ := sopsFixture(t, `{"mac":"fake","hc_vault":[{"vault_address":"https://evil.invalid","engine_path":"transit","key_name":"other"}]}`)
-	config.TokenFile = filepath.Join(t.TempDir(), "nonexistent-token")
+	config.TokenFile = filepath.Join(privateSourceDirectory(t, "missing-token"), "nonexistent-token")
 	config.VaultAllowlist = []string{"https://approved.invalid"}
 	config.VaultKeys = []string{"transit/workload"}
 	_, err := (SOPSReader{}).Read(context.Background(), config, model.Binding{Name: "KEY"})
@@ -186,10 +183,7 @@ func TestSnapshotMockRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory := filepath.Join(t.TempDir(), "snapshot")
-	if err := platform.EnsurePrivateDirectory(directory); err != nil {
-		t.Fatal(err)
-	}
+	directory := privateSourceDirectory(t, "snapshot")
 	config := model.Snapshot{Path: filepath.Join(directory, "snapshot.json"), Recipients: []string{"age1synthetic"}, SOPS: exe}
 	want := map[string]string{"KEY": "synthetic\nUnicode-✓-$()"}
 	if err := EncryptSnapshot(context.Background(), config, want); err != nil {
@@ -210,31 +204,28 @@ func TestSnapshotMockRoundTrip(t *testing.T) {
 }
 
 func TestSOPSEnvironmentValidation(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "sops")
-	if err := platform.EnsurePrivateDirectory(directory); err != nil {
-		t.Fatal(err)
-	}
+	directory := privateSourceDirectory(t, "sops-environment")
 	file := filepath.Join(directory, "secret")
 	if err := platform.WriteProtected(file, []byte("synthetic")); err != nil {
 		t.Fatal(err)
 	}
-	env, err := sopsEnvironment(t.TempDir(), file, "", nil)
+	env, err := sopsEnvironment(privateSourceDirectory(t, "sops-home"), file, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(strings.Join(env, "\n"), "SOPS_AGE_KEY_FILE=") {
 		t.Fatal("explicit identity omitted")
 	}
-	if _, err := sopsEnvironment(t.TempDir(), "", file, nil); !fault.Is(err, fault.Trust) {
+	if _, err := sopsEnvironment(privateSourceDirectory(t, "sops-home"), "", file, nil); !fault.Is(err, fault.Trust) {
 		t.Fatal("unscoped token accepted")
 	}
-	if _, err := sopsEnvironment(t.TempDir(), "", file, []string{"http://evil.invalid"}); !fault.Is(err, fault.Trust) {
+	if _, err := sopsEnvironment(privateSourceDirectory(t, "sops-home"), "", file, []string{"http://evil.invalid"}); !fault.Is(err, fault.Trust) {
 		t.Fatal("untrusted endpoint accepted")
 	}
 	if err := platform.WriteProtected(file, []byte("one\ntwo")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sopsEnvironment(t.TempDir(), "", file, []string{"https://approved.invalid"}); !fault.Is(err, fault.Invalid) {
+	if _, err := sopsEnvironment(privateSourceDirectory(t, "sops-home"), "", file, []string{"https://approved.invalid"}); !fault.Is(err, fault.Invalid) {
 		t.Fatal("multiline token accepted")
 	}
 }
@@ -252,7 +243,7 @@ func TestSOPSExecutableRequired(t *testing.T) {
 	if !fault.Is(err, fault.Unsupported) {
 		t.Fatal("PATH executable accepted")
 	}
-	_, err = runSOPS(context.Background(), filepath.Join(t.TempDir(), "missing"), nil, nil, "", "", nil)
+	_, err = runSOPS(context.Background(), filepath.Join(privateSourceDirectory(t, "missing-executable"), "missing"), nil, nil, "", "", nil)
 	if !fault.Is(err, fault.Unsupported) {
 		t.Fatal("missing executable accepted")
 	}
@@ -266,7 +257,7 @@ func TestSOPSRealAgeRoundTrip(t *testing.T) {
 	if !ok {
 		t.Skip("verified upstream SOPS and age-keygen executables not configured")
 	}
-	dir := t.TempDir()
+	dir := privateSourceDirectory(t, "real-sops")
 	identity := filepath.Join(dir, "identity.txt")
 	recipient := makeSyntheticIdentity(t, dir, ageKeygen, identity)
 	config := model.Snapshot{Path: filepath.Join(dir, "snapshot.json"), SOPS: sops, Recipients: []string{recipient}, IdentityFile: identity}

@@ -18,9 +18,9 @@ import (
 
 func privatePolicyDirectory(t *testing.T) string {
 	t.Helper()
-	base := t.TempDir()
-	if runtime.GOOS != "windows" {
-		base = "/tmp"
+	base, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
 	directory, err := os.MkdirTemp(base, "cquay-policy-test-")
 	if err != nil {
@@ -144,6 +144,26 @@ func TestDecodeRejectsAmbiguousPolicies(t *testing.T) {
 	var result model.Policy
 	if err := decodePolicy(invalidUTF8, &result); err == nil {
 		t.Fatal("invalid UTF-8 policy accepted")
+	}
+}
+
+func TestJSONNullDetectionTraversesArraysAndObjects(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		data string
+		want bool
+	}{
+		{"scalar", `{"value":"present"}`, false},
+		{"array", `{"value":["present",null]}`, true},
+		{"object", `{"value":{"nested":null}}`, true},
+		{"nested", `{"value":[{"nested":[null]}]}`, true},
+		{"malformed", `{`, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := hasJSONNull([]byte(test.data)); got != test.want {
+				t.Fatalf("hasJSONNull() = %t, want %t", got, test.want)
+			}
+		})
 	}
 }
 

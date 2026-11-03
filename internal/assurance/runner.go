@@ -173,7 +173,7 @@ func metadataCheck(name string, valid bool) Check {
 
 func coverageCheck(filename string, result *Coverage) Check {
 	check := Check{Name: "statement_coverage", Required: true, Status: "failed", Code: "coverage_missing_or_invalid"}
-	file, err := os.Open(filename)
+	file, err := platform.OpenProtected(filename, false)
 	if err != nil {
 		return check
 	}

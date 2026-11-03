@@ -54,12 +54,22 @@ func (v assetValidator) visit(name string, entry fs.DirEntry, walkErr error) err
 	if !validAssetName(entry.Name()) {
 		return errors.New("invalid asset name")
 	}
-	folded := strings.ToLower(filepath.ToSlash(relative))
-	if v.seen[folded] {
+	if !uniqueAssetPath(v.seen, relative) {
 		return errors.New("case collision")
 	}
-	v.seen[folded] = true
 	return nil
+}
+
+// uniqueAssetPath records a portable, case-insensitive repository path.
+// Repositories must be valid on filesystems which fold case even when the
+// current checkout filesystem retains distinct case variants.
+func uniqueAssetPath(seen map[string]bool, relative string) bool {
+	folded := strings.ToLower(filepath.ToSlash(relative))
+	if seen[folded] {
+		return false
+	}
+	seen[folded] = true
+	return true
 }
 
 func sourceFiles(root string) ([]string, error) {
