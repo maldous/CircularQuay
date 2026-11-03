@@ -122,43 +122,155 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 
 This is an early implementation. A compiled adapter is not proof of live-provider compatibility, a passing unit test is not a reboot test, and a clean scanner is not a security certification. The [qualification matrix](docs/qualification.md) separates implementation from operational evidence.
 
+## Start with a configuration repository
+
+A shared GitHub repository is a straightforward starting point for a developer
+or a CI job. Its public configuration describes providers, resource references,
+workloads, and policy; secret values and bootstrap credentials stay outside it.
+Give `cquay` a repository, tree, or file URL and select the configuration:
+
+```sh
+cquay bootstrap \
+  --config-source https://github.com/example-org/cquay-config/tree/main/github \
+  --config-path cquay.json \
+  --output ./cquay.json
+```
+
+Replace the example organization, repository, and path with your own. A tree URL
+selects a directory; `--config-path` selects the file within it. A file URL can
+select the file directly. `--config-ref FULL_COMMIT_SHA` pins an exact revision.
+When a branch or tag is supplied, `cquay` resolves and records its commit and
+configuration digest before use. Updates are revalidated against the enrolled
+repository and signing policy. Public readability does not grant permission to
+change local trust, retrieve secrets, execute a workload, or install a service.
+
+### Use the same configuration in GitHub Actions
+
+With a verified `cquay` binary on the runner's PATH, a job can select its
+configuration through the environment and run a declared workload:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CQUAY_CONFIG_SOURCE: https://github.com/example-org/cquay-config/tree/main/github
+      CQUAY_CONFIG_PATH: cquay.json
+    steps:
+      - name: Run the configured build
+        run: cquay flow run --workload ci-build --non-interactive
+```
+
+The configuration declares `ci-build` and its approved command. The job's
+workload identity is verified against the configured issuer, audience,
+repository, ref, and environment before any protected value is delivered.
+[`id-token: write`](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers) permits requesting an identity token; access still requires
+the receiving authority's explicit policy. An optional identity integration
+uses that token; standalone configurations use their declared provider trust.
+
+The source URL can also come from a GitHub repository or environment variable,
+or from an earlier step that writes `CQUAY_CONFIG_SOURCE` to `$GITHUB_ENV`.
+GitHub [makes that file's entries available to subsequent steps](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable). For an
+immutable configuration, also set `CQUAY_CONFIG_REF` to its full commit SHA.
+`cquay bootstrap --non-interactive --output ./cquay.json` materializes the
+selected configuration for later commands without putting secret values in it.
+
+Without an explicit source, `cquay` checks local configuration, then uses
+administrator-enrolled discovery. An authenticated configuration service or
+GitHub App can associate verified job claims with an approved configuration
+reference. A configured repository convention can supply the same reference.
+This enrollment is explicit: there is no universal GitHub configuration-service
+endpoint, and a public repository or runner environment is not its own trust
+anchor. DNS, device provisioning, and cloud metadata can supply verified hints;
+they cannot authorize access by themselves.
+
+[GitLab CI](https://docs.gitlab.com/ci/secrets/id_token_authentication/) and
+[Azure Pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints?view=azure-devops) use the same `cquay flow run` command and
+configuration settings with their respective job identities and environment
+mechanisms. Provider adapters detect the runner context, preserve explicit
+overrides, and support extensible discovery. Publishing values to later steps
+is an explicit policy-controlled operation through the CI provider's supported
+mechanism; the pipeline and subsequent steps then have access to those values.
+
+Explicit command options take precedence over `CQUAY_` configuration settings,
+then local configuration, then enrolled discovery. With no override, an
+existing local configuration is used before discovery. Provenance diagnostics
+show which source won without printing credentials. Overrides cannot widen an
+identity grant or bypass the enrolled trust policy. `cquay bootstrap` offers
+a text interface and browser or displayed-URL authentication when interaction
+is needed, and starts only services authorized by the selected enrollment.
+
 ## How CircularQuay fits with existing secret systems
 
-This is a product comparison, not a migration recommendation. Each system has
-its own authority model and operational evidence. Links point to the relevant
-vendor documentation rather than inferring capabilities from a product name.
+CircularQuay brings provider access, session setup, CI automation, native
+delivery, and agent permissions into one workload policy. The rows below show
+the capabilities together, including where existing tools already overlap.
 
-| Product | Authority and provider integration | Identity and time | Offline artifact |
-| --- | --- | --- | --- |
-| [OpenBao](https://openbao.org/docs/what-is-openbao/) | Store, policy, dynamic secrets, and revocation | [Auth policies and leases](https://openbao.org/docs/concepts/auth/) | [Agent cache](https://openbao.org/docs/agent-and-proxy/agent/caching/): partial offline support for cached tokens and leased secrets |
-| [Vault](https://developer.hashicorp.com/vault/docs) | Store, identity, dynamic credentials, and audit | [Managed identities and workload federation](https://developer.hashicorp.com/vault/docs) | Not assessed here |
-| [Infisical](https://infisical.com/docs/documentation/getting-started/introduction) | Store, rotation, certificates, and integrations | [Machine identities and per-server policy](https://infisical.com/blog/managing-secrets-mcp-servers) | [CLI runtime injection](https://infisical.com/blog/your-ai-coding-agent-is-reading-your-env-file) fetches at launch; no offline-artifact comparison claim |
-| [Doppler](https://docs.doppler.com/docs/service-tokens) | Project/config service-token access | Token governs access to one config | [Encrypted fallback file](https://docs.doppler.com/docs/automatic-fallbacks) |
-| [1Password](https://www.1password.dev/service-accounts) | Vault and action-scoped service accounts | Service-account access and usage reporting | Not assessed here |
-| [SOPS + age](https://getsops.io/) | Encrypted configuration artifact and recipient/key authority | Recipient or key-service authorization | Offline and online encryption modes |
-| **CircularQuay — v1 product contract** | Keep the chosen store authoritative; declare exact resources, fields, workloads, and delivery targets | Associate trusted identities, applications, contexts, operations, and expiry with local policy | Declared encrypted snapshot for offline or hybrid workload availability |
+**✓** = available in the described scope; **❌** = a documented gap, explained
+in its footnote; **—** = unknown, not established as equivalent, or outside the
+compared product's scope. A dash is not a claim that a feature is absent.
+Vendor features may require a particular edition, integration, or subscription.
 
-| Product | MCP, actions, and raw values | Platforms and delivery |
-| --- | --- | --- |
-| OpenBao | No MCP comparison claim made here | [Agent templates, process-environment injection, and Windows service mode](https://openbao.org/docs/agent-and-proxy/agent/) are documented |
-| Vault | [Official MCP server](https://developer.hashicorp.com/vault/ai/mcp-server/reference/protocols); its binary is documented as beta | Compatible OS/architecture is a deployment prerequisite for its MCP binary |
-| Infisical | [MCP-server injection](https://infisical.com/blog/managing-secrets-mcp-servers) keeps values in the server process rather than giving them to the model | Cloud or self-hosted deployment is documented |
-| Doppler | [Experimental MCP server](https://docs.doppler.com/docs/mcp): reads values and offers config/write operations; read-only mode limits tools while scoped API tokens enforce permissions | CLI fallback file and Kubernetes sync are documented separately |
-| 1Password | [SaaS Manager MCP](https://support.1password.com/saas-manager-mcp-server/) covers the separate SaaS Manager product and its APIs | [Platform-specific desktop requirements](https://support.1password.com/system-requirements/) and CLI delivery are documented |
-| SOPS + age | Encryption tool; no action or MCP interface claimed | Ciphertext works with offline identities or online key services |
-| **CircularQuay — v1 product contract** | Named status/action operations are separate from deliberate, exact-key raw-secret disclosure | Declared native delivery interfaces for Linux, macOS, and Windows |
+| Capability | CircularQuay | OpenBao[^compare-bao] | Vault[^compare-vault] | Infisical[^compare-infisical] | Doppler[^compare-doppler] | 1Password[^compare-onepassword] | SOPS + age[^compare-sops] |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Read multiple existing providers without migrating their values | ✓ | — | — | — | — | — | — |
+| Bind selected fields or secret references to workload variables | ✓ | ✓ | ✓ | — | — | ✓ | ✓ |
+| Resolve every required input before activating a complete generation | ✓ | — | — | — | — | — | — |
+| One-command configuration, authentication, and scoped shell bootstrap | ✓ | — | — | — | — | — | — |
+| Bootstrap from a public/private Git repository, tree, or file URL | ✓ | — | — | — | — | — | — |
+| Verify configuration revisions, signatures, and update provenance | ✓ | — | — | — | — | — | — |
+| Discover enrolled configuration through enterprise/device/cloud context | ✓ | — | — | — | — | — | — |
+| Explicit overrides with deterministic precedence and safe diagnostics | ✓ | — | — | — | — | — | — |
+| Schema-backed configuration CRUD and a validation/repair doctor | ✓ | — | — | — | — | — | — |
+| Scoped machine identities and noninteractive authentication | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Federate CI-issued identity tokens without a stored provider token | ✓ | ✓ | ✓ | ✓ | ✓ | — | — |
+| One flow command detects GitHub Actions, GitLab CI, or Azure Pipelines | ✓ | — | — | — | — | — | — |
+| Discover CI configuration from job context or an enrolled service | ✓ | — | — | — | — | — | — |
+| Policy-controlled delivery to the job process and optional later steps | ✓ | — | — | — | — | — | — |
+| Deliver credentials through a child-process environment | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Deliver through declared protected OS credential interfaces | ✓ | — | — | — | — | — | — |
+| One policy spans native services, containers, CI, and cloud targets | ✓ | — | — | — | — | — | — |
+| Encrypted offline configuration or fallback artifact | ✓ | — | — | — | ✓ | — | ✓ |
+| Offline approval binds identity, application, workload, and expiry | ✓ | — | — | — | ❌[^compare-offline-expiry] | — | — |
+| Hybrid fallback limited to approved availability failures | ✓ | — | — | — | — | — | — |
+| Optional enterprise IdP alongside standalone local-policy operation | ✓ | — | — | — | — | — | — |
+| Configurable contexts, scopes, roles, clients, and access windows | ✓ | — | — | — | — | — | — |
+| MCP integration for AI tools or secret administration | ✓ | — | ✓ | ✓ | ✓ | — | — |
+| Hosted remote MCP endpoint | ✓ | — | ❌[^compare-vault-remote] | — | — | — | — |
+| Run tool processes with credentials supplied outside prompt text | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Separate MCP action permissions and exact-key raw-read grants | ✓ | — | — | — | — | — | — |
+| MCP configuration CRUD, policy, grants, revocation, and audit | ✓ | — | — | — | — | — | — |
+| Audited agent-to-agent runtime delegation with scope and a deadline | ✓ | — | — | — | — | — | — |
+| Independent audit command and reproducible qualification evidence | ✓ | — | — | — | — | — | — |
 
-CircularQuay’s added boundary is the workload policy: it describes what may
-reach a named application, where it may be delivered, and whether online,
-offline, or hybrid availability is allowed. It does not make an upstream
-provider’s lease, token, or revocation stronger than that provider.
+The combination is CircularQuay's value: one configuration connects an approved
+identity and workload to existing providers, online or authorized offline use,
+and the right runtime delivery path. Stopping future delivery does not recall
+an already issued credential; its original provider controls revocation and
+expiry. Process injection describes how credentials reach a tool; it does not
+prevent that tool from disclosing them. Authorized raw-secret reads deliberately
+return plaintext. Release, implementation, and test receipts are recorded
+separately in the [qualification evidence](docs/qualification.md).
 
-Vendor cells above are **documented** claims; “Not assessed here” makes no
-absence claim. The **v1 product contract** row describes the intended
-product boundary, not a test receipt. The [qualification matrix](docs/qualification.md)
-records actual implementation and synthetic evidence; live-provider, native,
-and recovery behavior is **not verified**, while hosted IdP and advanced proof
-mechanisms remain **integration needed**.
+[^compare-bao]: OpenBao documents [JWT/OIDC authentication](https://openbao.org/docs/auth/jwt/), [field-selecting templates and process environments](https://openbao.org/docs/agent-and-proxy/agent/template/), and [agent caching](https://openbao.org/docs/agent-and-proxy/agent/caching/). Its cache covers managed tokens and leased secrets; this is not evidence of an equivalent portable, identity-bound offline approval.
+
+[^compare-vault]: Vault documents [JWT/OIDC federation](https://developer.hashicorp.com/vault/docs/auth/jwt), [agent field selection and runtime delivery](https://developer.hashicorp.com/vault/docs/agent-and-proxy/agent/template), and an [MCP server](https://developer.hashicorp.com/vault/ai/mcp-server). Its separate [Enterprise Agentic IAM](https://developer.hashicorp.com/vault/ai) also governs agent identities and delegated workflows; the dash in Vault's delegation cell does not deny that capability.
+
+[^compare-infisical]: Infisical documents [OIDC machine identities](https://infisical.com/docs/documentation/platform/identities/oidc-auth/general) and [credential injection into MCP servers](https://infisical.com/blog/managing-secrets-mcp-servers). The MCP mark includes this integration route; it does not imply that the example custom server provides every administration feature in this table.
+
+[^compare-doppler]: Doppler documents [scoped service tokens](https://docs.doppler.com/docs/service-tokens), [CI OIDC identities](https://docs.doppler.com/docs/service-account-identities), [encrypted fallback and runtime delivery](https://docs.doppler.com/docs/automatic-fallbacks), and an [experimental MCP server](https://docs.doppler.com/docs/mcp). OIDC identities require its Team or Enterprise plan. Its MCP interface includes raw-value reads and configuration writes.
+
+[^compare-onepassword]: This column compares 1Password Secrets Automation and CLI: [scoped service accounts](https://www.1password.dev/service-accounts) and [runtime secret references](https://www.1password.dev/cli/secrets-scripts). [SaaS Manager MCP](https://support.1password.com/saas-manager-mcp-server/) is a separate product/API and is not counted as a Secrets Automation MCP endpoint.
+
+[^compare-sops]: [SOPS](https://getsops.io/) supports encrypted files with offline age identities or online key services. Its CLI documents [selected-value extraction](https://getsops.io/docs/usage/common-operations/#extract-a-sub-part-of-a-document-tree) and [process injection](https://getsops.io/docs/usage/advanced/#passing-secrets-to-other-processes) with `exec-env`; these are encryption/runtime utilities, not evidence of a hosted policy or delegation service. The original key or provider still controls decryption authority.
+
+[^compare-offline-expiry]: Doppler's [fallback FAQ](https://docs.doppler.com/docs/automatic-fallbacks#faq) states that a fallback file can be used indefinitely and has no built-in expiry; an expiry check or cleanup needs additional work. This cross concerns that built-in offline deadline, not Doppler's online token lifetimes or an external enforcement layer.
+
+[^compare-vault-remote]: Vault's [MCP transport documentation](https://developer.hashicorp.com/vault/ai/mcp-server/reference/protocols) explicitly limits the documented server to local use. This cross describes that server's deployment scope, not Vault's remote APIs or Enterprise Agentic IAM.
 
 ## Choose an availability policy
 
@@ -413,11 +525,14 @@ qualification are incomplete. Use synthetic data only; see the
 
 All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
 PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
-need no policy. `version` identifies this working build as `1.0.0-dev`; it is
+need no policy. `bootstrap` and `flow run` can resolve configuration before a
+local policy exists. `version` identifies this working build as `1.0.0-dev`; it is
 not a release assertion.
 
 | Command | Usage and behavior |
 | --- | --- |
+| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--output PATH] [--non-interactive]` selects local or enrolled configuration, verifies remote references, and configures the authorized session. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, and `CQUAY_CONFIG_PATH`. |
+| CI flow | `cquay flow run --workload ID [--non-interactive]` detects the supported runner, resolves configuration and workload identity, then executes the approved workload. Explicit configuration-source options override discovery. |
 | Create | `cquay init [--output PATH]` or `cquay config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
 | Inspect configuration | `cquay config validate`; `cquay config get --pointer RFC6901`; `cquay config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |
 | Edit configuration | `cquay config set --pointer RFC6901 (--value-json JSON\|--value-file PATH\|-) [--expect-sha256 HEX]`; `cquay config delete --pointer RFC6901 [--expect-sha256 HEX]`; `cquay config replace --file PATH\|- [--expect-sha256 HEX]`. Values are JSON; `-` reads standard input; inputs are capped at 1 MiB. |
