@@ -227,3 +227,36 @@ func EncodeValues(gen model.Generation) ([]byte, error) {
 	}
 	return data, nil
 }
+
+// OpenLockFile opens an owner-controlled regular file for a native process lock.
+// The file must remain at its stable pathname; replacing a locked inode would
+// allow two reconcilers to hold different locks for the same workload.
+func OpenLockFile(path string) (*os.File, error) {
+	if err := EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	created := err == nil
+	if os.IsExist(err) {
+		if err = ValidateProtectedPath(path); err != nil {
+			return nil, err
+		}
+		f, err = os.OpenFile(path, os.O_RDWR, 0600)
+	}
+	if err != nil {
+		return nil, fault.New(fault.Apply, "open lock file")
+	}
+	if created {
+		if err = protectFile(path); err != nil {
+			_ = f.Close()
+			return nil, fault.New(fault.Apply, "protect lock file")
+		}
+	}
+	opened, statErr := f.Stat()
+	named, namedErr := os.Lstat(path)
+	if statErr != nil || namedErr != nil || !os.SameFile(opened, named) || ValidateProtectedPath(path) != nil {
+		_ = f.Close()
+		return nil, fault.New(fault.Trust, "lock file changed")
+	}
+	return f, nil
+}

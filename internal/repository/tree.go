@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
 )
 
@@ -17,7 +18,7 @@ func (s *store) readTree(ctx context.Context, commit string) (map[string]string,
 		return nil, failure(fault.Trust, "tree")
 	}
 	tree := make(map[string]string)
-	casefold := make(map[string]bool)
+	paths := make(map[string]treePath)
 	for _, entry := range bytes.Split(data, []byte{0}) {
 		if len(entry) == 0 {
 			continue
@@ -25,16 +26,12 @@ func (s *store) readTree(ctx context.Context, commit string) (map[string]string,
 		metadata, name, found := bytes.Cut(entry, []byte{'\t'})
 		fields := strings.Fields(string(metadata))
 		path := string(name)
-		if !found || len(fields) != 3 || fields[0] != "100644" || fields[1] != "blob" || !validCommit(fields[2]) || !policy.ValidRepositoryPath(path) || casefold[strings.ToLower(path)] {
+		if !found || len(fields) != 3 || fields[0] != "100644" || fields[1] != "blob" || !validCommit(fields[2]) || !policy.ValidRepositoryPath(path) {
 			return nil, failure(fault.Trust, "tree_entry")
 		}
-		// A file may not be the parent of another file on any platform.
-		for parent := filepath.ToSlash(filepath.Dir(path)); parent != "."; parent = filepath.ToSlash(filepath.Dir(parent)) {
-			if _, exists := tree[parent]; exists {
-				return nil, failure(fault.Trust, "tree_collision")
-			}
+		if err := registerTreePath(paths, path); err != nil {
+			return nil, err
 		}
-		casefold[strings.ToLower(path)] = true
 		tree[path] = fields[2]
 		if len(tree) > maximumFiles {
 			return nil, failure(fault.Trust, "tree_size")
@@ -52,7 +49,7 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 		return "", err
 	}
 	releases := filepath.Join(s.repo.Directory, "releases")
-	if err = os.MkdirAll(releases, 0o700); err != nil {
+	if err = platform.EnsurePrivateDirectory(releases); err != nil {
 		return "", failure(fault.Trust, "releases_directory")
 	}
 	if err = protectedDirectory(releases); err != nil {
@@ -85,10 +82,10 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 			return "", failure(fault.Trust, "release_size")
 		}
 		file := filepath.Join(staging, filepath.FromSlash(path))
-		if err = os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		if err = platform.EnsurePrivateDirectory(filepath.Dir(file)); err != nil {
 			return "", failure(fault.Trust, "release_parent")
 		}
-		if err = os.WriteFile(file, data, 0o400); err != nil {
+		if err = platform.WriteProtected(file, data); err != nil {
 			return "", failure(fault.Trust, "release_write")
 		}
 	}
@@ -99,4 +96,28 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 		return "", failure(fault.Trust, "release_accept")
 	}
 	return destination, nil
+}
+
+// A case-folded directory has exactly one portable spelling and cannot also be
+// a file. Register every ancestor so acceptance is independent of listing order.
+type treePath struct {
+	spelling string
+	file     bool
+}
+
+func registerTreePath(paths map[string]treePath, name string) error {
+	segments := strings.Split(name, "/")
+	for i := range segments {
+		spelling := strings.Join(segments[:i+1], "/")
+		key := strings.ToLower(spelling)
+		file := i == len(segments)-1
+		if existing, ok := paths[key]; ok {
+			if existing.spelling != spelling || existing.file || file {
+				return failure(fault.Trust, "tree_collision")
+			}
+		} else {
+			paths[key] = treePath{spelling: spelling, file: file}
+		}
+	}
+	return nil
 }

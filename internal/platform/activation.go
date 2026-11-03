@@ -12,7 +12,10 @@ import (
 // projection. The caller must skip unchanged generations and authorize service
 // control separately from reading or publishing configuration.
 func Activate(ctx context.Context, target model.Target) error {
-	if target.Activation == "" && target.Service == "" {
+	if ctx.Err() != nil {
+		return fault.New(fault.Apply, "activation canceled")
+	}
+	if target.Activation == "none" || target.Activation == "" && target.Service == "" {
 		return nil
 	}
 	if (target.Activation != "restart" && target.Activation != "reload") || !validServiceName(target.Service) {

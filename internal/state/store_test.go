@@ -84,3 +84,44 @@ func TestUnsafeStateDirectory(t *testing.T) {
 		t.Fatal("writable state directory accepted")
 	}
 }
+
+func TestStateRejectsTrailingJSON(t *testing.T) {
+	s := Store{Directory: t.TempDir()}
+	p := filepath.Join(s.Directory, "demo.json")
+	for _, body := range []string{`{"workload":"demo"} {}`, `{"workload":"demo"} trailing`, `{"workload":"demo","workload":"demo"}`} {
+		if err := os.WriteFile(p, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
+			t.Errorf("ambiguous metadata accepted: %q", body)
+		}
+	}
+}
+
+func TestStateRejectsSymlinkFiles(t *testing.T) {
+	s := Store{Directory: t.TempDir()}
+	target := filepath.Join(t.TempDir(), "target")
+	if err := os.WriteFile(target, []byte(`{"workload":"demo"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{".json", ".json.lock"} {
+		p := filepath.Join(s.Directory, "demo"+suffix)
+		if err := os.Symlink(target, p); err != nil {
+			t.Skipf("symlink unavailable: %v", err)
+		}
+		if suffix == ".json" {
+			if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
+				t.Error("symlink state read accepted")
+			}
+			if err := s.Write(Record{Workload: "demo"}); !fault.Is(err, fault.Trust) {
+				t.Error("symlink state destination accepted")
+			}
+		} else {
+			release, err := s.Lock("demo")
+			if err == nil {
+				_ = release()
+				t.Error("symlink lock accepted")
+			}
+		}
+	}
+}

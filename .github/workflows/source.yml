@@ -1,0 +1,103 @@
+name: Source checks
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Linux synthetic tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Formatting and module integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' go_sources < <(git ls-files -z '*.go')
+          test -z "$(gofmt -l "${go_sources[@]}")"
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go mod verify
+      - name: Tests, race checks and vet
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -count=1 -p 1 ./...
+          go test -race -count=1 -p 1 ./...
+          go vet -p 1 ./...
+  cross-build:
+    name: Compile ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+    env:
+      CGO_ENABLED: '0'
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+      GOOS: ${{ matrix.os }}
+      GOARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build both commands without installing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/build
+          go build -p 1 -trimpath -o .local/build/cquay ./cmd/cquay
+          go build -p 1 -trimpath -o .local/build/cquay-audit ./cmd/cquay-audit
+  assurance:
+    name: Source assurance gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run the actual source profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p .local
+          go build -trimpath -o .local/cquay-audit ./cmd/cquay-audit
+          .local/cquay-audit run --profile source --go "$(command -v go)" --output audit-results/source

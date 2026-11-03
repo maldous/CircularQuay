@@ -166,7 +166,7 @@ func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (
 	}
 	status.Workload = workload
 	status.Mode = s.current().Workloads[workload].Mode
-	if !oneOf(status.State, "unprovisioned", "ready", "pending", "error", "running", "stopped", "unknown") {
+	if !oneOf(status.State, "unprovisioned", "ready", "pending", "error", "running", "stopped", "unknown", "not_provisioned", "blocked", "resolved", "snapshotted", "applied", "activated", "apply_failed", "pending_activation", "partial_resolved", "partial_applied", "partial_activated", "partial_apply_failed", "partial_pending_activation") {
 		status.State = "unknown"
 	}
 	return status, nil

@@ -17,13 +17,13 @@ All commands use a chosen immutable version. `v0.1.0` below is an example until 
 
 Record application/tag, policy schema, runtime MCP protocol, Registry descriptor schema, SDK, native artifacts, OCI digest, MCP bundles, skill/plugin package and audit-profile versions separately. A Registry schema date is not an MCP protocol version.
 
-The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
+CircularQuay is the project name. The app, executable, release asset prefix and operations skill are `cquay`, pronounced “c-key”; the separate audit executable is `cquay-audit`. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
 
 ### Initial work ledger
 
 | Activity | Current recorded state | Remaining action |
 | --- | --- | --- |
-| GitHub repository | Public empty repository created by its owner; source publication in progress | Push only reviewed synthetic/code assets, then independently verify visibility and commit. |
+| GitHub repository | Source published on `feature/initial-implementation`; draft PR #1 targets `develop` | Keep implementation on feature branches until reviewed gates pass. |
 | Native release / Go tag / pkg.go.dev | Not published by this implementation task | Complete gates and publish a new immutable version. |
 | GHCR / MCP Registry / MCPB | Not published | Verify artifacts and metadata before publishing. |
 | External test-provider accounts | Not attempted in this implementation task | Use the confirmed free routes below when running connected tests. |
@@ -32,6 +32,65 @@ The initial source implementation uses Go 1.27.3. The researched SonarQube Commu
 | Public plugin directory | Policy/eligibility-gated | Do not promise acceptance of the raw-secret product. |
 
 Update this ledger from evidence, not intention. Record **not attempted**, **account required**, **validated locally**, **published**, **independently verified**, **awaiting external approval**, **unavailable**, or **experimental**. Do not invent a CAPTCHA, entitlement failure or policy approval that was never observed.
+
+### Version and branch policy
+
+Use Semantic Versioning and Gitflow. `feature/<purpose>` and `hotfix/<purpose>` describe work; `develop` integrates reviewed changes; `release/<major.minor.patch>` stabilizes a selected release; `main` contains qualified stable releases. Preserve merge commits and back-merge release/hotfix fixes into `develop`. Do not use direct feature pushes to `main` or rewrite published history.
+
+Every release has an immutable tag and a GitHub Release. Use `v0.1.0-rc.1`, `v0.1.0-rc.2`, then `v0.1.0` as the naming pattern. Candidate tags belong to the reviewed release branch, are marked **Pre-release**, and never become **Latest**. Stable tags belong to the reviewed stable merge on `main`; mark the selected stable release **Latest** only after verification. Never move an RC tag to a corrected commit or rename an RC into a stable release. Build the stable version from its own exact tag and record the comparison with the candidate.
+
+An RC is a supported feedback stage for its explicitly listed test matrix, not a waiver of security or integrity gates. Complete the applicable source/security/artifact gates before any public tag, including an RC. Record wider native/provider acceptance still being collected. Stable promotion additionally requires the complete declared qualification matrix and independent review. The current development checkpoint qualifies for neither promotion.
+
+Use GitHub milestones for the candidate and final acceptance work. Link issues and reviewed PRs to the milestone; retain unresolved limitations in release notes. Close the milestone only when its stated acceptance is met, and use a new corrective version for post-release defects.
+
+### Required GitHub Release contents
+
+Draft the release first, attach and inspect every asset, then publish once. Immutability prevents repairing the published assets in place. GitHub's generated “Source code” archives are source downloads, not compiled installers. Follow the [GitHub release procedure](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
+
+Each release must provide:
+
+- A title such as `cquay v0.1.0-rc.1`, maturity label, exact source commit, release date, changelog and links to reviewed changes.
+- A platform/architecture table with direct links to each qualified asset, its size, verification instructions and required external tools. Never label a cross-build as a native acceptance pass.
+- `cquay_<version>_<os>_<arch>.tar.gz` for Linux/macOS and `.zip` for Windows. Each archive includes `cquay`, `cquay-audit`, the `cquay` skill, license, release/install instructions, security/support guidance and qualification matrix.
+- `cquay_<version>_checksums.txt`, authenticated provenance and a complete SBOM including shipped external executables. Publish offline verification inputs when supported. A checksum beside a download is not independent publisher authentication.
+- Source archive, exact toolchain/build inputs and audit evidence for the release commit. Record artifact digests and reproducibility scope.
+- Installation, upgrade, removal, migration and recovery directions; known limitations; compatibility changes; security-advisory links; and the community/private-support routes.
+- Separate publication receipts for Go module indexing, GHCR, MCP Registry/MCPB and any qualified package-manager listing. Do not advertise a channel merely because its manifest exists.
+
+The release page is `https://github.com/maldous/CircularQuay/releases/tag/<tag>` and asset URLs follow `https://github.com/maldous/CircularQuay/releases/download/<tag>/<asset>`. Replace every placeholder with an existing verified asset. The [Releases index](https://github.com/maldous/CircularQuay/releases) is the entry point until releases exist; do not present example `v0.1.0` links as current downloads.
+
+### Download and install a qualified native archive
+
+These are operator instructions for a published qualified version; no such release is claimed yet. Choose a specific tag, OS and architecture from its release page. Browse the explicit RC release page when evaluating a candidate; do not use `/releases/latest` for RC selection.
+
+Where a compatible GitHub CLI is installed, an example Linux/amd64 route is:
+
+```sh
+gh release verify v0.1.0 --repo maldous/CircularQuay
+gh release download v0.1.0 --repo maldous/CircularQuay --pattern cquay_0.1.0_linux_amd64.tar.gz --pattern cquay_0.1.0_checksums.txt
+gh release verify-asset v0.1.0 ./cquay_0.1.0_linux_amd64.tar.gz --repo maldous/CircularQuay
+sha256sum --ignore-missing --check cquay_0.1.0_checksums.txt
+mkdir cquay-0.1.0
+tar -xzf cquay_0.1.0_linux_amd64.tar.gz -C cquay-0.1.0
+```
+
+Check archive entries before extraction; reject absolute/traversal paths and unexpected executables. The maintainer must verify these exact CLI commands against the qualified GitHub CLI version; source archives generated on demand are not the same as verified release assets. The [official verification documentation](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity) describes the trust route. For browser/offline downloads, use the release's authenticated verification bundle and platform hash tools; do not execute an unauthenticated installer.
+
+For an operator-owned Unix per-user installation after verification, copy the binaries into a chosen user executable directory with mode `0755`, keep the documentation with the versioned archive, and explicitly add the chosen directory to PATH if necessary. `~/.local/bin` is a conventional choice. Use `shasum -a 256` on macOS when `sha256sum` is absent; stable macOS distribution additionally needs its stated signing/notarization qualification. Do not bypass Gatekeeper to manufacture a clean install result.
+
+On Windows, verify the selected archive using the release's documented trust route and `Get-FileHash -Algorithm SHA256`, then use `Expand-Archive` into a versioned per-user directory. Run `cquay.exe version` and `cquay.exe doctor` there, or explicitly add that directory to the user PATH. The native core does not require Go, Bash, Node or Python. Verify the stated Authenticode/signing support; native ACL/DPAPI installation is a separate acceptance test.
+
+Run `cquay version`, `cquay doctor` and a synthetic `plan` before enrollment. Feature dependencies such as SOPS and Git must be separately authenticated and installed only for the enabled feature. Copy/installing the binary does not configure a system service, import credentials or enroll a provider. Follow post-installation enrollment below for each of those explicit actions.
+
+For upgrades, review release notes and schema compatibility, retain an independently restorable authorized backup, verify the new artifact and replace the selected executable atomically while following the workload's declared lifecycle procedure. Do not reactivate revoked or expired values during rollback. To remove a per-user installation, stop only services/schedules explicitly enrolled for it, remove its PATH entry and selected binaries, and explicitly revoke temporary grants before deciding which protected state/backups must be retained. Never indiscriminately delete shared credentials or unrelated service paths.
+
+### Packaging toolchain and staging
+
+The initial packaging target is GoReleaser OSS **2.19.0** with Go **1.27.3**, driven by `.goreleaser.yaml`. It produces native archives and a draft release; it does not establish signatures, SBOMs, native installer qualification or registry acceptance. Schema validation is narrower than an artifact build. Keep the build matrix labeled as a build matrix until native tests qualify each target.
+
+Run `goreleaser check`, then `goreleaser release --snapshot --clean --parallelism 1` in an isolated checkout to inspect local development archives without creating a public tag or release. Do not use `--skip` to bypass a required qualification gate. For a qualified selected public tag, stage a draft, generate/verify required SBOMs and provenance, attach all evidence and install directions, test anonymous asset downloads in a clean environment, and only then publish the immutable release. RCs and stable releases use the same integrity requirements.
+
+Native archives are the first distribution channel. Homebrew, Winget, Scoop, Linux packages and app stores are optional subsequent channels, each requiring its own maintained manifest, ownership/trust route, install/upgrade/uninstall tests and publication receipt. OCI/MCP/Go procedures below remain separately gated. Do not create paid signing accounts or broad long-lived credentials merely to add a badge or unqualified distribution route.
 
 ## 2. Prerequisites and accounts
 
@@ -86,6 +145,7 @@ On platforms with GitHub CLI available, the qualified release should support the
 From a clean selected checkout with the pinned Go toolchain:
 
 ```sh
+umask 077
 go mod download
 go mod verify
 go build -trimpath -o ./dist/cquay ./cmd/cquay
@@ -225,7 +285,7 @@ Do not promise automatic architecture selection by every client. Keep the first 
 
 ## 7. Skills and client-specific plugins
 
-The versioned Agent Skills package lives at `integrations/skills/circularquay-operations/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.
+The versioned Agent Skills package lives at `integrations/skills/cquay/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.
 
 Skill instructions cannot grant provider or MCP authority. Experimental `allowed-tools` metadata does not replace server authorization. No package should instruct an agent to solicit passwords, bypass scopes, dump environments or perform rotations by default.
 

@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -49,7 +50,10 @@ func (r Runner) Run(ctx context.Context, args []string) int {
 	f.SetOutput(io.Discard)
 	config := f.String("config", "cquay.yaml", "protected policy path")
 	stateDir := f.String("state-dir", "", "private metadata directory")
-	if f.Parse(args) != nil {
+	if err := f.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return r.usage()
+		}
 		return r.failure(fault.New(fault.Invalid, "arguments"))
 	}
 	commands := f.Args()

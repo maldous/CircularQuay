@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/deliver"
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/state"
@@ -78,8 +78,8 @@ func (a application) doctor() (int, error) {
 		tools[name] = err == nil
 	}
 	subject := "unavailable"
-	if u, err := user.Current(); err == nil {
-		subject = "local:" + u.Username
+	if principal, err := mcp.LocalPrincipal(); err == nil {
+		subject = principal.Subject
 	}
 	return a.print(map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "local_subject": subject, "tools": tools, "runtime_required": false, "qualification": "see audit evidence; no native reboot qualification implied"})
 }
@@ -108,6 +108,9 @@ func workloadFlags(command string, args []string) (string, string, []string, err
 	f.SetOutput(io.Discard)
 	id := f.String("workload", "", "workload ID")
 	target := f.String("target", "", "target ID")
+	if command == "sync" {
+		_ = f.Bool("once", true, "perform one synchronization; schedule through native facilities")
+	}
 	if f.Parse(args) != nil || *id == "" {
 		return "", "", nil, fault.New(fault.Invalid, "workload arguments")
 	}
@@ -156,6 +159,16 @@ func (a application) workloadCommand(ctx context.Context, args []string) (int, e
 	if !ok {
 		return 0, fault.New(fault.Invalid, "workload")
 	}
+	var targets []string
+	if args[0] == "apply" && target == "" {
+		return 0, fault.New(fault.Invalid, "explicit target required")
+	}
+	if args[0] == "apply" || args[0] == "sync" {
+		targets, err = selectedTargets(w, target)
+		if err != nil {
+			return 0, err
+		}
+	}
 	e, err := a.engine(p)
 	if err != nil {
 		return 0, err
@@ -164,7 +177,11 @@ func (a application) workloadCommand(ctx context.Context, args []string) (int, e
 	if err != nil {
 		return 0, err
 	}
-	defer unlock()
+	defer func() {
+		if unlock != nil {
+			_ = unlock()
+		}
+	}()
 	var g model.Generation
 	if args[0] == "snapshot" || args[0] == "sync" {
 		g, err = e.ResolveFresh(ctx, id)
@@ -176,34 +193,60 @@ func (a application) workloadCommand(ctx context.Context, args []string) (int, e
 	}
 	switch args[0] {
 	case "run":
-		if err = recordReady(e.State, w, g); err != nil {
+		if err = recordPhase(e.State, w, g, "resolved"); err != nil {
 			return 0, err
 		}
+		// Only reconciliation is serialized. A child may run indefinitely while
+		// subsequent checks and rotations need to acquire the same workload lock.
+		if err = unlock(); err != nil {
+			return 0, err
+		}
+		unlock = nil
 		return platform.RunWithIO(ctx, w, g, override, a.runner.In, a.runner.Out, a.runner.Err)
 	case "snapshot":
 		err = e.Snapshot(ctx, g)
 	case "apply":
-		err = apply(ctx, w, target, g)
+		record, applyErr := reconcileTargets(ctx, e.State, w, g, targets, nativeOperations())
+		if applyErr != nil {
+			return 0, applyErr
+		}
+		return a.print(record)
 	case "sync":
 		if w.Snapshot.Path != "" && w.Mode != "online" {
 			err = e.Snapshot(ctx, g)
 		}
+		if err != nil {
+			return 0, err
+		}
+		record, applyErr := reconcileTargets(ctx, e.State, w, g, targets, nativeOperations())
+		if applyErr != nil {
+			return 0, applyErr
+		}
+		return a.print(record)
 	}
 	if err != nil {
 		return 0, err
 	}
-	if err = recordReady(e.State, w, g); err != nil {
+	if err = recordPhase(e.State, w, g, "snapshotted"); err != nil {
 		return 0, err
 	}
-	return a.print(map[string]any{"workload": id, "state": "ready", "operation": args[0], "offline": g.Offline, "bindings": len(g.Values)})
+	return a.print(map[string]any{"workload": id, "state": "snapshotted", "operation": args[0], "offline": g.Offline, "bindings": len(g.Values)})
 }
 
-func recordReady(s state.Store, w model.Workload, g model.Generation) error {
+func recordPhase(s state.Store, w model.Workload, g model.Generation, phase string) error {
+	record, err := generationRecord(w, g, phase)
+	if err != nil {
+		return err
+	}
+	return s.Write(record)
+}
+
+func generationRecord(w model.Workload, g model.Generation, phase string) (state.Record, error) {
 	id := make([]byte, 16)
 	if _, err := rand.Read(id); err != nil {
-		return fault.New(fault.Apply, "generation identifier")
+		return state.Record{}, fault.New(fault.Apply, "generation identifier")
 	}
-	return s.Write(state.Record{Workload: g.Workload, Generation: hex.EncodeToString(id), State: "ready", Mode: w.Mode, Offline: g.Offline, LastChecked: time.Now().UTC(), LastSuccess: g.RetrievedAt, Receipts: g.Receipts})
+	return state.Record{Workload: g.Workload, Generation: hex.EncodeToString(id), State: phase, Health: "unknown", Mode: w.Mode, Offline: g.Offline, LastChecked: time.Now().UTC(), LastSuccess: g.RetrievedAt, Receipts: g.Receipts}, nil
 }
 
 func apply(ctx context.Context, w model.Workload, id string, g model.Generation) error {

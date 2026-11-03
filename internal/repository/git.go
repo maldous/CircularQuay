@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 const bareConfig = "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = true\n\tlogallrefupdates = false\n"
@@ -24,8 +25,7 @@ func executeGit(ctx context.Context, environment []string, limit int64, argument
 	if err != nil {
 		return nil, failure(fault.Unsupported, "git_dependency")
 	}
-	info, err := os.Stat(program)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o022 != 0 {
+	if platform.ValidateExecutable(program) != nil {
 		return nil, failure(fault.Trust, "git_dependency")
 	}
 	command := exec.CommandContext(ctx, program, arguments...)
@@ -52,7 +52,7 @@ func (output *limitedOutput) Write(data []byte) (int, error) {
 	return output.buffer.Write(data)
 }
 
-func (s *store) environment() ([]string, error) {
+func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string, error) {
 	// Ambient Git, shell startup, and cloud credentials are deliberately absent.
 	// These variables provide only executable discovery, OS support and TLS/proxy
 	// transport. Trust in proxy/CA configuration belongs to the host administrator.
@@ -66,9 +66,16 @@ func (s *store) environment() ([]string, error) {
 	}
 	environment = append(environment, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_ATTR_NOSYSTEM=1", "GIT_OPTIONAL_LOCKS=0")
 	settings := [][2]string{
-		{"credential.helper", ""}, {"credential.interactive", "false"}, {"core.hooksPath", os.DevNull}, {"core.attributesFile", os.DevNull}, {"core.fsmonitor", "false"}, {"http.followRedirects", "false"}, {"http.sslVerify", "true"}, {"protocol.allow", "never"}, {"protocol.https.allow", "always"}, {"gpg.format", "ssh"}, {"gpg.ssh.allowedSignersFile", s.repo.AllowedSignersFile}, {"gpg.ssh.program", "ssh-keygen"}, {"fetch.fsckObjects", "true"}, {"transfer.fsckObjects", "true"}, {"submodule.recurse", "false"}, {"fetch.writeCommitGraph", "false"}, {"maintenance.auto", "false"}, {"gc.auto", "0"},
+		{"credential.helper", ""}, {"credential.interactive", "false"}, {"core.hooksPath", os.DevNull}, {"core.attributesFile", os.DevNull}, {"core.fsmonitor", "false"}, {"http.followRedirects", "false"}, {"http.sslVerify", "true"}, {"protocol.allow", "never"}, {"protocol.https.allow", "always"}, {"fetch.fsckObjects", "true"}, {"transfer.fsckObjects", "true"}, {"submodule.recurse", "false"}, {"fetch.writeCommitGraph", "false"}, {"maintenance.auto", "false"}, {"gc.auto", "0"},
 	}
-	if s.repo.TokenFile != "" {
+	if verifySignature {
+		verifier, err := trustedSSHKeygen()
+		if err != nil {
+			return nil, err
+		}
+		settings = append(settings, [2]string{"gpg.format", "ssh"}, [2]string{"gpg.ssh.allowedSignersFile", s.repo.AllowedSignersFile}, [2]string{"gpg.ssh.program", verifier})
+	}
+	if authenticatedFetch && s.repo.TokenFile != "" {
 		data, err := readProtected(s.repo.TokenFile, true, 16<<10)
 		if err != nil {
 			return nil, err
@@ -90,11 +97,41 @@ func (s *store) environment() ([]string, error) {
 }
 
 func (s *store) command(ctx context.Context, limit int64, arguments ...string) ([]byte, error) {
-	environment, err := s.environment()
+	return s.run(ctx, false, limit, arguments...)
+}
+
+func (s *store) verificationCommand(ctx context.Context, limit int64, arguments ...string) ([]byte, error) {
+	return s.runVerified(ctx, false, limit, arguments...)
+}
+
+func (s *store) run(ctx context.Context, authenticatedFetch bool, limit int64, arguments ...string) ([]byte, error) {
+	return s.runWithVerification(ctx, authenticatedFetch, false, limit, arguments...)
+}
+
+func (s *store) runVerified(ctx context.Context, authenticatedFetch bool, limit int64, arguments ...string) ([]byte, error) {
+	return s.runWithVerification(ctx, authenticatedFetch, true, limit, arguments...)
+}
+
+func (s *store) runWithVerification(ctx context.Context, authenticatedFetch, verifySignature bool, limit int64, arguments ...string) ([]byte, error) {
+	environment, err := s.environment(authenticatedFetch, verifySignature)
 	if err != nil {
 		return nil, err
 	}
 	return runGit(ctx, environment, limit, append([]string{"--git-dir=" + s.git}, arguments...)...)
+}
+
+// trustedSSHKeygen resolves the verifier before Git uses it. A PATH entry can
+// be operator controlled, but it must not replace a verified native helper
+// with a writable executable during commit-signature verification.
+func trustedSSHKeygen() (string, error) {
+	program, err := exec.LookPath("ssh-keygen")
+	if err != nil {
+		return "", failure(fault.Unsupported, "ssh_signature_dependency")
+	}
+	if err = platform.ValidateExecutable(program); err != nil {
+		return "", failure(fault.Trust, "ssh_signature_dependency")
+	}
+	return program, nil
 }
 
 func (s *store) initialize(ctx context.Context) error {
@@ -111,10 +148,10 @@ func (s *store) initialize(ctx context.Context) error {
 	if _, err = s.command(ctx, 4096, "init", "--bare", "--quiet", "--template="+emptyTemplate, s.git); err != nil {
 		return err
 	}
-	if err = os.Chmod(s.git, 0o700); err != nil {
+	if err = platform.EnsurePrivateDirectory(s.git); err != nil {
 		return failure(fault.Trust, "git_directory")
 	}
-	if err = os.WriteFile(filepath.Join(s.git, "config"), []byte(bareConfig), 0o600); err != nil {
+	if err = platform.WriteProtected(filepath.Join(s.git, "config"), []byte(bareConfig)); err != nil {
 		return failure(fault.Trust, "git_config")
 	}
 	return s.checkGitConfig()
@@ -142,7 +179,7 @@ func (s *store) verifyCommit(ctx context.Context, commit string) error {
 	}
 	// Native Git/ssh-keygen verify the signed bytes against locally pinned
 	// allowed-signers. Repository content cannot install keys or change policy.
-	if _, err = s.command(ctx, 4096, "verify-commit", commit); err != nil {
+	if _, err = s.verificationCommand(ctx, 4096, "verify-commit", commit); err != nil {
 		return failure(fault.Trust, "signature")
 	}
 	return nil

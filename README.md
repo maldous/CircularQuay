@@ -1,5 +1,6 @@
 > **Development checkpoint:** implementation and security qualification are incomplete. Do not use with production credentials. See [session handoff](docs/session-handoff.md) for verified results and remaining work.
 
+CircularQuay’s app, command and operations skill are named `cquay` (pronounced “c-key”).
 # CircularQuay
 
 **Portable secrets delivery, with explicit trust boundaries.**

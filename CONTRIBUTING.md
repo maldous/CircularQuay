@@ -29,3 +29,11 @@ Avoid new production languages, embedded cryptography, SDK-wide implicit inherit
 A passing test is not sufficient if the assertion merely restates the implementation. Security tests should prove denial before upstream retrieval, data minimization, complete activation, and meaningful failure behavior.
 
 Maintainer account setup, public-index publishing, and operator post-installation procedures belong in `RELEASE.md`, not the product README. Do not add release credentials to examples or logs.
+
+## Community and release readiness
+
+Use the issue forms for synthetic bug reproductions and feature proposals, Discussions for usage questions, and the private route in `SECURITY.md` for vulnerabilities. Follow [SUPPORT.md](SUPPORT.md) and [community conduct](CODE_OF_CONDUCT.md).
+
+The GitHub workflow runs Linux synthetic tests/race checks, vet, cross-builds and the actual source assurance gate. A successful compile is not native qualification; an incomplete coverage or analysis gate must remain failed. Use `umask 077` scoped to Unix development/test commands so fabricated private files meet the same permissions checks as runtime files. Do not relax file checks to accommodate a permissive host umask.
+
+Release candidates and stable releases follow the version, artifact, verification and installation contract in `RELEASE.md`. Feature branches and draft PRs remain development artifacts until those requirements pass.

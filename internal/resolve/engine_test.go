@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -258,5 +259,88 @@ func TestFallbackRequiresAuditCompatibility(t *testing.T) {
 	})
 	if _, err := e.Resolve(ctx, "demo"); !fault.Is(err, fault.Unavailable) {
 		t.Fatal("required audit bypassed")
+	}
+}
+
+func TestSnapshotRejectsAmbiguityAndExtraScope(t *testing.T) {
+	for _, change := range []struct {
+		name  string
+		alter func(map[string]string)
+	}{
+		{"outer_fields", func(m map[string]string) { m["extra"] = "synthetic" }},
+		{"unknown", func(m map[string]string) {
+			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"version":1,"extra":true`, 1)
+		}},
+		{"duplicate", func(m map[string]string) {
+			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"version":1,"version":1`, 1)
+		}},
+		{"case_alias", func(m map[string]string) {
+			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"Version":1`, 1)
+		}},
+		{"extra_receipt", func(m map[string]string) {
+			var p snapshotPayload
+			_ = json.Unmarshal([]byte(m["circularquay_snapshot"]), &p)
+			p.Generation.Receipts = append(p.Generation.Receipts, model.Receipt{Source: "unrelated"})
+			b, _ := json.Marshal(p)
+			m["circularquay_snapshot"] = string(b)
+		}},
+		{"missing_timestamp", func(m map[string]string) {
+			var p snapshotPayload
+			_ = json.Unmarshal([]byte(m["circularquay_snapshot"]), &p)
+			p.Generation.RetrievedAt = time.Time{}
+			b, _ := json.Marshal(p)
+			m["circularquay_snapshot"] = string(b)
+		}},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			e, m := fixture(t)
+			ctx := context.Background()
+			g, err := e.Resolve(ctx, "demo")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = e.Snapshot(ctx, g); err != nil {
+				t.Fatal(err)
+			}
+			change.alter(m.saved)
+			if _, err = e.restore(ctx, "demo", e.Policy.Workloads["demo"]); err == nil {
+				t.Fatal("invalid snapshot accepted")
+			}
+		})
+	}
+}
+
+func TestFreshDenialFencesLaterFallback(t *testing.T) {
+	e, _ := fixture(t)
+	ctx := context.Background()
+	g, _ := e.Resolve(ctx, "demo")
+	if err := e.Snapshot(ctx, g); err != nil {
+		t.Fatal(err)
+	}
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		return model.Value{}, fault.New(fault.Denied, "fixture")
+	})
+	if _, err := e.ResolveFresh(ctx, "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatal("fresh denial missing")
+	}
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		return model.Value{}, fault.New(fault.Unavailable, "fixture")
+	})
+	if _, err := e.Resolve(ctx, "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatal("fresh denial did not fence fallback")
+	}
+}
+
+func TestResolutionHonorsCancellation(t *testing.T) {
+	e, _ := fixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	calls := 0
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		calls++
+		return model.Value{Data: "synthetic"}, nil
+	})
+	if _, err := e.Resolve(ctx, "demo"); err == nil || calls != 0 {
+		t.Fatal("canceled resolution read sources")
 	}
 }

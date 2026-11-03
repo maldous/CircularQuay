@@ -1,5 +1,9 @@
-# Code of conduct
+# Community conduct
 
-Contributors and maintainers are expected to be respectful, clear, and professional. Critique technical claims and evidence without personal attacks or harassment. Do not publish another person's private information or security-sensitive material.
+Treat contributors and users respectfully. Discuss technical decisions on their merits, welcome constructive disagreement, and give people room to correct mistakes. Harassment, discrimination, threats, personal attacks, spam and publication of another person's private information are not acceptable.
 
-Use private security reporting for vulnerabilities. For conduct concerns, request a private maintainer contact without posting personal details publicly. Maintainers may remove unsafe content, restrict participation, or close discussions that violate these expectations.
+Keep public discussions and issues relevant to CircularQuay and cquay. Protect sensitive information: use the private reporting route in [SECURITY.md](SECURITY.md) for security matters and never post real credentials.
+
+Repository maintainers may edit or remove inappropriate material, close threads, limit participation or block accounts where needed to protect the community. They should explain decisions when safe and proportionate. Community support does not grant permission to test someone else's system or access their data.
+
+For a conduct concern, contact a maintainer privately through a contact route they publish on their GitHub profile. Do not post identifying details about affected people in a public issue. Security incidents should use the repository's private vulnerability reporting channel.

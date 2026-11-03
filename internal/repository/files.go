@@ -6,60 +6,31 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 func protectedDirectory(path string) error {
-	info, err := os.Lstat(path)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
-		return failure(fault.Trust, "directory")
-	}
-	// Every existing ancestor must resolve without symlink redirection. Ancestors
-	// may be public (for example /tmp), but the cache itself is private.
-	for current := filepath.Dir(path); ; current = filepath.Dir(current) {
-		info, err = os.Lstat(current)
-		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return failure(fault.Trust, "directory_ancestor")
-		}
-		if current == filepath.Dir(current) {
-			break
-		}
-	}
-	return nil
+	return platform.EnsurePrivateDirectory(path)
 }
 
 func readProtected(path string, private bool, limit int64) ([]byte, error) {
-	before, err := os.Lstat(path)
-	mask := os.FileMode(0o022)
-	if private {
-		mask = 0o077
-	}
-	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm()&mask != 0 || before.Size() > limit {
-		return nil, failure(fault.Trust, "file")
-	}
-	file, err := os.Open(path)
+	data, err := platform.ReadProtected(path, private)
 	if err != nil {
-		return nil, failure(fault.Trust, "file")
+		return nil, err
 	}
-	defer file.Close()
-	after, err := file.Stat()
-	if err != nil || !os.SameFile(before, after) {
-		return nil, failure(fault.Trust, "file")
-	}
-	data, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil || int64(len(data)) > limit {
+	if int64(len(data)) > limit {
 		return nil, failure(fault.Trust, "file_size")
 	}
 	return data, nil
 }
 
 func validCommit(commit string) bool {
-	if len(commit) != 40 && len(commit) != 64 {
+	if len(commit) != 40 {
 		return false
 	}
 	for _, character := range commit {
@@ -95,8 +66,7 @@ func verifyRelease(directory string, tree map[string]string) error {
 			return failure(fault.Trust, "release_walk")
 		}
 		if entry.IsDir() {
-			info, err := entry.Info()
-			if err != nil || info.Mode().Perm()&0o077 != 0 {
+			if err := platform.EnsurePrivateDirectory(path); err != nil {
 				return failure(fault.Trust, "release_directory")
 			}
 			return nil

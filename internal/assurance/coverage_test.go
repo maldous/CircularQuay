@@ -26,7 +26,7 @@ func TestRejectInvalidCoverage(t *testing.T) {
 		"traversal":           "mode: set\n" + modulePrefix + "../private.go:1.1,2.2 1 1\n",
 		"backslash":           "mode: set\n" + modulePrefix + "a\\b.go:1.1,2.2 1 1\n",
 		"test_file":           "mode: set\n" + modulePrefix + "a_test.go:1.1,2.2 1 1\n",
-		"duplicate":           "mode: set\n" + valid + valid,
+		"duplicate":           "mode: set\n" + valid + modulePrefix + "internal/policy/policy.go:1.1,2.2 2 1\n",
 		"reversed_line":       "mode: set\n" + modulePrefix + "a.go:3.1,2.2 1 1\n",
 		"reversed_column":     "mode: set\n" + modulePrefix + "a.go:1.3,1.2 1 1\n",
 		"zero_coordinate":     "mode: set\n" + modulePrefix + "a.go:0.1,2.2 1 1\n",
@@ -63,4 +63,12 @@ func FuzzCoverage(f *testing.F) {
 			t.Fatal("invalid accepted summary")
 		}
 	})
+}
+
+func TestCoverageMergesRepeatedWholeModuleBlocks(t *testing.T) {
+	profile := "mode: atomic\n" + modulePrefix + "a.go:1.1,2.1 3 0\n" + modulePrefix + "a.go:1.1,2.1 3 8\n" + modulePrefix + "a.go:1.1,2.1 3 2\n" + modulePrefix + "a.go:3.1,4.1 1 0\n"
+	result, err := ParseCoverage(strings.NewReader(profile))
+	if err != nil || result.Total != 4 || result.Covered != 3 || result.Percent != 75 {
+		t.Fatalf("cross-package coverage did not preserve denominator: %+v, %v", result, err)
+	}
 }

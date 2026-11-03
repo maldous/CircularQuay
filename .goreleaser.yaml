@@ -1,0 +1,54 @@
+# Qualification target: GoReleaser OSS 2.19.0. This stages drafts only.
+version: 2
+project_name: cquay
+env:
+  - CGO_ENABLED=0
+builds:
+  - id: cquay
+    main: ./cmd/cquay
+    binary: cquay
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
+  - id: cquay-audit
+    main: ./cmd/cquay-audit
+    binary: cquay-audit
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+archives:
+  - id: native
+    ids: [cquay, cquay-audit]
+    name_template: 'cquay_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - RELEASE.md
+      - SECURITY.md
+      - SUPPORT.md
+      - CHANGELOG.md
+      - docs/qualification.md
+      - docs/operators/**
+      - integrations/skills/cquay/**
+checksum:
+  name_template: 'cquay_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+source:
+  enabled: true
+  name_template: 'cquay_{{ .Version }}_source'
+release:
+  github:
+    owner: maldous
+    name: CircularQuay
+  draft: true
+  prerelease: auto
+  name_template: 'cquay {{ .Tag }}'
+  make_latest: false

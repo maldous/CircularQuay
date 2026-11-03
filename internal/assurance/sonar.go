@@ -169,7 +169,7 @@ func InitSonar(directory string) error {
 	if err != nil {
 		return err
 	}
-	return writeNewPrivate(filepath.Join(directory, "admin.password"), []byte(password+"\n"))
+	return writeNewPrivate(filepath.Join(directory, "admin.password"), []byte("Cq9!"+password+"\n"))
 }
 
 func randomSecret() (string, error) {
@@ -222,6 +222,9 @@ func BootstrapSonar(ctx context.Context, directory, endpoint, project string) er
 	if err = configureSonarGate(ctx, client, project); err != nil {
 		return err
 	}
+	if err = configureSonarProfiles(ctx, client, project); err != nil {
+		return err
+	}
 	name, err := randomSecret()
 	if err != nil {
 		return err
@@ -262,16 +265,122 @@ func configureSonarGate(ctx context.Context, client *sonarClient, project string
 	if err := client.call(ctx, http.MethodPost, "/api/qualitygates/create", url.Values{"name": {name}}, nil); err != nil {
 		return errors.New("Sonar gate must be created in a fresh audit instance")
 	}
-	for metric, maximum := range map[string]string{"bugs": "0", "vulnerabilities": "0", "code_smells": "0", "duplicated_lines_density": "0"} {
-		if err := client.call(ctx, http.MethodPost, "/api/qualitygates/create_condition", url.Values{"gateName": {name}, "metric": {metric}, "op": {"GT"}, "error": {maximum}}, nil); err != nil {
-			return errors.New("Sonar quality gate configuration failed")
-		}
+	var existing struct {
+		Conditions []sonarGateCondition `json:"conditions"`
 	}
-	if err := client.call(ctx, http.MethodPost, "/api/qualitygates/create_condition", url.Values{"gateName": {name}, "metric": {"coverage"}, "op": {"LT"}, "error": {"100"}}, nil); err != nil {
-		return errors.New("Sonar coverage gate configuration failed")
+	if err := client.call(ctx, http.MethodGet, "/api/qualitygates/show", url.Values{"name": {name}}, &existing); err != nil {
+		return err
+	}
+	for _, condition := range requiredSonarConditions() {
+		if err := setSonarCondition(ctx, client, name, condition, existing.Conditions); err != nil {
+			return err
+		}
 	}
 	if err := client.call(ctx, http.MethodPost, "/api/qualitygates/select", url.Values{"gateName": {name}, "projectKey": {project}}, nil); err != nil {
 		return errors.New("Sonar quality gate assignment failed")
 	}
 	return client.call(ctx, http.MethodPost, "/api/settings/set", url.Values{"key": {"sonar.qualitygate.ignoreSmallChanges"}, "value": {"false"}, "component": {project}}, nil)
+}
+
+type sonarGateCondition struct {
+	ID        string `json:"id"`
+	Metric    string `json:"metric"`
+	Operator  string `json:"op"`
+	Threshold string `json:"error"`
+}
+
+func requiredSonarConditions() []sonarGateCondition {
+	return []sonarGateCondition{
+		{Metric: "violations", Operator: "GT", Threshold: "0"},
+		{Metric: "new_violations", Operator: "GT", Threshold: "0"},
+		{Metric: "coverage", Operator: "LT", Threshold: "100"},
+		{Metric: "new_coverage", Operator: "LT", Threshold: "100"},
+		{Metric: "duplicated_lines_density", Operator: "GT", Threshold: "0"},
+		{Metric: "new_duplicated_lines_density", Operator: "GT", Threshold: "0"},
+		{Metric: "security_hotspots_reviewed", Operator: "LT", Threshold: "100"},
+		{Metric: "new_security_hotspots_reviewed", Operator: "LT", Threshold: "100"},
+	}
+}
+
+func setSonarCondition(ctx context.Context, client *sonarClient, name string, condition sonarGateCondition, existing []sonarGateCondition) error {
+	parameters := url.Values{"gateName": {name}, "metric": {condition.Metric}, "op": {condition.Operator}, "error": {condition.Threshold}}
+	route := "/api/qualitygates/create_condition"
+	// Current servers seed a new gate with weaker new-code defaults. Tighten
+	// those existing conditions; trying to create them again is rejected.
+	for _, previous := range existing {
+		if previous.Metric == condition.Metric {
+			route = "/api/qualitygates/update_condition"
+			parameters.Set("id", previous.ID)
+			parameters.Del("gateName")
+			break
+		}
+	}
+	if err := client.call(ctx, http.MethodPost, route, parameters, nil); err != nil {
+		return errors.New("Sonar strict condition configuration failed")
+	}
+	return nil
+}
+
+type sonarQualityProfile struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Language    string `json:"language"`
+	BuiltIn     bool   `json:"isBuiltIn"`
+	ActiveRules int    `json:"activeRuleCount"`
+}
+
+func configureSonarProfiles(ctx context.Context, client *sonarClient, project string) error {
+	var found struct {
+		Profiles []sonarQualityProfile `json:"profiles"`
+	}
+	if err := client.call(ctx, http.MethodGet, "/api/qualityprofiles/search", nil, &found); err != nil {
+		return err
+	}
+	for _, language := range []string{"go", "json", "yaml", "docker", "xml", "web", "text", "secrets"} {
+		profile, err := completeSonarProfile(found.Profiles, language)
+		if err != nil {
+			return err
+		}
+		if language == "go" {
+			profile, err = sonarComplexityProfile(ctx, client, profile)
+			if err != nil {
+				return err
+			}
+		}
+		parameters := url.Values{"project": {project}, "language": {language}, "qualityProfile": {profile.Name}}
+		if err = client.call(ctx, http.MethodPost, "/api/qualityprofiles/add_project", parameters, nil); err != nil {
+			return errors.New("Sonar comprehensive profile assignment failed")
+		}
+	}
+	return nil
+}
+
+func completeSonarProfile(profiles []sonarQualityProfile, language string) (sonarQualityProfile, error) {
+	for _, name := range []string{"Sonar way comprehensive", "Sonar way"} {
+		for _, profile := range profiles {
+			if profile.Language == language && profile.Name == name && profile.BuiltIn && (language != "go" || profile.ActiveRules > 0) {
+				return profile, nil
+			}
+		}
+	}
+	return sonarQualityProfile{}, errors.New("Sonar comprehensive language profile unavailable")
+}
+
+func sonarComplexityProfile(ctx context.Context, client *sonarClient, base sonarQualityProfile) (sonarQualityProfile, error) {
+	var profile sonarQualityProfile
+	name := "CircularQuay Go comprehensive"
+	if err := client.call(ctx, http.MethodPost, "/api/qualityprofiles/copy", url.Values{"fromKey": {base.Key}, "toName": {name}}, &profile); err != nil {
+		return profile, err
+	}
+	if profile.Key == "" || profile.Name != name {
+		return profile, errors.New("Sonar profile copy failed")
+	}
+	// Copying the complete built-in profile retains its recommended rules. Only
+	// the cognitive-complexity ceiling is tightened. Cyclomatic complexity is
+	// checked by the separate pinned Go analyzer; SonarGo has no S1541 rule.
+	parameters := url.Values{"key": {profile.Key}, "rule": {"go:S3776"}, "params": {"threshold=10"}}
+	if err := client.call(ctx, http.MethodPost, "/api/qualityprofiles/activate_rule", parameters, nil); err != nil {
+		return profile, errors.New("Sonar complexity rule configuration failed")
+	}
+	return profile, nil
 }

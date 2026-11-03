@@ -77,7 +77,10 @@ func checkNativeSecurity(path string, secret bool) bool {
 		if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
 			return false
 		}
-		const unsafeWrite = windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | windows.FILE_DELETE_CHILD | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL
+		// FILE_DELETE_CHILD is not exported by the pinned x/sys version.
+		// WinNT.h: https://learn.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants
+		const fileDeleteChild = 0x0040
+		const unsafeWrite = windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | fileDeleteChild | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL
 		if !secret && ace.Mask&unsafeWrite == 0 {
 			continue
 		}

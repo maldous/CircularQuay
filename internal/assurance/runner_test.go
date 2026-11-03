@@ -18,12 +18,18 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	const secret = "synthetic-marker-do-not-log"
 	fake := func(_ context.Context, binary string, args []string, _ string, _ []string) commandResult {
 		if binary == "git" {
+			if len(args) > 0 && args[0] == "status" {
+				return commandResult{}
+			}
 			return commandResult{output: []byte(strings.Repeat("a", 40) + "\n")}
 		}
 		if binary == "go" && len(args) > 0 && args[0] == "version" {
 			return commandResult{output: []byte("go version go1.27.3 linux/amd64\n")}
 		}
 		if binary == "go" && len(args) > 0 && args[0] == "test" {
+			if !strings.Contains(strings.Join(args, " "), "-coverpkg="+modulePrefix+"...") {
+				t.Fatal("coverage scope is not explicitly bound to owned code")
+			}
 			for _, arg := range args {
 				if strings.HasPrefix(arg, "-coverprofile=") {
 					if err := os.WriteFile(strings.TrimPrefix(arg, "-coverprofile="), []byte("mode: atomic\n"+modulePrefix+"main.go:1.1,2.2 1 1\n"), 0600); err != nil {
@@ -44,6 +50,16 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	}
 	if !report.Passed || report.ProductionQualified || report.Coverage.Percent != 100 {
 		t.Fatalf("unexpected report result: %+v", report)
+	}
+	dirtyCommand := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
+		if binary == "git" && len(args) > 0 && args[0] == "status" {
+			return commandResult{output: []byte(" M source.go\n")}
+		}
+		return fake(ctx, binary, args, directory, environment)
+	}
+	dirtyReport, dirtyErr := run(context.Background(), Options{Source: root, Output: output + "-dirty", Profile: "source"}, dirtyCommand)
+	if dirtyErr != nil || dirtyReport.Passed || dirtyReport.Coverage.Percent != 100 {
+		t.Fatal("uncommitted source passed despite otherwise complete synthetic checks")
 	}
 	data, err := os.ReadFile(filepath.Join(output, "report.json"))
 	if err != nil {

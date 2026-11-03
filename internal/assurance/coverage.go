@@ -15,6 +15,11 @@ const modulePrefix = "github.com/maldous/CircularQuay/"
 
 var coverageLine = regexp.MustCompile(`^(.+):([0-9]+)\.([0-9]+),([0-9]+)\.([0-9]+) ([0-9]+) ([0-9]+)$`)
 
+type coverageBlock struct {
+	statements int64
+	covered    bool
+}
+
 // Coverage is statement/block coverage, not branch coverage or proof of correctness.
 type Coverage struct {
 	Covered int64   `json:"covered_statements"`
@@ -31,7 +36,7 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 		return Coverage{}, errors.New("invalid coverage header")
 	}
 	files := make(map[string]bool)
-	blocks := make(map[string]bool)
+	blocks := make(map[string]coverageBlock)
 	var result Coverage
 	for scanner.Scan() {
 		parts := coverageLine.FindStringSubmatch(scanner.Text())
@@ -46,10 +51,6 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 			return Coverage{}, err
 		}
 		key := strings.Join(parts[1:6], ":")
-		if blocks[key] {
-			return Coverage{}, errors.New("duplicate coverage block")
-		}
-		blocks[key] = true
 		statements, err := strconv.ParseInt(parts[6], 10, 64)
 		if err != nil || statements > 10_000_000 {
 			return Coverage{}, errors.New("invalid statement count")
@@ -58,6 +59,21 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 		if err != nil {
 			return Coverage{}, errors.New("invalid execution count")
 		}
+		// Whole-module coverage repeats blocks across test binaries. Match the
+		// Go tool's merge invariant: coordinates must agree on NumStmt. Count
+		// each statement once and union execution, preserving the denominator.
+		if previous, exists := blocks[key]; exists {
+			if previous.statements != statements {
+				return Coverage{}, errors.New("inconsistent coverage block")
+			}
+			if executions > 0 && !previous.covered {
+				result.Covered += statements
+				previous.covered = true
+				blocks[key] = previous
+			}
+			continue
+		}
+		blocks[key] = coverageBlock{statements: statements, covered: executions > 0}
 		result.Total += statements
 		if result.Total > 100_000_000 {
 			return Coverage{}, errors.New("coverage size limit exceeded")

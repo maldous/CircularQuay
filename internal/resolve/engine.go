@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"time"
+	"unicode/utf8"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/source"
 	"github.com/maldous/CircularQuay/internal/state"
@@ -47,6 +49,9 @@ func (e *Engine) ResolveFresh(ctx context.Context, id string) (model.Generation,
 }
 
 func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (model.Generation, error) {
+	if err := checkCancellation(ctx); err != nil {
+		return model.Generation{}, err
+	}
 	w, ok := e.Policy.Workloads[id]
 	if !ok {
 		return model.Generation{}, fault.New(fault.Invalid, "workload")
@@ -59,19 +64,22 @@ func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (mo
 	}
 	g := model.Generation{Workload: id, Values: make(map[string]model.Value), RetrievedAt: e.now()}
 	for _, b := range w.Bindings {
+		if err := checkCancellation(ctx); err != nil {
+			return model.Generation{}, err
+		}
 		s, ok := e.Policy.Sources[b.Source]
 		if !ok {
 			return model.Generation{}, fault.New(fault.Invalid, "source")
 		}
 		v, err := e.Reader.Read(ctx, s, b)
+		if canceled := checkCancellation(ctx); canceled != nil {
+			return model.Generation{}, canceled
+		}
 		if err != nil {
-			if !allowFallback {
-				return model.Generation{}, err
-			}
-			return e.failed(ctx, id, w, err)
+			return e.failed(ctx, id, w, err, allowFallback)
 		}
 		if err = validateValue(v, g.RetrievedAt, w.AuditRequired); err != nil {
-			return e.failed(ctx, id, w, err)
+			return e.failed(ctx, id, w, err, allowFallback)
 		}
 		g.Values[b.Name] = v
 		g.Receipts = append(g.Receipts, model.Receipt{Source: b.Source, Resource: b.Resource, Version: v.Version})
@@ -80,6 +88,9 @@ func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (mo
 }
 
 func validateValue(v model.Value, now time.Time, audit bool) error {
+	if len(v.Data) > 1<<20 || !utf8.ValidString(v.Data) || !validVersion(v.Version) {
+		return fault.New(fault.Trust, "source value bounds")
+	}
 	if !v.ExpiresAt.IsZero() && !now.Before(v.ExpiresAt) {
 		return fault.New(fault.Expired, "source value")
 	}
@@ -94,8 +105,8 @@ func validateValue(v model.Value, now time.Time, audit bool) error {
 	return nil
 }
 
-func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause error) (model.Generation, error) {
-	if w.Mode == "hybrid" && !w.AuditRequired && fault.Is(cause, fault.Unavailable) && w.Snapshot.Path != "" {
+func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause error, allowFallback bool) (model.Generation, error) {
+	if allowFallback && w.Mode == "hybrid" && !w.AuditRequired && fault.Is(cause, fault.Unavailable) && w.Snapshot.Path != "" {
 		return e.restore(ctx, id, w)
 	}
 	if e.State.Directory != "" {
@@ -106,6 +117,9 @@ func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause 
 
 // ReadKey performs a fresh exact-key read; callers must authorize disclosure first.
 func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, error) {
+	if err := checkCancellation(ctx); err != nil {
+		return model.Value{}, err
+	}
 	w, ok := e.Policy.Workloads[id]
 	if !ok {
 		return model.Value{}, fault.New(fault.Invalid, "workload")
@@ -124,6 +138,9 @@ func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, erro
 	for _, b := range w.Bindings {
 		if b.Name == key {
 			v, err := e.Reader.Read(ctx, e.Policy.Sources[b.Source], b)
+			if canceled := checkCancellation(ctx); canceled != nil {
+				return model.Value{}, canceled
+			}
 			if err != nil {
 				return model.Value{}, err
 			}
@@ -165,31 +182,34 @@ func (e *Engine) fingerprint(id string) (string, error) {
 
 // Snapshot stores only explicitly exportable static values with their provenance.
 func (e *Engine) Snapshot(ctx context.Context, g model.Generation) error {
+	if err := checkCancellation(ctx); err != nil {
+		return err
+	}
 	w, ok := e.Policy.Workloads[g.Workload]
-	if !ok || w.Mode == "online" || w.Snapshot.Path == "" || e.Snapshots == nil {
+	if !ok || w.AuditRequired || w.Mode == "online" || w.Snapshot.Path == "" || e.Snapshots == nil {
 		return fault.New(fault.Denied, "snapshot policy")
 	}
-	for _, b := range w.Bindings {
-		v, ok := g.Values[b.Name]
-		if !ok || !b.AllowOffline || v.Leased || v.Renewable {
-			return fault.New(fault.Denied, "snapshot lifecycle")
-		}
-		if err := validateValue(v, e.now(), false); err != nil {
-			return err
-		}
+	if err := validateGeneration(w, g, e.now()); err != nil {
+		return err
 	}
 	fp, err := e.fingerprint(g.Workload)
 	if err != nil {
 		return err
 	}
 	b, err := json.Marshal(snapshotPayload{Version: 1, Workload: g.Workload, Policy: fp, Generation: g})
-	if err != nil {
+	if err != nil || len(b) > 2<<20 {
 		return fault.New(fault.Apply, "snapshot encode")
 	}
 	return e.Snapshots.Encrypt(ctx, w.Snapshot, map[string]string{"circularquay_snapshot": string(b)})
 }
 
 func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (model.Generation, error) {
+	if err := checkCancellation(ctx); err != nil {
+		return model.Generation{}, err
+	}
+	if w.AuditRequired {
+		return model.Generation{}, fault.New(fault.Denied, "snapshot audit policy")
+	}
 	if e.Snapshots == nil {
 		return model.Generation{}, fault.New(fault.Unsupported, "snapshot backend")
 	}
@@ -203,11 +223,14 @@ func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (mode
 		}
 	}
 	m, err := e.Snapshots.Decrypt(ctx, w.Snapshot)
+	if canceled := checkCancellation(ctx); canceled != nil {
+		return model.Generation{}, canceled
+	}
 	if err != nil {
 		return model.Generation{}, err
 	}
 	var p snapshotPayload
-	if json.Unmarshal([]byte(m["circularquay_snapshot"]), &p) != nil {
+	if len(m) != 1 || len(m["circularquay_snapshot"]) > 2<<20 || jsondocument.Decode([]byte(m["circularquay_snapshot"]), &p) != nil {
 		return model.Generation{}, fault.New(fault.Trust, "snapshot format")
 	}
 	fp, err := e.fingerprint(id)
@@ -217,14 +240,8 @@ func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (mode
 	if p.Version != 1 || p.Workload != id || p.Policy != fp || p.Generation.Workload != id || len(p.Generation.Values) != len(w.Bindings) {
 		return model.Generation{}, fault.New(fault.Trust, "snapshot scope")
 	}
-	for _, b := range w.Bindings {
-		v, ok := p.Generation.Values[b.Name]
-		if !ok || !b.AllowOffline || v.Leased || v.Renewable {
-			return model.Generation{}, fault.New(fault.Denied, "snapshot scope")
-		}
-		if err := validateValue(v, e.now(), false); err != nil {
-			return model.Generation{}, err
-		}
+	if err := validateGeneration(w, p.Generation, e.now()); err != nil {
+		return model.Generation{}, err
 	}
 	p.Generation.Offline = true
 	return p.Generation, nil

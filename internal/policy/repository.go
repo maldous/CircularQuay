@@ -9,7 +9,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 )
 
-var commitID = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
+var commitID = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var refName = regexp.MustCompile(`^refs/(?:heads|tags)/[A-Za-z0-9][A-Za-z0-9._/-]*$`)
 var serviceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,127}$`)
 
@@ -68,7 +68,7 @@ func ValidRepositoryPath(value string) bool {
 }
 
 func portableSegment(segment string) bool {
-	if segment == "" || strings.HasSuffix(segment, ".") || strings.HasSuffix(segment, " ") || strings.ContainsAny(segment, `<>|"`) {
+	if segment == "" || segment == "." || segment == ".." || strings.HasSuffix(segment, ".") || strings.HasSuffix(segment, " ") || strings.ContainsAny(segment, `<>|"`) {
 		return false
 	}
 	upper := strings.ToUpper(segment)

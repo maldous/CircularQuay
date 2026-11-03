@@ -3,29 +3,45 @@ package state
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 // Record has no value-bearing fields.
 type Record struct {
-	Workload    string          `json:"workload"`
-	Generation  string          `json:"generation,omitempty"`
-	State       string          `json:"state"`
-	Mode        string          `json:"mode"`
-	Offline     bool            `json:"offline"`
-	LastChecked time.Time       `json:"last_checked"`
-	LastSuccess time.Time       `json:"last_success,omitempty"`
-	Error       fault.Kind      `json:"error,omitempty"`
-	Receipts    []model.Receipt `json:"receipts,omitempty"`
+	Workload    string                  `json:"workload"`
+	Generation  string                  `json:"generation,omitempty"`
+	State       string                  `json:"state"`
+	Mode        string                  `json:"mode"`
+	Offline     bool                    `json:"offline"`
+	LastChecked time.Time               `json:"last_checked"`
+	LastSuccess time.Time               `json:"last_success,omitempty"`
+	Error       fault.Kind              `json:"error,omitempty"`
+	Targets     map[string]TargetRecord `json:"targets,omitempty"`
+	Health      string                  `json:"health,omitempty"`
+	Receipts    []model.Receipt         `json:"receipts,omitempty"`
+}
+
+// TargetRecord records one target's projection and requested service transition.
+// Current identifies entries from the reconciliation named by Record.Generation;
+// retained false entries belong to an earlier, unselected reconciliation. An
+// activated receipt is not evidence that the consumer passed a health probe.
+type TargetRecord struct {
+	State       string     `json:"state"`
+	Generation  string     `json:"generation,omitempty"`
+	Current     bool       `json:"current,omitempty"`
+	AppliedAt   time.Time  `json:"applied_at,omitempty"`
+	ActivatedAt time.Time  `json:"activated_at,omitempty"`
+	Error       fault.Kind `json:"error,omitempty"`
 }
 
 // Store owns a private metadata directory.
@@ -35,14 +51,14 @@ func (s Store) path(name string) (string, error) {
 	if !namePattern.MatchString(name) || s.Directory == "" {
 		return "", fault.New(fault.Invalid, "state path")
 	}
-	if err := os.MkdirAll(s.Directory, 0o700); err != nil {
-		return "", fault.New(fault.Apply, "state directory")
+	directory, err := filepath.Abs(s.Directory)
+	if err != nil {
+		return "", fault.New(fault.Invalid, "state directory")
 	}
-	info, err := os.Lstat(s.Directory)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o022 != 0 {
-		return "", fault.New(fault.Trust, "state directory permissions")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		return "", err
 	}
-	return filepath.Join(s.Directory, name+".json"), nil
+	return filepath.Join(directory, name+".json"), nil
 }
 
 // Read returns metadata; absence is explicit and contains no invented success.
@@ -51,22 +67,18 @@ func (s Store) Read(name string) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
-	f, err := os.Open(p)
-	if errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(p); os.IsNotExist(err) {
 		return Record{Workload: name, State: "not_provisioned"}, nil
 	}
+	data, err := platform.ReadProtected(p, true)
 	if err != nil {
-		return Record{}, fault.New(fault.Apply, "state read")
+		return Record{}, err
 	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || info.Size() > 1<<20 {
+	if len(data) > 1<<20 {
 		return Record{}, fault.New(fault.Trust, "state size")
 	}
 	var r Record
-	d := json.NewDecoder(f)
-	d.DisallowUnknownFields()
-	if d.Decode(&r) != nil || r.Workload != name {
+	if jsondocument.Decode(data, &r) != nil || r.Workload != name {
 		return Record{}, fault.New(fault.Trust, "state record")
 	}
 	return r, nil
@@ -82,27 +94,10 @@ func (s Store) Write(r Record) error {
 	if err != nil {
 		return fault.New(fault.Apply, "state encode")
 	}
-	f, err := os.CreateTemp(s.Directory, ".state-*")
-	if err != nil {
-		return fault.New(fault.Apply, "state stage")
+	if len(b) > 1<<20 {
+		return fault.New(fault.Invalid, "state size")
 	}
-	tmp := f.Name()
-	defer os.Remove(tmp)
-	if _, err = f.Write(b); err != nil {
-		f.Close()
-		return fault.New(fault.Apply, "state write")
-	}
-	if err = f.Sync(); err != nil {
-		f.Close()
-		return fault.New(fault.Apply, "state sync")
-	}
-	if err = f.Close(); err != nil {
-		return fault.New(fault.Apply, "state close")
-	}
-	if err = os.Rename(tmp, p); err != nil {
-		return fault.New(fault.Apply, "state promote")
-	}
-	return nil
+	return platform.WriteProtected(p, b)
 }
 
 // Lock obtains a nonblocking native process lock. A crash releases the OS lock.
@@ -111,9 +106,9 @@ func (s Store) Lock(name string) (func() error, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(p+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := platform.OpenLockFile(p + ".lock")
 	if err != nil {
-		return nil, fault.New(fault.Apply, "state lock")
+		return nil, err
 	}
 	if err = lock(f); err != nil {
 		f.Close()

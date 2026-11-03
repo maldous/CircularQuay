@@ -36,6 +36,9 @@ func activateNative(ctx context.Context, target model.Target) error {
 	if status.State != svc.Running {
 		return fault.New(fault.Apply, "service transition already pending")
 	}
+	if ctx.Err() != nil {
+		return fault.New(fault.Apply, "activation canceled")
+	}
 	if _, err = s.Control(svc.Stop); err != nil {
 		return fault.New(fault.Apply, "stop declared service")
 	}
@@ -53,6 +56,9 @@ func activateNative(ctx context.Context, target model.Target) error {
 				return fault.New(fault.Apply, "query stopping service")
 			}
 			if status.State == svc.Stopped {
+				if ctx.Err() != nil {
+					return fault.New(fault.Apply, "activation canceled")
+				}
 				if err = s.Start(); err != nil {
 					return fault.New(fault.Apply, "start declared service")
 				}

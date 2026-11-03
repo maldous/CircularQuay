@@ -71,6 +71,8 @@ func run(ctx context.Context, options Options, command commandFunc) (Report, err
 		report.GoVersion = string(found[1])
 	}
 	report.Checks = append(report.Checks, metadataCheck("source_revision", report.Commit != ""), metadataCheck("go_toolchain", report.GoVersion != ""))
+	clean := command(ctx, "git", []string{"status", "--porcelain", "--untracked-files=normal"}, root, environment)
+	report.Checks = append(report.Checks, metadataCheck("source_tree_clean", !clean.missing && clean.exitCode == 0 && len(bytes.TrimSpace(clean.output)) == 0))
 	report.Checks = append(report.Checks, repositoryCheck(root))
 	goFiles, err := sourceFiles(root)
 	if err != nil {
@@ -91,7 +93,7 @@ func run(ctx context.Context, options Options, command commandFunc) (Report, err
 	}
 	report.Checks = append(report.Checks, format)
 	coveragePath := filepath.Join(output, "coverage.out")
-	report.Checks = append(report.Checks, execute(ctx, command, "unit_tests", true, options.GoBinary, []string{"test", "-count=1", "-covermode=atomic", "-coverpkg=./...", "-coverprofile=" + coveragePath, "./..."}, root, environment))
+	report.Checks = append(report.Checks, execute(ctx, command, "unit_tests", true, options.GoBinary, []string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + modulePrefix + "...", "-coverprofile=" + coveragePath, "./..."}, root, environment))
 	report.Checks = append(report.Checks, coverageCheck(coveragePath, &report.Coverage))
 	report.Checks = append(report.Checks, execute(ctx, command, "go_vet", true, options.GoBinary, []string{"vet", "./..."}, root, environment))
 	addExternalChecks(ctx, command, root, environment, options.Profile == "enterprise", &report)
@@ -195,7 +197,7 @@ func addExternalChecks(ctx context.Context, command commandFunc, root string, en
 		{"staticcheck", "staticcheck", []string{"./..."}},
 		{"gosec", "gosec", []string{"-quiet", "./..."}},
 		{"govulncheck", "govulncheck", []string{"./..."}},
-		{"secret_scan", "gitleaks", []string{"dir", "--redact=100", "--no-banner", "."}},
+		{"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}},
 		{"workflow_lint", "actionlint", nil},
 	}
 	for _, check := range checks {

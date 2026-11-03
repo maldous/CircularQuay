@@ -1,11 +1,14 @@
 ---
-name: circularquay-operations
+name: cquay
 description: Inspect and operate an already enrolled CircularQuay workload through its documented CLI or authenticated MCP interface. Use for scoped configuration status, approved workload actions, explicit secret disclosure, and synthetic verification; never infer grants from this skill.
 license: Apache-2.0
-compatibility: Requires a qualified CircularQuay executable or configured authenticated MCP connection, an operator-owned policy, and dependencies for enabled features.
+metadata:
+  compatibility: Requires a qualified CircularQuay executable or configured authenticated MCP connection, an operator-owned policy, and dependencies for enabled features.
 ---
 
-# CircularQuay operations
+# cquay
+
+`cquay` (pronounced “c-key”) is the app and CLI for the CircularQuay project.
 
 Read the installed version's help and capability matrix before acting. Use exact predeclared workload/key aliases and the configured identity. Never put real credentials in prompts, argv, examples, logs, issues or screenshots.
 

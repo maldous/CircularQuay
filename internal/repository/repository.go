@@ -6,14 +6,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
 )
 
@@ -59,7 +60,7 @@ func Fetch(ctx context.Context, repo model.Repository) (string, error) {
 	if err = s.initialize(ctx); err != nil {
 		return "", err
 	}
-	if _, err = s.command(ctx, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", repo.URL, "+"+repo.Ref+":refs/cquay/candidate"); err != nil {
+	if _, err = s.run(ctx, true, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", repo.URL, "+"+repo.Ref+":refs/cquay/candidate"); err != nil {
 		return "", failure(fault.Unavailable, "fetch")
 	}
 	data, err := s.command(ctx, 256, "rev-parse", "--verify", "refs/cquay/candidate^{commit}")
@@ -133,7 +134,7 @@ func openStore(repo model.Repository, create bool) (*store, error) {
 		return nil, failure(fault.Invalid, "declaration")
 	}
 	if create {
-		if err := os.MkdirAll(repo.Directory, 0o700); err != nil {
+		if err := platform.EnsurePrivateDirectory(repo.Directory); err != nil {
 			return nil, failure(fault.Trust, "directory")
 		}
 	}
@@ -157,12 +158,7 @@ func (s *store) readAccepted() (accepted, error) {
 	if err != nil {
 		return result, err
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&result); err != nil || result.URL != s.repo.URL || result.Ref != s.repo.Ref || !validCommit(result.Commit) {
-		return accepted{}, failure(fault.Trust, "accepted_state")
-	}
-	if err = decoder.Decode(new(any)); err != io.EOF {
+	if jsondocument.Decode(data, &result) != nil || result.URL != s.repo.URL || result.Ref != s.repo.Ref || !validCommit(result.Commit) {
 		return accepted{}, failure(fault.Trust, "accepted_state")
 	}
 	return result, nil
@@ -173,25 +169,5 @@ func (s *store) writeAccepted(state accepted) error {
 	if err != nil {
 		return failure(fault.Trust, "accepted_state")
 	}
-	file, err := os.CreateTemp(s.repo.Directory, ".accepted-*")
-	if err != nil {
-		return failure(fault.Trust, "accepted_write")
-	}
-	path := file.Name()
-	defer os.Remove(path)
-	if _, err = file.Write(data); err != nil {
-		file.Close()
-		return failure(fault.Trust, "accepted_write")
-	}
-	if err = file.Sync(); err != nil {
-		file.Close()
-		return failure(fault.Trust, "accepted_write")
-	}
-	if err = file.Close(); err != nil {
-		return failure(fault.Trust, "accepted_write")
-	}
-	if err = os.Rename(path, filepath.Join(s.repo.Directory, "accepted.json")); err != nil {
-		return failure(fault.Trust, "accepted_write")
-	}
-	return nil
+	return platform.WriteProtected(filepath.Join(s.repo.Directory, "accepted.json"), data)
 }

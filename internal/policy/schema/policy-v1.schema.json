@@ -382,7 +382,8 @@
           "type": "string"
         },
         "initial_commit": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
         },
         "token_file": {
           "type": "string"

@@ -9,6 +9,9 @@ import (
 // Apply performs one explicitly authorized local projection. Authorization and
 // snapshot acknowledgement belong to the calling policy/resolution boundary.
 func Apply(ctx context.Context, target model.Target, gen model.Generation) error {
+	if ctx.Err() != nil {
+		return fault.New(fault.Apply, "projection canceled")
+	}
 	data, err := EncodeValues(gen)
 	if err != nil {
 		return err
