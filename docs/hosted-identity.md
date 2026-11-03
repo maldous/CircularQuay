@@ -27,7 +27,7 @@ and [Okta authorization-server reference](https://developer.okta.com/docs/concep
 | Capability | Authorization boundary |
 | --- | --- |
 | External issuer | Named authorities pin exact issuer, same-origin JWKS endpoint, API audience and typed token profile. Public resource URLs are separate from token audiences. Duplicate issuer/audience authorities are rejected. |
-| Access tokens | Signed RS256/ES256 access tokens with strict JSON claims, exact issuer/audience, issue/expiry/not-before checks and a stable principal/client. RFC 9068 requires `at+jwt`; Entra v2 validates tenant, object and client GUIDs plus API scopes or roles. ID-token profiles and unsupported sender-proof claims are rejected. |
+| Access tokens | Signed RS256/ES256 access tokens with strict JSON claims, exact issuer/audience, issue/expiry/not-before checks and a stable principal/client. RFC 9068 requires `at+jwt`; Entra v2 validates tenant, object and client GUIDs plus API scopes or roles. ID-token profiles and unsupported sender-proof claims are rejected, except for the explicit DPoP confirmation contract below. |
 | Client discovery | Protected Resource Metadata and bearer challenges identify the public resource, its configured authorization servers and supported scopes. The external server owns registration, login and token endpoints. |
 | Resource authorization | Operator-defined scope and role requirements intersect exact authority, issuer-qualified principal, client, workload, operation, key and local time-window grants. Missing permissions deny; no development/production labels are reserved. |
 | Local revocation | Removing a grant or changing selected authority trust/permissions denies further authorization checks, including checks after resolution and before release/effect. Already launched children and completed disclosures retain their delivered values. |
@@ -42,6 +42,34 @@ evidence separately. Shared hosting also requires the isolation contract below;
 a listener and verifier alone do not establish a managed service. Native stores
 and interactive authentication are described in
 [credential boundaries](credential-boundaries.md).
+
+### Optional DPoP-bound access tokens
+
+A named authority can opt into the version-1 DPoP profile with its
+`sender_constraint`; the issuer remains responsible for issuing the access
+token. For that authority, it must issue an RFC 9449 `cnf.jkt` confirmation
+claim for the client's DPoP public key. CircularQuay accepts the token only as
+the `DPoP` authorization scheme with a proof whose embedded JWK thumbprint
+matches that claim. The profile permits ES256 with a P-256 key or RS256 with a
+2048--8192-bit RSA key, verifies the proof's bounded `jti` and `iat`, exact
+method, configured canonical `htu`, access-token hash (`ath`), and JWK
+thumbprint, and requires a one-use nonce plus persistent atomic replay
+decision. Its nonce/replay binding includes the selected authority, key and
+resource and the current authority-policy fingerprint.
+
+An omitted `sender_constraint` selects strict bearer behavior for that named
+authority: bearer tokens must not carry `cnf`, and DPoP authorization or proof
+headers are rejected. This keeps bearer and sender-constrained authorities
+separate rather than accepting either scheme for one authority.
+
+DPoP reduces the value of a stolen access token when the corresponding client
+private key remains protected. It cannot recall plaintext or secrets already
+disclosed, protect a compromised client private key, or defend against an OS
+administrator who can inspect the running client or protected local state.
+Issuer-side JWT revocation still has the signed-token expiry bound described
+above unless a separately qualified online revocation or introspection channel
+is available. CircularQuay does not implement key custody, login, token
+issuance, mTLS, or private-key JWT authentication for this profile.
 
 ## Managed key access and administration
 

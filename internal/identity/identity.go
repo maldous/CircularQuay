@@ -33,19 +33,22 @@ type Authority struct {
 	Subjects       []string
 	RequiredScopes []string
 	RequiredRoles  []string
+	// RequireDPoP permits only an RFC 9449 cnf.jkt confirmation claim.
+	RequireDPoP bool
 }
 
 // Principal is the signed identity and permissions extracted from an access
 // token. Subject is issuer-qualified: RFC 9068 uses "issuer|sub", and
 // Microsoft Entra v2 uses "issuer|tid/oid".
 type Principal struct {
-	Authority string
-	Issuer    string
-	Subject   string
-	Client    string
-	Scopes    []string
-	Roles     []string
-	ExpiresAt time.Time
+	Authority       string
+	Issuer          string
+	Subject         string
+	Client          string
+	Scopes          []string
+	Roles           []string
+	ExpiresAt       time.Time
+	ConfirmationJKT string
 }
 
 // Verifier verifies one raw bearer access token for an Authority.

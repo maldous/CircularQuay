@@ -89,3 +89,13 @@ qualification; they do not establish it.
 Publish the actual TLC version, model/config hashes, completed state count,
 warnings and result in the audit bundle. Do not mark this model as checked merely
 because its files exist or parse.
+
+## Sender constraints
+
+[SenderConstraint.tla](SenderConstraint.tla) and its
+[finite configuration](SenderConstraint.cfg) model the optional DPoP nonce and
+replay decisions separately. [The model contract](SenderConstraint.md) states
+the bounds and trusted clock, cryptographic, store and operating-system
+assumptions. The corresponding Go conformance trace uses signed synthetic
+proofs and the persistent local store. This bounded model does not establish
+cryptographic security, resistance to a host administrator or cluster safety.

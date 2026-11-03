@@ -137,15 +137,28 @@ type MCP struct {
 // claim profile. Permissions map operator-defined scopes/roles to cquay actions;
 // an omitted action is denied, independently of an exact local workload grant.
 type IdentityAuthority struct {
-	Issuer         string                     `json:"issuer" yaml:"issuer"`
-	JWKSURL        string                     `json:"jwks_url" yaml:"jwks_url"`
-	Audience       string                     `json:"audience" yaml:"audience"`
-	Profile        string                     `json:"profile" yaml:"profile"`
-	Clients        []string                   `json:"clients,omitempty" yaml:"clients,omitempty"`
-	Subjects       []string                   `json:"subjects,omitempty" yaml:"subjects,omitempty"`
-	RequiredScopes []string                   `json:"required_scopes,omitempty" yaml:"required_scopes,omitempty"`
-	RequiredRoles  []string                   `json:"required_roles,omitempty" yaml:"required_roles,omitempty"`
-	Permissions    map[string]TokenPermission `json:"permissions" yaml:"permissions"`
+	Issuer           string                     `json:"issuer" yaml:"issuer"`
+	JWKSURL          string                     `json:"jwks_url" yaml:"jwks_url"`
+	Audience         string                     `json:"audience" yaml:"audience"`
+	Profile          string                     `json:"profile" yaml:"profile"`
+	Clients          []string                   `json:"clients,omitempty" yaml:"clients,omitempty"`
+	Subjects         []string                   `json:"subjects,omitempty" yaml:"subjects,omitempty"`
+	RequiredScopes   []string                   `json:"required_scopes,omitempty" yaml:"required_scopes,omitempty"`
+	RequiredRoles    []string                   `json:"required_roles,omitempty" yaml:"required_roles,omitempty"`
+	Permissions      map[string]TokenPermission `json:"permissions" yaml:"permissions"`
+	SenderConstraint *SenderConstraint          `json:"sender_constraint,omitempty" yaml:"sender_constraint,omitempty"`
+}
+
+// SenderConstraint selects the optional DPoP access-token binding profile.
+// Its replay cache is intentionally local and persistent: one cquay instance may
+// enforce it. Multi-replica operation must not select this profile.
+type SenderConstraint struct {
+	Type               string `json:"type" yaml:"type"`
+	ProofMaxAgeSeconds int    `json:"proof_max_age_seconds" yaml:"proof_max_age_seconds"`
+	// ClockSkewSeconds is optional and defaults to zero when omitted.
+	ClockSkewSeconds int    `json:"clock_skew_seconds,omitempty" yaml:"clock_skew_seconds,omitempty"`
+	Nonce            string `json:"nonce" yaml:"nonce"`
+	ReplayStore      string `json:"replay_store" yaml:"replay_store"`
 }
 
 // TokenPermission requires every declared scope and role. Both dimensions are

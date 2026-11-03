@@ -81,6 +81,7 @@ func principalFromToken(token *auth.TokenInfo, client string) Principal {
 type namedVerifier struct {
 	name        string
 	fingerprint string
+	requireDPoP bool
 	verify      identity.Verifier
 }
 
@@ -95,7 +96,7 @@ func newNamedAccessTokenVerifier(ctx context.Context, config model.MCP, client *
 		if err != nil {
 			return nil, err
 		}
-		verifiers = append(verifiers, namedVerifier{name: name, fingerprint: policy.MCPAuthorityFingerprint(config, name), verify: verify})
+		verifiers = append(verifiers, namedVerifier{name: name, fingerprint: policy.MCPAuthorityFingerprint(config, name), requireDPoP: authority.SenderConstraint != nil, verify: verify})
 	}
 	return func(ctx context.Context, raw string, _ *http.Request) (*auth.TokenInfo, error) {
 		return verifyNamedToken(ctx, raw, verifiers)
@@ -125,7 +126,7 @@ func verifyNamedToken(ctx context.Context, raw string, verifiers []namedVerifier
 		}
 		result = &auth.TokenInfo{
 			UserID: principal.Subject, Expiration: principal.ExpiresAt, Scopes: principal.Scopes,
-			Extra: map[string]any{"client": principal.Client, "roles": principal.Roles, "authority": verifier.name, "authority_fingerprint": verifier.fingerprint},
+			Extra: map[string]any{"client": principal.Client, "roles": principal.Roles, "authority": verifier.name, "authority_fingerprint": verifier.fingerprint, "dpop_required": verifier.requireDPoP, "confirmation_jkt": principal.ConfirmationJKT},
 		}
 	}
 	if result == nil {

@@ -266,7 +266,7 @@ Verify the installed commands from a clean module/cache location and inspect:
 - `https://pkg.go.dev/github.com/maldous/CircularQuay@v1.0.0`
 - `https://pkg.go.dev/github.com/maldous/CircularQuay/cmd/cquay@v1.0.0`
 
-Use Go tooling rather than manually lowercasing or constructing escaped proxy paths. Version v2+ needs `/v2` in module/import/install paths. Private dependencies require `GOPRIVATE` before resolution; the operational ciphertext repository must not become a public Go module.
+Use Go tooling rather than manually lowercasing or constructing escaped proxy paths. Private dependencies require `GOPRIVATE` before resolution; the operational ciphertext repository must not become a public Go module.
 
 Never move/reuse a published tag. For a defect, publish a higher corrected version and a `retract` directive where appropriate. Retraction is not deletion, and cached source may remain accessible. Negative lookups before a tag exists can be cached; do not retag to fix propagation. Official reference: <https://go.dev/doc/modules/publishing>.
 

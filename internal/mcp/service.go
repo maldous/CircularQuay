@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/maldous/CircularQuay/internal/dpop"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/policy"
@@ -165,6 +166,9 @@ type Options struct {
 	// PolicyProvider permits revocation without trusting a cached discovery result.
 	// When absent, the immutable configuration supplied to New is used.
 	PolicyProvider func() (model.Policy, error)
+	// DPoPStateDirectory is the protected local state root for the optional
+	// single-replica DPoP replay and nonce store.
+	DPoPStateDirectory string
 }
 
 // Service is a bounded interface over an already enrolled resolver.
@@ -173,6 +177,7 @@ type Service struct {
 	backend    Backend
 	options    Options
 	now        func() time.Time
+	dpopStore  dpop.Store
 }
 
 // New validates policy before exposing any protocol transport.
@@ -190,7 +195,24 @@ func New(p model.Policy, backend Backend, options Options) (*Service, error) {
 		}
 		options.Audit = audit
 	}
-	return &Service{configured: p, backend: backend, options: options, now: time.Now}, nil
+	var replay dpop.Store
+	if policyRequiresDPoP(p) {
+		store, err := dpop.NewPersistentStore(options.DPoPStateDirectory)
+		if err != nil {
+			return nil, fault.New(fault.Trust, "dpop replay store")
+		}
+		replay = store
+	}
+	return &Service{configured: p, backend: backend, options: options, now: time.Now, dpopStore: replay}, nil
+}
+
+func policyRequiresDPoP(p model.Policy) bool {
+	for _, authority := range p.MCP.Authorities {
+		if authority.SenderConstraint != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) current() model.Policy {

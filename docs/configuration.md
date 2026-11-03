@@ -292,7 +292,7 @@ a final expiry, revocation, or cancellation check can still withhold the respons
 | `authorities` | named object, 1–8 entries | Explicit access-token issuers and permission mappings described below. Cannot be mixed with the single-issuer fields. |
 | `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cquay:mcp` plus `cquay:list`, `cquay:status`, `cquay:run`, or `cquay:read`. Prefer named authorities for custom audiences or roles. |
 | `address` | `host:port` string | Optional listener address. Bind and exposure decisions remain operator-controlled. |
-| `origins` | unique HTTPS URL array | Allowed browser origins, if HTTP mode is used. |
+| `origins` | unique HTTPS URL array | Request `Origin` allowlist for HTTP mode. It is an origin check, not a CORS implementation: this profile does not emit browser CORS permission headers. |
 | `hosts` | unique string array | Allowed Host values, without wildcard/URL syntax. |
 | `audit_path` | string path | Protected local metadata-only audit receipt path. |
 
@@ -310,6 +310,7 @@ Each `mcp.authorities.<name>` declares:
 | `clients`, `subjects` | Optional exact allowlists. A principal must match one entry in each configured list. Empty lists leave that dimension to exact local grants. |
 | `required_scopes`, `required_roles` | Optional requirements on every accepted token: all listed scopes and all listed roles must be present. |
 | `permissions` | Maps `list`, `status`, `run`, or `read` to `{ "scopes": [...], "roles": [...] }`. Every declared scope and role is required; an omitted operation or empty permission denies it. |
+| `sender_constraint` | Optional RFC 9449 DPoP profile for this named authority only, described below. It cannot be selected by the compact single-issuer form. |
 
 No environment or permission label has built-in business meaning. For example,
 `permissions.read.scopes = ["secrets:use"]` maps that registered API scope to a
@@ -324,6 +325,77 @@ the client. Entra's issuer pins the tenant, `ver` must be `2.0`, and an API scop
 or role must be present. Register a separate API audience from interactive login
 clients. ID-token profiles, opaque tokens, unsupported sender-proof claims,
 and tokens for other APIs are rejected.
+
+### Optional DPoP sender constraint
+
+DPoP is an opt-in, per-named-authority sender-constraint profile. The complete
+declaration is:
+
+```json
+{
+  "sender_constraint": {
+    "type": "dpop",
+    "proof_max_age_seconds": 60,
+    "clock_skew_seconds": 5,
+    "nonce": "required",
+    "replay_store": "local_persistent"
+  }
+}
+```
+
+`type` must be `dpop`; `proof_max_age_seconds` is required and is from 1 to
+300 seconds; `clock_skew_seconds` is optional, defaults to zero, and is from
+zero to 30 seconds and no greater than the proof age. `nonce` must be
+`required`, and `replay_store` must be `local_persistent`. The complete Linux
+reference intentionally remains a bearer-policy example; adding this object
+changes that named authority's authentication contract.
+
+For an authority with this object, the issuer must mint an RFC 9449 access
+token confirmation claim containing only `cnf.jkt`, and that thumbprint must
+match the public key embedded in every DPoP proof. Clients send the token as
+`Authorization: DPoP <access-token>` and exactly one `DPoP` proof header.
+The proof is a bounded signed JWT (at most 16 KiB) with a 16--512-byte visible
+ASCII `jti` (excluding quotes and backslashes), a fresh `iat`, the exact HTTP
+method, the configured canonical resource URL in `htu`, and `ath` for that
+access token. Its embedded public JWK must be P-256 with ES256 or RSA
+2048--8192 bits with RS256; its JWK thumbprint must equal the token's `cnf.jkt`.
+The request path must equal the configured resource path and contain no query.
+The actual request `Host` must equal the configured resource host: an entry in
+`mcp.hosts` does not create a DPoP resource alias. If a request uses an absolute
+URL, its scheme and host must also equal the configured resource. CircularQuay
+still takes the protected resource from policy, not from `Host`, `Forwarded`, or
+related proxy headers. A trusted local TLS proxy must preserve the external
+canonical `Host`. The replay/nonce binding also includes the named authority's
+current policy fingerprint, resource and key thumbprint, so a changed authority
+contract cannot reuse an earlier proof decision.
+
+Protected-resource metadata advertises `ES256` and `RS256` when any named
+authority uses DPoP. It advertises `dpop_bound_access_tokens_required: true`
+only when every named authority requires proofs; mixed resources enforce the
+selected authority's own contract.
+
+The first validly formed proof without a nonce receives `401` with
+`WWW-Authenticate: DPoP error="use_dpop_nonce"` and a `DPoP-Nonce` response
+header. The next proof presents that nonce. A successful proof consumes that
+nonce and proof identifier atomically and returns the next `DPoP-Nonce` for
+the following proof. Operators and intermediaries must not log access tokens,
+DPoP proofs, or nonce values.
+
+The DPoP replay/nonce state is protected persistent state below the selected
+`--state-dir`; it survives process restart. Run this profile on one replica
+with one local filesystem state directory. Do not reset that directory to
+recover a request, share it between hosts, or use this profile for a
+multi-host deployment. Its local store does not supply cluster-wide replay
+enforcement. The bounded cache permits 4,096 total live records and 64 per
+authority/key/resource binding, counting nonces and replay records together;
+capacity or persistence failure denies the request. Expired records are pruned.
+The server clock and protected state are part of the trusted host boundary.
+
+When `sender_constraint` is omitted, that authority is strict bearer: it
+accepts `Authorization: Bearer` only and rejects DPoP authorization, DPoP
+proof headers, and access tokens carrying a `cnf` confirmation claim. DPoP
+does not add client key custody, login, token issuance, mTLS, or private-key
+JWT support to CircularQuay.
 
 The current protected policy is rechecked before provider access and effects.
 Changing an authority's trust, audience, required claims or permission mapping

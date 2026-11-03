@@ -16,11 +16,41 @@ The [synthetic policy](../../examples/mcp-local.json) shows an exact key read gr
 
 ## Hosted or loopback HTTP
 
-HTTP remains disabled until issuer, audience, trusted key/discovery configuration, allowed hosts/origins and audit storage are configured. Bind loopback by default. Use TLS for remote access. A reverse proxy's headers must not manufacture identity.
+HTTP remains disabled until issuer, audience, trusted key/discovery configuration, allowed hosts/origins and audit storage are configured. Bind loopback by default. Use TLS for remote access. A local TLS-terminating proxy may connect over loopback only when its boundary is trusted; `Forwarded` and `X-Forwarded-*` do not establish transport security, caller identity, or the protected-resource URL. Configure the public resource URL explicitly with its exact non-root path; requests with a query or another path are denied. For DPoP, the actual `Host` must equal that configured resource host even if `mcp.hosts` permits another host for the listener, and an absolute-form request URL must have the configured scheme and host. The proxy must preserve that external canonical `Host`; CircularQuay still obtains the resource from policy, not request headers. This profile does not emit CORS response headers; `origins` filters incoming Origin values and does not enable browser access across origins.
 
 CircularQuay is a protected resource, not an authorization server. Configure a qualified OAuth issuer/resource audience, supported clients/scopes, short-lived credentials and revocation behavior. A Google ID token, OpenBao login or plain Cloudflare Access assertion is not automatically the complete MCP OAuth contract. Do not forward inbound MCP tokens to upstream providers.
 
 A zero-additional-cost identity-provider combination must still pass protocol qualification. Current Keycloak guidance marks parts of latest MCP support experimental; do not describe it as production-qualified without evidence and risk review.
+
+### Optional DPoP authority profile
+
+Use DPoP only by adding `sender_constraint` to the selected named authority in
+the policy. It requires `type: "dpop"`, `nonce: "required"`,
+`replay_store: "local_persistent"`, a proof age from 1 through 300 seconds,
+and optional clock skew from zero through 30 seconds no greater than that age.
+The omitted skew defaults to zero. Keep a bearer authority bearer-only; adding
+this field changes that authority to require `Authorization: DPoP` and one
+proof header, and it requires its issuer to mint RFC 9449 `cnf.jkt` bound to
+the client's DPoP public key.
+
+The client begins with a proof for the configured resource's exact URL, HTTP
+method, access-token hash, fresh bounded identifier/time, and matching ES256
+P-256 or RS256 2048--8192-bit public JWK. The resource responds to the initial
+nonce-less proof with `401`, `WWW-Authenticate: DPoP error="use_dpop_nonce"`,
+and `DPoP-Nonce`; the next proof uses that nonce. Each accepted request
+atomically consumes the nonce and replay identifier and returns the nonce for
+the next proof. Treat the access token, proof, and every nonce as sensitive:
+exclude them from proxy, server, tracing, audit, and client logs.
+
+The replay/nonce directory is protected persistent state under `--state-dir`.
+Do not delete or reset it as a recovery step. This implementation is for one
+replica using local filesystem state; do not run multiple hosts against copied,
+shared, or independently reset state. Confirm denial of wrong scheme, absent or
+wrong `cnf.jkt`, invalid proof, missing/used nonce, replayed `jti`, stale or
+future `iat`, changed path/query/method, wrong `ath`, changed policy, and
+restarted service before enabling the authority. DPoP limits bearer-token theft
+only while the client private key remains protected; it cannot retract secrets
+already disclosed or protect a compromised client key or OS administrator.
 
 ## Grants
 

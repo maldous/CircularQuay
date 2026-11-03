@@ -31,7 +31,11 @@ func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
 		return 0, err
 	}
 	b := backend{app: a}
-	service, err := cqmcp.New(p, b, cqmcp.Options{PolicyProvider: a.load, ActionAllowed: a.actionAllowed})
+	store, err := a.store()
+	if err != nil {
+		return 0, err
+	}
+	service, err := cqmcp.New(p, b, cqmcp.Options{PolicyProvider: a.load, ActionAllowed: a.actionAllowed, DPoPStateDirectory: store.Directory})
 	if err != nil {
 		return 0, err
 	}

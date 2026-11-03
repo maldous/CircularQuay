@@ -22,29 +22,60 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-Published checkpoint `42a3806d68a39583584d22e51469278cfa698cac` has tree
-`d592a8ba1f2c9acb1106982d6eb82a9d94af4921`. Public readback verified all seven
-changed files and preserved all 231 working files. Its source checks and
-synthetic native Linux/macOS/Windows suite passed; all 26 cross-builds and
-CodeQL passed. Coverage and gosec still fail. Exact Sonar reports zero issues
-but fails coverage; the sealed managed diff has partial completeness.
+Last published checkpoint `97b757af8a91c7dce5227f8b6230fa3d98545d1a` has tree
+`0e155ece0a97e7b432b5381cf7f22bd30bdd5e70`. Public readback verified three
+changed files and preserved all 236 working files. Exact native Linux, macOS
+and Windows tests, all 26 cross-builds and CodeQL passed. Synthetic merge
+`e9f0b1ed25b755ad86bbb18f8d9e01ed1fc81008` has the same tree. The macOS audit
+fixture repair passed natively. Coverage and gosec still fail; these outcomes
+do not qualify later edits. Retain `.local/qualification/ci-97b757-native-cross.json`.
 
-The frozen local checkpoint19 follow-up is based on that published revision.
-Its whole-repository normal/race tests, vet, Staticcheck, formatting, module
-checks, both complexity ceilings of 10, actionlint and 12 Windows compilations
-passed with identical source manifests. Coverage is 5,224/6,082 statements
-(85.89280%), below 100%. Retain `.local/qualification/checkpoint19-20261104/`.
-It propagates audit signals and repository request cancellation, prevents
-promoted `bytes.Buffer.ReadFrom` from bypassing subprocess output caps, bounds
-inherited-pipe waits, and tests Linux systemd invocation/publication contracts
-without running host tools. Exact committed-candidate qualification is separate.
+Exact Sonar CE `67acd20a-9998-41c7-a011-4ecce249c27a` completed with current
+analysis `1c0550bb-bc88-4d31-b978-af4b070a73cc` matching that revision. Zero
+issues/hotspots are reported, but the unchanged gate is ERROR at 79.4% overall
+and 81.8% new coverage. Fresh statement coverage is 5,224/6,082 (85.89280%).
+Retain the 2026-11-10 token-expiry warning and `.local/sonar/summary-97b757af8a91.txt`.
 
-Optional DPoP and typed audit-tool inputs remain separate unmerged work. Do not
-mistake their local files, staged diffs, schema declarations or focused tests
-for delivered or qualified runtime features. Preserve task ownership and exact
-retained evidence. The DPoP review requires protocol, replay/nonce expiry and
-failure conformance; typed tool inputs still need actual probes, fixed
-invocations and rule/server binding before the auditor can rely on them.
+Frozen local checkpoint21 adds optional named-authority DPoP, strict issuer
+`cnf.jkt` binding, required persistent nonce/replay state and a request-local
+SDK verifier handoff. Whole-module normal/race tests, vet, Staticcheck with all
+checks, formatting, module checks, both complexity ceilings, actionlint,
+13 Windows and four Darwin test compilations passed with identical source
+manifests. Coverage is 5,554/6,441 (86.22885%), below 100%. Retain
+`.local/qualification/checkpoint21-20261104/` and the separate failed gosec
+receipts; exact committed native/Sonar/security qualification is separate.
+
+The profile advertises its supported algorithms and all-authority requirement
+through protected-resource metadata, checks the actual request host/path and
+any absolute-form scheme, and never derives its trust origin from forwarded
+headers. A reproduced alias/scheme/port gap failed before the fix and passes
+afterward. Signed issuer-to-SDK tests prove raw-read actor/deadline/audit
+behavior, replay denial, and that a rejected fresh Bearer proof remains usable
+under the required DPoP scheme. The cache is single replica/local filesystem,
+with required one-use nonces, expiry and fixed global/per-binding capacity.
+
+The final sender-constraint model has independent acceptance/restart witnesses,
+mixed token/proof expiries and live-window replay semantics. TLC checked
+127,067 distinct states at depth 20; all four private guard mutations produced
+actual counterexamples. Earlier weaker models and malformed mutation attempts
+are historical evidence, not qualifying results. Retain raw final logs under
+`.local/qualification/sender-constraint-final/`. The model is a bounded
+abstraction with trusted host/clock/store/crypto assumptions, not exact program
+refinement or proof against host administrators.
+
+The first combined capture failed one new policy test's cognitive ceiling.
+That test was split into readable helpers and the fresh combined capture
+passed; retain `checkpoint21-20261104-before-test-refactor` as historical
+failure evidence. Schema review also caught optional-skew decoder tags and
+missing cross-field age/skew constraints; regression tests failed before the
+fixes and cover both sides of every small-age boundary afterward.
+
+Typed audit-tool inputs remain in the separate isolated tool checkout until
+the actual protected-manifest smoke, frozen review and combined qualification
+are complete. It binds tool paths, version probes, rule data and canonical
+helper resolution, denies source waivers, and preserves enterprise failure
+where full runtime closure is not established. Do not represent that isolated
+work as delivered or production qualified.
 
 ## Latest bounded documentation result
 
@@ -122,8 +153,10 @@ The v1 identity direction does not add a Keycloak dependency. Where a custom
 API is supported, trust an existing authorization server/IdP directly (for
 example Entra ID or Auth0) through named trust/configuration scope, role,
 client, subject, resource, context, and grant declarations. Do not hard-code
-development/production identity assumptions. DPoP, mTLS, private-key JWT, and
-offline-artifact binding are not implemented or qualified.
+development/production identity assumptions. The integrated optional DPoP
+profile requires issuer-bound keys and persistent single-replica nonce/replay
+state; native and issuer/client interoperability remain unqualified. mTLS,
+private-key JWT and offline-artifact binding are not implemented or qualified.
 
 Grant time windows and the six reviewed remediation patches are implemented
 with focused synthetic tests. They are not qualified capabilities until fresh

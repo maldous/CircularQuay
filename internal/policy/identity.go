@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/identity"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -56,6 +57,9 @@ func validateIdentityAuthority(name string, authority model.IdentityAuthority) e
 	if !validIdentityValues(authority.RequiredScopes, true) {
 		return invalid("identity_scope")
 	}
+	if !validSenderConstraint(authority.SenderConstraint) {
+		return invalid("identity_sender_constraint")
+	}
 	return validateTokenPermissions(authority.Permissions)
 }
 
@@ -67,7 +71,15 @@ func VerifierAuthority(name string, authority model.IdentityAuthority) identity.
 		Audience: authority.Audience, Profile: identity.Profile(authority.Profile),
 		Clients: authority.Clients, Subjects: authority.Subjects,
 		RequiredScopes: authority.RequiredScopes, RequiredRoles: authority.RequiredRoles,
+		RequireDPoP: authority.SenderConstraint != nil,
 	}
+}
+
+func validSenderConstraint(value *model.SenderConstraint) bool {
+	if value == nil {
+		return true
+	}
+	return value.Type == "dpop" && value.Nonce == "required" && value.ReplayStore == "local_persistent" && value.ProofMaxAgeSeconds >= 1 && value.ProofMaxAgeSeconds <= 300 && value.ClockSkewSeconds >= 0 && value.ClockSkewSeconds <= 30 && time.Duration(value.ClockSkewSeconds)*time.Second <= time.Duration(value.ProofMaxAgeSeconds)*time.Second
 }
 
 func sameIdentityOrigin(authority model.IdentityAuthority) bool {

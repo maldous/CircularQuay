@@ -187,7 +187,7 @@ func verify(ctx context.Context, raw string, authority Authority, config authori
 	if err != nil {
 		return Principal{}, ErrInvalidToken
 	}
-	claims, err := parseClaims(payload, token)
+	claims, err := parseClaims(payload, token, authority.RequireDPoP)
 	if err != nil {
 		return Principal{}, ErrInvalidToken
 	}
@@ -214,13 +214,13 @@ type tokenClaims struct {
 	Nonce     json.RawMessage `json:"nonce"`
 }
 
-func parseClaims(payload []byte, token *oidc.IDToken) (tokenClaims, error) {
+func parseClaims(payload []byte, token *oidc.IDToken, requireDPoP bool) (tokenClaims, error) {
 	var fields map[string]json.RawMessage
 	if jsondocument.Decode(payload, &fields) != nil || nullClaim(fields) {
 		return tokenClaims{}, ErrInvalidToken
 	}
 	var claims tokenClaims
-	if json.Unmarshal(payload, &claims) != nil || unsupportedProof(claims) {
+	if json.Unmarshal(payload, &claims) != nil || unsupportedProof(claims, requireDPoP) {
 		return tokenClaims{}, ErrInvalidToken
 	}
 	if !validIdentityClaimText(token.Subject, claims) || !validPermissionClaimText(claims) {
@@ -238,8 +238,32 @@ func nullClaim(fields map[string]json.RawMessage) bool {
 	return false
 }
 
-func unsupportedProof(claims tokenClaims) bool {
-	return claims.CNF != nil || claims.Nonce != nil
+func unsupportedProof(claims tokenClaims, requireDPoP bool) bool {
+	if claims.Nonce != nil {
+		return true
+	}
+	if !requireDPoP {
+		return claims.CNF != nil
+	}
+	return confirmationJKT(claims.CNF) == ""
+}
+
+func confirmationJKT(raw json.RawMessage) string {
+	if raw == nil {
+		return ""
+	}
+	var value struct {
+		JKT string `json:"jkt"`
+	}
+	if jsondocument.Decode(raw, &value) != nil || !validJKT(value.JKT) {
+		return ""
+	}
+	return value.JKT
+}
+
+func validJKT(value string) bool {
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	return err == nil && len(decoded) == 32 && base64.RawURLEncoding.EncodeToString(decoded) == value
 }
 
 func validIdentityClaimText(subject string, claims tokenClaims) bool {
@@ -317,7 +341,7 @@ func rfc9068Principal(authority Authority, token *oidc.IDToken, claims tokenClai
 		return Principal{}, ErrInvalidToken
 	}
 	scopes, _ := splitScopes(claims.Scope)
-	return newPrincipal(authority, token, claims.ClientID, authority.Issuer+"|"+token.Subject, scopes, claims.Roles), nil
+	return newPrincipal(authority, token, claims.ClientID, authority.Issuer+"|"+token.Subject, scopes, claims.Roles, confirmationJKT(claims.CNF)), nil
 }
 
 func entraPrincipal(authority Authority, config authorityConfig, token *oidc.IDToken, claims tokenClaims) (Principal, error) {
@@ -328,11 +352,11 @@ func entraPrincipal(authority Authority, config authorityConfig, token *oidc.IDT
 	if len(scopes) == 0 && len(claims.Roles) == 0 {
 		return Principal{}, ErrInvalidToken
 	}
-	return newPrincipal(authority, token, claims.AZP, authority.Issuer+"|"+claims.TenantID+"/"+claims.ObjectID, scopes, claims.Roles), nil
+	return newPrincipal(authority, token, claims.AZP, authority.Issuer+"|"+claims.TenantID+"/"+claims.ObjectID, scopes, claims.Roles, confirmationJKT(claims.CNF)), nil
 }
 
-func newPrincipal(authority Authority, token *oidc.IDToken, client, subject string, scopes, roles []string) Principal {
-	return Principal{Authority: authority.Name, Issuer: authority.Issuer, Subject: subject, Client: client, Scopes: scopes, Roles: roles, ExpiresAt: token.Expiry}
+func newPrincipal(authority Authority, token *oidc.IDToken, client, subject string, scopes, roles []string, confirmation string) Principal {
+	return Principal{Authority: authority.Name, Issuer: authority.Issuer, Subject: subject, Client: client, Scopes: scopes, Roles: roles, ExpiresAt: token.Expiry, ConfirmationJKT: confirmation}
 }
 
 func permittedPrincipal(authority Authority, principal Principal) bool {

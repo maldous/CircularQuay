@@ -56,12 +56,15 @@ func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error)
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: maximumRequestBytes,
 		PropagateRequestCancellation: true, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
-	protected := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{ResourceMetadataURL: metadataURL, Scopes: requiredTransportScopes(cfg)})(boundTokenDeadline(stream))
+	protected := requireAccessToken(verifier, cfg, s.dpopStore, metadataURL, requiredTransportScopes(cfg))(boundTokenDeadline(stream))
 	mux := http.NewServeMux()
 	mux.Handle(path, protected)
+	algorithms, requiresDPoP := dpopMetadata(cfg)
 	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{
 		Resource: resourceURL, AuthorizationServers: configuredIssuers(cfg),
-		ScopesSupported: configuredScopes(cfg),
+		ScopesSupported:               configuredScopes(cfg),
+		DPOPSigningAlgValuesSupported: algorithms,
+		DPOPBoundAccessTokensRequired: requiresDPoP,
 	})
 	mux.Handle(metadataPath, metadata)
 	if metadataPath != "/.well-known/oauth-protected-resource" {
