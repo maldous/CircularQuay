@@ -234,6 +234,35 @@ met by checkpoint19 or the last published CI receipt.
 
 ## Qualification and release blockers
 
+Published candidate `54fb84a2d3ccd65d0cc7c3d7a780c7c5daa40507` has tree
+`325e75f2016bfd055a1289e4203c583f062c29bc`. Public readback verified all 21
+changed files and all 236 working files. Source run 41713357341 tested a
+synthetic merge with the same public tree: Linux/Windows and all 26
+cross-builds passed. macOS failed the audit bootstrap fixture because its
+private temporary path included a system symlink; other listed packages
+passed. Do not misclassify that assertion as a dependency/setup failure.
+The captured checkpoint20 changes only that test fixture to use its physical
+path, preserving production checks. Audit-package normal/race/vet/Staticcheck,
+format/complexity and three Darwin/Windows test compilations passed with
+unchanged source manifests. All production inputs match checkpoint19; native
+macOS revalidation remains required. Retain
+`.local/qualification/checkpoint20-20261104/`.
+
+Security run 41713357268 passed CodeQL. Actual Linux gosec reported eight
+findings; the private receipt preserves and corrects an earlier unmeasured
+carried-forward count. Sonar CE `e6af4d51-c9be-4860-844d-89715fd6b4c5` and
+current analysis `c8623fc7-2362-4019-9ff8-88546a7de9a6` have exact revision
+fences and zero issues/smells/bugs/vulnerabilities/hotspots/duplication, but gate
+ERROR at 79.4% overall / 81.8% new coverage. Keep the Nov10 token warning.
+Go coverage remains 5,224/6,082 (85.89279842%), below 100%.
+
+Managed delta `94b6f845-d4f0-4df1-b630-31c673f6294b` is sealed with complete
+coverage of the 19 authoritative source/test diff items and zero findings.
+Focused package validation passed. This does not qualify the whole repository,
+host sandbox/tool provenance, live providers, native services or recovery.
+Retain `.local/qualification/ci-54fb84a-native-cross.json` and
+`.local/sonar/summary-54fb84a2d3cc.txt`. No production action occurred.
+
 Published candidate `42a3806d68a39583584d22e51469278cfa698cac` has exact tree
 `d592a8ba1f2c9acb1106982d6eb82a9d94af4921`. Source run 41706881432 tested
 synthetic merge `834345b94f89aa3d1287cf747a85bbd9131f61eb`; public readback

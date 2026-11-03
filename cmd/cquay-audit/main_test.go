@@ -27,7 +27,10 @@ func TestInvalidAuditArguments(t *testing.T) {
 }
 
 func TestCancelledBootstrapDoesNotContactServer(t *testing.T) {
-	directory := t.TempDir()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}
