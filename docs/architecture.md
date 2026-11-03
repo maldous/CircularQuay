@@ -30,6 +30,17 @@ OpenBao Transit protects a SOPS data key. OpenBao KV stores application values. 
 
 Do not put a normal local age recipient beside a Transit recipient and describe the result as mandatorily online-audited: either ordinary recipient can unlock the file. Separate artifacts/policy must express that trade-off. `SOPS_HC_VAULT_ALLOWLIST` is always explicitly restricted.
 
+## Optional managed keys and custody
+
+The [managed key service](managed-key-service.md) verifies an existing identity
+and current mapping/grant before returning an authorized age private key.
+Its optional administration UI/API uses the same scoped authorization; available
+Netlify/Cloudflare managed capabilities are reused before building key-specific
+screens. Distribution, protected local custody, and per-bundle remote unlocking
+have different revocation boundaries. Partition bundles and recipients by real
+authorization domain; a retained private key or data key bypasses later fetch
+revocation. Signed windows require trusted enforcement outside the age format.
+
 ## Complete generations
 
 Resolve every required binding and validate its lifecycle before activation. Track declarations, source versions, projected state, and active state separately. Cross-provider reads and writes are not a transaction. A failed required input does not create a new partially refreshed workload.

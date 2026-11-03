@@ -6,6 +6,16 @@ identity to exact reads and deliveries. It does not become the identity
 provider, credential broker, vault, mobile application, or hosted connection
 manager.
 
+## Optional managed-key boundary
+
+The [managed key service](managed-key-service.md) is a separate optional key
+custodian/distribution authority. Core workload delivery does not become an
+identity provider or general vault. A distributed private key is copyable;
+separate-identity local custody and per-bundle remote unlocking have distinct
+trust assumptions. Hardware/private-key protection does not recall plaintext
+or released data keys. Every recipient and recovery path participates in the
+bundle's real authorization boundary.
+
 ## Current local protection surface
 
 | Surface | Current behavior | Boundary |

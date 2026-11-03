@@ -45,6 +45,18 @@ Revocation denies future authorized retrieval; it cannot erase copied ciphertext
 
 Offline access is outside authoritative central per-read auditing. Local receipts are operational evidence, not proof against a hostile machine owner.
 
+## Managed keys and user administration
+
+The [managed-service boundary](managed-key-service.md) separates identity,
+mapping administration, key retrieval, and local/remote custody. Cross-domain
+mapping confusion, stale authorization, alternate recipient bypass, restore of
+revoked grants, and accidental logging of distributed keys are in scope.
+Server-side authorization applies to every UI/API/CLI/MCP mutation and release;
+Netlify/Cloudflare login or site access alone is not a per-key grant. A copied
+private key, document data key, or plaintext defeats later fetch revocation.
+Offline expiry assumes trusted local enforcement and does not withstand a
+hostile endpoint administrator by cryptographic promise alone.
+
 ## Review scope
 
 Review policy, endpoint/account selection, input parsing, native process/file boundaries, lifecycle and fallback, per-user MCP, audit outputs, installation, and release trust. Test denial before retrieval and failure paths using fabricated data. The [assurance contract](assurance.md) and [implementation plan](implementation-plan.md) define evidence and outstanding qualification.

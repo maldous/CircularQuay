@@ -17,6 +17,20 @@ This is the durable engineering contract, not a completion report. Scope is impl
 - Strict first-party quality with transparent upstream advisory/mitigation reporting.
 - Public README for motivation/features/user usage; `RELEASE.md` for maintainer/operator account, index, audit, deployment and post-installation directions.
 
+## Managed-key product contract
+
+The optional [managed key service](managed-key-service.md) associates a verified
+existing identity with authorized age-key mappings. Scoped UI/API/CLI/MCP
+administration manages allowed principals, clients, windows, modification, and
+revocation. Reuse available paid Netlify/Cloudflare identity and management
+capabilities first; host only the missing key-specific UI/API within those
+platforms. There is no separate email/onboarding suite. Key distribution is
+explicitly distinct from protected local custody and remote unlocking. Bundle,
+recipient, recovery, and authorization-domain isolation apply to every unlock
+path. Private keys, released data keys, and plaintext cannot be recalled;
+SOPS/age do not enforce expiry. Commercial packaging and financial scenarios
+are assumptions, not chosen prices, traction, or deployment authorization.
+
 ## Non-negotiable boundaries
 
 Do not implement new cryptography, a vault, arbitrary expression evaluator, global credential broker, universal process supervisor or general lease-renewal daemon. Reuse upstream SOPS, native provider SDK/auth lifecycle and platform facilities.

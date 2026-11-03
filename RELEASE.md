@@ -92,6 +92,29 @@ Run `goreleaser check`, then `goreleaser release --snapshot --clean --parallelis
 
 Native archives are the first distribution channel. Homebrew, Winget, Scoop, Linux packages and app stores are optional subsequent channels, each requiring its own maintained manifest, ownership/trust route, install/upgrade/uninstall tests and publication receipt. OCI/MCP/Go procedures below remain separately gated. Do not create paid signing accounts or broad long-lived credentials merely to add a badge or unqualified distribution route.
 
+### Optional managed-key service enrollment
+
+Use the standalone [managed-service contract](docs/managed-key-service.md) for
+identity/key mappings, administration, custody limits, and the separate financial
+model. Prefer already available paid Netlify/Cloudflare identity and management
+interfaces; verify plan entitlements, seats, credits, and retention before
+choosing a deployment. Build only missing key-specific screens and host their
+UI/API within those environments. Deployment and preview identities are separate;
+previews contain synthetic keys only. Platform-account roles, site protection,
+application identity, mapping/grant administration, and key reads are separate
+permissions. Preserve server-side checks and redacted audit for every route.
+
+Enroll exact trusted issuers/audiences, clients, stable subjects/domains, key
+versions, grant windows, refresh/custody policy, and independently held recovery
+recipients. Back up keys, mappings, policy revisions, and revocations together;
+restoring old grants must not undo a deny. Test key release, denied-domain access,
+revocation, IdP freshness, audit failure, retention, and isolated restore before
+operator acceptance. A mapped private key is intentionally disclosed to its
+client: revoking the mapping stops future fetches but does not invalidate copied
+keys or old ciphertext. Capacity, hosting costs, paid plans, release gates, and
+native/hardware acceptance require their own actual receipts; no purchase or
+production deployment follows from documentation.
+
 ## 2. Prerequisites and accounts
 
 ### Separate four environments

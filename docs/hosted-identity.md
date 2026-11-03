@@ -44,6 +44,18 @@ administrative control plane or compatibility with every IdP and MCP client.
 Native stores and interactive authentication are described in
 [credential boundaries](credential-boundaries.md).
 
+## Managed key access and administration
+
+The optional [managed key service](managed-key-service.md) binds trusted
+issuer/subject, authorization domain, client, mapping, operations, and windows.
+Its administration UI and API preserve the distinction between mapping/grant
+management and private-key retrieval. Trusted IdP scopes, roles, and groups
+constrain these operations; an unrecognized issuer or token profile grants
+nothing. Service revocation denies new release decisions, while issuer changes
+retain their documented token/event propagation bound. Key distribution cannot
+invalidate an already copied key. Existing Netlify/Cloudflare identity and
+administration capabilities take precedence over building equivalents.
+
 ## Identity association
 
 An external identity is the exact verified issuer and subject pair. Issuer

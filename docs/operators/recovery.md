@@ -6,6 +6,17 @@ Provider credentials, bootstrap identities, age recipients, SOPS data keys and O
 
 Removing an age recipient does not invalidate historical ciphertext. Rotating a wrapping key does not rotate the actual provider credential. A backend denial cannot erase plaintext already delivered to a running process or MCP client.
 
+## Managed-key recovery and revocation
+
+Follow the [managed-key custody contract](../managed-key-service.md). Revoke the
+compromised principal/client mapping to stop future service fetches, then assess
+all recipients, data keys, and plaintext already released. A shared organization
+key needs recipient/data-key replacement for future bundles; an old key plus an
+old ciphertext remains usable. Rotate exposed application credentials at their
+issuer. Recovery recipients are separately held and never an unreviewed bypass
+for ordinary clients. Restore current deny state and policy versions before
+re-enabling fetches; restoring a backup must not resurrect revoked grants.
+
 ## Backups
 
 Back up canonical encrypted artifacts, protected policy/trust anchors, required native store state and independently protected OpenBao data/configuration/seal material. Machine-bound credential blobs alone are not sufficient.

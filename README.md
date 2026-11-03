@@ -23,6 +23,12 @@ Use it on its own, or connect an **optional identity provider** to tie access
 to a person or service and a time limit. An **optional MCP connector** brings
 the same controls to AI assistants and agents.
 
+An optional [managed key service](docs/managed-key-service.md) returns the age
+key mapped to your verified identity. Administrators manage who may fetch it
+and when through the service's authorized UI and API, reusing Netlify or
+Cloudflare capabilities. Revocation stops future fetches; a key already copied
+can still decrypt its matching ciphertext.
+
 Your enterprise identity server can give an AI tool a short, approved window
 to use the credentials it needs. CircularQuay checks who is asking, which
 application is acting, which secrets it may access, and whether that window
@@ -237,6 +243,7 @@ Vendor features may require a particular edition, integration, or subscription.
 | Encrypted offline configuration or fallback artifact | ✓ | — | — | — | ✓ | — | ✓ |
 | Offline approval binds identity, application, workload, and expiry | ✓ | — | — | — | ❌[^compare-offline-expiry] | — | — |
 | Hybrid fallback limited to approved availability failures | ✓ | — | — | — | — | — | — |
+| Optional managed age-key access with identity-based grants and administration | ✓ | — | — | — | — | — | — |
 | Optional enterprise IdP alongside standalone local-policy operation | ✓ | — | — | — | — | — | — |
 | Configurable contexts, scopes, roles, clients, and access windows | ✓ | — | — | — | — | — | — |
 | MCP integration for AI tools or secret administration | ✓ | — | ✓ | ✓ | ✓ | — | — |

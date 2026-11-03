@@ -40,6 +40,17 @@ Register trusted executable/workflow identity and constrained non-code inputs. R
 
 Queued/native jobs must retain owner/client/policy identity and recheck permission at dispatch, status, result and cancellation. Do not retain the incoming bearer token as the job credential. Revocation fences future work; stopping in-flight work follows the registered native drain/cancellation behavior.
 
+## Optional managed-key administration
+
+[Managed-key UI, CLI, MCP, and API operations](../managed-key-service.md) use the
+same verified issuer/subject and scoped management authorization. Grant changes
+cannot exceed the actor's authority; mapping administration does not grant key
+retrieval. Key material is bootstrap custody, not a normal raw-read alias or
+model-visible administrative field. Audit changes and release decisions using
+metadata only. Revocation fences future fetches and actions; it cannot erase a
+key or plaintext already delivered. Reuse Netlify/Cloudflare identity and
+access-management surfaces, with a thin hosted grant UI only where needed.
+
 ## Acceptance and removal
 
 Test wrong issuer/audience/client/expiry, Host/Origin/DNS rebinding, cross-user discovery/read/status, guessed IDs, policy changes, secret-free non-read results, cache isolation and resource limits. Synthetic read markers must appear only in authorized responses, never server logs or audit bundles.
