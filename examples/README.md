@@ -4,13 +4,14 @@
 
 `linux-deployment.json` is a structurally and semantically valid, fully
 declared Linux reference for a fabricated SOPS/age hybrid workload, systemd
-credential projection, and optional hosted MCP discovery/status grant. Its
+credential projection, signed ciphertext repository, and optional hosted MCP
+discovery/status grant with named identity scope mappings. Its
 paths, recipient, service, subject, and HTTPS names are placeholders, not
 provisioned resources or credentials. It deliberately has no executable or
 `run` grant: add a reviewed absolute executable and its actual SHA-256 only
 when enabling actions. Read [policy configuration](../docs/configuration.md)
-before adapting it; it deliberately omits the currently unintegrated signed
-repository path.
+before adapting it. Enroll the real signer and immutable initial commit before
+using the repository; the fabricated commit is an explicit replacement value.
 
 These values are deliberately fabricated. No example grants access to an actual provider or stores an operational key.
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,8 @@ import (
 )
 
 const bareConfig = "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = true\n\tlogallrefupdates = false\n"
+
+var gitVersion = regexp.MustCompile(`^git version ([0-9]+)\.([0-9]+)(?:\.[0-9]+)?(?:[._+-][A-Za-z0-9._+-]+)?(?: \([^\r\n]*\))?\n?$`)
 
 // runGit is package-private so tests can exercise transport failures without
 // credentials or a network server. Production always calls the installed Git.
@@ -60,6 +63,24 @@ func (output *limitedOutput) Write(data []byte) (int, error) {
 }
 
 func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string, error) {
+	environment := ambientGitEnvironment()
+	environment = s.temporaryEnvironment(environment)
+	environment = append(environment, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_ATTR_NOSYSTEM=1", "GIT_OPTIONAL_LOCKS=0")
+	settings, err := s.gitSettings(verifySignature)
+	if err != nil {
+		return nil, err
+	}
+	authorization, included, err := s.fetchAuthorizationSetting(authenticatedFetch)
+	if err != nil {
+		return nil, err
+	}
+	if included {
+		settings = append(settings, authorization)
+	}
+	return gitConfigEnvironment(environment, settings), nil
+}
+
+func ambientGitEnvironment() []string {
 	// Ambient Git, shell startup, and cloud credentials are deliberately absent.
 	// These variables provide only executable discovery, OS support and TLS/proxy
 	// transport. Trust in proxy/CA configuration belongs to the host administrator.
@@ -71,37 +92,46 @@ func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string,
 			environment = append(environment, entry)
 		}
 	}
-	environment = s.temporaryEnvironment(environment)
-	environment = append(environment, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_ATTR_NOSYSTEM=1", "GIT_OPTIONAL_LOCKS=0")
+	return environment
+}
+
+func (s *store) gitSettings(verifySignature bool) ([][2]string, error) {
 	settings := [][2]string{
 		{"credential.helper", ""}, {"credential.interactive", "false"}, {"core.hooksPath", os.DevNull}, {"core.attributesFile", os.DevNull}, {"core.fsmonitor", "false"}, {"http.followRedirects", "false"}, {"http.sslVerify", "true"}, {"protocol.allow", "never"}, {"protocol.https.allow", "always"}, {"fetch.fsckObjects", "true"}, {"transfer.fsckObjects", "true"}, {"submodule.recurse", "false"}, {"fetch.writeCommitGraph", "false"}, {"maintenance.auto", "false"}, {"gc.auto", "0"},
 	}
-	if verifySignature {
-		verifier, err := trustedSSHKeygen()
-		if err != nil {
-			return nil, err
-		}
-		settings = append(settings, [2]string{"gpg.format", "ssh"}, [2]string{"gpg.ssh.allowedSignersFile", s.repo.AllowedSignersFile}, [2]string{"gpg.ssh.program", verifier})
+	if !verifySignature {
+		return settings, nil
 	}
-	if authenticatedFetch && s.repo.TokenFile != "" {
-		data, err := readProtected(s.repo.TokenFile, true, 16<<10)
-		if err != nil {
-			return nil, err
-		}
-		token, err := safeToken(data)
-		if err != nil {
-			return nil, err
-		}
-		// The token appears only in the child environment, never argv, local Git
-		// configuration or errors. Other processes of the same OS identity remain
-		// inside this trust boundary and may inspect the child's environment.
-		settings = append(settings, [2]string{"http." + s.repo.URL + ".extraHeader", "Authorization: Bearer " + token})
+	verifier, err := trustedSSHKeygen()
+	if err != nil {
+		return nil, err
 	}
+	return append(settings, [2]string{"gpg.format", "ssh"}, [2]string{"gpg.ssh.allowedSignersFile", s.repo.AllowedSignersFile}, [2]string{"gpg.ssh.program", verifier}), nil
+}
+
+func (s *store) fetchAuthorizationSetting(authenticatedFetch bool) ([2]string, bool, error) {
+	if !authenticatedFetch || s.repo.TokenFile == "" {
+		return [2]string{}, false, nil
+	}
+	data, err := readProtected(s.repo.TokenFile, true, 16<<10)
+	if err != nil {
+		return [2]string{}, false, err
+	}
+	token, err := safeToken(data)
+	if err != nil {
+		return [2]string{}, false, err
+	}
+	// The token appears only in the child environment, never argv, local Git
+	// configuration or errors. Other processes of the same OS identity remain
+	// inside this trust boundary and may inspect the child's environment.
+	return [2]string{"http." + s.repo.URL + ".extraHeader", "Authorization: Bearer " + token}, true, nil
+}
+
+func gitConfigEnvironment(environment []string, settings [][2]string) []string {
 	for index, setting := range settings {
 		environment = append(environment, "GIT_CONFIG_KEY_"+strconv.Itoa(index)+"="+setting[0], "GIT_CONFIG_VALUE_"+strconv.Itoa(index)+"="+setting[1])
 	}
-	environment = append(environment, "GIT_CONFIG_COUNT="+strconv.Itoa(len(settings)))
-	return environment, nil
+	return append(environment, "GIT_CONFIG_COUNT="+strconv.Itoa(len(settings)))
 }
 
 func (s *store) temporaryEnvironment(environment []string) []string {
@@ -113,6 +143,27 @@ func (s *store) temporaryEnvironment(environment []string) []string {
 
 func (s *store) command(ctx context.Context, limit int64, arguments ...string) ([]byte, error) {
 	return s.run(ctx, false, limit, arguments...)
+}
+
+// requireHardenedSHA1 requires Git's collision-detecting SHA-1 implementation.
+// The installed Git remains a local trusted dependency; this check does not
+// claim generic SHA-1 is secure or turn unsigned Git objects into authority.
+func (s *store) requireHardenedSHA1(ctx context.Context) error {
+	data, err := s.command(ctx, 128, "version")
+	if err != nil || !hardenedSHA1Version(string(data)) {
+		return failure(fault.Unsupported, "git_sha1_hardening")
+	}
+	return nil
+}
+
+func hardenedSHA1Version(value string) bool {
+	matches := gitVersion.FindStringSubmatch(value)
+	if matches == nil {
+		return false
+	}
+	major, majorErr := strconv.Atoi(matches[1])
+	minor, minorErr := strconv.Atoi(matches[2])
+	return majorErr == nil && minorErr == nil && (major > 2 || major == 2 && minor >= 13)
 }
 
 func (s *store) verificationCommand(ctx context.Context, limit int64, arguments ...string) ([]byte, error) {
@@ -138,17 +189,74 @@ func (s *store) runWithVerification(ctx context.Context, authenticatedFetch, ver
 	return runGit(ctx, environment, limit, append([]string{"--git-dir=" + s.git}, arguments...)...)
 }
 
+var standardGitCommands = map[string]bool{
+	"init": true, "fetch": true, "rev-parse": true, "cat-file": true,
+	"verify-commit": true, "merge-base": true, "ls-tree": true,
+}
+
 func validGitInvocation(arguments []string) bool {
 	if len(arguments) == 0 {
 		return false
 	}
-	switch arguments[0] {
-	case "init", "fetch", "rev-parse", "cat-file", "verify-commit", "merge-base", "ls-tree":
-	default:
-		return false
+	if handled, valid := validSpecialGitInvocation(arguments); handled {
+		return valid
 	}
+	return standardGitCommands[arguments[0]] && validGitArguments(arguments)
+}
+
+func validSpecialGitInvocation(arguments []string) (bool, bool) {
+	switch arguments[0] {
+	case "hash-object":
+		return true, validHashObjectInvocation(arguments)
+	case "fsck":
+		return true, len(arguments) == 4 && arguments[1] == "--strict" && arguments[2] == "--no-dangling" && validCommit(arguments[3])
+	case "version":
+		return true, len(arguments) == 1
+	default:
+		return false, false
+	}
+}
+
+func validGitArguments(arguments []string) bool {
 	for _, argument := range arguments {
 		if strings.ContainsAny(argument, "\x00\r\n") {
+			return false
+		}
+	}
+	return true
+}
+
+func validHashObjectInvocation(arguments []string) bool {
+	return len(arguments) == 6 && arguments[1] == "--no-filters" && arguments[2] == "-t" && arguments[3] == "blob" && arguments[4] == "--" && filepath.IsAbs(arguments[5]) && !strings.ContainsAny(arguments[5], "\x00\r\n")
+}
+
+func (s *store) verifyObjectGraph(ctx context.Context, commit string) error {
+	// fsck checks the local object graph after signature and rollback checks.
+	// Its success is integrity evidence only: it cannot authorize an unsigned
+	// object or replace the pinned signer and ancestry requirements above.
+	if _, err := s.command(ctx, 16<<10, "fsck", "--strict", "--no-dangling", commit); err != nil {
+		return failure(fault.Trust, "object_graph")
+	}
+	return nil
+}
+
+func (s *store) verifyMaterializedBlob(ctx context.Context, path, expected string) error {
+	data, err := s.command(ctx, 128, "hash-object", "--no-filters", "-t", "blob", "--", path)
+	if err != nil || !matchingObjectID(string(data), expected) {
+		return failure(fault.Trust, "release_content")
+	}
+	return nil
+}
+
+func matchingObjectID(output, expected string) bool {
+	value := strings.TrimSuffix(output, "\n")
+	if value == output || strings.ContainsAny(value, "\r\n") || len(value) != len(expected) || value != expected {
+		return false
+	}
+	for _, character := range value {
+		decimal := character >= '0' && character <= '9'
+		hex := character >= 'a' && character <= 'f'
+		if !decimal && !hex {
 			return false
 		}
 	}

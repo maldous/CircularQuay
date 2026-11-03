@@ -234,6 +234,12 @@ func testJSONLiteralSource(t *testing.T) {
 	if !strings.HasPrefix(v.Version, "file:") {
 		t.Fatal("literal metadata hint was not preserved")
 	}
+	testJSONLiteralRejections(t, r, s, write)
+}
+
+func testJSONLiteralRejections(t *testing.T, r *Registry, s model.Source, write func(string)) {
+	t.Helper()
+	ctx := context.Background()
 	for _, field := range []string{"MISSING", "NUMBER"} {
 		if _, err := r.Read(ctx, s, model.Binding{Field: field}); err == nil {
 			t.Fatal("invalid selected field accepted")

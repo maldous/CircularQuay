@@ -18,7 +18,7 @@ import (
 	cqmcp "github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
-	"github.com/maldous/CircularQuay/internal/policy"
+	"github.com/maldous/CircularQuay/internal/resolve"
 )
 
 func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
@@ -157,12 +157,15 @@ type backend struct {
 }
 
 func (b backend) authorized(ctx context.Context, id, op, key string) (model.Policy, error) {
+	if ctx.Err() != nil {
+		return model.Policy{}, fault.New(fault.Denied, "MCP request cancelled")
+	}
 	p, err := b.app.load()
 	if err != nil {
 		return model.Policy{}, err
 	}
 	principal, ok := cqmcp.PrincipalFromContext(ctx)
-	if !ok || !principal.ValidAt(b.clock()) || !policy.Authorize(p, principal.Subject, principal.Client, id, op, key) {
+	if !ok || !principal.Authorize(p, id, op, key, b.clock()) {
 		return model.Policy{}, fault.New(fault.Denied, "current MCP grant")
 	}
 	return p, nil
@@ -196,11 +199,23 @@ func (b backend) Read(ctx context.Context, id, key string) (model.Value, error) 
 	if err != nil {
 		return model.Value{}, err
 	}
-	e, err := b.app.engine(p)
+	readPolicy, workload, err := selectedReadPolicy(p, id, key)
 	if err != nil {
 		return model.Value{}, err
 	}
-	return e.ReadKey(ctx, id, key)
+	scope, err := actionScopeFingerprint(readPolicy, workload)
+	if err != nil {
+		return model.Value{}, err
+	}
+	engine, unlock, err := b.repositoryEngine(ctx, readPolicy, workload, id)
+	if err != nil {
+		return model.Value{}, err
+	}
+	defer func() { _ = unlock() }()
+	if err := b.reauthorizeRead(ctx, id, key, scope); err != nil {
+		return model.Value{}, err
+	}
+	return engine.ReadKey(ctx, id, key)
 }
 
 func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
@@ -212,7 +227,19 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
-	g, err := b.resolve(ctx, p, id)
+	engine, unlock, err := b.repositoryEngine(ctx, p, workload, id)
+	if err != nil {
+		return cqmcp.RunResult{}, err
+	}
+	defer func() {
+		if unlock != nil {
+			_ = unlock()
+		}
+	}()
+	if _, err = b.authorizeResolvedAction(ctx, id, scope); err != nil {
+		return cqmcp.RunResult{}, err
+	}
+	g, err := b.resolve(ctx, engine, id)
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
@@ -220,6 +247,10 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
+	if err = unlock(); err != nil {
+		return cqmcp.RunResult{}, err
+	}
+	unlock = nil
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	code, err := platform.RunWithIO(runCtx, workload, g, nil, nil, io.Discard, io.Discard)
@@ -229,15 +260,72 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	return actionRunResult(code)
 }
 
-func (b backend) resolve(ctx context.Context, p model.Policy, id string) (model.Generation, error) {
-	if b.resolveGeneration != nil {
-		return b.resolveGeneration(ctx, p, id)
-	}
-	e, err := b.app.engine(p)
+func (b backend) repositoryEngine(ctx context.Context, config model.Policy, workload model.Workload, id string) (*resolve.Engine, func() error, error) {
+	engine, err := b.app.engine(config)
 	if err != nil {
-		return model.Generation{}, err
+		return nil, nil, err
 	}
-	return e.Resolve(ctx, id)
+	unlock, err := engine.State.Lock(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	engine, err = b.app.withRepositorySources(ctx, workload, engine)
+	if err != nil {
+		_ = unlock()
+		return nil, nil, err
+	}
+	return engine, unlock, nil
+}
+
+func (b backend) resolve(ctx context.Context, engine *resolve.Engine, id string) (model.Generation, error) {
+	if b.resolveGeneration != nil {
+		return b.resolveGeneration(ctx, engine.Policy, id)
+	}
+	return engine.Resolve(ctx, id)
+}
+
+func (b backend) reauthorizeRead(ctx context.Context, id, key string, before [sha256.Size]byte) error {
+	p, err := b.authorized(ctx, id, "read", key)
+	if err != nil {
+		return err
+	}
+	readPolicy, workload, err := selectedReadPolicy(p, id, key)
+	if err != nil {
+		return err
+	}
+	after, err := actionScopeFingerprint(readPolicy, workload)
+	if err != nil || before != after {
+		return fault.New(fault.Denied, "MCP read policy changed")
+	}
+	return nil
+}
+
+func selectedReadPolicy(config model.Policy, id, key string) (model.Policy, model.Workload, error) {
+	workload, found := config.Workloads[id]
+	if !found {
+		return model.Policy{}, model.Workload{}, fault.New(fault.Invalid, "workload")
+	}
+	for _, binding := range workload.Bindings {
+		if binding.Name != key {
+			continue
+		}
+		// Snapshot restoration verifies and decrypts one complete workload
+		// generation. Keep every binding in its fingerprint and declaration;
+		// ReadKey still returns only the authorized requested value. Other read
+		// modes retain the narrow declaration so they cannot read sibling keys.
+		if workload.Mode == "offline" && workload.Snapshot.Path != "" {
+			return config, workload, nil
+		}
+		workload.Bindings = []model.Binding{binding}
+		updated := config
+		updated.Workloads = make(map[string]model.Workload, len(config.Workloads))
+		for name, selected := range config.Workloads {
+			updated.Workloads[name] = selected
+		}
+		updated.Workloads[id] = workload
+		return updated, workload, nil
+	}
+	return model.Policy{}, model.Workload{}, fault.New(fault.Denied, "MCP binding")
 }
 
 func (b backend) authorizeResolvedAction(ctx context.Context, id string, before [sha256.Size]byte) (model.Workload, error) {
@@ -279,10 +367,19 @@ func actionScopeFingerprint(p model.Policy, workload model.Workload) ([sha256.Si
 		}
 		sources[binding.Source] = source
 	}
+	var repository *model.Repository
+	for _, source := range sources {
+		if strings.HasPrefix(source.Path, "repo:") {
+			selected := p.Repository
+			repository = &selected
+			break
+		}
+	}
 	payload, err := json.Marshal(struct {
-		Workload model.Workload          `json:"workload"`
-		Sources  map[string]model.Source `json:"sources"`
-	}{Workload: workload, Sources: sources})
+		Workload   model.Workload          `json:"workload"`
+		Sources    map[string]model.Source `json:"sources"`
+		Repository *model.Repository       `json:"repository,omitempty"`
+	}{Workload: workload, Sources: sources, Repository: repository})
 	if err != nil {
 		return [sha256.Size]byte{}, fault.New(fault.Invalid, "action scope")
 	}

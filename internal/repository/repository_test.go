@@ -354,8 +354,12 @@ func newSignedRepositoryFixture(t *testing.T) signedRepositoryFixture {
 	t.Helper()
 	git := fixtureGit(t)
 	root := privateRepositoryDirectory(t, "signed-repository")
+	temporary := filepath.Join(root, "tmp")
+	if err := platform.EnsurePrivateDirectory(temporary); err != nil {
+		t.Fatal(err)
+	}
 	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
-	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
+	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "TMPDIR=" + temporary, "TEMP=" + temporary, "TMP=" + temporary, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
 	if err := os.Mkdir(fixture.remote, 0700); err != nil {
 		t.Fatal(err)
 	}

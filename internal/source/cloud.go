@@ -234,11 +234,22 @@ func azureWorkloadCredential(s model.Source) (azcore.TokenCredential, error) {
 	if os.Getenv("AZURE_AUTHORITY_HOST") != "" {
 		return nil, fault.New(fault.Trust, "azure_authority_override")
 	}
-	credential, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{TenantID: s.Account, ClientID: s.Profile, TokenFilePath: s.TokenFile})
+	credential, err := azidentity.NewWorkloadIdentityCredential(azureWorkloadCredentialOptions(s, nil))
 	if err != nil {
 		return nil, fault.New(fault.Denied, "azure_identity")
 	}
 	return tenantCredential{credential: credential, tenant: s.Account}, nil
+}
+
+// azureWorkloadCredentialOptions keeps the workload assertion exchange on the
+// same bounded, redirect-denying transport used for provider requests.
+func azureWorkloadCredentialOptions(s model.Source, base http.RoundTripper) *azidentity.WorkloadIdentityCredentialOptions {
+	return &azidentity.WorkloadIdentityCredentialOptions{
+		TenantID:      s.Account,
+		ClientID:      s.Profile,
+		TokenFilePath: s.TokenFile,
+		ClientOptions: azcore.ClientOptions{Transport: cloudHTTPClient(base)},
+	}
 }
 
 func azureManagedCredential(s model.Source) (azcore.TokenCredential, error) {

@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -140,6 +143,16 @@ func TestResolveRejectsValueExpiredBeforeGenerationCompletes(t *testing.T) {
 	}
 	if len(snapshots.saved) != 1 {
 		t.Fatal("test fixture lost its eligible snapshot")
+	}
+}
+
+func TestResolveRejectsIncompleteGenerationFromInvalidPolicy(t *testing.T) {
+	e, _ := fixture(t)
+	workload := e.Policy.Workloads["demo"]
+	workload.Bindings[1].Name = workload.Bindings[0].Name
+	e.Policy.Workloads["demo"] = workload
+	if _, err := e.Resolve(context.Background(), "demo"); !fault.Is(err, fault.Trust) {
+		t.Fatalf("incomplete generation accepted: %v", err)
 	}
 }
 
@@ -332,6 +345,100 @@ func TestSnapshotRejectsMismatchedPolicyFingerprint(t *testing.T) {
 	}
 }
 
+func TestSnapshotRejectsPolicyVersionAndPathChanges(t *testing.T) {
+	for _, change := range []struct {
+		name  string
+		apply func(*Engine)
+	}{
+		{"version", func(engine *Engine) { engine.Policy.Version++ }},
+		{"path", func(engine *Engine) {
+			workload := engine.Policy.Workloads["demo"]
+			workload.Snapshot.Path += ".other"
+			engine.Policy.Workloads["demo"] = workload
+		}},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			e, _ := fixture(t)
+			generation, err := e.Resolve(context.Background(), "demo")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = e.Snapshot(context.Background(), generation); err != nil {
+				t.Fatal(err)
+			}
+			change.apply(e)
+			e.Reader = unavailableReader()
+			if _, err = e.Resolve(context.Background(), "demo"); !fault.Is(err, fault.Trust) {
+				t.Fatalf("changed policy accepted snapshot: %v", err)
+			}
+		})
+	}
+}
+
+func TestSnapshotRejectsFutureAndExpiredValues(t *testing.T) {
+	for _, change := range []struct {
+		name  string
+		apply func(*snapshotPayload, time.Time)
+		want  fault.Kind
+	}{
+		{"future_generation_clock", func(payload *snapshotPayload, now time.Time) {
+			payload.Generation.RetrievedAt = now.Add(time.Nanosecond)
+		}, fault.Trust},
+		{"expired_value", func(payload *snapshotPayload, now time.Time) {
+			value := payload.Generation.Values["TOKEN"]
+			value.ExpiresAt = now
+			payload.Generation.Values["TOKEN"] = value
+		}, fault.Expired},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			assertSnapshotValueRejected(t, change.apply, change.want)
+		})
+	}
+}
+
+func assertSnapshotValueRejected(t *testing.T, change func(*snapshotPayload, time.Time), want fault.Kind) {
+	t.Helper()
+	engine, snapshots := fixture(t)
+	generation, err := engine.Resolve(context.Background(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.Snapshot(context.Background(), generation); err != nil {
+		t.Fatal(err)
+	}
+	payload := decodeSnapshotPayload(t, snapshots)
+	change(&payload, engine.now())
+	snapshots.saved["circularquay_snapshot"] = encodeSnapshotPayload(t, payload)
+	engine.Reader = unavailableReader()
+	if _, err = engine.Resolve(context.Background(), "demo"); !fault.Is(err, want) {
+		t.Fatalf("invalid snapshot result = %v, want %s", err, want)
+	}
+}
+
+func decodeSnapshotPayload(t *testing.T, snapshots *memorySnapshot) snapshotPayload {
+	t.Helper()
+	var payload snapshotPayload
+	if err := json.Unmarshal([]byte(snapshots.saved["circularquay_snapshot"]), &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func encodeSnapshotPayload(t *testing.T, payload snapshotPayload) string {
+	t.Helper()
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(encoded)
+}
+
+func unavailableReader() source.Reader {
+	return source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		return model.Value{}, fault.New(fault.Unavailable, "fixture")
+	})
+}
+
 func TestFallbackRequiresAuditCompatibility(t *testing.T) {
 	e, _ := fixture(t)
 	ctx := context.Background()
@@ -417,6 +524,253 @@ func TestFreshDenialFencesLaterFallback(t *testing.T) {
 	if _, err := e.Resolve(ctx, "demo"); !fault.Is(err, fault.Denied) {
 		t.Fatal("fresh denial did not fence fallback")
 	}
+}
+
+func TestFreshDenialFencesFallbackWithoutStateStore(t *testing.T) {
+	e, _ := fixture(t)
+	e.State = state.Store{}
+	ctx := context.Background()
+	generation, err := e.Resolve(ctx, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Snapshot(ctx, generation); err != nil {
+		t.Fatal(err)
+	}
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		return model.Value{}, fault.New(fault.Denied, "fixture")
+	})
+	if _, err = e.ResolveFresh(ctx, "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("fresh denial result = %v", err)
+	}
+	e.Reader = unavailableReader()
+	if _, err = e.Resolve(ctx, "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("fresh denial allowed in-memory fallback: %v", err)
+	}
+}
+
+func TestProviderFailureFenceSurvivesRestart(t *testing.T) {
+	e, snapshots := fixture(t)
+	seedFallbackSnapshot(t, e)
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		return model.Value{}, fault.New(fault.Denied, "fixture")
+	})
+	if _, err := e.ResolveFresh(context.Background(), "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("fresh denial = %v, want denied", err)
+	}
+
+	restarted := restartEngine(e, snapshots, unavailableReader())
+	if _, err := restarted.Resolve(context.Background(), "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("restarted fallback = %v, want denied", err)
+	}
+	record := readStateRecord(t, restarted)
+	if record.State != "blocked" || !record.FallbackFence {
+		t.Fatalf("restart cleared denial fence: %+v", record)
+	}
+}
+
+func TestProviderFenceSurvivesFailureWriteAndRestart(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX directory write permissions")
+	}
+	e, snapshots := fixture(t)
+	seedFallbackSnapshot(t, e)
+	calls := 0
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		calls++
+		if err := os.Chmod(e.State.Directory, 0o500); err != nil {
+			t.Fatal(err)
+		}
+		return model.Value{}, fault.New(fault.Denied, "fixture")
+	})
+	t.Cleanup(func() { _ = os.Chmod(e.State.Directory, 0o700) })
+	if _, err := e.ResolveFresh(context.Background(), "demo"); err == nil {
+		t.Fatal("provider failure with an unwritable final state write succeeded")
+	} else if fault.Is(err, fault.Denied) {
+		t.Fatalf("final state write unexpectedly succeeded: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("provider calls = %d, want one", calls)
+	}
+	if record := readStateRecord(t, e); !record.FallbackFence {
+		t.Fatalf("pre-read fence was not durable after final write failure: %+v", record)
+	}
+	if err := os.Chmod(e.State.Directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted := restartEngine(e, snapshots, unavailableReader())
+	if _, err := restarted.Resolve(context.Background(), "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("restart restored an unfenced snapshot: %v", err)
+	}
+	record := readStateRecord(t, restarted)
+	if !record.FallbackFence {
+		t.Fatalf("interrupted failure lost durable fence: %+v", record)
+	}
+}
+
+func TestProviderReadRequiresDurableFenceBeforeReader(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX directory write permissions")
+	}
+	e, _ := fixture(t)
+	prior := state.Record{Workload: "demo", State: "ready", Mode: "hybrid"}
+	if err := e.State.Write(prior); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.State.Read("demo"); err != nil {
+		t.Fatalf("readable state before permission change: %v", err)
+	}
+	if err := os.Chmod(e.State.Directory, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(e.State.Directory, 0o700) })
+	if _, err := e.State.Read("demo"); err != nil {
+		t.Fatalf("readable state rejected after permission change: %v", err)
+	}
+	calls := 0
+	e.Reader = source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		calls++
+		return model.Value{Data: "must-not-be-read"}, nil
+	})
+	if _, err := e.ResolveFresh(context.Background(), "demo"); err == nil {
+		t.Fatal("provider read proceeded without a durable fence")
+	}
+	if calls != 0 {
+		t.Fatalf("provider calls = %d, want zero", calls)
+	}
+}
+
+func TestProviderFenceRestoresUnfencedRecordBeforeFallback(t *testing.T) {
+	e, _ := fixture(t)
+	seedFallbackSnapshot(t, e)
+	prior := state.Record{
+		Workload:    "demo",
+		Generation:  "previous",
+		State:       "ready",
+		Mode:        "hybrid",
+		LastChecked: e.now().Add(-time.Hour),
+		LastSuccess: e.now().Add(-2 * time.Hour),
+		Targets: map[string]state.TargetRecord{
+			"app": {State: "activated", Generation: "previous", Current: true},
+		},
+		Receipts: []model.Receipt{{Source: "a", Resource: "a", Version: "v0"}},
+	}
+	if err := e.State.Write(prior); err != nil {
+		t.Fatal(err)
+	}
+	e.Reader = unavailableReader()
+	generation, err := e.Resolve(context.Background(), "demo")
+	if err != nil || !generation.Offline {
+		t.Fatalf("fallback = %+v, %v", generation, err)
+	}
+	if actual := readStateRecord(t, e); !reflect.DeepEqual(actual, prior) {
+		t.Fatalf("unavailable refresh altered prior state:\n got: %#v\nwant: %#v", actual, prior)
+	}
+}
+
+func TestCompleteGenerationClearsFenceAndPreservesHistory(t *testing.T) {
+	e, _ := fixture(t)
+	prior := state.Record{
+		Workload:      "demo",
+		Generation:    "previous",
+		State:         "blocked",
+		Mode:          "hybrid",
+		FallbackFence: true,
+		Targets: map[string]state.TargetRecord{
+			"app": {State: "activated", Generation: "previous", Current: true},
+		},
+		Receipts: []model.Receipt{{Source: "a", Resource: "a", Version: "v0"}},
+	}
+	if err := e.State.Write(prior); err != nil {
+		t.Fatal(err)
+	}
+	generation, err := e.ResolveFresh(context.Background(), "demo")
+	if err != nil || generation.Offline {
+		t.Fatalf("fresh generation = %+v, %v", generation, err)
+	}
+	record := readStateRecord(t, e)
+	if record.State != "ready" || record.FallbackFence || record.Error != "" {
+		t.Fatalf("fresh generation did not normalize fence: %+v", record)
+	}
+	if record.Generation != prior.Generation || !reflect.DeepEqual(record.Targets, prior.Targets) || !reflect.DeepEqual(record.Receipts, prior.Receipts) {
+		t.Fatalf("fresh generation lost retained metadata: %+v", record)
+	}
+}
+
+func TestReadKeyDoesNotClearWholeWorkloadFence(t *testing.T) {
+	e, snapshots := fixture(t)
+	seedFallbackSnapshot(t, e)
+	prior := state.Record{Workload: "demo", State: "blocked", Mode: "hybrid", FallbackFence: true}
+	if err := e.State.Write(prior); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.ReadKey(context.Background(), "demo", "TOKEN"); err != nil {
+		t.Fatalf("read key = %v", err)
+	}
+	if actual := readStateRecord(t, e); !reflect.DeepEqual(actual, prior) {
+		t.Fatalf("single key read cleared workload fence: %#v", actual)
+	}
+	restarted := restartEngine(e, snapshots, unavailableReader())
+	if _, err := restarted.Resolve(context.Background(), "demo"); !fault.Is(err, fault.Denied) {
+		t.Fatalf("single key read enabled fallback: %v", err)
+	}
+}
+
+func TestProviderFailuresPersistFallbackFence(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		reader source.Reader
+	}{
+		{"denied", source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+			return model.Value{}, fault.New(fault.Denied, "fixture")
+		})},
+		{"trust", source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+			return model.Value{}, fault.New(fault.Trust, "fixture")
+		})},
+		{"expired", source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+			return model.Value{Data: "fixture", ExpiresAt: time.Date(2026, 11, 3, 11, 0, 0, 0, time.UTC)}, nil
+		})},
+		{"malformed", source.ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+			return model.Value{Data: "bad\x00value"}, nil
+		})},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			e, _ := fixture(t)
+			e.Reader = test.reader
+			if _, err := e.ResolveFresh(context.Background(), "demo"); err == nil {
+				t.Fatal("unsafe provider result succeeded")
+			}
+			record := readStateRecord(t, e)
+			if record.State != "blocked" || !record.FallbackFence {
+				t.Fatalf("unsafe provider result did not persist fence: %+v", record)
+			}
+		})
+	}
+}
+
+func seedFallbackSnapshot(t *testing.T, engine *Engine) {
+	t.Helper()
+	generation, err := engine.Resolve(context.Background(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := engine.Snapshot(context.Background(), generation); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func restartEngine(engine *Engine, snapshots SnapshotIO, reader source.Reader) *Engine {
+	return &Engine{Policy: engine.Policy, Reader: reader, Snapshots: snapshots, State: engine.State, Now: engine.Now}
+}
+
+func readStateRecord(t *testing.T, engine *Engine) state.Record {
+	t.Helper()
+	record, err := engine.State.Read("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return record
 }
 
 func TestResolutionHonorsCancellation(t *testing.T) {

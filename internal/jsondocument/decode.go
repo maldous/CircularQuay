@@ -109,24 +109,32 @@ func checkArray(decoder *json.Decoder, t reflect.Type, depth int) error {
 func checkObject(decoder *json.Decoder, t reflect.Type, depth int) error {
 	seen := make(map[string]bool)
 	for decoder.More() {
-		token, err := decoder.Token()
+		element, err := objectField(decoder, t, seen)
 		if err != nil {
-			return errDocument
-		}
-		name, ok := token.(string)
-		if !ok || seen[name] {
-			return errDocument
-		}
-		seen[name] = true
-		element, valid := fieldType(t, name)
-		if !valid {
-			return errDocument
+			return err
 		}
 		if err := checkValue(decoder, element, depth+1); err != nil {
 			return err
 		}
 	}
 	return checkRequiredFields(t, seen)
+}
+
+func objectField(decoder *json.Decoder, t reflect.Type, seen map[string]bool) (reflect.Type, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, errDocument
+	}
+	name, ok := token.(string)
+	if !ok || seen[name] {
+		return nil, errDocument
+	}
+	seen[name] = true
+	element, valid := fieldType(t, name)
+	if !valid {
+		return nil, errDocument
+	}
+	return element, nil
 }
 
 func checkRequiredFields(t reflect.Type, seen map[string]bool) error {

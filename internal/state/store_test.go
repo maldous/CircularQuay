@@ -133,23 +133,38 @@ func TestStateRejectsSymlinkFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, suffix := range []string{".json", ".json.lock"} {
-		p := filepath.Join(s.Directory, "demo"+suffix)
-		if err := os.Symlink(target, p); err != nil {
-			t.Skipf("symlink unavailable: %v", err)
-		}
-		if suffix == ".json" {
-			if _, err := s.Read("demo"); !fault.Is(err, fault.Trust) {
-				t.Error("symlink state read accepted")
-			}
-			if err := s.Write(Record{Workload: "demo"}); !fault.Is(err, fault.Trust) {
-				t.Error("symlink state destination accepted")
-			}
-		} else {
-			release, err := s.Lock("demo")
-			if err == nil {
-				_ = release()
-				t.Error("symlink lock accepted")
-			}
-		}
+		t.Run(suffix, func(t *testing.T) { assertSymlinkFileRejected(t, s, target, suffix) })
 	}
+}
+
+func assertSymlinkFileRejected(t *testing.T, store Store, target, suffix string) {
+	t.Helper()
+	if err := os.Symlink(target, filepath.Join(store.Directory, "demo"+suffix)); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	if suffix == ".json" {
+		assertSymlinkStateRejected(t, store)
+		return
+	}
+	assertSymlinkLockRejected(t, store)
+}
+
+func assertSymlinkStateRejected(t *testing.T, store Store) {
+	t.Helper()
+	if _, err := store.Read("demo"); !fault.Is(err, fault.Trust) {
+		t.Error("symlink state read accepted")
+	}
+	if err := store.Write(Record{Workload: "demo"}); !fault.Is(err, fault.Trust) {
+		t.Error("symlink state destination accepted")
+	}
+}
+
+func assertSymlinkLockRejected(t *testing.T, store Store) {
+	t.Helper()
+	release, err := store.Lock("demo")
+	if err != nil {
+		return
+	}
+	_ = release()
+	t.Error("symlink lock accepted")
 }

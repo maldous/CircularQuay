@@ -23,6 +23,7 @@ import (
 const (
 	mcpRequest    = "mcp request"
 	mcpDisclosure = "mcp disclosure"
+	mcpAction     = "mcp action"
 )
 
 // Backend is the enrolled workload interface. It must not return process output.
@@ -47,11 +48,16 @@ type RunResult struct {
 }
 
 // Principal is authoritative identity from the OS or a verified access token.
+// Authority and AuthorityFingerprint bind an HTTP principal to the configured
+// issuer contract that verified it; they are never caller-supplied tool input.
 type Principal struct {
-	Subject, Client string
+	Subject, Client      string
+	Authority            string
+	AuthorityFingerprint string
 	// HTTP scopes are verified token claims, never tool arguments.
 	HTTP      bool
 	Scopes    []string
+	Roles     []string
 	ExpiresAt time.Time
 }
 
@@ -60,6 +66,81 @@ type Principal struct {
 // nonzero future expiration.
 func (p Principal) ValidAt(now time.Time) bool {
 	return !p.HTTP || !p.ExpiresAt.IsZero() && !now.IsZero() && now.Before(p.ExpiresAt)
+}
+
+// Authorize makes the exact current-policy decision for this principal. Named
+// HTTP authorities require a matching current trust fingerprint, global claim
+// filters, and an operation-specific permission before their local grant can
+// apply. Local OS principals and legacy HTTP policies use only empty-authority
+// grants, so they cannot consume a named-authority grant.
+func (p Principal) Authorize(config model.Policy, workload, operation, key string, now time.Time) bool {
+	if !p.ValidAt(now) {
+		return false
+	}
+	if !p.HTTP {
+		return p.localAuthorized(config, workload, operation, key, now)
+	}
+	if len(config.MCP.Authorities) == 0 {
+		return p.legacyAuthorized(config, workload, operation, key, now)
+	}
+	return p.namedAuthorized(config, workload, operation, key, now)
+}
+
+func (p Principal) localAuthorized(config model.Policy, workload, operation, key string, now time.Time) bool {
+	return p.Authority == "" && p.AuthorityFingerprint == "" && policy.AuthorizeAuthorityAt(config, "", p.Subject, p.Client, workload, operation, key, now)
+}
+
+func (p Principal) legacyAuthorized(config model.Policy, workload, operation, key string, now time.Time) bool {
+	if p.Authority != "" || !legacyFingerprintMatches(config.MCP, p.AuthorityFingerprint) {
+		return false
+	}
+	return legacyScopeAllows(p, operation) && policy.AuthorizeAuthorityAt(config, "", p.Subject, p.Client, workload, operation, key, now)
+}
+
+func legacyFingerprintMatches(config model.MCP, fingerprint string) bool {
+	if config.Issuer == "" {
+		return fingerprint == ""
+	}
+	current := policy.MCPLegacyFingerprint(config)
+	return current != "" && fingerprint != "" && fingerprint == current
+}
+
+func (p Principal) namedAuthorized(config model.Policy, workload, operation, key string, now time.Time) bool {
+	authority, found := config.MCP.Authorities[p.Authority]
+	if !found || p.AuthorityFingerprint == "" || p.AuthorityFingerprint != policy.MCPAuthorityFingerprint(config.MCP, p.Authority) {
+		return false
+	}
+	if !authorityAllows(authority, p, operation) {
+		return false
+	}
+	return policy.AuthorizeAuthorityAt(config, p.Authority, p.Subject, p.Client, workload, operation, key, now)
+}
+
+func authorityAllows(authority model.IdentityAuthority, p Principal, operation string) bool {
+	permission, found := authority.Permissions[operation]
+	return found && len(permission.Scopes)+len(permission.Roles) > 0 && optionalClaimAllows(authority.Clients, p.Client) && optionalClaimAllows(authority.Subjects, p.Subject) && allClaimsPresent(p.Scopes, authority.RequiredScopes) && allClaimsPresent(p.Roles, authority.RequiredRoles) && allClaimsPresent(p.Scopes, permission.Scopes) && allClaimsPresent(p.Roles, permission.Roles)
+}
+
+func optionalClaimAllows(allowed []string, value string) bool {
+	return len(allowed) == 0 || claimPresent(allowed, value)
+}
+
+func allClaimsPresent(actual, required []string) bool {
+	for _, value := range required {
+		if !claimPresent(actual, value) {
+			return false
+		}
+	}
+	return true
+}
+
+func claimPresent(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 type principalContextKey struct{}
@@ -124,7 +205,8 @@ func (s *Service) current() model.Policy {
 }
 
 func (s *Service) authorized(p Principal, workload, operation, key string) bool {
-	return p.ValidAt(s.clock()) && validHandle(workload) && scopeAllows(p, operation) && policy.Authorize(s.current(), p.Subject, p.Client, workload, operation, key)
+	config := s.current()
+	return validHandle(workload) && p.Authorize(config, workload, operation, key, s.clock())
 }
 
 func (s *Service) clock() time.Time {
@@ -134,7 +216,7 @@ func (s *Service) clock() time.Time {
 	return s.now()
 }
 
-func scopeAllows(p Principal, operation string) bool {
+func legacyScopeAllows(p Principal, operation string) bool {
 	if !p.HTTP {
 		return true
 	}
@@ -220,14 +302,14 @@ func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string)
 	}
 	result, err := s.backend.Run(withPrincipal(ctx, p), workload)
 	if err != nil {
-		return RunResult{}, safeError(err, "mcp action")
+		return RunResult{}, safeError(err, mcpAction)
 	}
 	return sanitizeRunResult(result), nil
 }
 
 func (s *Service) authorizeRun(p Principal, workload string) (model.Workload, error) {
 	if !s.authorized(p, workload, "run", "") || s.options.ActionAllowed == nil || !s.options.ActionAllowed(workload) {
-		return model.Workload{}, fault.New(fault.Denied, "mcp action")
+		return model.Workload{}, fault.New(fault.Denied, mcpAction)
 	}
 	w := s.current().Workloads[workload]
 	if w.UntrustedCode && !s.mayReadAll(p, workload, w) {
@@ -236,7 +318,7 @@ func (s *Service) authorizeRun(p Principal, workload string) (model.Workload, er
 	// ActionAllowed may perform enrolled executable trust work. Recheck the
 	// identity and current grant after it finishes, immediately before effect.
 	if !s.authorized(p, workload, "run", "") {
-		return model.Workload{}, fault.New(fault.Denied, "mcp action")
+		return model.Workload{}, fault.New(fault.Denied, mcpAction)
 	}
 	return w, nil
 }

@@ -17,28 +17,39 @@ func (s *store) readTree(ctx context.Context, commit string) (map[string]string,
 	if err != nil {
 		return nil, failure(fault.Trust, "tree")
 	}
+	return parseTree(data)
+}
+
+func parseTree(data []byte) (map[string]string, error) {
 	tree := make(map[string]string)
 	paths := make(map[string]treePath)
 	for _, entry := range bytes.Split(data, []byte{0}) {
-		if len(entry) == 0 {
-			continue
-		}
-		path, object, err := parseTreeEntry(entry)
-		if err != nil {
+		if err := addTreeEntry(tree, paths, entry); err != nil {
 			return nil, err
-		}
-		if err := registerTreePath(paths, path); err != nil {
-			return nil, err
-		}
-		tree[path] = object
-		if len(tree) > maximumFiles {
-			return nil, failure(fault.Trust, "tree_size")
 		}
 	}
 	if len(tree) == 0 {
 		return nil, failure(fault.Trust, "empty_tree")
 	}
 	return tree, nil
+}
+
+func addTreeEntry(tree map[string]string, paths map[string]treePath, entry []byte) error {
+	if len(entry) == 0 {
+		return nil
+	}
+	path, object, err := parseTreeEntry(entry)
+	if err != nil {
+		return err
+	}
+	if err := registerTreePath(paths, path); err != nil {
+		return err
+	}
+	tree[path] = object
+	if len(tree) > maximumFiles {
+		return failure(fault.Trust, "tree_size")
+	}
+	return nil
 }
 
 func parseTreeEntry(entry []byte) (string, string, error) {
@@ -56,7 +67,7 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	releases, destination, accepted, err := s.releaseDestination(commit, tree)
+	releases, destination, accepted, err := s.releaseDestination(ctx, commit, tree)
 	if err != nil || accepted {
 		return destination, err
 	}
@@ -68,7 +79,7 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 	if err = s.writeTree(ctx, staging, tree); err != nil {
 		return "", err
 	}
-	if err = verifyRelease(staging, tree); err != nil {
+	if err = s.verifyRelease(ctx, staging, tree); err != nil {
 		return "", err
 	}
 	if err = os.Rename(staging, destination); err != nil {
@@ -77,7 +88,7 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 	return destination, nil
 }
 
-func (s *store) releaseDestination(commit string, tree map[string]string) (string, string, bool, error) {
+func (s *store) releaseDestination(ctx context.Context, commit string, tree map[string]string) (string, string, bool, error) {
 	releases := filepath.Join(s.repo.Directory, "releases")
 	if err := platform.EnsurePrivateDirectory(releases); err != nil {
 		return "", "", false, failure(fault.Trust, "releases_directory")
@@ -87,7 +98,7 @@ func (s *store) releaseDestination(commit string, tree map[string]string) (strin
 	}
 	destination := filepath.Join(releases, commit)
 	if _, err := os.Lstat(destination); err == nil {
-		if err = verifyRelease(destination, tree); err != nil {
+		if err = s.verifyRelease(ctx, destination, tree); err != nil {
 			return "", "", false, err
 		}
 		return releases, destination, true, nil
@@ -119,7 +130,7 @@ func (s *store) readBlob(ctx context.Context, object string) ([]byte, error) {
 	// cat-file reads exact signed blob IDs. It does not apply .gitattributes,
 	// checkout filters, archive attributes or executable mode from a worktree.
 	data, err := s.command(ctx, maximumFileBytes, "cat-file", "blob", object)
-	if err != nil || blobID(data, len(object)) != object {
+	if err != nil {
 		return nil, failure(fault.Trust, "blob")
 	}
 	return data, nil

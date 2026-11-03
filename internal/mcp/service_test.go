@@ -472,6 +472,39 @@ func TestRevocationDuringReadPreventsDisclosure(t *testing.T) {
 	}
 }
 
+func TestRevocationAfterDisclosureAuditPreventsResponse(t *testing.T) {
+	p := testPolicy(t)
+	current := p
+	backend := &fakeBackend{value: model.Value{Data: "NEVER_RETURN_REVOKED"}}
+	audit := &memoryAudit{onRecord: func() { current.Grants = nil }}
+	service := makeService(t, p, backend, Options{
+		Audit:          audit,
+		PolicyProvider: func() (model.Policy, error) { return current, nil },
+	})
+	result, err := service.ReadSecret(context.Background(), Principal{Subject: "local:alice"}, "alpha", "SERVICE_KEY")
+	if !fault.Is(err, fault.Denied) || result.Value != "" || backend.reads != 1 || len(audit.events) != 1 {
+		t.Fatalf("post-audit revocation result = %#v, %v, reads=%d, audits=%d", result, err, backend.reads, len(audit.events))
+	}
+}
+
+func TestActionRevocationAfterTrustCheckPreventsLaunch(t *testing.T) {
+	p := testPolicy(t)
+	current := p
+	backend := &fakeBackend{run: RunResult{ID: "MUST-NOT-RUN"}}
+	audit := &memoryAudit{}
+	service := makeService(t, p, backend, Options{
+		Audit: audit,
+		ActionAllowed: func(string) bool {
+			current.Grants = nil
+			return true
+		},
+		PolicyProvider: func() (model.Policy, error) { return current, nil },
+	})
+	if _, err := service.RunWorkload(context.Background(), Principal{Subject: "local:alice"}, "alpha"); !fault.Is(err, fault.Denied) || backend.runs != 0 || len(audit.events) != 0 {
+		t.Fatalf("post-trust revocation err=%v runs=%d audits=%d", err, backend.runs, len(audit.events))
+	}
+}
+
 func TestProtocolAllowlistedOperationsAndNoArbitraryArguments(t *testing.T) {
 	b := &fakeBackend{status: Status{State: "ready"}, run: RunResult{ID: "test-run", Status: "completed"}}
 	s := makeService(t, testPolicy(t), b, Options{Audit: &memoryAudit{}, ActionAllowed: func(string) bool { return true }})

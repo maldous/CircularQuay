@@ -41,4 +41,13 @@ The default objective is daily backup plus restore qualification before operatio
 
 Use a retained verified executable and known-good projection or a new authenticated forward release restoring prior configuration. Do not weaken downgrade protection or reuse published versions. No rollback may reactivate known revoked, expired or compromised material.
 
+Persisted workload state also carries a fallback fence. A provider refresh must
+record that fence before reading values; a denial, trust failure, expired value,
+or interrupted refresh keeps cached material ineligible across process restart.
+A qualifying availability failure restores prior eligibility only after a
+successful durable write. A complete, freshly validated generation can clear
+the fence; reading one key cannot clear a whole workload's denial. Preserve this
+state with recovery data and use an authorized full refresh to recover. Deleting
+state or editing the fence is not a recovery procedure.
+
 Native cloud stores and deployment revisions have their own update/rollback behavior. Preserve complete generation/version receipts, and report partial destination failure rather than inventing cross-system atomicity.

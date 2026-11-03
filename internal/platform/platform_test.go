@@ -249,8 +249,18 @@ func TestNativeUnsupportedAndInvalidValues(t *testing.T) {
 
 func TestProtectedAuditRecords(t *testing.T) {
 	path := filepath.Join(secureTempDir(t), "audit.jsonl")
+	appendConcurrentProtectedAuditRecords(t, path)
+	assertProtectedAuditRecords(t, path)
+	assertInvalidAuditRecordsRejected(t, path)
+	if err := ValidateProtectedPath(path); err != nil {
+		t.Fatal("protected audit metadata rejected")
+	}
+}
+
+func appendConcurrentProtectedAuditRecords(t *testing.T, path string) {
+	t.Helper()
 	var group sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		group.Go(func() {
 			if err := AppendProtected(path, []byte("{\n\"action\":\"synthetic\"\n}")); err != nil {
 				t.Error("protected append failed")
@@ -258,6 +268,10 @@ func TestProtectedAuditRecords(t *testing.T) {
 		})
 	}
 	group.Wait()
+}
+
+func assertProtectedAuditRecords(t *testing.T, path string) {
+	t.Helper()
 	data, err := ReadProtected(path, true)
 	if err != nil {
 		t.Fatal(err)
@@ -271,13 +285,14 @@ func TestProtectedAuditRecords(t *testing.T) {
 			t.Fatal("invalid JSONL receipt")
 		}
 	}
+}
+
+func assertInvalidAuditRecordsRejected(t *testing.T, path string) {
+	t.Helper()
 	for _, invalid := range [][]byte{nil, []byte("null"), []byte("[]"), []byte("{}{}"), make([]byte, 65537)} {
 		if err := AppendProtected(path, invalid); !fault.Is(err, fault.Invalid) {
 			t.Fatal("invalid receipt accepted")
 		}
-	}
-	if err := ValidateProtectedPath(path); err != nil {
-		t.Fatal("protected audit metadata rejected")
 	}
 }
 
@@ -327,28 +342,39 @@ func testExecutableDigest(t *testing.T) string {
 
 func testUnixExecutableTrust(t *testing.T, exe string) {
 	t.Helper()
-	if runtime.GOOS != "windows" {
-		alias := filepath.Join(secureTempDir(t), "trusted-helper-link")
-		if err := os.Symlink(exe, alias); err != nil {
-			t.Fatal(err)
-		}
-		if err := ValidateExecutable(alias); err != nil {
-			t.Fatal("trusted executable alias rejected")
-		}
-		unsafe := filepath.Join(secureTempDir(t), "unsafe-helper")
-		if err := os.WriteFile(unsafe, []byte("synthetic"), 0o666); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(unsafe, 0o666); err != nil {
-			t.Fatal(err)
-		}
-		link := filepath.Join(secureTempDir(t), "unsafe-helper-link")
-		if err := os.Symlink(unsafe, link); err != nil {
-			t.Fatal(err)
-		}
-		if err := ValidateExecutable(link); !fault.Is(err, fault.Trust) {
-			t.Fatal("symbolic executable to mutable target accepted")
-		}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	assertTrustedExecutableAlias(t, exe)
+	assertMutableExecutableAliasRejected(t)
+}
+
+func assertTrustedExecutableAlias(t *testing.T, exe string) {
+	t.Helper()
+	alias := filepath.Join(secureTempDir(t), "trusted-helper-link")
+	if err := os.Symlink(exe, alias); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateExecutable(alias); err != nil {
+		t.Fatal("trusted executable alias rejected")
+	}
+}
+
+func assertMutableExecutableAliasRejected(t *testing.T) {
+	t.Helper()
+	unsafe := filepath.Join(secureTempDir(t), "unsafe-helper")
+	if err := os.WriteFile(unsafe, []byte("synthetic"), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unsafe, 0o666); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(secureTempDir(t), "unsafe-helper-link")
+	if err := os.Symlink(unsafe, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateExecutable(link); !fault.Is(err, fault.Trust) {
+		t.Fatal("symbolic executable to mutable target accepted")
 	}
 }
 

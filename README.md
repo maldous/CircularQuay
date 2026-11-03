@@ -126,7 +126,8 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 - **Optional MCP:** expose authorized status and named actions, with a separate permission for each raw secret disclosure.
 - **Inspectable assurance:** source, tests, a policy model, release identities, and a reproducible audit route.
 
-This is an early implementation. A compiled adapter is not proof of live-provider compatibility, a passing unit test is not a reboot test, and a clean scanner is not a security certification. The [qualification matrix](docs/qualification.md) separates implementation from operational evidence.
+The [qualification matrix](docs/qualification.md) records tested platforms,
+providers, release artifacts, and operational evidence.
 
 ## Start with a configuration repository
 
@@ -538,7 +539,7 @@ not a release assertion.
 
 | Command | Usage and behavior |
 | --- | --- |
-| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--output PATH] [--non-interactive]` selects local or enrolled configuration, verifies remote references, and configures the authorized session. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, and `CQUAY_CONFIG_PATH`. |
+| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--config-sha256 SHA256] [--output PATH] [--non-interactive]` selects local or enrolled configuration, verifies remote references, and configures the authorized session. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH`, and `CQUAY_CONFIG_SHA256`. Unattended first enrollment pins the full commit and a configuration digest obtained through a trusted maintainer channel. |
 | CI flow | `cquay flow run --workload ID [--non-interactive]` detects the supported runner, resolves configuration and workload identity, then executes the approved workload. Explicit configuration-source options override discovery. |
 | Create | `cquay init [--output PATH]` or `cquay config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
 | Inspect configuration | `cquay config validate`; `cquay config get --pointer RFC6901`; `cquay config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |

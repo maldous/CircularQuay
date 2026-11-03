@@ -110,6 +110,7 @@ type Target struct {
 // time bounds constrain local cquay authorization; they do not extend remote
 // identity claims or provider credential validity.
 type Grant struct {
+	Authority  string     `json:"authority,omitempty" yaml:"authority,omitempty"`
 	Subject    string     `json:"subject" yaml:"subject"`
 	Client     string     `json:"client,omitempty" yaml:"client,omitempty"`
 	Workload   string     `json:"workload" yaml:"workload"`
@@ -121,13 +122,37 @@ type Grant struct {
 
 // MCP configures a protected resource; it is not an authorization server.
 type MCP struct {
-	Issuer    string   `json:"issuer,omitempty" yaml:"issuer,omitempty"`
-	Audience  string   `json:"audience,omitempty" yaml:"audience,omitempty"`
-	JWKSURL   string   `json:"jwks_url,omitempty" yaml:"jwks_url,omitempty"`
-	Address   string   `json:"address,omitempty" yaml:"address,omitempty"`
-	Origins   []string `json:"origins,omitempty" yaml:"origins,omitempty"`
-	Hosts     []string `json:"hosts,omitempty" yaml:"hosts,omitempty"`
-	AuditPath string   `json:"audit_path,omitempty" yaml:"audit_path,omitempty"`
+	Resource    string                       `json:"resource,omitempty" yaml:"resource,omitempty"`
+	Authorities map[string]IdentityAuthority `json:"authorities,omitempty" yaml:"authorities,omitempty"`
+	Issuer      string                       `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	Audience    string                       `json:"audience,omitempty" yaml:"audience,omitempty"`
+	JWKSURL     string                       `json:"jwks_url,omitempty" yaml:"jwks_url,omitempty"`
+	Address     string                       `json:"address,omitempty" yaml:"address,omitempty"`
+	Origins     []string                     `json:"origins,omitempty" yaml:"origins,omitempty"`
+	Hosts       []string                     `json:"hosts,omitempty" yaml:"hosts,omitempty"`
+	AuditPath   string                       `json:"audit_path,omitempty" yaml:"audit_path,omitempty"`
+}
+
+// IdentityAuthority pins one access-token issuer, resource audience and typed
+// claim profile. Permissions map operator-defined scopes/roles to cquay actions;
+// an omitted action is denied, independently of an exact local workload grant.
+type IdentityAuthority struct {
+	Issuer         string                     `json:"issuer" yaml:"issuer"`
+	JWKSURL        string                     `json:"jwks_url" yaml:"jwks_url"`
+	Audience       string                     `json:"audience" yaml:"audience"`
+	Profile        string                     `json:"profile" yaml:"profile"`
+	Clients        []string                   `json:"clients,omitempty" yaml:"clients,omitempty"`
+	Subjects       []string                   `json:"subjects,omitempty" yaml:"subjects,omitempty"`
+	RequiredScopes []string                   `json:"required_scopes,omitempty" yaml:"required_scopes,omitempty"`
+	RequiredRoles  []string                   `json:"required_roles,omitempty" yaml:"required_roles,omitempty"`
+	Permissions    map[string]TokenPermission `json:"permissions" yaml:"permissions"`
+}
+
+// TokenPermission requires every declared scope and role. Both dimensions are
+// conjunctive; an empty permission never grants an operation.
+type TokenPermission struct {
+	Scopes []string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	Roles  []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 }
 
 // Value preserves lifecycle metadata. It must never be serialized in diagnostics.

@@ -1,13 +1,11 @@
 package repository
 
 import (
-	"crypto/sha1" // Git's SHA-1 object format; commit authenticity uses SSH signatures.
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/platform"
@@ -40,28 +38,17 @@ func validCommit(commit string) bool {
 	return true
 }
 
-func blobID(data []byte, length int) string {
-	header := []byte(fmt.Sprintf("blob %d\x00", len(data)))
-	if length == 40 {
-		// SHA-1 here is Git's legacy object-name format, not a security decision.
-		// Commit authenticity is enforced separately by pinned SSH signatures; this
-		// calculation only proves materialized bytes match the signed object ID.
-		hash := sha1.New()
-		hash.Write(header)
-		hash.Write(data)
-		return hex.EncodeToString(hash.Sum(nil))
-	}
-	hash := sha256.New()
-	hash.Write(header)
-	hash.Write(data)
-	return hex.EncodeToString(hash.Sum(nil))
+func verifyRelease(directory string, tree map[string]string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return (&store{}).verifyRelease(ctx, directory, tree)
 }
 
-func verifyRelease(directory string, tree map[string]string) error {
+func (s *store) verifyRelease(ctx context.Context, directory string, tree map[string]string) error {
 	if err := protectedDirectory(directory); err != nil {
 		return err
 	}
-	verifier := releaseVerifier{directory: directory, tree: tree}
+	verifier := releaseVerifier{store: s, ctx: ctx, directory: directory, tree: tree}
 	err := filepath.WalkDir(directory, verifier.visit)
 	if err != nil {
 		return err
@@ -75,6 +62,8 @@ func verifyRelease(directory string, tree map[string]string) error {
 // releaseVerifier checks that materialized data remains the exact signed tree.
 // It keeps the file and aggregate byte limits separate from Git transport limits.
 type releaseVerifier struct {
+	store     *store
+	ctx       context.Context
 	directory string
 	tree      map[string]string
 	count     int
@@ -107,7 +96,10 @@ func (v *releaseVerifier) verifyFile(path string, entry os.DirEntry) error {
 	if err != nil {
 		return err
 	}
-	if err = verifyReleaseFile(entry, data, expected); err != nil {
+	if err = verifyReleaseFile(entry, data); err != nil {
+		return err
+	}
+	if err = v.store.verifyMaterializedBlob(v.ctx, path, expected); err != nil {
 		return err
 	}
 	v.count++
@@ -130,9 +122,9 @@ func (v releaseVerifier) expectedBlob(path string) (string, error) {
 	return expected, nil
 }
 
-func verifyReleaseFile(entry os.DirEntry, data []byte, expected string) error {
+func verifyReleaseFile(entry os.DirEntry, data []byte) error {
 	info, err := entry.Info()
-	if err != nil || info.Mode().Perm()&0o111 != 0 || blobID(data, len(expected)) != expected {
+	if err != nil || info.Mode().Perm()&0o111 != 0 {
 		return failure(fault.Trust, "release_content")
 	}
 	return nil

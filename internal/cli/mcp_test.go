@@ -206,7 +206,7 @@ func mcpRunTestApplication(t *testing.T, marker string) (application, string, mo
 	}
 	config := filepath.Join(dir, "policy.json")
 	writeMCPTestPolicy(t, config, policy)
-	return application{config: config}, config, policy
+	return application{config: config, directory: filepath.Join(dir, "state")}, config, policy
 }
 
 func TestMCPRunHelper(t *testing.T) {

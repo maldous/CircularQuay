@@ -8,7 +8,17 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 )
 
+// ValidateMCP checks the optional protected-resource contract without network or
+// filesystem access. Token-verifier construction uses the same policy rules.
+func ValidateMCP(config model.MCP) error { return validateMCP(config) }
+
 func validateMCP(config model.MCP) error {
+	if config.Authorities != nil {
+		return validateNamedAuthorities(config)
+	}
+	if config.Resource != "" {
+		return invalid("mcp_resource_without_authority")
+	}
 	if config.Issuer == "" && config.Audience == "" && config.JWKSURL == "" {
 		return validateMCPLists(config)
 	}

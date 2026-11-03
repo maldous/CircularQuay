@@ -48,6 +48,19 @@ func TestFileGrantDoesNotCreateInheritableACEs(t *testing.T) {
 	if err := protectFile(path); err != nil {
 		t.Fatal(err)
 	}
+	assertFileACEsAreNotInheritable(t, path)
+}
+
+func assertFileACEsAreNotInheritable(t *testing.T, path string) {
+	t.Helper()
+	acl := fileDACL(t, path)
+	for index := uint32(0); index < uint32(acl.AceCount); index++ {
+		assertACEIsNotInheritable(t, acl, index)
+	}
+}
+
+func fileDACL(t *testing.T, path string) *windows.ACL {
+	t.Helper()
 	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	if err != nil {
 		t.Fatal(err)
@@ -56,14 +69,17 @@ func TestFileGrantDoesNotCreateInheritableACEs(t *testing.T) {
 	if err != nil || acl == nil {
 		t.Fatalf("file DACL = %v", err)
 	}
-	for index := uint32(0); index < uint32(acl.AceCount); index++ {
-		var ace *windows.ACCESS_ALLOWED_ACE
-		if err := windows.GetAce(acl, index, &ace); err != nil || ace == nil {
-			t.Fatalf("file ACE %d = %v", index, err)
-		}
-		if ace.Header.AceFlags&(windows.OBJECT_INHERIT_ACE|windows.CONTAINER_INHERIT_ACE) != 0 {
-			t.Fatalf("file ACE %d is inheritable", index)
-		}
+	return acl
+}
+
+func assertACEIsNotInheritable(t *testing.T, acl *windows.ACL, index uint32) {
+	t.Helper()
+	var ace *windows.ACCESS_ALLOWED_ACE
+	if err := windows.GetAce(acl, index, &ace); err != nil || ace == nil {
+		t.Fatalf("file ACE %d = %v", index, err)
+	}
+	if ace.Header.AceFlags&(windows.OBJECT_INHERIT_ACE|windows.CONTAINER_INHERIT_ACE) != 0 {
+		t.Fatalf("file ACE %d is inheritable", index)
 	}
 }
 

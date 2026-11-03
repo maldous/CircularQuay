@@ -91,6 +91,9 @@ func (s *store) fetch(ctx context.Context, operations fetchOperations) (string, 
 	defer cleanup()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
+	if err = s.requireHardenedSHA1(ctx); err != nil {
+		return "", err
+	}
 	previous, err := s.readAccepted()
 	if err != nil {
 		return "", err
@@ -176,6 +179,9 @@ func (s *store) acceptCandidate(ctx context.Context, previous accepted, commit s
 			return "", err
 		}
 	}
+	if err := s.verifyObjectGraph(ctx, commit); err != nil {
+		return "", err
+	}
 	directory, err := s.materialize(ctx, commit)
 	if err != nil {
 		return "", err
@@ -194,6 +200,12 @@ func Current(repo model.Repository) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return s.currentRelease(ctx, repo)
+}
+
+func (s *store) currentRelease(ctx context.Context, repo model.Repository) (string, error) {
 	state, err := s.readAccepted()
 	if err != nil {
 		return "", err
@@ -201,8 +213,6 @@ func Current(repo model.Repository) (string, error) {
 	if state.Commit == "" {
 		return "", failure(fault.Missing, "accepted_release")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
 	if err = s.checkGitConfig(); err != nil {
 		return "", err
 	}
@@ -212,12 +222,18 @@ func Current(repo model.Repository) (string, error) {
 	if err = s.ancestor(ctx, repo.InitialCommit, state.Commit); err != nil {
 		return "", err
 	}
+	if err = s.requireHardenedSHA1(ctx); err != nil {
+		return "", err
+	}
+	if err = s.verifyObjectGraph(ctx, state.Commit); err != nil {
+		return "", err
+	}
 	tree, err := s.readTree(ctx, state.Commit)
 	if err != nil {
 		return "", err
 	}
 	directory := filepath.Join(repo.Directory, "releases", state.Commit)
-	if err = verifyRelease(directory, tree); err != nil {
+	if err = s.verifyRelease(ctx, directory, tree); err != nil {
 		return "", err
 	}
 	return directory, nil

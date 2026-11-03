@@ -17,10 +17,11 @@ so do not add one to a policy; editors can associate the schema out of band.
 [`examples/linux-deployment.json`](../examples/linux-deployment.json) is a
 complete, fabricated Linux reference. It declares one SOPS/age-backed hybrid
 workload, an encrypted systemd credential projection, and an optional hosted
-MCP authorization surface. The paths, recipient, executable, DNS names, and
+MCP authorization surface with a named identity authority and signed repository.
+The paths, recipient, executable, DNS names, and
 subject are illustrative; provision replacements under the intended operator
-and service identities before use. It has no repository block because signed
-repository fetching is not yet wired into the CLI sync path. The reference is
+and service identities before use. Pin the actual initial signed commit and
+enroll its signing trust locally. The reference is
 structurally and semantically valid policy, not a claim that those placeholder
 paths, identity, systemd unit, provider, or MCP issuer are qualified.
 
@@ -232,13 +233,18 @@ a policy field, and it requires native qualification.
 ## Grants and MCP
 
 Each `grants` entry requires `subject`, `workload`, and a non-empty `operations`
-array. `client` and `keys` are optional. Subjects and clients are exact strings,
+array. `authority`, `client`, and `keys` are optional. Subjects and clients are exact strings,
 not patterns; an empty client is local-only and does not match hosted clients.
 `workload` must name a declared workload. Policy version 1 accepts only
 `list`, `status`, `run`, and `read`. `read` requires a non-empty `keys` array
 of exact declared binding names. Keys constrain only `read`; `run` authorizes
 the whole enrolled workload. Request cancellation follows the caller's request
 context and is not a grant operation.
+
+For named HTTP authorities, `authority` selects an exact entry in
+`mcp.authorities`; `client` is required and `subject` is issuer-qualified.
+An unnamed local or single-issuer grant cannot be consumed through a named
+authority. Neither an IdP role nor a scope creates a local workload grant.
 
 `not_before` and `expires_at` are optional RFC3339 local authorization bounds
 on a grant. A grant is active from `not_before` inclusively until `expires_at`
@@ -274,7 +280,9 @@ a final expiry, revocation, or cancellation check can still withhold the respons
 
 | `mcp` field | Type | Meaning |
 | --- | --- | --- |
-| `issuer`, `audience`, `jwks_url` | HTTPS URLs | All three are required together for hosted HTTP authorization. `audience` is the protected resource URL and must include a non-root path such as `https://mcp.example.test/mcp`. They declare a trusted issuer/resource/key set; CircularQuay does not run login or issue tokens. |
+| `resource` | HTTPS resource URL | Public MCP resource identifier with a non-root path, independent of the token audience. Used with `authorities`. Loopback HTTP is allowed for the local resource only. |
+| `authorities` | named object, 1–8 entries | Explicit access-token issuers and permission mappings described below. Cannot be mixed with the single-issuer fields. |
+| `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cquay:mcp` plus `cquay:list`, `cquay:status`, `cquay:run`, or `cquay:read`. Prefer named authorities for custom audiences or roles. |
 | `address` | `host:port` string | Optional listener address. Bind and exposure decisions remain operator-controlled. |
 | `origins` | unique HTTPS URL array | Allowed browser origins, if HTTP mode is used. |
 | `hosts` | unique string array | Allowed Host values, without wildcard/URL syntax. |
@@ -283,6 +291,59 @@ a final expiry, revocation, or cancellation check can still withhold the respons
 An empty `mcp` object is valid. Configuring HTTP requires an independently
 qualified issuer, audience, client registration, transport, and isolation
 boundary; it is not established by this file alone.
+
+Each `mcp.authorities.<name>` declares:
+
+| Field | Meaning |
+| --- | --- |
+| `issuer`, `jwks_url` | Exact HTTPS issuer and same-origin public signing-key endpoint; no token-provided key locations or redirect discovery. |
+| `audience` | Exact registered API identifier. It may differ from the public `resource` URL, including an Entra application GUID. |
+| `profile` | `rfc9068` for signed `at+jwt` access tokens, or `microsoft-entra-v2` for the explicit Entra v2 API-token profile. Both verify RS256/ES256 signatures, issuer, audience and time claims. |
+| `clients`, `subjects` | Optional exact allowlists. A principal must match one entry in each configured list. Empty lists leave that dimension to exact local grants. |
+| `required_scopes`, `required_roles` | Optional requirements on every accepted token: all listed scopes and all listed roles must be present. |
+| `permissions` | Maps `list`, `status`, `run`, or `read` to `{ "scopes": [...], "roles": [...] }`. Every declared scope and role is required; an omitted operation or empty permission denies it. |
+
+No environment or permission label has built-in business meaning. For example,
+`permissions.read.scopes = ["secrets:use"]` maps that registered API scope to a
+raw-read operation; its exact subject, client, workload and key still need a
+matching local grant. Scopes and roles are separate claim dimensions and are
+never flattened into one string set. All claim lists are bounded and duplicate
+entries are rejected.
+
+RFC 9068 subjects use `issuer|sub`. Entra subjects use `issuer|tid/oid`, where
+the canonical tenant and object GUIDs identify the principal; `azp` identifies
+the client. Entra's issuer pins the tenant, `ver` must be `2.0`, and an API scope
+or role must be present. Register a separate API audience from interactive login
+clients. ID-token profiles, opaque tokens, unsupported sender-proof claims,
+and tokens for other APIs are rejected.
+
+The current protected policy is rechecked before provider access and effects.
+Changing an authority's trust, audience, required claims or permission mapping
+invalidates the verified principal's configuration fingerprint; removing a grant
+also denies further authorization checks. This does not recall an earlier
+plaintext disclosure. See [identity integration](hosted-identity.md) for issuer
+revocation and [qualification](qualification.md) for actual tested scope.
+
+## Pinned configuration bootstrap
+
+`cquay bootstrap` creates a protected JSON configuration from an immutable
+public GitHub tree, blob or raw URL. Supply `--config-ref` with the full 40-hex
+commit and `--config-sha256` with a digest obtained through a trusted maintainer
+channel. The URL's commit marker must equal the ref. `--config-path` is the
+repository-relative file path. Equivalent environment settings are
+`CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH` and
+`CQUAY_CONFIG_SHA256`; explicit flags take precedence.
+
+Retrieval denies redirects, bounds the response to 1 MiB, verifies the digest,
+strictly validates the policy for its destination, and creates it exclusively.
+It refuses an existing output. The JSON receipt records source, commit, path,
+digest and output path without policy bytes. With no source, bootstrap validates
+the existing local configuration. Materialization does not retrieve provider
+values, authenticate an operator, execute a workload or enroll a service.
+
+A hash retrieved from the same untrusted location as the document does not
+establish maintainer trust. Public configuration cannot select its own initial
+trust anchors or silently replace a locally enrolled policy.
 
 ## `repository`
 

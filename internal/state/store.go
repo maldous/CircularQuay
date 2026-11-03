@@ -18,17 +18,21 @@ var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 // Record has no value-bearing fields.
 type Record struct {
-	Workload    string                  `json:"workload"`
-	Generation  string                  `json:"generation,omitempty"`
-	State       string                  `json:"state"`
-	Mode        string                  `json:"mode"`
-	Offline     bool                    `json:"offline"`
-	LastChecked time.Time               `json:"last_checked"`
-	LastSuccess time.Time               `json:"last_success,omitempty"`
-	Error       fault.Kind              `json:"error,omitempty"`
-	Targets     map[string]TargetRecord `json:"targets,omitempty"`
-	Health      string                  `json:"health,omitempty"`
-	Receipts    []model.Receipt         `json:"receipts,omitempty"`
+	Workload   string `json:"workload"`
+	Generation string `json:"generation,omitempty"`
+	State      string `json:"state"`
+	Mode       string `json:"mode"`
+	Offline    bool   `json:"offline"`
+	// FallbackFence records that a provider read began but did not complete a
+	// validated generation. It prevents a later process from restoring a
+	// snapshot that a denial, trust failure, or interrupted refresh invalidated.
+	FallbackFence bool                    `json:"fallback_fence,omitempty"`
+	LastChecked   time.Time               `json:"last_checked"`
+	LastSuccess   time.Time               `json:"last_success,omitempty"`
+	Error         fault.Kind              `json:"error,omitempty"`
+	Targets       map[string]TargetRecord `json:"targets,omitempty"`
+	Health        string                  `json:"health,omitempty"`
+	Receipts      []model.Receipt         `json:"receipts,omitempty"`
 }
 
 // TargetRecord records one target's projection and requested service transition.

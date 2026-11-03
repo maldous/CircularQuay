@@ -160,15 +160,15 @@ func testMountPointData(target string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	substitute = substitute[:len(substitute)-1]
-	printName = printName[:len(printName)-1]
+	// The mount-point buffer retains each UTF-16 terminator. The name-length
+	// fields below deliberately exclude them, as required by the native layout.
 	path := append(substitute, printName...)
 	length := int(unsafe.Offsetof(testMountPointReparseBuffer{}.path)) + len(path)*2
 	data := make([]byte, length)
 	buffer := (*testMountPointReparseBuffer)(unsafe.Pointer(&data[0]))
-	buffer.substituteLength = uint16(len(substitute) * 2)
-	buffer.printOffset = buffer.substituteLength
-	buffer.printLength = uint16(len(printName) * 2)
+	buffer.substituteLength = uint16((len(substitute) - 1) * 2)
+	buffer.printOffset = uint16(len(substitute) * 2)
+	buffer.printLength = uint16((len(printName) - 1) * 2)
 	copy(unsafe.Slice(&buffer.path[0], len(path)), path)
 	return data, nil
 }

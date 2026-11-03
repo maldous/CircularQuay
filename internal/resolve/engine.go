@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -23,12 +24,19 @@ type SnapshotIO interface {
 }
 
 // Engine has no implicit provider, environment, or fallback authority.
+//
+// Callers sharing a persisted State hold Store.Lock for the workload around an
+// Engine operation. Engine deliberately does not take that lock so higher
+// layers can compose resolution with activation without nested locks.
 type Engine struct {
 	Policy    model.Policy
 	Reader    source.Reader
 	Snapshots SnapshotIO
 	State     state.Store
 	Now       func() time.Time
+
+	mu      sync.Mutex
+	blocked map[string]struct{}
 }
 
 func (e *Engine) now() time.Time {
@@ -74,19 +82,29 @@ func (e *Engine) workload(id string) (model.Workload, error) {
 }
 
 func (e *Engine) readGeneration(ctx context.Context, id string, w model.Workload, allowFallback bool) (model.Generation, error) {
+	fence, err := e.prepareProviderRead(id, w)
+	if err != nil {
+		return model.Generation{}, err
+	}
 	g := model.Generation{Workload: id, Values: make(map[string]model.Value), RetrievedAt: e.now()}
 	for _, b := range w.Bindings {
 		if err := e.readBinding(ctx, &g, b, w.AuditRequired); err != nil {
-			return e.failed(ctx, id, w, err, allowFallback)
+			return e.failed(ctx, id, w, err, allowFallback, fence)
 		}
 	}
-	if err := validateFreshGeneration(g, e.now(), w.AuditRequired); err != nil {
-		return e.failed(ctx, id, w, err, allowFallback)
+	if err := validateFreshGeneration(w, g, e.now(), w.AuditRequired); err != nil {
+		return e.failed(ctx, id, w, err, allowFallback, fence)
+	}
+	if err := e.completeProviderRead(id, w, g, fence); err != nil {
+		return model.Generation{}, err
 	}
 	return g, nil
 }
 
-func validateFreshGeneration(generation model.Generation, now time.Time, auditRequired bool) error {
+func validateFreshGeneration(workload model.Workload, generation model.Generation, now time.Time, auditRequired bool) error {
+	if err := validateGeneration(workload, generation, now); err != nil {
+		return err
+	}
 	for _, value := range generation.Values {
 		if err := validateValue(value, now, auditRequired); err != nil {
 			return err
@@ -136,14 +154,31 @@ func validateValue(v model.Value, now time.Time, audit bool) error {
 	return nil
 }
 
-func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause error, allowFallback bool) (model.Generation, error) {
-	if allowFallback && w.Mode == "hybrid" && !w.AuditRequired && fault.Is(cause, fault.Unavailable) && w.Snapshot.Path != "" {
-		return e.restore(ctx, id, w)
+func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause error, allowFallback bool, fence providerReadFence) (model.Generation, error) {
+	if fault.Is(cause, fault.Unavailable) {
+		if err := e.restoreProviderFence(fence); err != nil {
+			return model.Generation{}, err
+		}
+		if eligibleFallback(w, cause, allowFallback) {
+			return e.restore(ctx, id, w)
+		}
+		return model.Generation{}, cause
 	}
-	if e.State.Directory != "" {
-		_ = e.State.Write(state.Record{Workload: id, State: "blocked", Mode: w.Mode, LastChecked: e.now(), Error: fault.Category(cause)})
+	if blocksFallback(cause) {
+		e.blockFallback(id)
+	}
+	if err := e.persistProviderFailure(id, w, cause, fence); err != nil {
+		return model.Generation{}, err
 	}
 	return model.Generation{}, cause
+}
+
+func eligibleFallback(workload model.Workload, cause error, allowed bool) bool {
+	return allowed && workload.Mode == "hybrid" && !workload.AuditRequired && fault.Is(cause, fault.Unavailable) && workload.Snapshot.Path != ""
+}
+
+func blocksFallback(cause error) bool {
+	return !fault.Is(cause, fault.Unavailable) && !fault.Is(cause, fault.Apply)
 }
 
 // ReadKey performs a fresh exact-key read; callers must authorize disclosure first.
@@ -155,7 +190,7 @@ func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, erro
 	if err != nil {
 		return model.Value{}, err
 	}
-	if w.Mode == "offline" {
+	if w.Mode == "offline" && w.Snapshot.Path != "" {
 		g, err := e.Resolve(ctx, id)
 		if err != nil {
 			return model.Value{}, err
@@ -170,7 +205,7 @@ func (e *Engine) ReadKey(ctx context.Context, id, key string) (model.Value, erro
 	if !found {
 		return model.Value{}, fault.New(fault.Missing, "key")
 	}
-	return e.readKeyBinding(ctx, w, binding)
+	return e.readKeyOnline(ctx, id, w, binding)
 }
 
 func binding(workload model.Workload, key string) (model.Binding, bool) {
@@ -203,6 +238,37 @@ func (e *Engine) readKeyBinding(ctx context.Context, workload model.Workload, bi
 	return value, nil
 }
 
+func (e *Engine) readKeyOnline(ctx context.Context, id string, workload model.Workload, binding model.Binding) (model.Value, error) {
+	fence, err := e.prepareProviderRead(id, workload)
+	if err != nil {
+		return model.Value{}, err
+	}
+	value, err := e.readKeyBinding(ctx, workload, binding)
+	if err != nil {
+		return model.Value{}, e.finishKeyRead(id, workload, err, fence)
+	}
+	if err := e.restoreProviderFence(fence); err != nil {
+		return model.Value{}, err
+	}
+	return value, nil
+}
+
+func (e *Engine) finishKeyRead(id string, workload model.Workload, cause error, fence providerReadFence) error {
+	if fault.Is(cause, fault.Unavailable) {
+		if err := e.restoreProviderFence(fence); err != nil {
+			return err
+		}
+		return cause
+	}
+	if blocksFallback(cause) {
+		e.blockFallback(id)
+	}
+	if err := e.persistProviderFailure(id, workload, cause, fence); err != nil {
+		return err
+	}
+	return cause
+}
+
 type snapshotPayload struct {
 	Version    int              `json:"version"`
 	Workload   string           `json:"workload"`
@@ -217,9 +283,10 @@ func (e *Engine) fingerprint(id string) (string, error) {
 		ss[b.Source] = e.Policy.Sources[b.Source]
 	}
 	b, err := json.Marshal(struct {
+		Version  int
 		Workload model.Workload
 		Sources  map[string]model.Source
-	}{w, ss})
+	}{Version: e.Policy.Version, Workload: w, Sources: ss})
 	if err != nil {
 		return "", fault.New(fault.Invalid, "snapshot policy")
 	}
@@ -267,23 +334,8 @@ func (e *Engine) encodeSnapshot(generation model.Generation) (string, error) {
 }
 
 func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (model.Generation, error) {
-	if err := checkCancellation(ctx); err != nil {
+	if err := e.restoreAllowed(ctx, id, w); err != nil {
 		return model.Generation{}, err
-	}
-	if w.AuditRequired {
-		return model.Generation{}, fault.New(fault.Denied, "snapshot audit policy")
-	}
-	if e.Snapshots == nil {
-		return model.Generation{}, fault.New(fault.Unsupported, "snapshot backend")
-	}
-	if e.State.Directory != "" {
-		r, err := e.State.Read(id)
-		if err != nil {
-			return model.Generation{}, err
-		}
-		if r.State == "blocked" {
-			return model.Generation{}, fault.New(fault.Denied, "observed source failure")
-		}
 	}
 	payload, err := e.decryptSnapshot(ctx, w)
 	if err != nil {
@@ -294,6 +346,126 @@ func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (mode
 	}
 	payload.Generation.Offline = true
 	return payload.Generation, nil
+}
+
+func (e *Engine) restoreAllowed(ctx context.Context, id string, workload model.Workload) error {
+	if err := checkCancellation(ctx); err != nil {
+		return err
+	}
+	if workload.AuditRequired {
+		return fault.New(fault.Denied, "snapshot audit policy")
+	}
+	if e.Snapshots == nil {
+		return fault.New(fault.Unsupported, "snapshot backend")
+	}
+	if e.fallbackBlocked(id) {
+		return fault.New(fault.Denied, "observed source failure")
+	}
+	return e.restoreStateAllows(id)
+}
+
+func (e *Engine) restoreStateAllows(id string) error {
+	if e.State.Directory == "" {
+		return nil
+	}
+	record, err := e.State.Read(id)
+	if err != nil {
+		return err
+	}
+	if record.State == "blocked" || record.FallbackFence {
+		return fault.New(fault.Denied, "observed source failure")
+	}
+	return nil
+}
+
+type providerReadFence struct {
+	prior      state.Record
+	persistent bool
+}
+
+func (e *Engine) prepareProviderRead(id string, workload model.Workload) (providerReadFence, error) {
+	if e.State.Directory == "" {
+		return providerReadFence{}, nil
+	}
+	prior, err := e.State.Read(id)
+	if err != nil {
+		return providerReadFence{}, err
+	}
+	fenced := prior
+	fenced.Workload = id
+	if fenced.Mode == "" {
+		fenced.Mode = workload.Mode
+	}
+	fenced.FallbackFence = true
+	fenced.LastChecked = e.now()
+	if err := e.State.Write(fenced); err != nil {
+		return providerReadFence{}, err
+	}
+	return providerReadFence{prior: prior, persistent: true}, nil
+}
+
+func (e *Engine) restoreProviderFence(fence providerReadFence) error {
+	if !fence.persistent {
+		return nil
+	}
+	return e.State.Write(fence.prior)
+}
+
+func (e *Engine) persistProviderFailure(id string, workload model.Workload, cause error, fence providerReadFence) error {
+	if !fence.persistent {
+		return nil
+	}
+	record := fence.prior
+	record.Workload = id
+	record.State = "blocked"
+	record.Mode = workload.Mode
+	record.FallbackFence = true
+	record.LastChecked = e.now()
+	record.Error = fault.Category(cause)
+	return e.State.Write(record)
+}
+
+func (e *Engine) completeProviderRead(id string, workload model.Workload, generation model.Generation, fence providerReadFence) error {
+	if fence.persistent {
+		record := fence.prior
+		record.Workload = id
+		record.Mode = workload.Mode
+		record.FallbackFence = false
+		if record.State == "blocked" {
+			record.State = "ready"
+		}
+		record.Offline = false
+		record.LastChecked = e.now()
+		record.LastSuccess = generation.RetrievedAt
+		record.Error = ""
+		if err := e.State.Write(record); err != nil {
+			return err
+		}
+	}
+	e.clearFallbackBlock(id)
+	return nil
+}
+
+func (e *Engine) blockFallback(id string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.blocked == nil {
+		e.blocked = make(map[string]struct{})
+	}
+	e.blocked[id] = struct{}{}
+}
+
+func (e *Engine) clearFallbackBlock(id string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.blocked, id)
+}
+
+func (e *Engine) fallbackBlocked(id string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	_, blocked := e.blocked[id]
+	return blocked
 }
 
 func (e *Engine) decryptSnapshot(ctx context.Context, workload model.Workload) (snapshotPayload, error) {

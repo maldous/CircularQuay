@@ -73,26 +73,32 @@ func uniqueAssetPath(seen map[string]bool, relative string) bool {
 }
 
 func sourceFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.WalkDir(root, func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return errors.New("source enumeration failed")
-		}
-		if entry.IsDir() && skipDirectory(entry.Name()) {
-			return filepath.SkipDir
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return errors.New("source symlink forbidden")
-		}
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
-			files = append(files, name)
-		}
-		return nil
-	})
-	if err != nil || len(files) == 0 {
+	inventory := sourceInventory{}
+	if err := filepath.WalkDir(root, inventory.visit); err != nil || len(inventory.files) == 0 {
 		return nil, errors.New("no readable Go source")
 	}
-	return files, nil
+	return inventory.files, nil
+}
+
+type sourceInventory struct{ files []string }
+
+func (v *sourceInventory) visit(name string, entry fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return errors.New("source enumeration failed")
+	}
+	if entry.IsDir() {
+		if skipDirectory(entry.Name()) {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+	if entry.Type()&os.ModeSymlink != 0 {
+		return errors.New("source symlink forbidden")
+	}
+	if strings.HasSuffix(entry.Name(), ".go") {
+		v.files = append(v.files, name)
+	}
+	return nil
 }
 
 func skipDirectory(name string) bool {

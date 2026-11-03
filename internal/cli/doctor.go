@@ -45,23 +45,28 @@ func (a application) doctorReadiness(report *doctorReport, fix bool) (int, error
 		return 0, err
 	}
 	report.Config, report.Dependencies = "valid", declaredDependencies(policy)
-	if fix {
-		changed, err := a.formatConfig()
-		if err != nil {
-			return 0, err
-		}
-		if changed {
-			report.Fix = "formatted"
-		} else {
-			report.Fix = "already_formatted"
-		}
-	} else {
-		report.Fix = "not_requested"
+	report.Fix, err = a.doctorFormatting(fix)
+	if err != nil {
+		return 0, err
 	}
 	if doctorDependenciesReady(report.Dependencies) {
 		return a.print(*report)
 	}
 	return printDoctor(a, *report, 1)
+}
+
+func (a application) doctorFormatting(fix bool) (string, error) {
+	if !fix {
+		return "not_requested", nil
+	}
+	changed, err := a.formatConfig()
+	if err != nil {
+		return "", err
+	}
+	if changed {
+		return "formatted", nil
+	}
+	return "already_formatted", nil
 }
 
 func doctorDependenciesReady(dependencies []doctorDependency) bool {

@@ -44,37 +44,49 @@ func newSonarClient(endpoint, username, password string) *sonarClient {
 }
 
 func (c *sonarClient) call(ctx context.Context, method, route string, parameters url.Values, destination any) error {
-	address := c.endpoint + route
-	var body io.Reader
-	if method == http.MethodGet {
-		address += "?" + parameters.Encode()
-	} else {
-		body = strings.NewReader(parameters.Encode())
-	}
-	request, err := http.NewRequestWithContext(ctx, method, address, body)
+	request, err := c.request(ctx, method, route, parameters)
 	if err != nil {
-		return errors.New("invalid Sonar request")
+		return err
 	}
-	if method != http.MethodGet {
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-	request.SetBasicAuth(c.username, c.password)
 	response, err := c.client.Do(request)
 	if err != nil {
 		return errors.New("sonar request unavailable")
 	}
 	defer func() { _ = response.Body.Close() }()
+	return decodeSonarResponse(response, destination)
+}
+
+func (c *sonarClient) request(ctx context.Context, method, route string, parameters url.Values) (*http.Request, error) {
+	address, body := sonarRequestBody(c.endpoint+route, method, parameters)
+	request, err := http.NewRequestWithContext(ctx, method, address, body)
+	if err != nil {
+		return nil, errors.New("invalid Sonar request")
+	}
+	if method != http.MethodGet {
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	request.SetBasicAuth(c.username, c.password)
+	return request, nil
+}
+
+func sonarRequestBody(address, method string, parameters url.Values) (string, io.Reader) {
+	if method == http.MethodGet {
+		return address + "?" + parameters.Encode(), nil
+	}
+	return address, strings.NewReader(parameters.Encode())
+}
+
+func decodeSonarResponse(response *http.Response, destination any) error {
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return errors.New("sonar request rejected")
 	}
 	if destination == nil {
-		_, err = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<20))
-		if err != nil {
+		if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, 1<<20)); err != nil {
 			return errors.New("sonar response failed")
 		}
 		return nil
 	}
-	if err = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(destination); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(destination); err != nil {
 		return errors.New("invalid Sonar response")
 	}
 	return nil
@@ -180,16 +192,19 @@ func sonarMetadataTask(path string) (string, error) {
 	if err != nil || len(data) > 4096 {
 		return "", errors.New("sonar task metadata unavailable")
 	}
+	return metadataTaskID(string(data))
+}
+
+func metadataTaskID(data string) (string, error) {
 	var taskID string
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(data, "\n") {
 		key, value, found := strings.Cut(strings.TrimSuffix(line, "\r"), "=")
-		if !found || key != "ceTaskId" {
-			continue
+		if found && key == "ceTaskId" {
+			if taskID != "" || !projectPattern.MatchString(value) {
+				return "", errors.New("invalid sonar task metadata")
+			}
+			taskID = value
 		}
-		if taskID != "" || !projectPattern.MatchString(value) {
-			return "", errors.New("invalid sonar task metadata")
-		}
-		taskID = value
 	}
 	if taskID == "" {
 		return "", errors.New("sonar task identity missing")
@@ -497,20 +512,27 @@ func configureSonarProfiles(ctx context.Context, client *sonarClient, project st
 		return err
 	}
 	for _, language := range []string{"go", "json", "yaml", "docker", "xml", "web", "text", "secrets"} {
-		profile, err := completeSonarProfile(found.Profiles, language)
+		if err := configureSonarProfile(ctx, client, project, language, found.Profiles); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func configureSonarProfile(ctx context.Context, client *sonarClient, project, language string, profiles []sonarQualityProfile) error {
+	profile, err := completeSonarProfile(profiles, language)
+	if err != nil {
+		return err
+	}
+	if language == "go" {
+		profile, err = sonarComplexityProfile(ctx, client, profile)
 		if err != nil {
 			return err
 		}
-		if language == "go" {
-			profile, err = sonarComplexityProfile(ctx, client, profile)
-			if err != nil {
-				return err
-			}
-		}
-		parameters := url.Values{"project": {project}, "language": {language}, "qualityProfile": {profile.Name}}
-		if err = client.call(ctx, http.MethodPost, "/api/qualityprofiles/add_project", parameters, nil); err != nil {
-			return errors.New("sonar comprehensive profile assignment failed")
-		}
+	}
+	parameters := url.Values{"project": {project}, "language": {language}, "qualityProfile": {profile.Name}}
+	if err = client.call(ctx, http.MethodPost, "/api/qualityprofiles/add_project", parameters, nil); err != nil {
+		return errors.New("sonar comprehensive profile assignment failed")
 	}
 	return nil
 }

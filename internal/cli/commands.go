@@ -137,6 +137,10 @@ func (a application) workloadCommand(ctx context.Context, args []string) (int, e
 			_ = unlock()
 		}
 	}()
+	engine, err = a.withRepositorySources(ctx, workload, engine)
+	if err != nil {
+		return 0, err
+	}
 	g, err := resolveWorkloadGeneration(ctx, engine, request)
 	if err != nil {
 		return 0, err

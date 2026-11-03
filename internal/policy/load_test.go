@@ -202,23 +202,25 @@ func rejectMissingAndDirectory(t *testing.T, directory string) {
 
 func rejectInsecurePolicyFile(t *testing.T, directory, file string) {
 	t.Helper()
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(file, 0o666); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := Load(file); err == nil {
-			t.Fatal("writable policy accepted")
-		}
-		if err := os.Chmod(file, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		link := filepath.Join(directory, "link")
-		if err := os.Symlink(file, link); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := Load(link); err == nil {
-			t.Fatal("symlink policy accepted")
-		}
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	if err := os.Chmod(file, 0o666); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(file); err == nil {
+		t.Fatal("writable policy accepted")
+	}
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(directory, "link")
+	if err := os.Symlink(file, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(link); err == nil {
+		t.Fatal("symlink policy accepted")
 	}
 }
 

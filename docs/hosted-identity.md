@@ -12,36 +12,35 @@ custom API and issue access tokens for that API's audience and permissions. No
 additional hosted broker is required for that arrangement. A provider's OIDC
 login support alone does not establish custom-API authorization support.
 
-For example, Auth0 supports a custom API with the RFC 9068 access-token profile
-used by the current verifier; its hosted Free plan has provider-defined usage
-and feature limits. Microsoft Entra supports custom-API scopes and application
-roles, but its access-token claim profile differs from the current verifier and
-requires a separately implemented and qualified profile. Okta's custom
-authorization server supports custom APIs; its free Integrator plan is for
-testing, while production requires the appropriate API Access Management
-entitlement. These are integration paths, not live-provider qualification
-receipts. See [Auth0 token profiles](https://auth0.com/docs/get-started/apis/configure-access-token-profile),
-[Auth0 plan limits](https://auth0.com/pricing),
-[Entra API permissions](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-expose-scopes),
-and [Okta authorization servers](https://developer.okta.com/docs/concepts/auth-servers/).
+Auth0's RFC 9068 API profile, Keycloak's explicitly configured access-token
+profile, Microsoft Entra's v2 custom-API scopes/roles, and a suitably entitled
+Okta custom authorization server are integration choices. Select the matching
+typed profile and register a dedicated CircularQuay API audience; a login
+application's token is not a substitute. Account and publication prerequisites
+belong in [RELEASE.md](../RELEASE.md). See the primary
+[Auth0 token-profile reference](https://auth0.com/docs/get-started/apis/configure-access-token-profile),
+[Entra API permission reference](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-expose-scopes),
+and [Okta authorization-server reference](https://developer.okta.com/docs/concepts/auth-servers/).
 
-## Executable support
+## Resource and identity contract
 
-| Capability | Current behavior |
+| Capability | Authorization boundary |
 | --- | --- |
-| External issuer | One explicitly configured issuer, same-origin JWKS endpoint and canonical resource audience per policy. |
-| Access tokens | Signed RS256/ES256 JWT access tokens with `typ: at+jwt`, issuer, audience, expiry, subject, client, issue time, token ID and scope validation. ID tokens are rejected. Opaque tokens and introspection are unsupported. |
-| Client discovery | Protected Resource Metadata and bearer challenges identify the resource and its configured authorization server. The external server owns its own discovery, registration and token endpoints. |
-| Resource authorization | Exact issuer-qualified subject, OAuth client, workload, operation and optional key grants. An empty local client grant is not a wildcard for HTTP clients. Secret reads recheck after retrieval; the CLI action backend rechecks grants and its workload/source definition after resolution before launching a registered command. |
-| Local revocation | Removing a grant denies subsequent authorization checks, including the post-resolution checks above. It does not terminate an already launched child or recall a completed plaintext disclosure. |
-| Issuer revocation | JWT validity is checked locally; there is no token-introspection or revocation-event integration. Disabling an issuer session alone does not establish immediate invalidation of an already issued access token. |
-| Hosted management | No organization directory, tenant administration, account-linking service, connection-registration API, SCIM endpoint, consent UI, group-role mapping, delegation or approval service. |
-| Audit | Protected local metadata receipts for configured MCP operations. No central immutable administrative audit or SIEM export is provided. |
+| External issuer | Named authorities pin exact issuer, same-origin JWKS endpoint, API audience and typed token profile. Public resource URLs are separate from token audiences. Duplicate issuer/audience authorities are rejected. |
+| Access tokens | Signed RS256/ES256 access tokens with strict JSON claims, exact issuer/audience, issue/expiry/not-before checks and a stable principal/client. RFC 9068 requires `at+jwt`; Entra v2 validates tenant, object and client GUIDs plus API scopes or roles. ID-token profiles and unsupported sender-proof claims are rejected. |
+| Client discovery | Protected Resource Metadata and bearer challenges identify the public resource, its configured authorization servers and supported scopes. The external server owns registration, login and token endpoints. |
+| Resource authorization | Operator-defined scope and role requirements intersect exact authority, issuer-qualified principal, client, workload, operation, key and local time-window grants. Missing permissions deny; no development/production labels are reserved. |
+| Local revocation | Removing a grant or changing selected authority trust/permissions denies further authorization checks, including checks after resolution and before release/effect. Already launched children and completed disclosures retain their delivered values. |
+| Issuer revocation | Locally verified JWTs remain bounded by signed expiry. Immediate issuer-session revocation additionally needs a qualified online revocation/introspection channel; disabling login alone cannot recall an issued bearer token. |
+| Managed administration | The optional managed key service provides separately authorized mapping/grant administration and key retrieval. Platform-account roles do not implicitly grant access to application keys. |
+| Audit | Durable release-authorization receipts contain identity/operation metadata without plaintext. A receipt precedes release and does not prove delivery to the client. Central retention and administrative audit have their own managed-service boundary. |
 
-This is an experimental interface, not a qualified public multi-tenant service.
-An HTTP listener and token verifier do not establish SaaS isolation, an
-administrative control plane or compatibility with every IdP and MCP client.
-Native stores and interactive authentication are described in
+The [configuration reference](configuration.md#grants-and-mcp) defines the JSON
+fields and exact conjunction rules. The [qualification matrix](qualification.md)
+records implementation, native tests, live-provider interoperability and release
+evidence separately. Shared hosting also requires the isolation contract below;
+a listener and verifier alone do not establish a managed service. Native stores
+and interactive authentication are described in
 [credential boundaries](credential-boundaries.md).
 
 ## Managed key access and administration
@@ -75,9 +74,8 @@ The hosted authorization boundary distinguishes these associations:
 | Environment/workload to a provider connection | Exact declared provider account, tenant/project/namespace, resources and dedicated workload identity reference. |
 | Delegated caller to an action | Separate subject and current actor, intended resource, allowed operation, expiry and current policy. A downstream identity is not inferred from a human login. |
 
-These are constraints for a managed hosted service, not implemented account
-linking features. The current flat policy is not a substitute for typed tenant,
-environment, principal and connection records. Shared hosting requires isolation
+The managed service keeps typed tenant, environment, principal and connection
+records with explicit ownership and associations. Shared hosting requires isolation
 of policy, state, cryptographic material, audit, caches, locks, background jobs
 and workload execution as well as request authorization. A user-provided tenant
 or environment parameter cannot establish that boundary.
@@ -124,8 +122,8 @@ Where on-behalf-of access is supported by an upstream system, a qualified
 external authorization server performs a resource-bound exchange with explicit
 subject/actor and downscoped authority. [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693.html)
 defines token-exchange semantics; implementing it does not by itself propagate
-revocation or create trust between environments. The current executable has no
-such exchange path.
+revocation or create trust between environments. An exchange is enabled only
+through an explicitly supported, qualified external authorization server.
 
 ## High-impact actions and managed operation
 
@@ -146,6 +144,5 @@ application/actor, environment, connection, decision, policy revision and result
 without values, bearer tokens or SDK response bodies.
 
 The [implementation contract](implementation-plan.md) and
-[qualification matrix](qualification.md) govern support claims. Unsupported
-hosted features are not implied by the presence of MCP, TLS, a cloud reader or
-an IdP capable of issuing a token.
+[qualification matrix](qualification.md) govern support claims. Each hosted feature requires its own acceptance evidence; MCP, TLS, a cloud
+reader and an IdP token do not establish one another's guarantees.

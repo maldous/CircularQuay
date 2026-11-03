@@ -25,6 +25,9 @@ func validateGrant(policy model.Policy, grant model.Grant) error {
 	if !validGrantIdentity(grant) {
 		return invalid("grant_identity")
 	}
+	if !validGrantAuthority(policy, grant) {
+		return invalid("grant_authority")
+	}
 	workload, found := policy.Workloads[grant.Workload]
 	if !found {
 		return invalid("grant_workload")
@@ -100,15 +103,46 @@ func Authorize(policy model.Policy, subject, client, workload, operation, key st
 // are inclusive and expiry is exclusive, preventing an expired local grant
 // from widening an already validated remote identity or credential grant.
 func AuthorizeAt(policy model.Policy, subject, client, workload, operation, key string, now time.Time) bool {
+	return AuthorizeAuthorityAt(policy, "", subject, client, workload, operation, key, now)
+}
+
+// AuthorizeAuthorityAt requires the exact named authority in addition to the
+// local identity/client/workload grant and time window. An empty authority is
+// reserved for local OS and the single-issuer HTTP contract; it cannot consume
+// a grant that names an authority.
+func AuthorizeAuthorityAt(policy model.Policy, authority, subject, client, workload, operation, key string, now time.Time) bool {
 	if now.IsZero() || !safePrincipal(subject) || !operations[operation] {
 		return false
 	}
 	for _, grant := range policy.Grants {
-		if matchingGrant(grant, subject, client, workload, operation, key, now) {
+		if grant.Authority == authority && matchingGrant(grant, subject, client, workload, operation, key, now) {
 			return true
 		}
 	}
 	return false
+}
+
+func validGrantAuthority(policy model.Policy, grant model.Grant) bool {
+	if grant.Authority == "" {
+		return true
+	}
+	authority, found := policy.MCP.Authorities[grant.Authority]
+	if !found || grant.Client == "" || !strings.HasPrefix(grant.Subject, authority.Issuer+"|") || len(grant.Subject) <= len(authority.Issuer)+1 {
+		return false
+	}
+	if !optionalPrincipalMatch(authority.Clients, grant.Client) || !optionalPrincipalMatch(authority.Subjects, grant.Subject) {
+		return false
+	}
+	for _, operation := range grant.Operations {
+		if _, found := authority.Permissions[operation]; !found {
+			return false
+		}
+	}
+	return true
+}
+
+func optionalPrincipalMatch(allowed []string, principal string) bool {
+	return len(allowed) == 0 || contains(allowed, principal)
 }
 
 func matchingGrant(grant model.Grant, subject, client, workload, operation, key string, now time.Time) bool {
