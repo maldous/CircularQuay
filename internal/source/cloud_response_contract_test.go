@@ -98,13 +98,13 @@ func TestAzureResponseVersionEvidenceCannotReleaseAnotherValue(t *testing.T) {
 func azureSecretClient(t *testing.T, body string) (*azsecrets.Client, *int) {
 	t.Helper()
 	calls := new(int)
-	client, err := azsecrets.NewClient("https://vault.synthetic", syntheticSDKAccessToken{}, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
+	client, err := azsecrets.NewClient("https://vault.synthetic", syntheticSDKAccessToken{}, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: &http.Client{Timeout: time.Second, Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
 		(*calls)++
 		if request.Method != http.MethodGet || request.URL.Path != "/secrets/fixture/expected" {
 			t.Fatalf("unexpected Azure request %s", request.URL)
 		}
 		return &http.Response{Request: request, StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}, nil
-	})}})
+	})}}})
 	if err != nil {
 		t.Fatal(err)
 	}

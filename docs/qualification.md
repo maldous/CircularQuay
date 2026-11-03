@@ -36,6 +36,28 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact dec332 development failure
+
+At `dec332ad1e60cde1f1400e9eb87c08a49aaccd1e` (tree
+`d5f7546f14f42c39e4b65b11214f391993b33b06`),
+[source run 41741675497](https://github.com/maldous/CircularQuay/actions/runs/41741675497)
+and [security run 41741675310](https://github.com/maldous/CircularQuay/actions/runs/41741675310)
+exposed a compilation error in the two new Azure test fixtures. The SDK
+transport requires `Do(*http.Request)`, while the fixture supplied only
+`RoundTrip`. Linux tests and Staticcheck failed; later security tools did not
+run in that failed job. CodeQL passed with zero annotations, but it does not
+make the broken tests pass. This revision has no qualified new test or
+coverage result.
+
+Retain `.local/qualification/ci-dec332a-native-cross.json`, including its
+at-collection pending jobs and the checks not reached after compilation failed.
+
+The following correction wraps each memory transport in an `http.Client`,
+which implements the SDK interface and bounds fixture requests to one second.
+Pinned formatting/parser and manual interface review are separate from
+compilation; only a fresh exact-candidate hosted run can confirm the fix.
+No production adapter, policy, schema or gate changes in this correction.
+
 ## Exact 65be10 development receipt
 
 At `65be10a48257b1207df411b857b2a67c68280ee1` (tree

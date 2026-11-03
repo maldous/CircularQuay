@@ -22,7 +22,29 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-## Latest completed hosted receipt
+## Current test follow-up and retained failure
+
+Published test-only checkpoint `dec332ad1e60cde1f1400e9eb87c08a49aaccd1e`
+has tree `d5f7546f14f42c39e4b65b11214f391993b33b06`; all four changed
+files and all 273 working files were read back and preserved. Hosted source
+run `41741675497` and security run `41741675310` caught the same compilation
+error in both new Azure fixtures: the SDK transport interface requires `Do`,
+not only `RoundTrip`. Linux tests and Staticcheck failed; govulncheck/gosec
+were not reached in the security job. CodeQL passed with zero annotations.
+The manual source review missed this interface mismatch and is not a passing
+execution receipt. Do not represent this revision as coverage-only failure.
+
+Retain `.local/qualification/ci-dec332a-native-cross.json`, including its
+at-collection pending jobs and the checks not reached after compilation failed.
+
+The next correction supplies an `http.Client` around each memory transport,
+with a one-second fixture timeout. The pinned SDK interface and standard
+client method were checked directly. Local heavy qualification remains held;
+formatter parsing and source review do not establish compilation or tests.
+A fresh exact-candidate hosted run must confirm correction. The production
+adapter, policy/schema, workflow and security gates are unchanged.
+
+## Completed 65be10 hosted receipt
 
 Published checkpoint `65be10a48257b1207df411b857b2a67c68280ee1` has tree
 `c756b0af4ed3e5bbc7009e7299d704ea17d0d18c`. Public readback verified

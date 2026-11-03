@@ -83,13 +83,13 @@ func azureErrorSecretClient(t *testing.T, status int, body string) (*azsecrets.C
 	calls := new(int)
 	options := &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{
 		Retry: policy.RetryOptions{MaxRetries: -1},
-		Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
+		Transport: &http.Client{Timeout: time.Second, Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
 			(*calls)++
 			if request.Method != http.MethodGet || request.URL.Path != "/secrets/fixture/expected" {
 				t.Fatalf("unexpected Azure request %s", request.URL)
 			}
 			return &http.Response{Request: request, StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(body))}, nil
-		}),
+		})},
 	}}
 	client, err := azsecrets.NewClient("https://vault.synthetic", syntheticSDKAccessToken{}, options)
 	if err != nil {
