@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/maldous/CircularQuay/policy-v1.schema.json",
+  "title": "CircularQuay policy version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "sops",
+              "json",
+              "env",
+              "openbao",
+              "vault",
+              "aws-sm",
+              "aws-ssm",
+              "azure",
+              "gcp",
+              "doppler",
+              "infisical",
+              "bitwarden",
+              "akeyless",
+              "onepassword"
+            ]
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "mount": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "token_file": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "sops": {
+            "type": "string"
+          },
+          "age_identity_file": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "string",
+            "enum": [
+              "",
+              "none",
+              "token_file",
+              "workload",
+              "profile",
+              "environment",
+              "managed",
+              "ec2",
+              "ecs",
+              "metadata"
+            ]
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "vault_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "vault_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "audit_verified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      }
+    },
+    "workloads": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "offline",
+              "online",
+              "hybrid"
+            ]
+          },
+          "bindings": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "resource": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "allow_offline": {
+                  "type": "boolean"
+                },
+                "allow_publish": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "source"
+              ]
+            }
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "command_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "untrusted_code": {
+            "type": "boolean"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "identity_file": {
+                "type": "string"
+              },
+              "sops": {
+                "type": "string"
+              },
+              "recipients": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "targets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "file",
+                    "systemd",
+                    "windows",
+                    "cloudflare",
+                    "netlify",
+                    "windmill"
+                  ]
+                },
+                "path": {
+                  "type": "string"
+                },
+                "endpoint": {
+                  "type": "string"
+                },
+                "account": {
+                  "type": "string"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "environment": {
+                  "type": "string"
+                },
+                "resource": {
+                  "type": "string"
+                },
+                "token_file": {
+                  "type": "string"
+                },
+                "accept_snapshot": {
+                  "type": "boolean"
+                },
+                "service": {
+                  "type": "string"
+                },
+                "activation": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "none",
+                    "restart",
+                    "reload"
+                  ]
+                }
+              },
+              "required": [
+                "type"
+              ]
+            }
+          },
+          "audit_required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode",
+          "bindings"
+        ]
+      }
+    },
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "client": {
+            "type": "string"
+          },
+          "workload": {
+            "type": "string"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "list",
+                "status",
+                "run",
+                "read",
+                "cancel",
+                "list_workloads",
+                "get_status",
+                "run_workload",
+                "read_secret",
+                "cancel_workload",
+                "get_result"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "subject",
+          "workload",
+          "operations"
+        ]
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issuer": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "jwks_url": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "audit_path": {
+          "type": "string"
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "allowed_signers_file": {
+          "type": "string"
+        },
+        "initial_commit": {
+          "type": "string"
+        },
+        "token_file": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "version",
+    "sources",
+    "workloads"
+  ]
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic CircularQuay reconciliation for %i
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

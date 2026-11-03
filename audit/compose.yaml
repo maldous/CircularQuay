@@ -1,0 +1,44 @@
+name: cquay-audit
+services:
+  database:
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
+    environment:
+      POSTGRES_USER: sonarqube
+      POSTGRES_DB: sonarqube
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:?Run cquay-audit sonar-init first}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U sonarqube -d sonarqube]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [audit]
+  sonarqube:
+    image: sonarqube:26.10.0.133078-community@sha256:f95aaa9016dd4e92c7d70691167a6d96dbb5d8acffd61eba1cb4335d364a7840
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://database:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonarqube
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:?Run cquay-audit sonar-init first}
+      SONAR_TELEMETRY_ENABLE: "false"
+      SONAR_WEB_JAVAOPTS: -Xmx512m -Xms128m
+      SONAR_CE_JAVAOPTS: -Xmx512m -Xms128m
+      SONAR_SEARCH_JAVAOPTS: -Xmx512m -Xms512m
+    ports:
+      - 127.0.0.1:${SONAR_PORT:-9000}:9000
+    volumes:
+      - sonar-data:/opt/sonarqube/data
+      - sonar-logs:/opt/sonarqube/logs
+      - sonar-extensions:/opt/sonarqube/extensions
+    networks: [audit]
+networks:
+  audit:
+    internal: true
+volumes:
+  database:
+  sonar-data:
+  sonar-logs:
+  sonar-extensions:

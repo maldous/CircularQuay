@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+# Install as a reviewed termux-services/runit run script. Paths contain no keys.
+exec "$PREFIX/bin/cquay" --config "$HOME/.config/circularquay/policy.json" --state-dir "$HOME/.local/state/circularquay" run --workload example

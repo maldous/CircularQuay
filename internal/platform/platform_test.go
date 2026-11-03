@@ -1,0 +1,266 @@
+package platform
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/model"
+)
+
+func TestMain(m *testing.M) {
+	if len(os.Args) > 1 && os.Args[1] == "--platform-helper" {
+		if os.Getenv("PARENT_SECRET") != "" || os.Getenv("SOPS_AGE_KEY") != "" {
+			os.Exit(90)
+		}
+		if len(os.Args) > 2 && os.Args[2] == "exit" {
+			os.Exit(7)
+		}
+		if os.Getenv("APP_SECRET") != "synthetic-✓-$()\nline" {
+			os.Exit(91)
+		}
+		_, _ = io.WriteString(os.Stdout, "allowed-status")
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+func fixtureGeneration() model.Generation {
+	return model.Generation{Workload: "demo", Values: map[string]model.Value{"APP_SECRET": {Data: "synthetic-✓-$()\nline"}}}
+}
+
+func TestRunNoInheritanceAndPreservesArguments(t *testing.T) {
+	t.Setenv("PARENT_SECRET", "must-not-reach-child")
+	t.Setenv("SOPS_AGE_KEY", "must-not-reach-child")
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := model.Workload{Command: []string{exe, "--platform-helper", "$(not-executed)", "spaces and Unicode-✓"}}
+	var out bytes.Buffer
+	code, err := RunWithIO(context.Background(), w, fixtureGeneration(), nil, nil, &out, io.Discard)
+	if err != nil || code != 0 || out.String() != "allowed-status" {
+		t.Fatal("isolated execution failed")
+	}
+	code, err = RunWithIO(context.Background(), w, fixtureGeneration(), []string{exe, "--platform-helper", "exit"}, nil, io.Discard, io.Discard)
+	if err != nil || code != 7 {
+		t.Fatal("child exit status lost")
+	}
+}
+
+func TestInvalidLaunchAndEnvironment(t *testing.T) {
+	for _, args := range [][]string{nil, {"relative"}, {filepath.Join(t.TempDir(), "script.cmd")}, {"/bin/echo", "bad\x00arg"}} {
+		if _, err := RunWithIO(context.Background(), model.Workload{Command: args}, fixtureGeneration(), nil, nil, io.Discard, io.Discard); !fault.Is(err, fault.Invalid) {
+			t.Fatal("unsafe executable accepted")
+		}
+	}
+	gen := fixtureGeneration()
+	if _, err := Environment(map[string]string{"app_secret": "collision"}, gen); !fault.Is(err, fault.Invalid) {
+		t.Fatal("case collision accepted")
+	}
+	gen.Values = map[string]model.Value{"SOPS_AGE_KEY": {Data: "forbidden"}}
+	if _, err := Environment(nil, gen); !fault.Is(err, fault.Trust) {
+		t.Fatal("bootstrap injection accepted")
+	}
+	gen.Values = map[string]model.Value{"KEY": {Data: "NUL\x00value"}}
+	if _, err := Environment(nil, gen); !fault.Is(err, fault.Invalid) {
+		t.Fatal("NUL value accepted")
+	}
+	if _, err := Environment(map[string]string{"BAD=NAME": "value"}, fixtureGeneration()); !fault.Is(err, fault.Invalid) {
+		t.Fatal("invalid name accepted")
+	}
+	if _, err := Environment(map[string]string{"PATH": "/approved/bin"}, fixtureGeneration()); err != nil {
+		t.Fatal("trusted nonsecret PATH rejected")
+	}
+}
+
+func TestProtectedAtomicDelivery(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "private", "values.json")
+	if err := Apply(context.Background(), model.Target{Type: "file", Path: path}, fixtureGeneration()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := ReadProtected(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values map[string]string
+	if json.Unmarshal(data, &values) != nil || values["APP_SECRET"] != fixtureGeneration().Values["APP_SECRET"].Data {
+		t.Fatal("JSON delivery changed literal value")
+	}
+	if err := WriteProtected(path, []byte(`{"KEY":"next"}`)); err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob(filepath.Join(filepath.Dir(path), ".cquay-stage-*"))
+	if err != nil || len(files) != 0 {
+		t.Fatal("staging file retained")
+	}
+}
+
+func TestProtectedFileRejections(t *testing.T) {
+	if _, err := ReadProtected("relative", true); !fault.Is(err, fault.Trust) {
+		t.Fatal("relative source accepted")
+	}
+	if err := WriteProtected("relative", nil); !fault.Is(err, fault.Invalid) {
+		t.Fatal("relative destination accepted")
+	}
+	dir := t.TempDir()
+	if _, err := ReadProtected(dir, true); !fault.Is(err, fault.Trust) {
+		t.Fatal("directory source accepted")
+	}
+	if err := WriteProtected(dir, nil); !fault.Is(err, fault.Trust) {
+		t.Fatal("directory replaced")
+	}
+	if _, err := ReadProtected(filepath.Join(dir, "missing"), true); !fault.Is(err, fault.Missing) {
+		t.Fatal("missing source misclassified")
+	}
+	if err := WriteProtected(filepath.Join(dir, "large"), make([]byte, MaxDocumentSize+1)); !fault.Is(err, fault.Invalid) {
+		t.Fatal("large destination accepted")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "large"), make([]byte, MaxDocumentSize+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadProtected(filepath.Join(dir, "large"), false); !fault.Is(err, fault.Invalid) {
+		t.Fatal("large source accepted")
+	}
+	if runtime.GOOS != "windows" {
+		path := filepath.Join(dir, "public")
+		if err := os.WriteFile(path, []byte("synthetic"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadProtected(path, true); !fault.Is(err, fault.Trust) {
+			t.Fatal("public bootstrap file accepted")
+		}
+		link := filepath.Join(dir, "link")
+		if err := os.Symlink(path, link); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadProtected(link, false); !fault.Is(err, fault.Trust) {
+			t.Fatal("symlink read accepted")
+		}
+		if err := WriteProtected(link, nil); !fault.Is(err, fault.Trust) {
+			t.Fatal("symlink replaced")
+		}
+	}
+}
+
+func TestNativeUnsupportedAndInvalidValues(t *testing.T) {
+	if err := Apply(context.Background(), model.Target{Type: "other"}, fixtureGeneration()); !fault.Is(err, fault.Unsupported) {
+		t.Fatal("unknown target accepted")
+	}
+	if runtime.GOOS != "windows" {
+		if _, err := ReadDPAPI("unused"); !fault.Is(err, fault.Unsupported) {
+			t.Fatal("DPAPI advertised on unsupported platform")
+		}
+		if err := Apply(context.Background(), model.Target{Type: "windows"}, fixtureGeneration()); !fault.Is(err, fault.Unsupported) {
+			t.Fatal("DPAPI advertised on unsupported platform")
+		}
+	}
+	if _, err := EncodeValues(model.Generation{Values: map[string]model.Value{"KEY": {Data: "bad\x00"}}}); !fault.Is(err, fault.Invalid) {
+		t.Fatal("invalid delivery encoded")
+	}
+	if _, err := EncodeValues(model.Generation{Values: map[string]model.Value{"KEY": {Data: strings.Repeat("x", MaxDocumentSize+1)}}}); !fault.Is(err, fault.Invalid) {
+		t.Fatal("oversize delivery encoded")
+	}
+}
+
+func TestProtectedAuditRecords(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	var group sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		group.Go(func() {
+			if err := AppendProtected(path, []byte("{\n\"action\":\"synthetic\"\n}")); err != nil {
+				t.Error("protected append failed")
+			}
+		})
+	}
+	group.Wait()
+	data, err := ReadProtected(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
+	if len(lines) != 20 {
+		t.Fatal("receipts were concatenated, split or lost")
+	}
+	for _, line := range lines {
+		if !json.Valid(line) {
+			t.Fatal("invalid JSONL receipt")
+		}
+	}
+	for _, invalid := range [][]byte{nil, []byte("null"), []byte("[]"), []byte("{}{}"), make([]byte, 65537)} {
+		if err := AppendProtected(path, invalid); !fault.Is(err, fault.Invalid) {
+			t.Fatal("invalid receipt accepted")
+		}
+	}
+	if err := ValidateProtectedPath(path); err != nil {
+		t.Fatal("protected audit metadata rejected")
+	}
+}
+
+func TestPrivateDirectoryAndExecutableTrust(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "created")
+	if err := EnsurePrivateDirectory(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsurePrivateDirectory("relative"); !fault.Is(err, fault.Invalid) {
+		t.Fatal("relative state directory accepted")
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(data)
+	if err := VerifyExecutable(exe, hex.EncodeToString(digest[:])); err != nil {
+		t.Fatal("reviewed executable rejected")
+	}
+	if err := VerifyExecutable(exe, strings.Repeat("0", 64)); !fault.Is(err, fault.Trust) {
+		t.Fatal("changed executable accepted")
+	}
+	if err := VerifyExecutable(exe, "bad"); !fault.Is(err, fault.Trust) {
+		t.Fatal("invalid digest accepted")
+	}
+	if err := ValidateExecutable("relative"); !fault.Is(err, fault.Trust) {
+		t.Fatal("relative helper accepted")
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := EnsurePrivateDirectory(dir); !fault.Is(err, fault.Trust) {
+			t.Fatal("public existing state directory accepted")
+		}
+	}
+}
+
+func TestActivationDeclarationRejectsInjection(t *testing.T) {
+	if err := Activate(context.Background(), model.Target{}); err != nil {
+		t.Fatal("no activation should have no effect")
+	}
+	for _, target := range []model.Target{
+		{Service: "demo.service"}, {Activation: "restart"},
+		{Service: "-evil.service", Activation: "restart"},
+		{Service: "demo.service;touch /tmp/invalid", Activation: "restart"},
+		{Service: "demo.service", Activation: "arbitrary"},
+	} {
+		if err := Activate(context.Background(), target); !fault.Is(err, fault.Invalid) {
+			t.Fatal("unsafe native activation accepted")
+		}
+	}
+}

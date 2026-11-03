@@ -1,0 +1,23 @@
+[Unit]
+Description=Reconcile CircularQuay workload %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=circularquay
+Group=circularquay
+UMask=0077
+ExecStart=/usr/local/bin/cquay --config /etc/circularquay/policy.json --state-dir /var/lib/circularquay sync --workload %i
+StateDirectory=circularquay
+StateDirectoryMode=0700
+ProtectSystem=strict
+ReadWritePaths=/var/lib/circularquay
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Install only after policy/identity enrollment and a synthetic test. Do not put
+# key values in Environment=. The reconciler must have only its assigned grants.

@@ -1,0 +1,20 @@
+services:
+  application:
+    image: example.invalid/replace-with-a-verified-application-image@sha256:REPLACE
+    read_only: true
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    secrets:
+      - workload_config
+    environment:
+      APPLICATION_CONFIG_FILE: /run/secrets/workload_config
+
+secrets:
+  workload_config:
+    file: /run/circularquay/example/workload.json
+
+# Generate the protected runtime file through an approved host projection first.
+# This Compose file is NOT Swarm encrypted storage. Recreate the affected service
+# after updates; restart alone does not apply changed configuration/bind mounts.
+# Never include a private identity, provider token or Docker socket in the image.

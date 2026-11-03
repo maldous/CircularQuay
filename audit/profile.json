@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "CircularQuay Enterprise",
+  "claim": "Reproducibly passes the recorded profile, not security certification",
+  "coverage": {"first_party_statement_percent": 100, "branch_coverage_claimed": false},
+  "sonarqube": {
+    "reference_version": "26.10.0.133078",
+    "fresh_instance": true,
+    "first_party_issues": 0,
+    "unreviewed_hotspots": 0,
+    "duplicated_lines_percent": 0,
+    "ignore_small_changes": false,
+    "suppressions_permitted": false,
+    "maximum_function_complexity": 10
+  },
+  "separate_evidence": ["native_reboot", "restoration", "live_provider_contracts", "independent_review", "model_checking"],
+  "upstream_advisories": "Inventory all; block unmitigated exploitable risks; preserve tested mitigation evidence"
+}
