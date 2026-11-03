@@ -23,7 +23,8 @@ This matrix distinguishes implementation from independent or live qualification.
 
 ## Source workflow scope
 
-The committed workflow defines Linux formatting, module-integrity, unit, race, vet, bounded Go-fuzz and cyclomatic-complexity checks. It also defines synthetic native test jobs for the GitHub-hosted `macos-15-intel` and `windows-2025` runners, plus Linux cross-compilation for the release build matrix. Workflow definition alone is not a result; the revision-scoped receipts below, rather than this definition, record actual runner, tool, and platform outcomes.
+The committed workflow defines Linux formatting, module-integrity, unit, race, vet, bounded Go-fuzz and both complexity ceilings. The cognitive check uses the pinned
+type-aware analyzer and rejects warnings or fallback diagnostics. It also defines synthetic native test jobs for the GitHub-hosted `macos-15-intel` and `windows-2025` runners, plus Linux cross-compilation for the release build matrix. Workflow definition alone is not a result; the revision-scoped receipts below, rather than this definition, record actual runner, tool, and platform outcomes.
 
 The native jobs exercise only synthetic Go behavior on the runner architecture. They do not prove release archives, Windows ARM64 behavior, DACL/DPAPI service isolation, macOS signing/notarization, service-manager enrollment, reboot recovery, provider connectivity, or consumer installation.
 
@@ -34,6 +35,24 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact 20eac0 development receipt
+
+At `20eac0a2a99faf5d9f51c126d66ece3db107bf01` (tree
+`1871522215dd75f2692b2833333095181d5d1b91`),
+[source workflow 41736690731](https://github.com/maldous/CircularQuay/actions/runs/41736690731)
+passed normal/race tests, vet, bounded fuzzing, native Windows/macOS and all
+26 cross-builds. Linux's job still failed because two functions exceeded the
+cyclomatic ceiling (11 versus 10). Those functions are split in the following
+candidate; only its actual run can establish closure.
+
+The source auditor's declared SSH-helper preparation and isolated unit tests
+passed. Coverage is its only remaining source-profile failure at this revision:
+6,050/7,125 statements (84.91228%), below 100%.
+[Security workflow 41736690751](https://github.com/maldous/CircularQuay/actions/runs/41736690751)
+passed CodeQL with zero annotations, Staticcheck and govulncheck. Gosec still
+failed eight unsuppressed findings. No exact20 Sonar or managed diff review
+is claimed. Local heavy qualification remains held for BAU recovery capacity.
 
 ## Exact 6b088 development receipt
 

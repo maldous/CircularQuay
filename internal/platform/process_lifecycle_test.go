@@ -14,6 +14,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 )
 
+const lifecycleWaitMode = "mark-and-wait"
+
 type runResult struct {
 	code int
 	err  error
@@ -24,7 +26,7 @@ func TestRunCancelledBeforeStartDoesNotLaunch(t *testing.T) {
 	marker := filepath.Join(secureTempDir(t), "started")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := RunWithIO(ctx, lifecycleWorkload(executable, directory, "mark-and-wait", marker), fixtureGeneration(), nil, nil, io.Discard, io.Discard)
+	_, err := RunWithIO(ctx, lifecycleWorkload(executable, directory, lifecycleWaitMode, marker), fixtureGeneration(), nil, nil, io.Discard, io.Discard)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled launch error = %v", err)
 	}
@@ -38,7 +40,7 @@ func TestRunCancellationAfterStartReturnsContextError(t *testing.T) {
 	marker := filepath.Join(secureTempDir(t), "started")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	result := startLifecycleRun(ctx, lifecycleWorkload(executable, directory, "mark-and-wait", marker), io.Discard)
+	result := startLifecycleRun(ctx, lifecycleWorkload(executable, directory, lifecycleWaitMode, marker), io.Discard)
 	waitForHelperMarker(t, marker)
 	cancel()
 	assertContextResult(t, receiveLifecycleResult(t, result), context.Canceled)
@@ -49,7 +51,7 @@ func TestRunDeadlineAfterStartReturnsContextError(t *testing.T) {
 	marker := filepath.Join(secureTempDir(t), "started")
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 	defer cancel()
-	result := startLifecycleRun(ctx, lifecycleWorkload(executable, directory, "mark-and-wait", marker), io.Discard)
+	result := startLifecycleRun(ctx, lifecycleWorkload(executable, directory, lifecycleWaitMode, marker), io.Discard)
 	waitForHelperMarker(t, marker)
 	assertContextResult(t, receiveLifecycleResultWithin(t, result, 10*time.Second), context.DeadlineExceeded)
 }

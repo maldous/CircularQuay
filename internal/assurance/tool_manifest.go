@@ -159,7 +159,7 @@ func LoadToolManifest(path string, locations ToolLocations) (VerifiedToolManifes
 }
 
 func validManifest(manifest ToolManifest, presence toolManifestPresence) bool {
-	if manifest.Version != toolManifestVersion || manifest.Platform == "" || len(manifest.Tools) == 0 || len(manifest.Tools) > len(toolIDs) || len(manifest.Tools) != len(presence.Tools) {
+	if !validManifestShape(manifest, presence) {
 		return false
 	}
 	seen := make(map[string]bool, len(manifest.Tools))
@@ -169,7 +169,13 @@ func validManifest(manifest ToolManifest, presence toolManifestPresence) bool {
 		}
 		seen[strings.ToLower(tool.ID)] = true
 	}
-	return len(seen) == len(manifest.Tools) && validToolHelpers(manifest.Helpers, presence.Helpers)
+	return len(seen) == len(manifest.Tools)
+}
+
+func validManifestShape(manifest ToolManifest, presence toolManifestPresence) bool {
+	return manifest.Version == toolManifestVersion && manifest.Platform != "" &&
+		len(manifest.Tools) > 0 && len(manifest.Tools) <= len(toolIDs) &&
+		len(manifest.Tools) == len(presence.Tools) && validToolHelpers(manifest.Helpers, presence.Helpers)
 }
 
 func validToolEntry(tool ToolEntry, presence toolEntryPresence) bool {

@@ -84,7 +84,7 @@ jobs:
           GOBIN: ${{ runner.temp }}/go-security-tools
         run: |
           set -euo pipefail
-          "$GOBIN/staticcheck" ./...
+          "$GOBIN/staticcheck" -checks=all ./...
       - name: Run govulncheck
         shell: bash
         env:
@@ -98,4 +98,4 @@ jobs:
           GOBIN: ${{ runner.temp }}/go-security-tools
         run: |
           set -euo pipefail
-          "$GOBIN/gosec" ./...
+          "$GOBIN/gosec" -nosec ./...

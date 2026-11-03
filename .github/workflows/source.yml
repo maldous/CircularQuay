@@ -55,7 +55,7 @@ jobs:
           go test -run='^$' -fuzz=FuzzCoverage -fuzztime=15s -parallel=2 ./internal/assurance
           go test -run='^$' -fuzz=FuzzDecodeNeverLeaksInput -fuzztime=15s -parallel=2 ./internal/policy
           go test -run='^$' -fuzz=FuzzEndpointNeverAcceptsCredentialURL -fuzztime=15s -parallel=2 ./internal/transport
-      - name: Enforce cyclomatic complexity ceiling
+      - name: Enforce complexity ceilings
         shell: bash
         env:
           GOBIN: ${{ runner.temp }}/go-tools
@@ -63,8 +63,20 @@ jobs:
           set -euo pipefail
           mkdir -p "$GOBIN"
           go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+          go install github.com/uudashr/gocognit/cmd/gocognit@v1.3.0
           mapfile -d '' go_sources < <(git ls-files -z '*.go')
           "$GOBIN/gocyclo" -over 10 "${go_sources[@]}"
+          cquay_cognitive_log="$RUNNER_TEMP/cquay-cognitive.log"
+          # Type-aware analysis loads each native package once per owning
+          # directory. Treat warnings/fallback diagnostics as a failed check.
+          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd >"$cquay_cognitive_log" 2>&1; then
+            cat "$cquay_cognitive_log"
+            exit 1
+          fi
+          if test -s "$cquay_cognitive_log"; then
+            cat "$cquay_cognitive_log"
+            exit 1
+          fi
   native-macos:
     name: macOS synthetic tests
     runs-on: macos-15-intel
@@ -166,6 +178,21 @@ jobs:
           mkdir -p .local/build
           go build -p 1 -trimpath -o .local/build/cquay ./cmd/cquay
           go build -p 1 -trimpath -o .local/build/cquay-audit ./cmd/cquay-audit
+  cross-build-gate:
+    name: Cross-build matrix
+    needs: cross-build
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every cross-build
+        shell: bash
+        env:
+          CQUAY_CROSS_BUILD_RESULT: ${{ needs.cross-build.result }}
+        run: |
+          set -euo pipefail
+          test "$CQUAY_CROSS_BUILD_RESULT" = success
   assurance:
     name: Source assurance gate
     runs-on: ubuntu-24.04

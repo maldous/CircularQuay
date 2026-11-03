@@ -169,11 +169,8 @@ func (tools *qualifiedTools) environment(environment []string, helperDirectory s
 	if err := platform.EnsurePrivateDirectory(helperDirectory); err != nil {
 		return nil, err
 	}
-	for _, id := range []string{"git", "go"} {
-		tool, found := tools.tool(id)
-		if !found || !toolMatchesDigest(tool) || copyQualifiedHelper(tool, filepath.Join(helperDirectory, canonicalToolName(id))) != nil {
-			return nil, os.ErrPermission
-		}
+	if err := tools.copyMandatoryHelpers(helperDirectory); err != nil {
+		return nil, err
 	}
 	if err := tools.copyNativeHelpers(helperDirectory); err != nil {
 		return nil, err
@@ -194,6 +191,16 @@ func (tools *qualifiedTools) environment(environment []string, helperDirectory s
 	// Commands themselves always use absolute
 	// manifest paths; this PATH is deliberately not an analyzer tool directory.
 	return append(filtered, "PATH="+helperDirectory, "GOROOT="+goRoot), nil
+}
+
+func (tools *qualifiedTools) copyMandatoryHelpers(directory string) error {
+	for _, id := range []string{"git", "go"} {
+		tool, found := tools.tool(id)
+		if !found || !toolMatchesDigest(tool) || copyQualifiedHelper(tool, filepath.Join(directory, canonicalToolName(id))) != nil {
+			return os.ErrPermission
+		}
+	}
+	return nil
 }
 
 func (tools *qualifiedTools) goRoot() (string, error) {

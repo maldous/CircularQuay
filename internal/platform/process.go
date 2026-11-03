@@ -26,6 +26,8 @@ func Run(ctx context.Context, work model.Workload, gen model.Generation, overrid
 }
 
 // RunWithIO permits an MCP caller to discard application output explicitly.
+// Caller-supplied blocking readers/writers need their own cancellation contract;
+// the pipe-drain bound does not contain descendants or interrupt arbitrary I/O.
 func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err

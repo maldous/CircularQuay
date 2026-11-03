@@ -204,6 +204,36 @@ The intermediate capture with a workflow-only source-fence change is retained
 as `checkpoint23-20261104-before-setup-go-path-contract`; it is not the final
 combined qualification.
 
+## Exact 20eac0 development receipt
+
+Checkpoint `20eac0a2a99faf5d9f51c126d66ece3db107bf01` has tree
+`1871522215dd75f2692b2833333095181d5d1b91`; public readback verified all
+15 changed files and all 271 working files. Source workflow `41736690731`
+passed normal/race tests, vet and bounded fuzzing; native Windows/macOS and
+all 26 cross-builds passed. Linux's job nevertheless failed its cyclomatic
+step: `validManifest` and `qualifiedTools.environment` each scored 11 versus
+10. They are split into cohesive shape/copy helpers in the following slice;
+the ceiling is unchanged and exact later execution must confirm the correction.
+
+The actual source auditor now prepares and verifies its declared private SSH
+helper and passes `unit_tests`. Its only source-profile failure is coverage:
+6,050/7,125 statements (84.91228%) versus 100%. This does not replace a fresh
+Sonar profile or qualify later changes. Security run `41736690751` passed
+CodeQL with zero annotations, Staticcheck and govulncheck; gosec still failed
+eight unsuppressed findings. Retain
+`.local/qualification/ci-20eac0a-native-cross.json`. No exact20 Sonar or managed
+security diff scan was run under the local capacity hold.
+
+The next workflow adds a stable `Cross-build matrix` aggregate that passes
+only when the entire matrix succeeds. It is a named result suitable for
+GitHub-required checks; source configuration alone is not server enforcement.
+The branch-rule browser is usable again. Stronger Go-security/CodeQL and all-
+severity code-scanning rules are prepared, but GitHub's fresh `Confirm access`
+authentication currently blocks saving; the API still reads the old four
+required checks. Do not call the prepared change enforced until saved and
+read back independently. The visible in-app GitHub tab is retained for user
+authentication, with no credentials or codes requested in chat.
+
 ## Bounded continuation after the 6b088 receipt
 
 The next source slice declares `ssh-keygen` as an optional fixed native helper
@@ -218,7 +248,14 @@ a same-size/mode replacement, proving the original descriptor remains readable
 and the named identity differs. Production sharing/ACL protections are unchanged.
 A separate workload lifecycle fix preserves context cancellation/deadline errors
 and bounds waiting for inherited output pipes with a 250ms WaitDelay. This is
-not descendant containment or a bound on an arbitrary blocked caller writer.
+not descendant containment or a bound on an arbitrary blocked caller reader or
+writer.
+
+The remote workflow mirrors the published analysis requirements with
+Staticcheck `-checks=all`, gosec `-nosec`, and pinned gocognit v1.3.0 using
+`-exact-recursion -over 10` on native owned directories. Nonempty diagnostic
+output, including a type-aware fallback warning, fails that check. Workflow
+configuration is not evidence of a passed execution or GitHub enforcement.
 
 A BAU capacity notice arrived during this slice. Local heavy tests, scanners,
 builds, downloads and cache copies were held; no task-owned Go/test/scanner

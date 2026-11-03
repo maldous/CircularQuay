@@ -42,7 +42,7 @@ func platformHelper() int {
 	switch os.Args[2] {
 	case "exit":
 		return 7
-	case "mark-and-wait":
+	case lifecycleWaitMode:
 		return markAndWait(os.Args[3:])
 	case "orphan-pipe":
 		return orphanPipe(os.Args[3:])

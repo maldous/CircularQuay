@@ -10,13 +10,18 @@ import (
 	"testing"
 )
 
+const (
+	nativeHelperFixture = "synthetic native helper\n"
+	helperListField     = "helpers"
+)
+
 func manifestWithNativeHelper(t *testing.T) ToolManifest {
 	t.Helper()
 	manifest := manifestFixture(t)
 	canonicalFixtureHelperNames(t, &manifest)
-	path := filepath.Join(privateAssuranceDirectory(t, "native-helper"), canonicalToolName("ssh-keygen"))
-	writeTool(t, path, "synthetic native helper\n")
-	manifest.Helpers = []ToolHelper{{ID: "ssh-keygen", Path: path, SHA256: digest([]byte("synthetic native helper\n"))}}
+	path := filepath.Join(privateAssuranceDirectory(t, "native-helper"), canonicalToolName(sshKeygenHelperID))
+	writeTool(t, path, nativeHelperFixture)
+	manifest.Helpers = []ToolHelper{{ID: sshKeygenHelperID, Path: path, SHA256: digest([]byte(nativeHelperFixture))}}
 	return manifest
 }
 
@@ -34,10 +39,10 @@ func TestNativeHelperSchemaAndParserContract(t *testing.T) {
 	manifest := manifestWithNativeHelper(t)
 	assertSchemaAndParserAccept(t, manifest)
 	for _, mutate := range []func(map[string]any){
-		func(value map[string]any) { value["helpers"] = nil },
-		func(value map[string]any) { value["helpers"] = []any{} },
+		func(value map[string]any) { value[helperListField] = nil },
+		func(value map[string]any) { value[helperListField] = []any{} },
 		func(value map[string]any) {
-			value["helpers"] = append(value["helpers"].([]any), value["helpers"].([]any)[0])
+			value[helperListField] = append(value[helperListField].([]any), value[helperListField].([]any)[0])
 		},
 		func(value map[string]any) { firstHelper(value)["id"] = "SSH-KEYGEN" },
 		func(value map[string]any) { firstHelper(value)["id"] = "arbitrary" },
@@ -54,7 +59,7 @@ func TestNativeHelperSchemaAndParserContract(t *testing.T) {
 }
 
 func firstHelper(value map[string]any) map[string]any {
-	return value["helpers"].([]any)[0].(map[string]any)
+	return value[helperListField].([]any)[0].(map[string]any)
 }
 
 func TestNativeHelperLoadingRejectsUnsafeIdentities(t *testing.T) {
@@ -78,14 +83,14 @@ func mutateNativeHelper(t *testing.T, manifest *ToolManifest, locations ToolLoca
 		helper.SHA256 = digest([]byte("wrong"))
 	case "basename":
 		copy := filepath.Join(filepath.Dir(helper.Path), "other")
-		writeTool(t, copy, "synthetic native helper\n")
+		writeTool(t, copy, nativeHelperFixture)
 		helper.Path = copy
 	case "source", "output":
 		directory := locations.Source
 		if scenario == "output" {
 			directory = locations.Output
 		}
-		helper.Path = writeTool(t, filepath.Join(directory, canonicalToolName(helper.ID)), "synthetic native helper\n")
+		helper.Path = writeTool(t, filepath.Join(directory, canonicalToolName(helper.ID)), nativeHelperFixture)
 	case "tool-path":
 		manifest.Tools[0].Path, manifest.Tools[0].SHA256 = helper.Path, helper.SHA256
 	}
@@ -109,8 +114,8 @@ func preparedNativeHelper(t *testing.T) (*qualifiedTools, []string) {
 func TestDeclaredNativeHelperUsesOnlyPrivatePATHCopy(t *testing.T) {
 	tools, environment := preparedNativeHelper(t)
 	assertPrivateHelperEnvironment(t, environment)
-	path, err := exec.LookPath("ssh-keygen")
-	if err != nil || path != tools.helperCopies["ssh-keygen"] || path == tools.manifest.Helpers[0].Path {
+	path, err := exec.LookPath(sshKeygenHelperID)
+	if err != nil || path != tools.helperCopies[sshKeygenHelperID] || path == tools.manifest.Helpers[0].Path {
 		t.Fatalf("resolved helper = %q, %v", path, err)
 	}
 	assertPreparedHelperReport(t, tools)
@@ -147,7 +152,7 @@ func assertPreparedHelperReport(t *testing.T, tools *qualifiedTools) {
 	if err != nil || strings.Contains(string(encoded), "probe") || strings.Contains(string(encoded), "version") {
 		t.Fatal("helper report invented a version or execution probe")
 	}
-	if _, exists := tools.tool("ssh-keygen"); exists {
+	if _, exists := tools.tool(sshKeygenHelperID); exists {
 		t.Fatal("native helper became an analyzer command")
 	}
 }
@@ -182,7 +187,7 @@ func assertNativeHelperDriftDenied(t *testing.T, location, phase string) {
 	tools, environment := preparedNativeHelper(t)
 	path := tools.manifest.Helpers[0].Path
 	if location == "copy" {
-		path = tools.helperCopies["ssh-keygen"]
+		path = tools.helperCopies[sshKeygenHelperID]
 	}
 	mutate := func() {
 		if err := os.WriteFile(path, []byte("changed"), 0700); err != nil {

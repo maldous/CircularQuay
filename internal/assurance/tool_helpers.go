@@ -10,6 +10,8 @@ import (
 	"github.com/maldous/CircularQuay/internal/platform"
 )
 
+const sshKeygenHelperID = "ssh-keygen"
+
 // ToolHelper binds a supported native dependency to protected executable bytes.
 // It does not claim a version probe, execution, or publisher authentication.
 // Only ssh-keygen is supported; arbitrary helper commands are not accepted.
@@ -35,7 +37,7 @@ func validToolHelpers(helpers []ToolHelper, raw json.RawMessage) bool {
 		return false
 	}
 	helper := helpers[0]
-	return helper.ID == "ssh-keygen" && validPortableToolPath(helper.Path) && validDigest(helper.SHA256)
+	return helper.ID == sshKeygenHelperID && validPortableToolPath(helper.Path) && validDigest(helper.SHA256)
 }
 
 func verifyToolHelpers(entries []ToolHelper, tools []VerifiedTool, source, output string) ([]VerifiedHelper, error) {
