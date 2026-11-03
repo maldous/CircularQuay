@@ -8,7 +8,7 @@ Status: development checkpoint, NOT production qualified. No release, package in
 - Main CLI cquay; standalone audit CLI cquay-audit; Apache-2.0.
 - Gitflow: main is stable/released, develop integration, feature/* work, release/* stabilization, hotfix/* from main with back-merges. Current work is feature/initial-implementation. Do not merge this checkpoint to main or tag a release.
 - User requires professional consistent paths/names, gofmt, human-readable functions and GoDoc/security rationale. Human developers will maintain this project.
-- GitHub repository security settings have NOT yet been applied/verified. Owner explicitly authorized hardening. Use available free protections; document admin permission/entitlement gaps rather than claiming success.
+- GitHub repository security administration was attempted: all eight write requests returned HTTP 403 with the current integration credential (repository user permission metadata says admin, but this does not grant the app administrative scopes). No server-side setting was changed. Failed actions: repository merge/signoff settings; default Actions read-only permissions; vulnerability alerts; automated security fixes; secret scanning + push protection; private vulnerability reporting; main protection; develop protection. CODEOWNERS, Dependabot and a PR template are included as source configuration; these do not prove server-side enforcement. Reattempt with an appropriately authorized administrative integration, or follow GitHub Settings manually. Do not create a broad persistent PAT just to bypass this limitation.
 
 ## Authorization and isolation
 
@@ -54,3 +54,9 @@ Inspect actual API/app permissions first. Add/review CODEOWNERS, issue/PR templa
 ## Next-session prompt
 
 Continue maldous/CircularQuay from feature/initial-implementation. Read this handoff, CONTRIBUTING.md, SECURITY.md, docs/implementation-plan.md and RELEASE.md before editing. This is an incomplete development checkpoint, not a qualified release. Finish authorized implementation and tests using Gitflow and human-maintainable Go. Keep development isolated; do not install into Foo services or touch OffMenu recovery, existing credentials, shell profiles or infrastructure. Use synthetic fixtures; do not disclose secrets. First inspect git status and run formatting plus bounded tests, fix minimum build/integration issues above, then complete root integration and rigorous qualification. Configure GitHub security where permissions allow; explicitly document unavailable controls. No release/main merge or production assurance claim until real required gates pass. Distribution/account instructions belong in RELEASE.md, feature documentation in README. Provide actual evidence, remaining limitations and precise next steps.
+
+## Final checkpoint verification
+
+PASS; GOMAXPROCS=2 go test -p 1 ./...; final checkpoint test output retained in ignored .local/checkpoint-test.log on original cloud workspace.
+
+All committed Go files were normalized with the verified Go formatter. No production assurance is inferred. Draft PR: https://github.com/maldous/CircularQuay/pull/1 .
