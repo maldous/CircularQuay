@@ -1,6 +1,7 @@
 package assurance
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -42,7 +43,34 @@ func fixtureRepository(t *testing.T) string {
 	if err := platform.WriteProtected(filepath.Join(root, "main.go"), []byte("package main\n")); err != nil {
 		t.Fatal(err)
 	}
+	initializeFixtureGit(t, root)
 	return root
+}
+
+func initializeFixtureGit(t *testing.T, root string) {
+	t.Helper()
+	for _, arguments := range [][]string{{"init", "-q"}, {"add", "--all"}, {"-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"}} {
+		fixtureGit(t, root, nil, arguments...)
+	}
+}
+
+func fixtureGit(t *testing.T, root string, environment []string, arguments ...string) []byte {
+	t.Helper()
+	if environment == nil {
+		environment = fixtureGitEnvironment(t)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), sourceBindTimeout)
+	defer cancel()
+	result := runCommand(ctx, "git", arguments, root, environment)
+	if result.missing || result.exitCode != 0 {
+		t.Fatalf("fixture git failed: %q", arguments)
+	}
+	return result.output
+}
+
+func fixtureGitEnvironment(t *testing.T) []string {
+	t.Helper()
+	return auditEnvironment(filepath.Join(privateAssuranceDirectory(t, "git-environment"), "home"))
 }
 
 func TestRepositoryPolicy(t *testing.T) {
@@ -62,9 +90,6 @@ func assertRepositoryPasses(t *testing.T, root string) {
 
 func assertGitDirectoryIgnored(t *testing.T, root string) {
 	t.Helper()
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0700); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(root, ".git", "invalid:name"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}

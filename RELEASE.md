@@ -171,23 +171,26 @@ From a clean selected checkout with the pinned Go toolchain:
 umask 077
 go mod download
 go mod verify
-go build -trimpath -o ./dist/cquay ./cmd/cquay
-go build -trimpath -o ./dist/cquay-audit ./cmd/cquay-audit
-./dist/cquay --config examples/demo.json plan
+mkdir -p ../cquay-build
+go build -trimpath -o ../cquay-build/cquay ./cmd/cquay
+go build -trimpath -o ../cquay-build/cquay-audit ./cmd/cquay-audit
+../cquay-build/cquay --config examples/demo.json plan
 ```
 
-PowerShell uses explicit `.exe` output names and `./dist/cquay.exe`. Native installation does not require Go. A command named `go` must actually be the expected compiler; record `go version` rather than assuming the executable name proves a toolchain.
+PowerShell uses `New-Item -ItemType Directory -Force ../cquay-build`, explicit `.exe` output names and `../cquay-build/cquay.exe`. Keep build products outside the source checkout so an audit can bind every source byte to its Git tree. Native installation does not require Go. A command named `go` must actually be the expected compiler; record `go version` rather than assuming the executable name proves a toolchain.
 
 ### Run synthetic assurance
 
 From the repository root:
 
 ```sh
-./dist/cquay-audit run --profile source --output ./audit-results/source
-./dist/cquay-audit run --profile enterprise --output ./audit-results/enterprise
+../cquay-build/cquay-audit run --profile source --output ../cquay-evidence/source
+../cquay-build/cquay-audit run --profile enterprise --output ../cquay-evidence/enterprise
 ```
 
 Supported audit inputs include `--source DIR`, `--go ABSOLUTE_GO`, and explicit Sonar connection flags `--sonar-url`, `--sonar-token-file`, and `--sonar-project-key`. The token file must be protected and outside public source. Never place its value in arguments or logs.
+
+Select the root of a clean, complete Git checkout. The v1 report binds its commit, tree, tracked modes/blob IDs and raw SHA-256 file manifest before and after target checks. Unexpected files, including ignored Go inputs and unrelated prior audit output, block execution. Only the exact selected protected output subtree is excluded; an output inside the checkout must be under `audit-results` or `.local/audit-results`. External evidence directories avoid mixing results from successive profiles. Git replacement objects and ambient global/system Git configuration are disabled. Source manifests detect ordinary drift; they do not provide an atomic snapshot, trusted analyzer provenance or an operating-system sandbox. Run selected source only within an appropriately isolated audit environment.
 
 The source profile is not the enterprise profile. Enterprise requirements that are missing or not run must produce a non-pass result, not a green qualification. Raw tool stdout/stderr is not automatically public evidence.
 

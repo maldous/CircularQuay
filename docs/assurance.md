@@ -43,6 +43,10 @@ The current SOPS Vault-metadata advisory lists affected versions with an allowli
 
 The audit runner must record commit/artifact hashes, tool and rule versions, exact scope, tests, coverage numerator/denominator, model/mutation results, sanitized raw analysis, review decisions, upstream advisories, and native/provider/client qualification.
 
+Source evidence uses a complete Git checkout rooted at the selected source directory. Before target tools execute, the v1 report binds the commit/tree and an ordered manifest of tracked regular files, Git modes/blob IDs and matching raw SHA-256 bytes. Ignored or untracked inputs fail the inventory check. Only the exact selected protected output subtree is excluded. A second binding detects post-check drift. Git replacement objects and ambient global/system configuration are disabled; checked-out line endings must match the tree. Windows records Git modes without claiming Unix executable-bit enforcement. File counts, individual reads and total source bytes are bounded. Manifest-owned files and package imports define formatting, tests, coverage, vet and Go-aware analyzer arguments, keeping generated output outside those scopes. A manifest directory without a native Go build fails the check instead of silently reducing coverage.
+
+These manifests detect ordinary injection and drift. They do not form an atomic filesystem snapshot, authenticate the installed Git/analyzers, or isolate source tests from the auditor's host authority. Those execution and tool-qualification boundaries require separate evidence.
+
 No operational credentials or raw MCP secret responses belong in public evidence. Synthetic assurance works without external secret-provider accounts. Live-provider qualification is opt-in and separate.
 
 ## Current status

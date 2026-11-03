@@ -187,6 +187,6 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          mkdir -p .local
-          go build -trimpath -o .local/cquay-audit ./cmd/cquay-audit
-          .local/cquay-audit run --profile source --go "$(command -v go)" --output audit-results/source
+          cquay_audit_dir=$(mktemp -d "${RUNNER_TEMP}/cquay-source-audit.XXXXXX")
+          go build -trimpath -o "$cquay_audit_dir/cquay-audit" ./cmd/cquay-audit
+          "$cquay_audit_dir/cquay-audit" run --profile source --go "$(command -v go)" --output "$cquay_audit_dir/evidence"

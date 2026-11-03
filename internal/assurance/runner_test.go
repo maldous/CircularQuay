@@ -44,8 +44,10 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 func assertDirtySourceFails(t *testing.T, root, output string, fake commandFunc) {
 	t.Helper()
 	dirtyCommand := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
-		if binary == "git" && len(args) > 0 && args[0] == "status" {
-			return commandResult{output: []byte(" M source.go\n")}
+		if binary == "go" && len(args) > 0 && args[0] == "test" {
+			if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n// drift\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 		return fake(ctx, binary, args, directory, environment)
 	}
@@ -93,7 +95,8 @@ func sourceAuditGoResult(t *testing.T, args []string, secret string) commandResu
 
 func assertOwnedCoverageScope(t *testing.T, args []string) {
 	t.Helper()
-	if !strings.Contains(strings.Join(args, " "), "-coverpkg="+modulePrefix+"...") {
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "./...") || !strings.Contains(joined, "-coverpkg="+strings.TrimSuffix(modulePrefix, "/")) {
 		t.Fatal("coverage scope is not explicitly bound to owned code")
 	}
 }
@@ -216,7 +219,7 @@ func TestAuditEnvironmentDoesNotInheritCredentials(t *testing.T) {
 	t.Setenv("VAULT_TOKEN", "never-inherit")
 	t.Setenv("PATH", "/synthetic/bin")
 	env := strings.Join(auditEnvironment("/private/home"), "\n")
-	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") {
+	if strings.Contains(env, "never-inherit") || !strings.Contains(env, "PATH=/synthetic/bin") || !strings.Contains(env, "GOTOOLCHAIN=local") || !strings.Contains(env, "GOWORK=off") || !strings.Contains(env, "GOENV=off") || !strings.Contains(env, "-mod=readonly") || !strings.Contains(env, "GIT_NO_REPLACE_OBJECTS=1") || !strings.Contains(env, "GIT_CONFIG_NOSYSTEM=1") {
 		t.Fatal("unsafe test environment")
 	}
 }

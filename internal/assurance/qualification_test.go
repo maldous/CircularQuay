@@ -25,7 +25,7 @@ func assertFormattingDrift(t *testing.T, root string) {
 	changed := func(context.Context, string, []string, string, []string) commandResult {
 		return commandResult{output: []byte("main.go\n")}
 	}
-	check, err := checkFormatting(context.Background(), changed, root, "go", nil)
+	check, err := checkFormatting(context.Background(), changed, root, "go", nil, []string{filepath.Join(root, "main.go")})
 	if err != nil || check.Status != "failed" || check.Code != "format_changes_required" {
 		t.Fatalf("format drift result = %+v, %v", check, err)
 	}

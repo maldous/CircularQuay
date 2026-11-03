@@ -52,7 +52,7 @@ func TestRunNoInheritanceAndPreservesArguments(t *testing.T) {
 	var out bytes.Buffer
 	code, err := RunWithIO(context.Background(), w, fixtureGeneration(), nil, nil, &out, io.Discard)
 	if err != nil || code != 0 || out.String() != "allowed-status" {
-		t.Fatal("isolated execution failed")
+		t.Fatalf("isolated execution = code %d, error %v, output %q", code, err, out.String())
 	}
 	code, err = RunWithIO(context.Background(), w, fixtureGeneration(), []string{exe, "--platform-helper", "exit"}, nil, io.Discard, io.Discard)
 	if err != nil || code != 7 {

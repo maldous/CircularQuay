@@ -15,9 +15,8 @@ func TestTrustedSecretLaunchRequiresProtectedDLLSearchDirectories(t *testing.T) 
 	root := filepath.Join(t.TempDir(), "launch")
 	work, executable, pathDirectory := protectedLaunchFixture(t, root)
 	environment := []string{"PATH=" + pathDirectory}
-	if directory, err := launchDirectory(work, secretGeneration(), executable, environment); err != nil || directory != work.Directory {
-		t.Fatalf("protected launch directory = %q, %v", directory, err)
-	}
+	directory, err := launchDirectory(work, secretGeneration(), executable, environment)
+	assertSameLaunchDirectory(t, work.Directory, directory, err)
 
 	for _, test := range []struct {
 		name   string
@@ -46,9 +45,8 @@ func TestTrustedSecretLaunchAcceptsReadOnlySharedSearchDirectories(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	if directory, err := launchDirectory(work, secretGeneration(), executable, []string{"PATH=" + pathDirectory}); err != nil || directory != work.Directory {
-		t.Fatalf("read-only shared directories rejected: %q, %v", directory, err)
-	}
+	directory, err := launchDirectory(work, secretGeneration(), executable, []string{"PATH=" + pathDirectory})
+	assertSameLaunchDirectory(t, work.Directory, directory, err)
 }
 
 func TestTrustedSecretLaunchRejectsRelativeAndEmptyPATHDirectories(t *testing.T) {
@@ -70,9 +68,8 @@ func TestTrustedSecretLaunchChecksCurrentDirectoryWhenOmitted(t *testing.T) {
 	}
 	t.Chdir(current)
 	work.Directory = ""
-	if directory, err := launchDirectory(work, secretGeneration(), executable, []string{"PATH=" + pathDirectory}); err != nil || directory != current {
-		t.Fatalf("current directory = %q, %v", directory, err)
-	}
+	directory, err := launchDirectory(work, secretGeneration(), executable, []string{"PATH=" + pathDirectory})
+	assertSameLaunchDirectory(t, current, directory, err)
 	if err := setWindowsTestDACL(current, "GW"); err != nil {
 		t.Fatal(err)
 	}
@@ -134,4 +131,16 @@ func protectedLaunchFixture(t *testing.T, root string) (model.Workload, string, 
 
 func secretGeneration() model.Generation {
 	return model.Generation{Values: map[string]model.Value{"APP_SECRET": {Data: "synthetic"}}}
+}
+
+func assertSameLaunchDirectory(t *testing.T, expected, actual string, launchErr error) {
+	t.Helper()
+	if launchErr != nil {
+		t.Fatalf("trusted launch directory error = %v", launchErr)
+	}
+	expectedInfo, expectedErr := os.Stat(expected)
+	actualInfo, actualErr := os.Stat(actual)
+	if expectedErr != nil || actualErr != nil || !os.SameFile(expectedInfo, actualInfo) {
+		t.Fatalf("trusted launch directory identity = %q, want %q; stats = %v, %v", actual, expected, actualErr, expectedErr)
+	}
 }

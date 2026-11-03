@@ -63,7 +63,11 @@ func (output *limitedOutput) Write(data []byte) (int, error) {
 }
 
 func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string, error) {
-	environment := ambientGitEnvironment()
+	environment, err := nativeGitEnvironment()
+	if err != nil {
+		return nil, err
+	}
+	environment = append(environment, ambientGitEnvironment()...)
 	environment = s.temporaryEnvironment(environment)
 	environment = append(environment, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_ATTR_NOSYSTEM=1", "GIT_OPTIONAL_LOCKS=0")
 	settings, err := s.gitSettings(verifySignature)

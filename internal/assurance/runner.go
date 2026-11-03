@@ -43,16 +43,32 @@ var projectPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:-]{1,200}$`)
 func Run(ctx context.Context, options Options) (Report, error) { return run(ctx, options, runCommand) }
 
 func run(ctx context.Context, options Options, command commandFunc) (Report, error) {
+	audit, err := prepareAudit(options)
+	if err != nil {
+		return Report{}, err
+	}
+	return audit.run(ctx, command)
+}
+
+type auditRun struct {
+	root        string
+	output      string
+	options     Options
+	report      Report
+	environment []string
+}
+
+func prepareAudit(options Options) (auditRun, error) {
 	if options.Profile != "source" && options.Profile != "enterprise" {
-		return Report{}, errors.New("unknown audit profile")
+		return auditRun{}, errors.New("unknown audit profile")
 	}
 	root, err := filepath.Abs(options.Source)
 	if err != nil {
-		return Report{}, errors.New("invalid source directory")
+		return auditRun{}, errors.New("invalid source directory")
 	}
 	output, err := prepareOutput(root, options.Output)
 	if err != nil {
-		return Report{}, err
+		return auditRun{}, err
 	}
 	if options.GoBinary == "" {
 		options.GoBinary = "go"
@@ -61,53 +77,86 @@ func run(ctx context.Context, options Options, command commandFunc) (Report, err
 		"Automated source analysis is not security certification.",
 		"Coverage is measured for the current native build, not unexecuted platforms.",
 		"Independent review, real reboot and live provider qualification are separate evidence.",
+		"Source manifests detect ordinary drift but are not an atomic snapshot or OS sandbox.",
 	}}
-	environment := auditEnvironment(filepath.Join(output, "home"))
-	recordSourceIdentity(ctx, command, root, options.GoBinary, environment, &report)
-	report.Checks = append(report.Checks, repositoryCheck(root))
-	format, err := checkFormatting(ctx, command, root, options.GoBinary, environment)
+	return auditRun{root: root, output: output, options: options, report: report, environment: auditEnvironment(filepath.Join(output, "home"))}, nil
+}
+
+func (audit auditRun) run(ctx context.Context, command commandFunc) (Report, error) {
+	identity, err := bindSource(ctx, runCommand, audit.root, audit.output, audit.environment)
 	if err != nil {
-		return report, err
+		audit.report.Checks = append(audit.report.Checks, failedSourceIdentityCheck("source_identity_before_checks"))
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
 	}
-	report.Checks = append(report.Checks, format)
-	coveragePath := filepath.Join(output, "coverage.out")
-	report.Checks = append(report.Checks, command.execute(ctx, "unit_tests", true, options.GoBinary, []string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + modulePrefix + "...", "-coverprofile=" + coveragePath, "./..."}, root, environment))
-	report.Checks = append(report.Checks, coverageCheck(coveragePath, &report.Coverage))
-	report.Checks = append(report.Checks, command.execute(ctx, "go_vet", true, options.GoBinary, []string{"vet", "./..."}, root, environment))
-	addExternalChecks(ctx, command, root, environment, options.Profile == "enterprise", &report)
-	addSonar(ctx, command, root, environment, options, coveragePath, &report)
-	report.Checks = append(report.Checks, Check{Name: "native_reboot_and_restore", Status: "not_run", Code: "requires_qualified_native_environment"}, Check{Name: "independent_review", Status: "not_run", Code: "requires_independent_reviewer"})
-	clean := command(ctx, "git", []string{"status", "--porcelain", "--untracked-files=normal"}, root, environment)
-	report.Checks = append(report.Checks, metadataCheck("source_tree_clean_after_checks", successfulEmptyOutput(clean)))
-	report.finish()
-	if err = WriteReport(output, report); err != nil {
+	audit.report.Source = &identity
+	recordSourceIdentity(ctx, command, audit.root, audit.options.GoBinary, audit.environment, &audit.report)
+	audit.report.Checks = append(audit.report.Checks, repositoryCheck(audit.root))
+	scope, err := sourceGoScope(audit.root, &identity)
+	if err != nil {
+		audit.report.Checks = append(audit.report.Checks, Check{Name: "source_go_scope", Required: true, Status: "failed", Code: "source_scope_missing"})
+		audit.report.finish()
+		return writeFailedReport(audit.output, audit.report)
+	}
+	format, err := checkFormatting(ctx, command, audit.root, audit.options.GoBinary, audit.environment, scope.files)
+	if err != nil {
+		return audit.report, err
+	}
+	audit.recordChecks(ctx, command, format, scope)
+	audit.recordAfterIdentity(ctx, identity)
+	audit.report.finish()
+	if err = WriteReport(audit.output, audit.report); err != nil {
+		return audit.report, err
+	}
+	return audit.report, nil
+}
+
+func (audit *auditRun) recordChecks(ctx context.Context, command commandFunc, format Check, scope goSourceScope) {
+	audit.report.Checks = append(audit.report.Checks, format)
+	coveragePath := filepath.Join(audit.output, "coverage.out")
+	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
+	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "unit_tests", true, audit.options.GoBinary, testArguments, audit.root, audit.environment))
+	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
+	audit.report.Checks = append(audit.report.Checks, command.execute(ctx, "go_vet", true, audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment))
+	addExternalChecks(ctx, command, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
+	addSonar(ctx, command, audit.root, audit.environment, audit.options, coveragePath, &audit.report)
+	audit.report.Checks = append(audit.report.Checks, Check{Name: "native_reboot_and_restore", Status: "not_run", Code: "requires_qualified_native_environment"}, Check{Name: "independent_review", Status: "not_run", Code: "requires_independent_reviewer"})
+}
+
+func (audit *auditRun) recordAfterIdentity(ctx context.Context, before SourceIdentity) {
+	after, err := bindSource(ctx, runCommand, audit.root, audit.output, audit.environment)
+	if err != nil || after.ManifestSHA256 != before.ManifestSHA256 || after.Tree != before.Tree || after.Commit != before.Commit {
+		audit.report.Checks = append(audit.report.Checks, failedSourceIdentityCheck("source_identity_after_checks"))
+		return
+	}
+	audit.report.Checks = append(audit.report.Checks, metadataCheck("source_identity_after_checks", true))
+}
+
+func writeFailedReport(output string, report Report) (Report, error) {
+	if err := WriteReport(output, report); err != nil {
 		return report, err
 	}
 	return report, nil
 }
 
+func failedSourceIdentityCheck(name string) Check {
+	return Check{Name: name, Required: true, Status: "failed", Code: "source_identity_invalid"}
+}
+
 func recordSourceIdentity(ctx context.Context, command commandFunc, root, goBinary string, environment []string, report *Report) {
-	revision := command(ctx, "git", []string{"rev-parse", "HEAD"}, root, environment)
-	if revisionPattern.Match(bytes.TrimSpace(revision.output)) {
-		report.Commit = strings.TrimSpace(string(revision.output))
+	if report.Source != nil {
+		report.Commit = report.Source.Commit
 	}
 	version := command(ctx, goBinary, []string{"version"}, root, environment)
 	if found := goVersionPattern.FindSubmatch(version.output); len(found) > 1 {
 		report.GoVersion = string(found[1])
 	}
-	report.Checks = append(report.Checks, metadataCheck("source_revision", report.Commit != ""), metadataCheck("go_toolchain", report.GoVersion != ""))
-	clean := command(ctx, "git", []string{"status", "--porcelain", "--untracked-files=normal"}, root, environment)
-	report.Checks = append(report.Checks, metadataCheck("source_tree_clean", successfulEmptyOutput(clean)))
+	report.Checks = append(report.Checks, metadataCheck("source_revision", report.Commit != ""), metadataCheck("go_toolchain", report.GoVersion != ""), metadataCheck("source_identity_before_checks", report.Source != nil))
 }
 
-func successfulEmptyOutput(result commandResult) bool {
-	return !result.missing && result.exitCode == 0 && len(bytes.TrimSpace(result.output)) == 0
-}
-
-func checkFormatting(ctx context.Context, command commandFunc, root, goBinary string, environment []string) (Check, error) {
-	goFiles, err := sourceFiles(root)
-	if err != nil {
-		return Check{}, err
+func checkFormatting(ctx context.Context, command commandFunc, root, goBinary string, environment, goFiles []string) (Check, error) {
+	if len(goFiles) == 0 {
+		return Check{}, errors.New("source scope has no Go files")
 	}
 	arguments := append([]string{"-l"}, goFiles...)
 	gofmt := "gofmt"
@@ -135,7 +184,7 @@ func prepareOutput(root, raw string) (string, error) {
 	if outputOverlapsSource(root, directory) {
 		return "", errors.New("audit output must not overlap source")
 	}
-	for _, path := range []string{directory, filepath.Join(directory, "home")} {
+	for _, path := range []string{directory, filepath.Join(directory, "home"), filepath.Join(directory, "cache"), filepath.Join(directory, "cache", "mod"), filepath.Join(directory, "cache", "build"), filepath.Join(directory, "tmp")} {
 		if err = platform.EnsurePrivateDirectory(path); err != nil {
 			return "", errors.New("cannot establish private audit directory")
 		}
@@ -148,13 +197,18 @@ func outputOverlapsSource(root, directory string) bool {
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
 		return false
 	}
-	first := strings.Split(relative, string(filepath.Separator))[0]
-	return first != "audit-results" && first != ".local"
+	return !allowedOutputPath(relative)
+}
+
+func allowedOutputPath(relative string) bool {
+	path := filepath.ToSlash(relative)
+	return path == "audit-results" || strings.HasPrefix(path, "audit-results/") || path == ".local/audit-results" || strings.HasPrefix(path, ".local/audit-results/")
 }
 
 func auditEnvironment(home string) []string {
-	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "CGO_ENABLED=0", "GOMAXPROCS=2", "GOFLAGS=-p=1", "SONAR_SCANNER_JAVA_OPTS=-Xmx1g -XX:ActiveProcessorCount=2"}
-	for _, key := range []string{"PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "GOPROXY", "GOSUMDB", "GOMODCACHE", "GOCACHE"} {
+	output := filepath.Dir(home)
+	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "CGO_ENABLED=0", "GOMAXPROCS=2", "GOFLAGS=-p=1 -mod=readonly", "GOMODCACHE=" + filepath.Join(output, "cache", "mod"), "GOCACHE=" + filepath.Join(output, "cache", "build"), "TMPDIR=" + filepath.Join(output, "tmp"), "TEMP=" + filepath.Join(output, "tmp"), "TMP=" + filepath.Join(output, "tmp"), "GIT_NO_REPLACE_OBJECTS=1", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "SONAR_SCANNER_JAVA_OPTS=-Xmx1g -XX:ActiveProcessorCount=2"}
+	for _, key := range []string{"PATH", "SystemRoot", "SYSTEMROOT", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "GOPROXY", "GOSUMDB"} {
 		if value, ok := os.LookupEnv(key); ok {
 			environment = append(environment, key+"="+value)
 		}
@@ -210,14 +264,18 @@ func classifyCommand(name string, required bool, result commandResult, duration 
 	return check
 }
 
-func addExternalChecks(ctx context.Context, command commandFunc, root string, environment []string, required bool, report *Report) {
+func addExternalChecks(ctx context.Context, command commandFunc, root string, environment []string, required bool, scope goSourceScope, report *Report) {
+	if len(scope.packages) == 0 {
+		report.Checks = append(report.Checks, Check{Name: "gosec", Required: true, Status: "failed", Code: "source_scope_missing"})
+		return
+	}
 	checks := []struct {
 		name, binary string
 		arguments    []string
 	}{
-		{"staticcheck", "staticcheck", []string{"./..."}},
-		{"gosec", "gosec", []string{"-quiet", "./..."}},
-		{"govulncheck", "govulncheck", []string{"./..."}},
+		{"staticcheck", "staticcheck", scope.packages},
+		{"gosec", "gosec", append([]string{"-quiet"}, sourcePackageArguments(report.Source)...)},
+		{"govulncheck", "govulncheck", scope.packages},
 		{"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}},
 		{"workflow_lint", "actionlint", nil},
 	}
@@ -246,7 +304,7 @@ func addSonar(ctx context.Context, command commandFunc, root string, environment
 		report.Checks = append(report.Checks, Check{Name: "sonarqube", Status: "failed", Required: required, Code: "sonar_metadata_unavailable"})
 		return
 	}
-	arguments := []string{"-Dsonar.host.url=" + options.SonarURL, "-Dsonar.projectKey=" + options.SonarProjectKey, "-Dsonar.scm.revision=" + report.Commit, "-Dsonar.go.coverage.reportPaths=" + coverage, "-Dsonar.scanner.metadataFilePath=" + metadata, "-Dsonar.qualitygate.wait=true", "-Dsonar.qualitygate.ignoreSmallChanges=false"}
+	arguments := []string{"-Dsonar.host.url=" + options.SonarURL, "-Dsonar.projectKey=" + options.SonarProjectKey, "-Dsonar.scm.revision=" + report.Commit, "-Dsonar.go.coverage.reportPaths=" + coverage, "-Dsonar.scanner.metadataFilePath=" + metadata, "-Dsonar.working.directory=" + filepath.Join(filepath.Dir(coverage), "scanner-work"), "-Dsonar.qualitygate.wait=true", "-Dsonar.qualitygate.ignoreSmallChanges=false"}
 	check := command.execute(ctx, "sonarqube", required, "sonar-scanner", arguments, root, append(environment, "SONAR_TOKEN="+token))
 	report.Checks = append(report.Checks, check)
 	if check.Status != "not_run" {

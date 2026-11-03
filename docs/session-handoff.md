@@ -22,9 +22,10 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-The current frozen local batch is recorded in
-`.local/qualification/checkpoint10-20261104/` and is based on the published
-`e553` checkpoint; its retained source manifest identifies the checked bytes. Its
+The current source-integrity and native-environment batch is based on published
+`8ed18f35be811f722068a3cf62d3093038fa8d93`; its frozen local evidence is retained
+under `.local/qualification/checkpoint17-20261104/`. The source manifest identifies
+the checked bytes rather than claiming an uncommitted batch is a published revision. Its
 before/after manifests for Go, JSON, workflows, and canonical model fences are
 identical. Whole-repository normal/race tests, vet, Staticcheck, formatting,
 module tidy/verification, cyclomatic and cognitive-complexity/workflow checks,
@@ -135,6 +136,15 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
+Checkpoint17 receipts under `.local/qualification/checkpoint17-20261104/`
+record Go 1.27.3 whole-module normal/race tests, vet, Staticcheck, formatting,
+tidy-diff/module verification, both complexity ceilings of 10, actionlint and
+12 Windows test-compilation checks passing with identical before/after source
+manifests. Coverage is 5,114/6,022 statements (84.92195%), below the unchanged
+100% gate. The intermediate checkpoint15 test-helper cognitive-complexity
+failure is retained; the refactored helper passes checkpoint17. These local
+results do not establish native Windows, Sonar or independent qualification.
+
 Checkpoint10 receipts are retained under
 `.local/qualification/checkpoint10-20261104/`. Whole-repository normal/race tests,
 vet, Staticcheck, formatting, tidy-diff/module verification, cyclomatic and
@@ -184,6 +194,35 @@ met by checkpoint10 or the last published CI receipt.
 
 ## Qualification and release blockers
 
+Published candidate `8ed18f35be811f722068a3cf62d3093038fa8d93` has exact tree
+`b42f899e839d85febc7ff06105b60cf07c41e5bc`. Native Linux/macOS and all 26
+cross-builds passed, as did CodeQL. Native Windows failed with two empty SSH
+probes and a path-oracle failure; gosec retains nine findings. CI whole-module
+coverage was 84.9957%, below the unchanged 100% gate.
+
+Its Sonar CE task `dbd6d2fa-3814-4b06-a01e-e3bc7632a184` completed successfully
+with analysis `81a9ef98-5a95-4e3d-a706-39362381c61e` and zero open issues, but
+its quality gate is ERROR at 78.6% overall and 82.1% new coverage. The retained
+receipt warns that its token expires 2026-11-10. This is not a pass.
+
+The captured follow-up integrates the v1 source manifest before and after target
+checks, rejects unexpected/ignored files, disables Git replacement/global/system
+configuration, and requires the actual repository root. It bounds file reads and
+preserves worktree metadata support. A source-root alias is now rejected before
+Go version probing; its prior later formatting failure already prevented source
+tests, so the regression does not demonstrate arbitrary test execution. Manifest
+checks do not provide an atomic snapshot, host sandbox, or analyzer provenance.
+
+The same batch supplies the Windows OS-known ProgramData folder to native Git/SSH
+without inheriting a caller override; compares canonical Windows directories by
+filesystem identity; and adds a real SDK tool-catalog no-read-grant regression.
+CI audit binaries/evidence and Sonar scratch are outside the reviewed source
+inventory. Tests, coverage, vet, Staticcheck, govulncheck, gosec and formatting receive
+manifest-owned packages/imports/files rather than traversing generated output.
+Manifest directories without a native Go build fail closed instead of silently
+reducing coverage; current packages provide native fallbacks. Native Windows execution, exact-candidate Sonar, and independent
+qualification of this batch remain required.
+
 Published candidate `e55327d513b0753ce08ae82adffbc4cb3cd5d2d4` has exact tree
 `1523d6ac067ef94270bd015fa60ad296f086f021`. Native Linux/macOS, all 26
 cross-builds, and CodeQL passed; native Windows failed, and the explicit
@@ -199,11 +238,11 @@ DLL, and fresh-scope controls), and two low (UID and DPAPI ACL). Its completenes
 is partial and it is not an audit pass. Three assurance issues remain open;
 keep sensitive paths in the owner-held report.
 
-The captured remediation batch adds live-generation-versus-snapshot, legacy-state,
-mixed-UID, DPAPI staging ACL, Windows protected-loader-directory, SIGTERM, and
-MCP base-context/active-HTTP-cancellation fixes. Focused tests and cross-builds
-passed, but fresh whole-module, native, Sonar, and independent audit evidence is
-still required. Do not claim every audit finding is fixed.
+The captured `8ed` remediation batch added live-generation-versus-snapshot,
+legacy-state, mixed-UID, DPAPI staging ACL, Windows protected-loader-directory,
+SIGTERM, and MCP base-context/active-HTTP-cancellation fixes. Its focused tests
+and cross-builds are revision-scoped evidence only; later active work requires
+its own frozen-candidate checks. Do not claim every audit finding is fixed.
 
 The Compute Engine task
 `e52a9f8f-b66c-48f2-8a8b-425a533cab12` for revision
@@ -212,8 +251,7 @@ The Compute Engine task
 coverage (6,134/7,833 lines), 82.5% new coverage, and two code smells
 (`go:S107` and `go:S1192`); reported bugs, vulnerabilities, hotspots, and
 duplication are zero. Sonar line coverage is distinct from the Go statement
-profiles and does not change the 100% gate. The two working-tree smell fixes
-require a fresh exact-candidate Sonar recheck.
+profiles and does not change the 100% gate. At the 41a8 receipt, the two working-tree smell fixes required a fresh exact-candidate Sonar recheck; later e553 and 8ed scans record zero issues while coverage remains failing.
 Sonar, full unchanged coverage, live providers, native reboot/recovery,
 installers, registry publication, and independent audit remain incomplete.
 The sealed static managed audit at this checkpoint reported zero validated
@@ -235,11 +273,11 @@ passed CodeQL but failed gosec with nine unsuppressed findings. The frozen
 static receipt found zero reachable govulncheck vulnerabilities and one required
 module advisory, `GO-2026-5932` in `golang.org/x/crypto@v0.58.0`. Earlier
 41ea/4886 evidence remains in the qualification matrix as historical evidence.
-The current dependency follow-up updates that module to its fixed pseudo-version
+A later dependency follow-up updates that module to its fixed pseudo-version
 and reports zero local govulncheck findings; the historical 41a8 advisory is
-retained until a fresh candidate receipt supersedes it. The two Sonar smell
-fixes also need a published exact-candidate scan. The proposed Windows SSH
-fixture explanation remains unverified until native CI reruns.
+retained as revision-scoped evidence. Later e553 and 8ed Sonar scans record
+zero issues but fail coverage. The 8ed native Windows SSH probes and path oracle
+are failures requiring diagnosis, not an unverified signing-fixture hypothesis.
 
 The current batch also fixes a listener-cleanup deadlock. Its retained
 reproduction failed before the fix and the focused normal/race/vet checks pass
