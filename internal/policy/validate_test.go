@@ -88,6 +88,7 @@ func TestPolicyRejectsUnsafeDeclarations(t *testing.T) {
 			changeWorkload(p, func(w *model.Workload) { w.Bindings[0].Resource = "unlisted" })
 		}},
 		{"binding_selector", func(p *model.Policy) { changeWorkload(p, func(w *model.Workload) { w.Bindings[0].Field = "*" }) }},
+		{"binding_version_unsupported_source", func(p *model.Policy) { changeWorkload(p, func(w *model.Workload) { w.Bindings[0].Version = "1" }) }},
 		{"binding_duplicate", func(p *model.Policy) {
 			changeWorkload(p, func(w *model.Workload) { w.Bindings = append(w.Bindings, w.Bindings[0]) })
 		}},
@@ -143,7 +144,9 @@ func TestValidNativeScopes(t *testing.T) {
 	policy := validPolicy()
 	changeSource(&policy, func(s *model.Source) {
 		s.Type = "openbao"
+		s.Path = ""
 		s.Endpoint = "https://bao.example.test"
+		s.Mount = "kv"
 		s.Resources = []string{"demo"}
 		s.Identity = "token_file"
 		s.TokenFile = "/protected/bootstrap"
@@ -152,6 +155,7 @@ func TestValidNativeScopes(t *testing.T) {
 	changeWorkload(&policy, func(w *model.Workload) {
 		w.Mode = "online"
 		w.Bindings[0].Resource = "demo"
+		w.Bindings[0].Version = "2"
 		w.Bindings[0].AllowPublish = true
 		w.AuditRequired = true
 		w.Command = []string{"/opt/worker", "--once"}
@@ -171,7 +175,12 @@ func TestValidNativeScopes(t *testing.T) {
 
 func TestSOPSAuthority(t *testing.T) {
 	policy := validPolicy()
-	changeSource(&policy, func(s *model.Source) { s.Type = "sops" })
+	changeSource(&policy, func(s *model.Source) {
+		s.Type = "sops"
+		s.Identity = "token_file"
+		s.TokenFile = "/protected/transit"
+		s.SOPS = "/usr/bin/sops"
+	})
 	changeWorkload(&policy, func(w *model.Workload) { w.Mode = "online" })
 	if Validate(policy) == nil {
 		t.Fatal("online must reject absent Transit authority")

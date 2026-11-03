@@ -101,7 +101,16 @@ func inspectSonar(ctx context.Context, endpoint, token, project, revision, taskI
 	if err := inspectSonarCounts(ctx, client, project, &summary); err != nil {
 		return summary, err
 	}
-	return summary, inspectSonarMeasures(ctx, client, project, &summary)
+	if err := inspectSonarMeasures(ctx, client, project, &summary); err != nil {
+		return summary, err
+	}
+	// Issues, hotspots and measures expose project-current data rather than an
+	// immutable analysis selector. A second fence proves that another completed
+	// analysis did not replace their common source while they were collected.
+	if err := inspectSonarRevision(ctx, client, project, revision, summary.AnalysisID); err != nil {
+		return summary, err
+	}
+	return summary, nil
 }
 
 func inspectSonarRevision(ctx context.Context, client *sonarClient, project, revision, analysisID string) error {

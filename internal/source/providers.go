@@ -66,6 +66,9 @@ func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (m
 	if !allowed(s, b) {
 		return model.Value{}, fault.New(fault.Denied, "source_scope")
 	}
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	r.mu.RLock()
 	reader := r.readers[s.Type]
 	r.mu.RUnlock()
@@ -73,6 +76,22 @@ func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (m
 		return model.Value{}, fault.New(fault.Unsupported, "source_type")
 	}
 	return reader.Read(ctx, s, b)
+}
+
+func validateVersionCapability(s model.Source, b model.Binding) error {
+	if b.Version != "" && !model.SourceSupportsVersion(s.Type) {
+		return fault.New(fault.Invalid, "source_version_unsupported")
+	}
+	return nil
+}
+
+// validateReturnedVersion prevents an adapter from claiming that an upstream
+// selector was honored solely because it sent that selector in a request.
+func validateReturnedVersion(b model.Binding, actual string) error {
+	if b.Version != "" && actual != b.Version {
+		return fault.New(fault.Trust, "source_version_mismatch")
+	}
+	return nil
 }
 
 func allowed(s model.Source, b model.Binding) bool {
@@ -91,10 +110,10 @@ func allowed(s model.Source, b model.Binding) bool {
 func Capabilities() []Capability {
 	var out []Capability
 	for _, name := range []string{"json", "env", "sops", "openbao", "vault", "doppler", "infisical", "akeyless"} {
-		out = append(out, Capability{Type: name, Read: true, Versioned: name == "openbao" || name == "vault" || name == "aws-sm" || name == "aws-ssm" || name == "azure" || name == "gcp", Maturity: "contract-tested; live qualification pending"})
+		out = append(out, Capability{Type: name, Read: true, Versioned: model.SourceSupportsVersion(name), Maturity: "contract-tested; live qualification pending"})
 	}
 	for _, name := range []string{"aws-sm", "aws-ssm", "azure", "gcp"} {
-		out = append(out, Capability{Type: name, Read: true, Versioned: true, Maturity: "official SDK; scope/unit tests; live qualification pending"})
+		out = append(out, Capability{Type: name, Read: true, Versioned: model.SourceSupportsVersion(name), Maturity: "official SDK; scope/unit tests; live qualification pending"})
 	}
 	for _, name := range []string{"bitwarden", "onepassword"} {
 		out = append(out, Capability{Type: name, Read: true, Maturity: "fixed vendor CLI; live qualification pending"})

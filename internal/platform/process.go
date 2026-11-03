@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -24,22 +25,7 @@ func Run(ctx context.Context, work model.Workload, gen model.Generation, overrid
 
 // RunWithIO permits an MCP caller to discard application output explicitly.
 func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	args := work.Command
-	if len(override) != 0 {
-		args = override
-	}
-	if !validExecutable(args) {
-		return 0, fault.New(fault.Invalid, "absolute executable required")
-	}
-	if err := ValidateExecutable(args[0]); err != nil {
-		return 0, err
-	}
-	if len(override) == 0 && work.CommandSHA256 != "" {
-		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
-			return 0, err
-		}
-	}
-	env, err := Environment(work.Environment, gen)
+	args, env, err := launchInputs(work, gen, override)
 	if err != nil {
 		return 0, err
 	}
@@ -54,6 +40,42 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 		return 0, fault.New(fault.Apply, "launch workload")
 	}
 	return 0, nil
+}
+
+func launchInputs(work model.Workload, gen model.Generation, override []string) ([]string, []string, error) {
+	args := work.Command
+	if len(override) != 0 {
+		args = override
+	}
+	if !validExecutable(args) {
+		return nil, nil, fault.New(fault.Invalid, "absolute executable required")
+	}
+	if err := ValidateExecutable(args[0]); err != nil {
+		return nil, nil, err
+	}
+	if len(override) == 0 && work.CommandSHA256 != "" {
+		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
+			return nil, nil, err
+		}
+	}
+	env, err := Environment(work.Environment, gen)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !generationCurrent(gen) {
+		return nil, nil, fault.New(fault.Expired, "generation expired before launch")
+	}
+	return args, env, nil
+}
+
+func generationCurrent(gen model.Generation) bool {
+	now := time.Now()
+	for _, value := range gen.Values {
+		if !value.ExpiresAt.IsZero() && !value.ExpiresAt.After(now) {
+			return false
+		}
+	}
+	return true
 }
 
 // VerifyExecutable binds a registered action to reviewed bytes. Pinning the
@@ -79,12 +101,16 @@ func openVerifiedExecutable(path string) (*os.File, error) {
 	if err := ValidateExecutable(path); err != nil {
 		return nil, err
 	}
-	f, err := openInParent(path, os.O_RDONLY, 0)
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, fault.New(fault.Trust, "registered executable unavailable")
+	}
+	f, err := openInParent(resolved, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fault.New(fault.Trust, "registered executable unavailable")
 	}
 	info, err := f.Stat()
-	named, namedErr := os.Lstat(path)
+	named, namedErr := os.Stat(resolved)
 	if err != nil || namedErr != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !os.SameFile(info, named) {
 		_ = f.Close()
 		return nil, fault.New(fault.Trust, "registered executable permissions")
@@ -99,7 +125,7 @@ func ValidateExecutable(path string) error {
 	if !filepath.IsAbs(path) || strings.ContainsRune(path, '\x00') {
 		return fault.New(fault.Trust, "absolute trusted executable required")
 	}
-	info, err := os.Lstat(path)
+	info, err := os.Stat(path)
 	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !checkNativeSecurity(path, false) {
 		return fault.New(fault.Trust, "trusted executable permissions")
 	}

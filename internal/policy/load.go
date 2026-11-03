@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
 	"gopkg.in/yaml.v3"
 )
@@ -19,20 +20,37 @@ const maximumPolicyBytes = 1 << 20
 // Load reads one regular, non-writable-by-others policy. Relative file references
 // are bound to the policy directory, rather than the caller's working directory.
 func Load(path string) (model.Policy, error) {
-	var result model.Policy
 	absolute, err := filepath.Abs(path)
 	if err != nil {
-		return result, fault.New(fault.Trust, "policy_location")
+		return model.Policy{}, fault.New(fault.Trust, "policy_location")
 	}
-	path = absolute
-	data, err := readPolicy(path)
+	data, err := readPolicy(absolute)
 	if err != nil {
-		return result, err
+		return model.Policy{}, err
 	}
+	return Parse(data, absolute)
+}
+
+// Parse validates a policy document for its intended configuration pathname
+// without reading or writing that pathname. Relative policy references bind to
+// the supplied configuration directory, so callers can validate an atomic
+// replacement before exposing it at that path.
+func Parse(data []byte, configPath string) (model.Policy, error) {
+	if len(data) > maximumPolicyBytes {
+		return model.Policy{}, fault.New(fault.Invalid, "policy_size")
+	}
+	path, err := filepath.Abs(configPath)
+	if err != nil || configPath == "" {
+		return model.Policy{}, fault.New(fault.Invalid, "policy_location")
+	}
+	var result model.Policy
 	if err = decodePolicy(data, &result); err != nil {
 		return model.Policy{}, err
 	}
 	bindPaths(&result, filepath.Dir(path))
+	if err = validatePolicyFileOwnership(result, path); err != nil {
+		return model.Policy{}, err
+	}
 	if err = Validate(result); err != nil {
 		return model.Policy{}, err
 	}
@@ -76,66 +94,35 @@ func decodePolicy(data []byte, result *model.Policy) error {
 }
 
 func decodeJSON(data []byte, result *model.Policy) error {
-	checker := json.NewDecoder(bytes.NewReader(data))
-	if err := checkJSONValue(checker, 0); err != nil {
-		return fault.New(fault.Invalid, "policy_json")
-	}
-	if _, err := checker.Token(); err != io.EOF {
-		return fault.New(fault.Invalid, "policy_json")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(result); err != nil {
+	if jsondocument.Decode(data, result) != nil || hasJSONNull(data) {
 		return fault.New(fault.Invalid, "policy_json")
 	}
 	return nil
 }
 
-func checkJSONValue(decoder *json.Decoder, depth int) error {
-	if depth > 32 {
-		return fault.New(fault.Invalid, "policy_depth")
-	}
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, collection := token.(json.Delim)
-	if !collection {
-		return nil
-	}
-	if delimiter == '{' {
-		return checkJSONObject(decoder, depth)
-	}
-	if delimiter != '[' {
-		return fault.New(fault.Invalid, "policy_json")
-	}
-	for decoder.More() {
-		if err := checkJSONValue(decoder, depth+1); err != nil {
-			return err
-		}
-	}
-	_, err = decoder.Token()
-	return err
+func hasJSONNull(data []byte) bool {
+	var document any
+	return json.Unmarshal(data, &document) != nil || containsJSONNull(document)
 }
 
-func checkJSONObject(decoder *json.Decoder, depth int) error {
-	seen := make(map[string]bool)
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return err
+func containsJSONNull(value any) bool {
+	switch value := value.(type) {
+	case nil:
+		return true
+	case []any:
+		for _, item := range value {
+			if containsJSONNull(item) {
+				return true
+			}
 		}
-		name, valid := token.(string)
-		if !valid || seen[name] {
-			return fault.New(fault.Invalid, "duplicate_policy_field")
-		}
-		seen[name] = true
-		if err = checkJSONValue(decoder, depth+1); err != nil {
-			return err
+	case map[string]any:
+		for _, item := range value {
+			if containsJSONNull(item) {
+				return true
+			}
 		}
 	}
-	_, err := decoder.Token()
-	return err
+	return false
 }
 
 func decodeYAML(data []byte, result *model.Policy) error {
@@ -190,6 +177,8 @@ func bindRepositoryPaths(repository *model.Repository, base string) {
 func bindSourcePaths(source *model.Source, base string) {
 	if localFileSource(source.Type) || source.Type == "env" {
 		source.Path = absolutePath(base, source.Path)
+	} else if source.Type == "bitwarden" || source.Type == "onepassword" {
+		source.Path = executablePath(base, source.Path)
 	}
 	source.TokenFile = absolutePath(base, source.TokenFile)
 	source.AgeIdentityFile = absolutePath(base, source.AgeIdentityFile)

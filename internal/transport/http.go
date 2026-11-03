@@ -136,11 +136,7 @@ func (c Client) doRequest(req *http.Request, out any) error {
 	if client == nil {
 		client = New().HTTP
 	}
-	timeout := client.Timeout
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	request, cancel := boundedRequest(req, timeout)
+	request, cancel := boundedRequest(req, client.Timeout)
 	defer cancel()
 	// Endpoint validation binds the configured provider origin to HTTPS with no
 	// credentials, selectors, or redirects. RoundTrip performs exactly one
@@ -166,7 +162,7 @@ func (c Client) doRequest(req *http.Request, out any) error {
 
 func boundedRequest(req *http.Request, timeout time.Duration) (*http.Request, context.CancelFunc) {
 	if timeout <= 0 {
-		return req, func() {}
+		timeout = 30 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(req.Context(), timeout)
 	return req.Clone(ctx), cancel

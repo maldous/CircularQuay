@@ -77,10 +77,7 @@ func TestActionAllowedRequiresExactExecutableDigest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
-	if err = os.Chmod(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	dir := privateCLIDirectory(t)
 	fixture := filepath.Join(dir, "synthetic.json")
 	if err = os.WriteFile(fixture, []byte(`{"TOKEN":"synthetic"}`), 0o600); err != nil {
 		t.Fatal(err)
@@ -107,6 +104,100 @@ func TestActionAllowedRequiresExactExecutableDigest(t *testing.T) {
 	if app.actionAllowed("demo") {
 		t.Fatal("mismatched executable digest was allowed")
 	}
+}
+
+func TestMCPRunRechecksAuthorizationAfterResolution(t *testing.T) {
+	for name, mutate := range map[string]func(*model.Policy){
+		"grant revoked": func(p *model.Policy) {
+			p.Grants = nil
+		},
+		"executable changed": func(p *model.Policy) {
+			w := p.Workloads["demo"]
+			w.CommandSHA256 = strings.Repeat("0", 64)
+			p.Workloads["demo"] = w
+		},
+		"binding changed": func(p *model.Policy) {
+			w := p.Workloads["demo"]
+			w.Bindings[0].Field = "OTHER"
+			p.Workloads["demo"] = w
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			started := make(chan struct{})
+			release := make(chan struct{})
+			marker := filepath.Join(t.TempDir(), "started")
+			app, config, policy := mcpRunTestApplication(t, marker)
+			service, err := cqmcp.New(policy, backend{
+				app: app,
+				resolveGeneration: func(context.Context, model.Policy, string) (model.Generation, error) {
+					close(started)
+					<-release
+					return model.Generation{Workload: "demo", Values: map[string]model.Value{"TOKEN": {Data: "synthetic"}}}, nil
+				},
+			}, cqmcp.Options{PolicyProvider: app.load, ActionAllowed: app.actionAllowed})
+			if err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			go func() {
+				_, runErr := service.RunWorkload(context.Background(), cqmcp.Principal{Subject: "local:alice"}, "demo")
+				done <- runErr
+			}()
+			<-started
+			mutate(&policy)
+			writeMCPTestPolicy(t, config, policy)
+			close(release)
+			if err := <-done; !fault.Is(err, fault.Denied) {
+				t.Fatalf("revoked action error = %v", err)
+			}
+			if _, err := os.Stat(marker); !os.IsNotExist(err) {
+				t.Fatalf("child process started: marker error = %v", err)
+			}
+		})
+	}
+}
+
+func mcpRunTestApplication(t *testing.T, marker string) (application, string, model.Policy) {
+	t.Helper()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := executableDigest(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := privateCLIDirectory(t)
+	fixture := filepath.Join(dir, "synthetic.json")
+	if err := os.WriteFile(fixture, []byte(`{"TOKEN":"synthetic","OTHER":"synthetic"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	policy := model.Policy{
+		Version: 1,
+		Sources: map[string]model.Source{"fixture": {Type: "json", Path: fixture}},
+		Workloads: map[string]model.Workload{"demo": {
+			Mode:          "offline",
+			Bindings:      []model.Binding{{Name: "TOKEN", Source: "fixture", Field: "TOKEN", AllowOffline: true}},
+			Environment:   map[string]string{"CQTEST_HELPER": "1", "CQTEST_MARKER": marker},
+			Command:       []string{executable, "-test.run=^TestMCPRunHelper$"},
+			CommandSHA256: digest,
+			UntrustedCode: true,
+		}},
+		Grants: []model.Grant{{Subject: "local:alice", Workload: "demo", Operations: []string{"run", "read"}, Keys: []string{"TOKEN"}}},
+	}
+	config := filepath.Join(dir, "policy.json")
+	writeMCPTestPolicy(t, config, policy)
+	return application{config: config}, config, policy
+}
+
+func TestMCPRunHelper(t *testing.T) {
+	if os.Getenv("CQTEST_HELPER") != "1" {
+		return
+	}
+	if err := os.WriteFile(os.Getenv("CQTEST_MARKER"), []byte("started"), 0o600); err != nil {
+		os.Exit(2)
+	}
+	os.Exit(0)
 }
 
 func executableDigest(path string) (string, error) {

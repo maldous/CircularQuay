@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
 	"golang.org/x/oauth2/google"
@@ -124,11 +125,32 @@ func awsSecretValue(ctx context.Context, client *secretsmanager.Client, s model.
 	if result.SecretString == nil {
 		return model.Value{}, fault.New(fault.Unsupported, "binary_secret")
 	}
+	if err := validateAWSSecretVersion(b, result); err != nil {
+		return model.Value{}, err
+	}
 	data, err := selectValue(*result.SecretString, b.Field)
 	if err != nil {
 		return model.Value{}, err
 	}
 	return model.Value{Data: data, Version: aws.ToString(result.VersionId), AuditVerified: s.AuditVerified}, nil
+}
+
+func validateAWSSecretVersion(b model.Binding, result *secretsmanager.GetSecretValueOutput) error {
+	if b.Version == "" {
+		return nil
+	}
+	if stage, ok := strings.CutPrefix(b.Version, "stage:"); ok {
+		if stage == "" {
+			return fault.New(fault.Invalid, "source_version")
+		}
+		for _, returned := range result.VersionStages {
+			if returned == stage {
+				return nil
+			}
+		}
+		return fault.New(fault.Trust, "source_version_mismatch")
+	}
+	return validateReturnedVersion(b, aws.ToString(result.VersionId))
 }
 
 func readAWSParameter(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
@@ -154,11 +176,28 @@ func awsParameterValue(ctx context.Context, client *ssm.Client, s model.Source, 
 	if result.Parameter == nil || result.Parameter.Value == nil {
 		return model.Value{}, fault.New(fault.Missing, "source_value")
 	}
+	if err := validateAWSParameterVersion(b, result.Parameter); err != nil {
+		return model.Value{}, err
+	}
 	data, err := selectValue(*result.Parameter.Value, b.Field)
 	if err != nil {
 		return model.Value{}, err
 	}
 	return model.Value{Data: data, Version: strconv.FormatInt(result.Parameter.Version, 10), AuditVerified: s.AuditVerified}, nil
+}
+
+func validateAWSParameterVersion(b model.Binding, parameter *ssmtypes.Parameter) error {
+	if b.Version == "" {
+		return nil
+	}
+	actual := strconv.FormatInt(parameter.Version, 10)
+	if actual == b.Version {
+		return nil
+	}
+	if parameter.Selector != nil && *parameter.Selector == ":"+b.Version {
+		return nil
+	}
+	return fault.New(fault.Trust, "source_version_mismatch")
 }
 
 func azureCredential(s model.Source) (azcore.TokenCredential, error) {
@@ -284,6 +323,9 @@ func azureSecretValue(ctx context.Context, client *azsecrets.Client, s model.Sou
 	if result.ID != nil {
 		v.Version = result.ID.Version()
 	}
+	if err = validateReturnedVersion(b, v.Version); err != nil {
+		return model.Value{}, err
+	}
 	if result.Attributes != nil && result.Attributes.Expires != nil {
 		v.ExpiresAt = *result.Attributes.Expires
 	}
@@ -296,6 +338,9 @@ func gcpResource(s model.Source, b model.Binding) (string, error) {
 		return "", fault.New(fault.Denied, "gcp_resource")
 	}
 	version := b.Version
+	if version == "latest" {
+		return "", fault.New(fault.Invalid, "gcp_version")
+	}
 	if version == "" {
 		version = "latest"
 	}
@@ -342,6 +387,12 @@ func gcpSecretValue(result *secretmanagerpb.AccessSecretVersionResponse, s model
 	data, err := selectValue(string(result.Payload.Data), b.Field)
 	if err != nil {
 		return model.Value{}, err
+	}
+	if b.Version != "" {
+		expected, expectedErr := gcpResource(s, b)
+		if expectedErr != nil || result.Name != expected {
+			return model.Value{}, fault.New(fault.Trust, "source_version_mismatch")
+		}
 	}
 	return model.Value{Data: data, Version: result.Name, AuditVerified: s.AuditVerified}, nil
 }

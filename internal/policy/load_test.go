@@ -12,7 +12,25 @@ import (
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
+
+func privatePolicyDirectory(t *testing.T) string {
+	t.Helper()
+	base := t.TempDir()
+	if runtime.GOOS != "windows" {
+		base = "/tmp"
+	}
+	directory, err := os.MkdirTemp(base, "cquay-policy-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
 
 func policyBytes(t *testing.T) []byte {
 	t.Helper()
@@ -24,22 +42,24 @@ func policyBytes(t *testing.T) []byte {
 }
 
 func TestLoadStrictJSONAndRelativePaths(t *testing.T) {
-	dir := t.TempDir()
+	dir := privatePolicyDirectory(t)
 	p := validPolicy()
 	changeSource(&p, func(s *model.Source) {
+		s.Type = "sops"
 		s.Path = "values.json"
-		s.TokenFile = "token"
 		s.AgeIdentityFile = "age"
 		s.SOPS = "./bin/sops"
+		s.Identity = "none"
 	})
 	changeWorkload(&p, func(w *model.Workload) {
 		w.Directory = "work"
 		w.Command = []string{"./bin/worker"}
 		w.Snapshot.Path = "cache"
+		w.Snapshot.Recipients = []string{"age1cy0su9fwf3gf9mw868g5yut09p6nytfmmnktexz2ya5uqg9vl9sss4euqm"}
 		w.Snapshot.IdentityFile = "snapshot-age"
-		w.Snapshot.SOPS = "sops"
+		w.Snapshot.SOPS = "./bin/sops"
 		w.Bindings[0].AllowPublish = true
-		w.Targets = map[string]model.Target{"sink": {Type: "file", Path: "out", TokenFile: "target-token", AcceptSnapshot: true}}
+		w.Targets = map[string]model.Target{"sink": {Type: "file", Path: "out", AcceptSnapshot: true}}
 	})
 	p.MCP.AuditPath = "events.jsonl"
 	data, err := json.Marshal(p)
@@ -54,18 +74,55 @@ func TestLoadStrictJSONAndRelativePaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{loaded.Sources["fixture"].Path, loaded.Sources["fixture"].TokenFile, loaded.Sources["fixture"].AgeIdentityFile, loaded.Sources["fixture"].SOPS, loaded.Workloads["demo"].Directory, loaded.Workloads["demo"].Command[0], loaded.Workloads["demo"].Snapshot.Path, loaded.Workloads["demo"].Snapshot.IdentityFile, loaded.Workloads["demo"].Targets["sink"].Path, loaded.Workloads["demo"].Targets["sink"].TokenFile, loaded.MCP.AuditPath} {
+	for _, path := range []string{loaded.Sources["fixture"].Path, loaded.Sources["fixture"].AgeIdentityFile, loaded.Sources["fixture"].SOPS, loaded.Workloads["demo"].Directory, loaded.Workloads["demo"].Command[0], loaded.Workloads["demo"].Snapshot.Path, loaded.Workloads["demo"].Snapshot.IdentityFile, loaded.Workloads["demo"].Snapshot.SOPS, loaded.Workloads["demo"].Targets["sink"].Path, loaded.MCP.AuditPath} {
 		if !filepath.IsAbs(path) || !strings.HasPrefix(path, dir+string(filepath.Separator)) {
 			t.Fatal("relative path was not anchored")
 		}
 	}
-	if loaded.Workloads["demo"].Snapshot.SOPS != "sops" {
-		t.Fatal("executable name must stay a name")
+}
+
+func TestParseBindsPathWithoutFilesystemEffects(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "not-created")
+	path := filepath.Join(directory, "policy.json")
+	policy := validPolicy()
+	changeSource(&policy, func(source *model.Source) { source.Path = "values.json" })
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := Parse(data, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Sources["fixture"].Path != filepath.Join(directory, "values.json") {
+		t.Fatal("relative source was not bound to intended policy path")
+	}
+	if _, err = os.Stat(directory); !os.IsNotExist(err) {
+		t.Fatal("Parse changed the filesystem")
+	}
+}
+
+func TestParseRejectsOversizedDataAndDestinationCollision(t *testing.T) {
+	if _, err := Parse(bytes.Repeat([]byte(" "), maximumPolicyBytes+1), "/private/policy.json"); err == nil {
+		t.Fatal("oversized policy accepted")
+	}
+	policy := validPolicy()
+	changeWorkload(&policy, func(workload *model.Workload) {
+		workload.Bindings[0].AllowPublish = true
+		workload.Targets = map[string]model.Target{"sink": {Type: "file", Path: "policy.json", AcceptSnapshot: true}}
+	})
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = Parse(data, filepath.Join(t.TempDir(), "policy.json")); err == nil {
+		t.Fatal("policy destination writer accepted")
 	}
 }
 
 func TestDecodeRejectsAmbiguousPolicies(t *testing.T) {
 	valid := string(policyBytes(t))
+	invalidUTF8 := bytes.Replace(policyBytes(t), []byte(`"fixture"`), []byte{'"', 0xff, '"'}, 1)
 	inputs := []string{
 		`{"version":1,"version":2}`, `{"unknown":"SYNTHETIC_DO_NOT_ECHO"}`,
 		valid + valid, valid + ` false`, `{"version":`, `{"version":1,"sources":[]}`,
@@ -73,6 +130,9 @@ func TestDecodeRejectsAmbiguousPolicies(t *testing.T) {
 		"version: 1\nversion: 2\n", "version: &value 1\n", "version: *missing\n",
 		"version: !untrusted 1\n", "unknown: rejected\n",
 		strings.Repeat("[", 34) + strings.Repeat("]", 34),
+		strings.Replace(valid, `"version":1`, `"Version":1`, 1),
+		strings.Replace(valid, `"version":1`, `"version":1,"Version":1`, 1),
+		strings.TrimSuffix(valid, "}") + `,"grants":null}`,
 	}
 	for _, input := range inputs {
 		var result model.Policy
@@ -80,10 +140,14 @@ func TestDecodeRejectsAmbiguousPolicies(t *testing.T) {
 			t.Fatalf("unsafe policy accepted (%d bytes)", len(input))
 		}
 	}
+	var result model.Policy
+	if err := decodePolicy(invalidUTF8, &result); err == nil {
+		t.Fatal("invalid UTF-8 policy accepted")
+	}
 }
 
 func TestLoadYAML(t *testing.T) {
-	dir := t.TempDir()
+	dir := privatePolicyDirectory(t)
 	file := filepath.Join(dir, "policy.yaml")
 	data := "version: 1\nsources:\n  fixture:\n    type: json\n    path: values.json\nworkloads:\n  demo:\n    mode: offline\n    bindings:\n      - name: DEMO_MESSAGE\n        source: fixture\n        field: message\n        allow_offline: true\n"
 	if err := os.WriteFile(file, []byte(data), 0o644); err != nil {
@@ -95,7 +159,7 @@ func TestLoadYAML(t *testing.T) {
 }
 
 func TestLoadRejectsUntrustedFiles(t *testing.T) {
-	dir := t.TempDir()
+	dir := privatePolicyDirectory(t)
 	rejectMissingAndDirectory(t, dir)
 	file := filepath.Join(dir, "policy.json")
 	if err := os.WriteFile(file, policyBytes(t), 0o600); err != nil {
@@ -190,24 +254,6 @@ func TestBoundedIOFaultsAreSanitized(t *testing.T) {
 	}
 	if _, err := readPolicyWithOpen(file, func(string) (*os.File, error) { return nil, errors.New("SYNTHETIC_PRIVATE_OPEN_DIAGNOSTIC") }); err == nil || strings.Contains(err.Error(), "SYNTHETIC_PRIVATE") {
 		t.Fatal("unsafe open diagnostic")
-	}
-}
-
-func TestJSONTokenStateAndDepth(t *testing.T) {
-	var result model.Policy
-	deep := `{"nested":` + strings.Repeat("[", 34) + "0" + strings.Repeat("]", 34) + "}"
-	if decodeJSON([]byte(deep), &result) == nil {
-		t.Fatal("deep JSON accepted")
-	}
-	if decodeJSON([]byte(`{"nested":[invalid]}`), &result) == nil {
-		t.Fatal("malformed nested JSON accepted")
-	}
-	decoder := json.NewDecoder(strings.NewReader("[]"))
-	if _, err := decoder.Token(); err != nil {
-		t.Fatal(err)
-	}
-	if checkJSONValue(decoder, 0) == nil {
-		t.Fatal("unexpected collection close accepted as value")
 	}
 }
 

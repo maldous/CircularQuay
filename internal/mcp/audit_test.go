@@ -9,10 +9,21 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
+func privateAuditPath(t *testing.T) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), "audit")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(directory, "mcp-audit.jsonl")
+}
+
 func TestProtectedFileAudit(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "mcp-audit.jsonl")
+	path := privateAuditPath(t)
 	a := newTestAuditor(t, path)
 	event := Event{Time: time.Now().UTC(), Subject: "local:alice", Workload: "alpha", Operation: "read", Key: "SERVICE_KEY", Outcome: "released"}
 	assertAuditRecord(t, a, path, event)
@@ -105,7 +116,7 @@ func TestAuditFileReplacementAndConcurrency(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows storage needs ACL contract testing")
 	}
-	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	path := privateAuditPath(t)
 	a := newTestAuditor(t, path)
 	done := make(chan error, 20)
 	recordAuditEvents(a, done, 20)

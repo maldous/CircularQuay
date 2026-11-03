@@ -32,8 +32,7 @@ func EnsurePrivateDirectory(path string) error {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return fault.New(fault.Apply, "create private directory")
 	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
+	if !resolvedPathIsOriginal(path) {
 		return fault.New(fault.Trust, "symbolic private directory")
 	}
 	if err := protectNewDirectory(path, created); err != nil {
@@ -154,8 +153,7 @@ func ValidateProtectedPath(path string) error {
 	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), true) || !checkNativeSecurity(path, true) {
 		return fault.New(fault.Trust, "protected path permissions")
 	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
+	if !resolvedPathIsOriginal(path) {
 		return fault.New(fault.Trust, "symbolic protected path")
 	}
 	return nil
@@ -184,6 +182,12 @@ func ReadProtected(path string, secret bool) ([]byte, error) {
 	return data, nil
 }
 
+// ValidateFileMetadata verifies a protected file path without reading contents.
+func ValidateFileMetadata(path string, secret bool) error {
+	_, err := protectedFileInfo(path, secret)
+	return err
+}
+
 func protectedFileInfo(path string, secret bool) (os.FileInfo, error) {
 	if !filepath.IsAbs(path) {
 		return nil, fault.New(fault.Trust, "absolute file path required")
@@ -195,8 +199,7 @@ func protectedFileInfo(path string, secret bool) (os.FileInfo, error) {
 	if !info.Mode().IsRegular() || !secureMode(info.Mode(), secret) || !checkNativeSecurity(path, secret) {
 		return nil, fault.New(fault.Trust, "protected file permissions")
 	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || filepath.Clean(resolved) != filepath.Clean(path) {
+	if !resolvedPathIsOriginal(path) {
 		return nil, fault.New(fault.Trust, "symbolic file path")
 	}
 	return info, nil
@@ -223,8 +226,7 @@ func protectedDestination(dir, path string) error {
 	if err := EnsurePrivateDirectory(dir); err != nil {
 		return err
 	}
-	resolved, err := filepath.EvalSymlinks(dir)
-	if err != nil || filepath.Clean(resolved) != filepath.Clean(dir) {
+	if !resolvedPathIsOriginal(dir) {
 		return fault.New(fault.Trust, "symbolic destination directory")
 	}
 	info, err := os.Lstat(path)

@@ -108,20 +108,46 @@ jobs:
           $ErrorActionPreference = 'Stop'
           go test -count=1 -p=1 ./...
   cross-build:
-    name: Compile ${{ matrix.os }}/${{ matrix.arch }}
+    name: Compile ${{ matrix.tier }} ${{ matrix.os }}/${{ matrix.arch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [linux, darwin, windows]
-        arch: [amd64, arm64]
+        include:
+          - { tier: release-build, os: linux, arch: '386' }
+          - { tier: release-build, os: linux, arch: arm, goarm: '7' }
+          - { tier: release-build, os: linux, arch: arm64 }
+          - { tier: release-build, os: linux, arch: amd64 }
+          - { tier: release-build, os: linux, arch: loong64 }
+          - { tier: release-build, os: linux, arch: ppc64le }
+          - { tier: release-build, os: linux, arch: riscv64 }
+          - { tier: release-build, os: linux, arch: s390x }
+          - { tier: release-build, os: darwin, arch: amd64 }
+          - { tier: release-build, os: darwin, arch: arm64 }
+          - { tier: release-build, os: windows, arch: '386' }
+          - { tier: release-build, os: windows, arch: amd64 }
+          - { tier: release-build, os: windows, arch: arm64 }
+          - { tier: portable-build, os: freebsd, arch: '386' }
+          - { tier: portable-build, os: freebsd, arch: amd64 }
+          - { tier: portable-build, os: freebsd, arch: arm64 }
+          - { tier: portable-build, os: netbsd, arch: '386' }
+          - { tier: portable-build, os: netbsd, arch: amd64 }
+          - { tier: portable-build, os: netbsd, arch: arm64 }
+          - { tier: portable-build, os: openbsd, arch: '386' }
+          - { tier: portable-build, os: openbsd, arch: amd64 }
+          - { tier: portable-build, os: openbsd, arch: arm64 }
+          - { tier: portable-build, os: dragonfly, arch: amd64 }
+          - { tier: portable-build, os: illumos, arch: amd64 }
+          - { tier: portable-build, os: solaris, arch: amd64 }
+          - { tier: compile-only, os: android, arch: arm64 }
     env:
       CGO_ENABLED: '0'
       GOMAXPROCS: '2'
       GOTOOLCHAIN: local
       GOOS: ${{ matrix.os }}
       GOARCH: ${{ matrix.arch }}
+      GOARM: ${{ matrix.goarm }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:

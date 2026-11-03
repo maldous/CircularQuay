@@ -8,15 +8,12 @@ import (
 	"flag"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/deliver"
 	"github.com/maldous/CircularQuay/internal/fault"
-	"github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/resolve"
@@ -70,19 +67,6 @@ func writeNew(path string, data []byte) error {
 		return fault.New(fault.Apply, "write file")
 	}
 	return nil
-}
-
-func (a application) doctor() (int, error) {
-	tools := map[string]bool{}
-	for _, name := range []string{"sops", "git", "systemd-creds", "bws", "op"} {
-		_, err := exec.LookPath(name)
-		tools[name] = err == nil
-	}
-	subject := "unavailable"
-	if principal, err := mcp.LocalPrincipal(); err == nil {
-		subject = principal.Subject
-	}
-	return a.print(map[string]any{"os": runtime.GOOS, "arch": runtime.GOARCH, "local_subject": subject, "tools": tools, "runtime_required": false, "qualification": "see audit evidence; no native reboot qualification implied"})
 }
 
 func (a application) plan() (int, error) {

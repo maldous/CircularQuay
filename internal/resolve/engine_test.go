@@ -11,6 +11,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/source"
 	"github.com/maldous/CircularQuay/internal/state"
 )
@@ -18,6 +19,15 @@ import (
 type memorySnapshot struct {
 	saved                 map[string]string
 	encryptErr, errorRead error
+}
+
+func privateResolveDirectory(t *testing.T, name string) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), name)
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
 }
 
 func (m *memorySnapshot) Encrypt(_ context.Context, _ model.Snapshot, v map[string]string) error {
@@ -34,12 +44,12 @@ func (m *memorySnapshot) Decrypt(context.Context, model.Snapshot) (map[string]st
 func fixture(t *testing.T) (*Engine, *memorySnapshot) {
 	t.Helper()
 	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
-	w := model.Workload{Mode: "hybrid", Bindings: []model.Binding{{Name: "TOKEN", Source: "a", Resource: "a", AllowOffline: true}, {Name: "OTHER", Source: "b", Resource: "b", AllowOffline: true}}, Snapshot: model.Snapshot{Path: filepath.Join(t.TempDir(), "snapshot"), Recipients: []string{"age1fixture"}}}
+	w := model.Workload{Mode: "hybrid", Bindings: []model.Binding{{Name: "TOKEN", Source: "a", Resource: "a", AllowOffline: true}, {Name: "OTHER", Source: "b", Resource: "b", AllowOffline: true}}, Snapshot: model.Snapshot{Path: filepath.Join(privateResolveDirectory(t, "snapshot"), "snapshot"), Recipients: []string{"age1fixture"}}}
 	p := model.Policy{Version: 1, Workloads: map[string]model.Workload{"demo": w}, Sources: map[string]model.Source{"a": {Type: "fake"}, "b": {Type: "fake"}}}
 	m := &memorySnapshot{}
 	e := &Engine{Policy: p, Reader: source.ReadFunc(func(_ context.Context, _ model.Source, b model.Binding) (model.Value, error) {
 		return model.Value{Data: "synthetic-only-" + b.Name, Version: "v1"}, nil
-	}), Snapshots: m, State: state.Store{Directory: filepath.Join(t.TempDir(), "state")}, Now: func() time.Time { return now }}
+	}), Snapshots: m, State: state.Store{Directory: privateResolveDirectory(t, "state")}, Now: func() time.Time { return now }}
 	return e, m
 }
 
@@ -95,6 +105,37 @@ func TestPartialReadNeverActivatesAndDenialFences(t *testing.T) {
 	})
 	if _, err = e.Resolve(ctx, "demo"); !fault.Is(err, fault.Denied) {
 		t.Fatal("observed denial did not fence cache")
+	}
+}
+
+func TestResolveRejectsValueExpiredBeforeGenerationCompletes(t *testing.T) {
+	e, snapshots := fixture(t)
+	ctx := context.Background()
+	seed, err := e.Resolve(ctx, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Snapshot(ctx, seed); err != nil {
+		t.Fatal(err)
+	}
+
+	now := e.now()
+	expires := now.Add(time.Minute)
+	e.Now = func() time.Time { return now }
+	e.Reader = source.ReadFunc(func(_ context.Context, _ model.Source, binding model.Binding) (model.Value, error) {
+		if binding.Name == "TOKEN" {
+			return model.Value{Data: "synthetic-first", Version: "v2", ExpiresAt: expires}, nil
+		}
+		now = expires
+		return model.Value{Data: "synthetic-later", Version: "v2"}, nil
+	})
+
+	generation, err := e.Resolve(ctx, "demo")
+	if !fault.Is(err, fault.Expired) || generation.Offline || len(generation.Values) != 0 {
+		t.Fatalf("expired generation or fallback accepted: generation=%+v error=%v", generation, err)
+	}
+	if len(snapshots.saved) != 1 {
+		t.Fatal("test fixture lost its eligible snapshot")
 	}
 }
 

@@ -80,7 +80,19 @@ func (e *Engine) readGeneration(ctx context.Context, id string, w model.Workload
 			return e.failed(ctx, id, w, err, allowFallback)
 		}
 	}
+	if err := validateFreshGeneration(g, e.now(), w.AuditRequired); err != nil {
+		return e.failed(ctx, id, w, err, allowFallback)
+	}
 	return g, nil
+}
+
+func validateFreshGeneration(generation model.Generation, now time.Time, auditRequired bool) error {
+	for _, value := range generation.Values {
+		if err := validateValue(value, now, auditRequired); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Engine) readBinding(ctx context.Context, g *model.Generation, binding model.Binding, auditRequired bool) error {
@@ -98,7 +110,7 @@ func (e *Engine) readBinding(ctx context.Context, g *model.Generation, binding m
 	if err != nil {
 		return err
 	}
-	if err := validateValue(value, g.RetrievedAt, auditRequired); err != nil {
+	if err := validateValue(value, e.now(), auditRequired); err != nil {
 		return err
 	}
 	g.Values[binding.Name] = value

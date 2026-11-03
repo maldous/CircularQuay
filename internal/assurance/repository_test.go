@@ -4,11 +4,22 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/maldous/CircularQuay/internal/platform"
 )
+
+func privateAssuranceDirectory(t *testing.T, name string) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), name)
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
 
 func fixtureRepository(t *testing.T) string {
 	t.Helper()
-	root := t.TempDir()
+	root := privateAssuranceDirectory(t, "repository")
 	for _, name := range requiredFiles {
 		if err := os.WriteFile(filepath.Join(root, name), []byte("synthetic\n"), 0600); err != nil {
 			t.Fatal(err)

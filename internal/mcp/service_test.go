@@ -176,12 +176,12 @@ func TestDisclosureFailures(t *testing.T) {
 
 func TestMandatorySourceAudit(t *testing.T) {
 	p := testPolicy(t)
-	src := p.Sources["fixture"]
-	src.Type = "sops"
-	src.AuditVerified = true
-	p.Sources["fixture"] = src
+	src := model.Source{Type: "vault", Endpoint: "https://vault.example", Mount: "kv", Resources: []string{"app"}, Identity: "token_file", TokenFile: filepath.Join(t.TempDir(), "synthetic-token"), AuditVerified: true}
+	p.Sources["audit"] = src
 	w := p.Workloads["alpha"]
 	w.Mode = "hybrid"
+	w.Bindings[0].Source = "audit"
+	w.Bindings[0].Resource = "app"
 	w.AuditRequired = true
 	p.Workloads["alpha"] = w
 	b := &fakeBackend{value: model.Value{Data: "value"}}
@@ -362,7 +362,7 @@ func TestInvalidConfigurationAndCancellation(t *testing.T) {
 
 func TestNewCreatesConfiguredProtectedAuditor(t *testing.T) {
 	p := testPolicy(t)
-	p.MCP.AuditPath = filepath.Join(t.TempDir(), "mcp-audit.jsonl")
+	p.MCP.AuditPath = privateAuditPath(t)
 	s, err := New(p, &fakeBackend{}, Options{})
 	if err != nil {
 		t.Fatal(err)

@@ -57,6 +57,18 @@ type Binding struct {
 	AllowPublish bool   `json:"allow_publish,omitempty" yaml:"allow_publish,omitempty"`
 }
 
+// SourceSupportsVersion reports whether a source can honor an explicit version
+// selector and return evidence of the selected revision. File metadata, vendor
+// timestamps, and encrypted-document digests are observations, not selectors.
+func SourceSupportsVersion(sourceType string) bool {
+	switch sourceType {
+	case "openbao", "vault", "infisical", "aws-sm", "aws-ssm", "azure", "gcp":
+		return true
+	default:
+		return false
+	}
+}
+
 // Workload groups values with the same trust and lifecycle boundary.
 type Workload struct {
 	Mode          string            `json:"mode" yaml:"mode"`

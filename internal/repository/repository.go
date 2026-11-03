@@ -16,11 +16,15 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
+	"github.com/maldous/CircularQuay/internal/quota"
 )
 
 const maximumFileBytes = 1 << 20
 const maximumReleaseBytes = 16 << 20
 const maximumFiles = 1024
+const maximumRepositoryBytes = 512 << 20
+const maximumRepositoryInodes = 100000
+const repositoryTemporaryInodes = 128
 
 type accepted struct {
 	URL    string `json:"url"`
@@ -29,9 +33,17 @@ type accepted struct {
 }
 
 type store struct {
-	repo    model.Repository
-	git     string
-	signers []byte
+	repo      model.Repository
+	git       string
+	signers   []byte
+	temporary string
+}
+
+type fetchOperations struct {
+	validateIdentity func() error
+	assertQuota      func(string) error
+	prepareTemporary func(*store) (func(), error)
+	candidate        func(context.Context, *store) (string, error)
 }
 
 func failure(kind fault.Kind, operation string) error {
@@ -46,22 +58,84 @@ func Fetch(ctx context.Context, repo model.Repository) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	release, err := acquireFetchLock(repo.Directory)
+	return s.fetch(ctx, nativeFetchOperations())
+}
+
+func nativeFetchOperations() fetchOperations {
+	return fetchOperations{
+		validateIdentity: quota.ValidateFetchIdentity,
+		assertQuota:      assertRepositoryQuota,
+		prepareTemporary: prepareFetchTemporary,
+		candidate: func(ctx context.Context, s *store) (string, error) {
+			return s.fetchCandidate(ctx)
+		},
+	}
+}
+
+func (s *store) fetch(ctx context.Context, operations fetchOperations) (string, error) {
+	if err := operations.validateIdentity(); err != nil {
+		return "", failure(fault.Unsupported, "disk_quota_identity")
+	}
+	release, err := acquireFetchLock(s.repo.Directory)
 	if err != nil {
 		return "", err
 	}
 	defer release()
+	if err = operations.assertQuota(s.repo.Directory); err != nil {
+		return "", err
+	}
+	cleanup, err := operations.prepareTemporary(s)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	previous, err := s.readAccepted()
 	if err != nil {
 		return "", err
 	}
-	commit, err := s.fetchCandidate(ctx)
+	commit, err := operations.candidate(ctx, s)
 	if err != nil {
 		return "", err
 	}
 	return s.acceptCandidate(ctx, previous, commit)
+}
+
+func assertRepositoryQuota(directory string) error {
+	err := quota.Check(quota.Native(), directory, repositoryQuotaLimits())
+	if errors.Is(err, quota.ErrInsufficient) {
+		return failure(fault.Unavailable, "disk_quota")
+	}
+	return mapQuotaError(err)
+}
+
+func repositoryQuotaLimits() quota.Limits {
+	return quota.Limits{
+		MaximumBytes:  maximumRepositoryBytes,
+		MaximumInodes: maximumRepositoryInodes,
+		ReserveBytes:  maximumReleaseBytes,
+		ReserveInodes: maximumFiles + repositoryTemporaryInodes,
+	}
+}
+
+func mapQuotaError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return failure(fault.Unsupported, "disk_quota")
+}
+
+func prepareFetchTemporary(s *store) (func(), error) {
+	directory := filepath.Join(s.repo.Directory, ".fetch-tmp")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		return nil, failure(fault.Trust, "temporary_directory")
+	}
+	if err := protectedDirectory(directory); err != nil {
+		return nil, err
+	}
+	s.temporary = directory
+	return func() { s.temporary = "" }, nil
 }
 
 func acquireFetchLock(directory string) (func(), error) {

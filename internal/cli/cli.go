@@ -20,7 +20,7 @@ import (
 )
 
 // Version and Commit are set by reproducible release builds.
-var Version = "0.1.0-dev"
+var Version = "1.0.0-dev"
 var Commit = "unknown"
 
 // Runner explicitly owns command I/O; errors never include raw provider text.
@@ -48,7 +48,7 @@ func (r Runner) Run(ctx context.Context, args []string) int {
 	}
 	f := flag.NewFlagSet("cquay", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	config := f.String("config", "cquay.yaml", "protected policy path")
+	config := f.String("config", "cquay.json", "protected policy path")
 	stateDir := f.String("state-dir", "", "private metadata directory")
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -80,7 +80,7 @@ func (r Runner) failure(err error) int {
 }
 
 func (r Runner) usage() int {
-	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <init|doctor|plan|run|sync|snapshot|apply|status|providers|mcp|version>")
+	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <init|config|doctor|plan|run|sync|snapshot|apply|status|providers|mcp|version>")
 	return 0
 }
 
@@ -92,10 +92,18 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 		return a.print(map[string]string{"version": Version, "commit": Commit, "go": "1.27", "maturity": "development"})
 	case "providers":
 		return a.print(source.Capabilities())
+	}
+	return a.dispatchConfigured(ctx, args)
+}
+
+func (a application) dispatchConfigured(ctx context.Context, args []string) (int, error) {
+	switch args[0] {
 	case "init":
 		return a.initialize(args[1:])
 	case "doctor":
-		return a.doctor()
+		return a.doctor(args[1:])
+	case "config":
+		return a.configCommand(args[1:])
 	case "plan":
 		return a.plan()
 	case "status":

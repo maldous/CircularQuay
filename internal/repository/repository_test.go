@@ -12,8 +12,19 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
+	"github.com/maldous/CircularQuay/internal/quota"
 )
+
+func privateRepositoryDirectory(t *testing.T, name string) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), name)
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
 
 func TestLocalCommandsDoNotLoadFetchToken(t *testing.T) {
 	s := &store{repo: model.Repository{TokenFile: filepath.Join(t.TempDir(), "absent-token"), URL: "https://example.invalid/repo"}}
@@ -126,7 +137,7 @@ func testTokensAndReadLimit(t *testing.T) {
 	if token, err := safeToken([]byte(" token ")); err != nil || token != "token" {
 		t.Fatal("safe token rejected")
 	}
-	path := filepath.Join(t.TempDir(), "input")
+	path := filepath.Join(privateRepositoryDirectory(t, "input"), "input")
 	if err := os.WriteFile(path, []byte("synthetic"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +199,7 @@ func TestGitOutputAndEnvironmentBoundaries(t *testing.T) {
 	if _, err := output.Write([]byte("d")); !fault.Is(err, fault.Trust) {
 		t.Fatal("oversized Git output accepted")
 	}
-	token := filepath.Join(t.TempDir(), "token")
+	token := filepath.Join(privateRepositoryDirectory(t, "credential"), "token")
 	if err := os.WriteFile(token, []byte("synthetic-token"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -203,12 +214,62 @@ func TestGitOutputAndEnvironmentBoundaries(t *testing.T) {
 	}
 }
 
-func materializedReleaseFixture(t *testing.T, files map[string]string) (string, map[string]string) {
-	t.Helper()
-	directory := t.TempDir()
-	if err := os.Chmod(directory, 0700); err != nil {
+func TestFetchRejectsBeforeGitWhenQuotaIsNotProven(t *testing.T) {
+	directory := privateRepositoryDirectory(t, "repository")
+	s := &store{repo: model.Repository{Directory: directory}}
+	candidateCalled := false
+	operations := fetchOperations{
+		validateIdentity: func() error { return nil },
+		assertQuota:      func(string) error { return failure(fault.Unsupported, "disk_quota") },
+		prepareTemporary: func(*store) (func(), error) {
+			t.Fatal("temporary directory prepared before quota proof")
+			return nil, nil
+		},
+		candidate: func(context.Context, *store) (string, error) {
+			candidateCalled = true
+			return "", nil
+		},
+	}
+	if _, err := s.fetch(context.Background(), operations); !fault.Is(err, fault.Unsupported) {
+		t.Fatalf("unproven quota error = %v", err)
+	}
+	if candidateCalled {
+		t.Fatal("Git candidate operation ran without quota proof")
+	}
+}
+
+func TestFetchTemporaryIsRepositoryScoped(t *testing.T) {
+	s := &store{repo: model.Repository{Directory: privateRepositoryDirectory(t, "repository")}}
+	cleanup, err := prepareFetchTemporary(s)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer cleanup()
+	environment, err := s.environment(false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(environment, "\n")
+	for _, name := range []string{"TMPDIR=", "TEMP=", "TMP="} {
+		if !strings.Contains(joined, name+s.temporary) {
+			t.Fatalf("missing repository temporary setting %q", name)
+		}
+	}
+}
+
+func TestRepositoryQuotaLimitsRequireReleaseReserve(t *testing.T) {
+	if err := quota.Check(fixtureQuota{quota.Status{HardBytes: maximumRepositoryBytes + maximumReleaseBytes, HardInodes: maximumRepositoryInodes + maximumFiles + repositoryTemporaryInodes, UserEnforced: true}}, "synthetic", repositoryQuotaLimits()); err != nil {
+		t.Fatalf("boundary quota rejected: %v", err)
+	}
+}
+
+type fixtureQuota struct{ status quota.Status }
+
+func (f fixtureQuota) Status(string) (quota.Status, error) { return f.status, nil }
+
+func materializedReleaseFixture(t *testing.T, files map[string]string) (string, map[string]string) {
+	t.Helper()
+	directory := privateRepositoryDirectory(t, "release")
 	tree := make(map[string]string, len(files))
 	for name, content := range files {
 		path := filepath.Join(directory, filepath.FromSlash(name))
@@ -224,10 +285,7 @@ func materializedReleaseFixture(t *testing.T, files map[string]string) (string, 
 }
 
 func TestAcceptedPointerStrictAndProtected(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
+	dir := privateRepositoryDirectory(t, "accepted")
 	s := &store{repo: model.Repository{Directory: dir, URL: "https://example.invalid/repo", Ref: "refs/heads/data"}}
 	expected := accepted{URL: s.repo.URL, Ref: s.repo.Ref, Commit: strings.Repeat("a", 40)}
 	if err := s.writeAccepted(expected); err != nil {
@@ -293,10 +351,7 @@ func newSignedRepositoryFixture(t *testing.T) signedRepositoryFixture {
 	if err != nil {
 		t.Skip("OpenSSH required for signed repository fixture")
 	}
-	root := t.TempDir()
-	if err = os.Chmod(root, 0700); err != nil {
-		t.Fatal(err)
-	}
+	root := privateRepositoryDirectory(t, "signed-repository")
 	fixture := signedRepositoryFixture{root: root, remote: filepath.Join(root, "remote"), git: git, key: filepath.Join(root, "signing"), signers: filepath.Join(root, "allowed-signers"), token: filepath.Join(root, "token")}
 	fixture.environment = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=" + os.DevNull, "GIT_TERMINAL_PROMPT=0"}
 	if err = os.Mkdir(fixture.remote, 0700); err != nil {
@@ -378,7 +433,11 @@ func installSyntheticTransport(t *testing.T, repo model.Repository, remote strin
 
 func fetchRepository(t *testing.T, repo model.Repository) string {
 	t.Helper()
-	directory, err := Fetch(context.Background(), repo)
+	s, err := openStore(repo, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory, err := s.fetch(context.Background(), syntheticFetchOperations())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +453,18 @@ func requireCurrent(t *testing.T, repo model.Repository, expected string) {
 
 func requireRejectedFetch(t *testing.T, repo model.Repository, name string) {
 	t.Helper()
-	if _, err := Fetch(context.Background(), repo); !fault.Is(err, fault.Trust) {
+	s, err := openStore(repo, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.fetch(context.Background(), syntheticFetchOperations()); !fault.Is(err, fault.Trust) {
 		t.Fatalf("%s accepted: %v", name, err)
 	}
+}
+
+func syntheticFetchOperations() fetchOperations {
+	operations := nativeFetchOperations()
+	operations.validateIdentity = func() error { return nil }
+	operations.assertQuota = func(string) error { return nil }
+	return operations
 }

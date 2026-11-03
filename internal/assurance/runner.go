@@ -153,7 +153,7 @@ func outputOverlapsSource(root, directory string) bool {
 }
 
 func auditEnvironment(home string) []string {
-	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "CGO_ENABLED=0"}
+	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "GOTOOLCHAIN=local", "CGO_ENABLED=0", "GOMAXPROCS=2", "GOFLAGS=-p=1", "SONAR_SCANNER_JAVA_OPTS=-Xmx1g -XX:ActiveProcessorCount=2"}
 	for _, key := range []string{"PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "TMPDIR", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "GOPROXY", "GOSUMDB", "GOMODCACHE", "GOCACHE"} {
 		if value, ok := os.LookupEnv(key); ok {
 			environment = append(environment, key+"="+value)

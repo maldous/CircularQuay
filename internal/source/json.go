@@ -16,6 +16,9 @@ import (
 )
 
 func readJSON(_ context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	data, version, err := readLiteralFileVersion(s.Path)
 	if err != nil {
 		return model.Value{}, err
@@ -33,6 +36,9 @@ func readJSON(_ context.Context, s model.Source, b model.Binding) (model.Value, 
 }
 
 func readEnvironment(_ context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	if s.Path == "" {
 		return readEnvironmentVariable(b.Resource, s.AuditVerified)
 	}

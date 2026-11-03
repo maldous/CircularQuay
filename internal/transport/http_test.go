@@ -13,7 +13,17 @@ import (
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
+
+func privateCredentialPath(t *testing.T) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), "credential")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(directory, "token")
+}
 
 func TestEndpointAndPathBoundary(t *testing.T) {
 	for _, raw := range []string{"http://host", "https://user:secret@host", "https://host?token=secret", "https://host/#x", "https://", "::::"} {
@@ -175,7 +185,7 @@ func TestInjectedClientWithoutTimeoutGetsBoundedRequest(t *testing.T) {
 }
 
 func TestCredentialFileBoundary(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "token")
+	path := privateCredentialPath(t)
 	if _, err := ReadCredentialFile("relative"); !fault.Is(err, fault.Invalid) {
 		t.Fatal("relative path accepted")
 	}

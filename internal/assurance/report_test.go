@@ -30,7 +30,7 @@ func TestFinishDoesNotClaimQualification(t *testing.T) {
 }
 
 func TestWritePrivateAtomicReport(t *testing.T) {
-	directory := t.TempDir()
+	directory := privateAssuranceDirectory(t, "report")
 	input := Report{Version: 1, Profile: "source", Checks: []Check{{Name: "fixture", Status: "passed"}}}
 	assertPrivateReportWritten(t, directory, input)
 	assertInvalidReportRejected(t, directory, input)

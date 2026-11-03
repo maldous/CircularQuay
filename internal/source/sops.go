@@ -33,6 +33,9 @@ const (
 // Read resolves one string field, after inspecting online key metadata before a
 // token is supplied. Transit sources cannot silently use an offline recipient.
 func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.Binding) (model.Value, error) {
+	if err := validateVersionCapability(config, binding); err != nil {
+		return model.Value{}, err
+	}
 	path := sopsPath(config, binding)
 	data, err := platform.ReadProtected(path, false)
 	if err != nil {
@@ -43,9 +46,6 @@ func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.B
 		return model.Value{}, err
 	}
 	version := sopsVersion(data)
-	if binding.Version != "" && binding.Version != version {
-		return model.Value{}, fault.New(fault.Trust, "SOPS ciphertext version mismatch")
-	}
 	plaintext, err := runSOPS(ctx, config.SOPS, sopsDecryptArgs(), data, config.AgeIdentityFile, config.TokenFile, config.VaultAllowlist)
 	if err != nil {
 		return model.Value{}, err

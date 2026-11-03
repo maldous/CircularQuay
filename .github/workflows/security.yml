@@ -1,0 +1,101 @@
+name: Security analysis
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL Go security and quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          languages: go
+          build-mode: manual
+          queries: security-and-quality
+      - name: Build all Go packages for CodeQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go mod download
+          go build -p 1 ./...
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4.39.2
+        with:
+          category: '/language:go'
+
+  go-security-tools:
+    name: Go security toolchain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Install pinned analysis tools
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$GOBIN"
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.2
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
+      - name: Run Staticcheck
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/staticcheck" ./...
+      - name: Run govulncheck
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/govulncheck" ./...
+      - name: Run gosec without exclusions
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/gosec" ./...

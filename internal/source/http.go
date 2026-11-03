@@ -79,6 +79,9 @@ func vaultValue(result vaultResult, s model.Source, b model.Binding) (model.Valu
 	if err != nil {
 		return model.Value{}, err
 	}
+	if err = validateReturnedVersion(b, strconv.Itoa(result.Data.Metadata.Version)); err != nil {
+		return model.Value{}, err
+	}
 	return leasedVaultValue(value, result, s), nil
 }
 
@@ -108,6 +111,9 @@ func readHosted(ctx context.Context, c transport.Client, provider string, s mode
 }
 
 func readDoppler(ctx context.Context, c transport.Client, s model.Source, b model.Binding, token string) (model.Value, error) {
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	if s.Project == "" || s.Environment == "" || b.Version != "" {
 		return model.Value{}, fault.New(fault.Invalid, "doppler_scope")
 	}
@@ -143,6 +149,9 @@ func readDoppler(ctx context.Context, c transport.Client, s model.Source, b mode
 }
 
 func readInfisical(ctx context.Context, c transport.Client, s model.Source, b model.Binding, token string) (model.Value, error) {
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	if s.Project == "" || s.Environment == "" {
 		return model.Value{}, fault.New(fault.Invalid, "infisical_scope")
 	}
@@ -199,10 +208,17 @@ func infisicalValue(raw *string, version int, hidden bool, s model.Source, b mod
 	if err != nil {
 		return model.Value{}, err
 	}
-	return model.Value{Data: data, Version: strconv.Itoa(version), AuditVerified: s.AuditVerified}, nil
+	actual := strconv.Itoa(version)
+	if err = validateReturnedVersion(b, actual); err != nil {
+		return model.Value{}, err
+	}
+	return model.Value{Data: data, Version: actual, AuditVerified: s.AuditVerified}, nil
 }
 
 func readAkeyless(ctx context.Context, c transport.Client, s model.Source, b model.Binding, token string) (model.Value, error) {
+	if err := validateVersionCapability(s, b); err != nil {
+		return model.Value{}, err
+	}
 	endpoint := s.Endpoint
 	if endpoint == "" {
 		endpoint = "https://api.akeyless.io"
@@ -212,13 +228,6 @@ func readAkeyless(ctx context.Context, c transport.Client, s model.Source, b mod
 		return model.Value{}, err
 	}
 	body := map[string]any{"names": []string{b.Resource}, "token": token}
-	if b.Version != "" {
-		version, e := strconv.ParseUint(b.Version, 10, 31)
-		if e != nil || version == 0 {
-			return model.Value{}, fault.New(fault.Invalid, "source_version")
-		}
-		body["version"] = version
-	}
 	var result map[string]any
 	if err = c.DoJSON(ctx, http.MethodPost, u, nil, body, &result); err != nil {
 		return model.Value{}, err

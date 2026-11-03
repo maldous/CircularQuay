@@ -1,76 +1,139 @@
 # Development session handoff
 
-Status: development checkpoint, NOT production qualified. No release, package index publication, infrastructure deployment, Foo installation, real credential migration, or live provider qualification has occurred.
+Status: CircularQuay v1 development is active and **not production qualified**.
+No release, package-index publication, production deployment, system/service
+installation, credential migration, operational infrastructure change, or
+live-provider qualification has occurred.
+Do not claim a passed gate without its retained evidence.
 
-## Current Foo development continuation
+## Start here
 
-The isolated checkout is `/home/user/src/2026-11-03/circularquay-dev`, on `feature/initial-implementation` from checkpoint `2b2cb124758933ebe1e5db1bc937b56e4f7969ad`. CircularQuay remains the project/module; app, command, release asset prefix and skill are `cquay` (pronounced “c-key”). The skill is now `integrations/skills/cquay/`.
+- Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
+  binary, release-asset prefix, and skill are `cquay` ("c-key");
+  `cquay-audit` is separate.
+- Development branch: `feature/initial-implementation`. This implementation
+  checkpoint builds on README-only commit `0023fef`; use `git rev-parse HEAD`
+  and `git status` to establish the actual revision and subsequent changes.
+- Read [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md),
+  the durable [implementation plan](implementation-plan.md), and
+  [RELEASE.md](../RELEASE.md) before editing. The plan is the scope contract;
+  this file records current evidence and continuation risk.
+- Use Gitflow: `main` is released/stable, `develop` integrates, `feature/*`
+  develops, `release/*` stabilizes, and `hotfix/*` starts from `main`. Do not
+  merge to `main`, tag, publish, or deploy until the required gates genuinely
+  pass.
 
-Implemented continuation work: release CLI reconciliation locks before launching children; use MCP kernel identity in doctor; protect state/lock files through platform I/O; reject ambiguous JSON and malformed snapshot provenance/lifecycle; fence fresh-read denials; retain partial target generation/activation state; harden signed repository paths, accepted pointer and SSH verifier; add real ephemeral SSH-signature/rollback/tamper tests; repair coverage aggregation and bind instrumentation to owned module paths; require clean source audits. Global CLI help works. Native activation tests use stubs; no operational workload/service was invoked.
+## Isolation and authorization
 
-Release/community source now includes pinned read-only CI, issue forms, release-note categories, support/conduct guidance and GoReleaser 2.19.0 native archive configuration. Local dirty-tree snapshot builds produced both commands, documentation and `cquay` skill for Linux/macOS/Windows amd64/arm64; archive path/content/checksum inspection passed. They are development artifacts, not public releases or native qualification. Whole-repository tests, race tests and vet passed during this continuation. All Go production/test functions now meet the complementary cyclomatic ceiling of 10; final receipts must identify the exact committed revision. Staticcheck passed under Go 1.27.3. govulncheck found zero reachable/imported-package vulnerabilities after updating x/net to v0.62.0; the uncalled x/crypto/OpenPGP all-version advisory remains transparent. Gosec still reports intentional guarded process execution and Git object SHA-1 use; these are unsuppressed and need explicit qualification disposition. TLC checked all five configured invariants (16,080 distinct states, depth 14) after fixing the tuple-constant configuration syntax without weakening bounds. Mutation sampling identified UTF-8/fingerprint assertion gaps; added tests kill both sampled mutants. ShellCheck, shfmt, Hadolint, Compose parsing, Actionlint, PSScriptAnalyzer and offline zizmor passed their bounded scopes. Syft produced source/binary CycloneDX/SPDX and license inventories from a development tree; they are not release attestations.
+Work only in an isolated developer checkout with synthetic fixtures. Do not
+install CircularQuay into service or system paths, restart services, alter
+infrastructure or existing credentials, inspect operational secret values or
+shell-profile credentials, or interfere with OffMenu BAU recovery. Do not
+create broad persistent credentials to bypass an unavailable GitHub permission.
 
-GitHub browser administration succeeded for Discussions, release immutability, merge-commit-only merges, branch-update suggestions, private vulnerability reporting, dependency graph, Dependabot vulnerability/security-update/malware alerts, and CodeQL default setup. Existing secret protection/push protection were on. CodeQL is dormant while the default branch contains no implementation. The active Gitflow ruleset (26444118) is saved and read back for main/develop/release branches: PR approval, stale-review dismissal, latest-push approval, conversation resolution, up-to-date Source assurance gate, deletion and force-push restrictions, and an empty bypass list. The required check source is currently Any source; bind it to GitHub Actions after the registered check is available. Active immutable version-tag rules (26446942) cover v* with update/deletion/force-push restrictions and an empty bypass list. Actions now permits only owner/GitHub-created actions, requires full SHA pins, uses read-only default tokens, prevents workflow PR approval, and requires approval for every external fork workflow. No actual tag/release was created. CLI remains unauthenticated and the API administrative integration's earlier HTTP 403 gap is not bypassed with a persistent credential.
+The user authorized reversible development and free test tooling, not paid
+resources, production deployments, or a universal credential daemon. Keep
+publishing, account, registry, and operator procedures in `RELEASE.md`; keep
+end-user/product material in `README.md`.
 
-Sonar reference work uses a task-owned Compose project `cquay-dev-audit-circularquay`, the committed pinned images, CPU/memory limits and a bounded temporary Elasticsearch filesystem (the host's percentage disk watermark prevented startup despite 127 GB free). No host settings or existing services were changed. Docker's internal bridge did not expose its declared loopback port, so an isolated loopback-only forwarding process on `127.0.0.1:19191` reaches this task's Sonar container; process handle is session-local. All new bootstrap credentials stay under ignored `.local/sonar/`, never printed or committed. SonarScanner 8.3.1.16491 was downloaded from the official vendor endpoint with its published checksum checked. The bootstrap now meets the server password policy, tightens overall/new-code conditions, retains comprehensive profiles and sets Go S3776 threshold 10. SonarGo has no S1541 rule; cyclomatic complexity requires the complementary analyzer. JSON/YAML comprehensive profiles have zero native rules in this reference instance, so complementary validation is required. The actual scan of local commit 308670c (published as identical-tree commit 75741d0) completed successfully but its quality gate FAILED: 62 code smells, 69.2% line coverage, zero reported bugs/vulnerabilities/hotspots/duplication, and zero task warnings. This is a failed qualification, not an omitted scan. Subsequent source changes refactor the findings and add tests; a fresh exact-revision scan is required. Live API testing exposed analysis-token read restrictions: the audit now creates a dedicated seven-day identity with project-scoped Browse/Execute Analysis, uses the correct hotspot parameter, verifies the exact scanner task/analysis/revision, rejects missing counts/warnings, and counts accepted/false-positive findings as blockers. Credentials remain private and task-scoped.
+## Current implementation checkpoint
 
-Remaining priorities: complete repository CLI resolution/fetch integration only after enforcing an operational pack-disk quota; implement reliable unchanged-target detection and complete scheduling/activation recovery semantics; finish provider/native integration and high-value negative tests; close all actual static/Sonar findings and reach the unchanged 100% owned-code coverage gate; complete formal implementation conformance and independent security review; qualify signed installers/native reboot/restore/live providers/registries. Earlier source audit measured 2,547/3,378 statements (75.4%) and correctly failed. Full production qualification is incomplete. Do not merge to main, create public tags/releases, or deploy production functionality.
+This checkpoint includes JSON policy CRUD and safe doctor
+formatting; protected metadata/state and path-ownership hardening; strict
+source, snapshot, target, grant, and repository contracts; repository quota
+work; provider contract tests; and extended release cross-build configuration.
+The expected policy/CLI contract is version 1 and the development version is
+`1.0.0-dev`.
 
-## Repository and workflow
+The CLI supports only policy operations `list`, `status`, `run`, and `read`.
+`run` authorizes the enrolled workload; read keys restrict only `read`.
+`cancel` is request-context cancellation, not a policy permission. Configuration
+editing is JSON-only, protected, bounded, strict-decoded, validated, and
+atomically replaced under a local lock plus digest recheck. YAML remains a
+loadable policy format but is intentionally not mutated by the editor.
 
-- Owner/repository: maldous/CircularQuay; Go module github.com/maldous/CircularQuay.
-- Main CLI cquay; standalone audit CLI cquay-audit; Apache-2.0.
-- Gitflow: main is stable/released, develop integration, feature/* work, release/* stabilization, hotfix/* from main with back-merges. Current work is feature/initial-implementation. Do not merge this checkpoint to main or tag a release.
-- User requires professional consistent paths/names, gofmt, human-readable functions and GoDoc/security rationale. Human developers will maintain this project.
-- GitHub repository security administration was attempted: all eight write requests returned HTTP 403 with the current integration credential (repository user permission metadata says admin, but this does not grant the app administrative scopes). No server-side setting was changed. Failed actions: repository merge/signoff settings; default Actions read-only permissions; vulnerability alerts; automated security fixes; secret scanning + push protection; private vulnerability reporting; main protection; develop protection. CODEOWNERS, Dependabot and a PR template are included as source configuration; these do not prove server-side enforcement. Reattempt with an appropriately authorized administrative integration, or follow GitHub Settings manually. Do not create a broad persistent PAT just to bypass this limitation.
+The v1 identity direction does not add a Keycloak dependency. Where a custom
+API is supported, trust an existing authorization server/IdP directly (for
+example Entra ID or Auth0) through named trust/configuration scope, role,
+client, subject, resource, context, and grant declarations. Do not hard-code
+development/production identity assumptions. DPoP, mTLS, private-key JWT, and
+offline-artifact binding are not implemented or qualified.
 
-## Authorization and isolation
+README ordering was directly revised by the user and preserved in `0023fef`.
+The Android rendering investigation found the raw Markdown, fences, HTML, and
+linked SVGs clean; browser rendering worked. Treat that as an app/cache issue
+unless new evidence reproduces a source-side rendering defect. Do not reorder
+the README without a user-directed reason.
 
-The user authorized implementation and free interoperability test accounts; no paid resources/trials/recurring costs. The user initially required cloud-only work and no installation on Foo. A local worker on Foo is now an offered handoff option, not authorization to install into services, alter infrastructure, read operational secret values, migrate credentials, restart services, or interfere with active OffMenu BAU recovery. If using Foo, use an isolated developer checkout and synthetic fixtures only. Do not inspect inherited shell profiles or environment values. No need to ask again to finish already authorized reversible development.
+## Recent local evidence
 
-## Original checkpoint inventory (historical at 2b2cb12)
+The retained fresh-worktree receipts are under
+`.local/qualification/fresh-current-tree-20261104/`. They are local evidence
+for the source captured by this checkpoint, not release evidence for `0023fef`.
+Using a fresh owner-only temporary directory under root-owned sticky `/tmp`,
+the latest normal tests,
+race tests, vet, gofmt, Staticcheck 2026.2.2, and `gocyclo -over 10` passed.
+The same checks correctly reject a `.local` temporary directory with an unsafe
+`0775` ancestor; do not relax that protection to make tests pass.
 
-- Strict policy/schema and exact authorization; offline/online/hybrid workload model; SOPS subprocess adapter with age or pinned OpenBao Transit metadata.
-- Lifecycle-aware complete generations and explicit encrypted offline snapshots; metadata-only state and native locks.
-- Provider adapters: local JSON/literal dotenv, OpenBao/Vault KV2, Doppler, Infisical, Akeyless, official AWS/Azure/GCP SDKs, fixed Bitwarden/1Password CLI operations. No 1Password Environments support.
-- Publication to Cloudflare Workers/Netlify/Windmill as one JSON bundle; native file/systemd/Windows delivery and declared activation helpers.
-- Optional official-SDK MCP stdio and HTTP, kernel UID/SID local identity, granular grants, single-key disclosure, registered actions, metadata audit receipts, cancellation/revocation checks.
-- Standalone audit runner, Sonar bootstrap/parser/profile/config, formal Delivery model, README architecture images, operator and release docs, platform templates/examples.
-- Signed Git data repository package exists but is experimental, untested and not integrated in CLI resolution/sync.
+After source changes, run the applicable checks from protected temporary
+storage and retain exact command, tool version, revision/tree state, and result.
+The source-profile 100% owned-code coverage
+gate remains unchanged and is not met by the last published CI receipt.
 
-## Original checkpoint verification (historical at 2b2cb12)
+## Qualification and release blockers
 
-Earlier full compilation/test run compiled all packages; two MCP fixture failures were subsequently fixed. Policy tests passed before additional repository/activation branches (old 100% coverage no longer applies). Provider/source/delivery tests passed before the final interrupted helper-refactor operation; latest transport rerun reported PASS. Latest MCP command passed race tests at 91.2% statement coverage. Audit package/CLI tests and audit CLI build passed. Earlier Windows crosscompile predates new activation/ACL additions. Final root tests added after the earlier global run are unverified. No actual Sonar server scan, TLC model check, independent audit, native Windows/systemd reboot test or live cloud-provider test occurred.
+The latest recorded SonarQube analysis of `24d8401` failed: two issues,
+72.1% overall coverage, and 76.7% new-line coverage. The recorded source
+coverage is 78.3714% (3,051/3,893 statements). It reported zero bugs and
+vulnerabilities, but that does not pass the quality gate. This checkpoint
+contains fixes for five managed findings, pending a fresh recheck. Sonar, full
+unchanged coverage, live providers,
+native reboot/recovery, installers, registry publication, and independent audit
+remain incomplete.
 
-Cloud-only upstream test tools were verified: Go 1.27.3 /workspace/.tools/go/bin/go (system /usr/bin/go is a board game); SOPS 3.13.3 /workspace/.tools/bin/sops verified exact Sigstore release identity + signed checksum; age 1.3.2 /workspace/.tools/bin/age-keygen verified official Sigsum proof. Tool binaries/identities are not source assets and are not committed.
+Cross-build/package work is build evidence only. Native Windows/macOS/Linux
+runtime, restart/recovery, installer, signed artifact, anonymous download,
+SBOM/provenance, and registry qualification still require real evidence. The
+signed repository declaration is not a claim that `sync` can fetch/deploy it
+until its integration, quota, recovery, and adverse-path qualification are
+complete.
 
-## Original checkpoint backlog (historical; current priorities above)
+GitHub protections currently have four required GitHub Actions checks bound;
+code scanning is configured as `Any` / `Any`, tag rules are active, and the
+advanced CodeQL source workflow accompanies this checkpoint while default
+setup is still active; complete and verify that transition before claiming an
+advanced scan. Verify settings by read-back after any administrative change. Earlier
+administrative writes returned HTTP 403; record permission gaps rather than
+bypassing them.
 
-1. Inspect the checkpoint, run gofmt on Go source, go mod tidy, then GOMAXPROCS=2 go test -p 1 ./... . Preserve actual results; no fake passing qualification. Cloud runtime repeatedly disconnected; all agents paused before this commit.
-2. internal/state/store.go still has Unix-only directory/file checks and direct OS writes. Reuse platform.EnsurePrivateDirectory/ReadProtected/WriteProtected for Windows ACLs, reject symlink lockfiles and trailing/malformed state JSON. Verify newly added state tests on each platform.
-3. internal/cli/commands.go currently holds the workload lock across the entire child run: release it after resolving/recording generation and before a long-running child. doctor must use mcp.LocalPrincipal(), not os/user or USER. Refactor into readable resolution/application/activation helpers.
-4. sync is incomplete: add --once compatibility, explicitly fetch declared signed repo, apply mapped targets and native activation safely. Track resolved/applied/activated/pending-activation states separately; never report healthy without a real probe. Do not skip changes based solely on source mtime/size or absent revisions. Do not mark activation success until it actually succeeds; retry failed activation.
-5. Resolver needs strict decrypted snapshot JSON decoding, exact payload structure and scope checks, cancellation checks, safe version metadata bounds, and preserved denial fence. Only Unavailable may use an explicitly permitted hybrid static snapshot; denial/TLS/trust/expiry must never trigger fallback. AuditRequired forbids offline fallback. SOPS errors currently conservatively classify Denied; automatic Transit-outage fallback is not qualified.
-6. Signed repository package must be hardened before use: load TokenFile only for authenticated fetch (Current must work without it); reuse platform native protected I/O/ACL/durable accepted pointer; initialize SHA256 repos for 64hex pins or reject; reject dot/dotdot path segments and all case-fold ancestor/file collisions; add fake-Git fault matrix and real ephemeral SSH-signed fixtures. Two-minute timeout does not bound pack disk use: require operational quota. It compiled with no tests; do not advertise complete secure sync.
-7. Native platform additions need final compilation/testing. Add ctx cancellation check before activation, especially Windows SCM stop. Inspect interrupted patch that added real SOPS test/platform tests. Verify platform.ValidateExecutable and native DACL checks. Run opt-in real SOPS age roundtrip with CQUAY_TEST_SOPS and CQUAY_TEST_AGE_KEYGEN only in isolated dev workspace.
-8. Inspect whether provider cloud.go helper extraction (awsSecretValue/awsParameterValue/azureSecretValue/gcpSecretValue) landed. Run source/deliver/transport tests. Add official SDK success-path fixtures and adverse paths. Azure only explicit VM IMDS or workload identity; AWS only explicit EC2/ECS with STS binding; GCP exact SA email. No live credential qualification.
-9. MCP strict profile requires signed typ=at+jwt, issuer/audience/exp/sub/client_id/iat/jti, RS256 or ES256; azp may only agree. cquay:mcp plus operation scopes. Generic ID tokens/opaque tokens unsupported; this is not an authorization server/login/DCR service. Trust configuration changes require restart; grants reload live. Local logs are durable metadata, not centralized tamper-proof evidence. 91.2% coverage does not meet required release threshold.
-10. Complete assurance packaging: CI workflows, installers, GoReleaser, container/MCP/MCPB assets, distribution instructions in RELEASE.md (not README). Apply complexity <=10 profile through Sonar API, run actual Sonar scanner and fix findings. Do not weaken tests/coverage/suppressions to fabricate clean output. 100% coverable owned-code target and zero owned issues/warnings remain unmet. Keep upstream dependency advisories transparent. No Sonar server started.
+## Priority continuation
 
-## Required documentation corrections
+1. Inspect `git status`; preserve concurrent work and do not overwrite others.
+   Format and run bounded tests with private temporary storage before changing
+   behavior.
+2. Integrate and review the current policy/CLI/provider/repository/platform
+   changes. Keep strict validation and protected-file semantics; add focused
+   adverse-path tests where contract behavior changed.
+3. Re-run SonarQube against the exact candidate revision, resolve every owned
+   issue and coverage gap without exclusions or weakened rules, and retain the
+   quality-gate receipt.
+4. Complete unresolved sync/application/activation/recovery behavior and its
+   strict snapshot/repository validation; do not infer health from an attempted
+   activation or a source timestamp.
+5. Perform qualified native, provider, installer, release, registry, and
+   independent-security evidence. Only then consider a `release/1.0.0` branch,
+   `v1.0.0-rc.1`, and ultimately `v1.0.0` under the gates in `RELEASE.md`.
 
-Update provider/operator docs with exact native identity restrictions; JSON/env mtime+size are observation hints only; Infisical US default/no imports/reference expansion; 1Password Environments unsupported. Native publishers write one JSON bundle (CQUAY_CONFIG default), not independent injected keys. Netlify functions-only granular scopes may need Pro; never broaden exposure automatically. Include exact target fields and dedicated target/context ownership. Align CLI flags/examples and windows target name. Finish MCP strict-profile docs; RELEASE exact sonar-init/compose/status/sonar-bootstrap/audit path, release/hotfix Gitflow, account/index/registry/operator postinstall instructions and uncompleted-activity ledger. Validate Markdown local links, JSON/XML/SVG, demos and diagrams.
+## Do not regress these boundaries
 
-## GitHub security work
-
-Inspect actual API/app permissions first. Add/review CODEOWNERS, issue/PR templates, Dependabot for Go and Actions, pinned-action CI with read-only default token and no pull_request_target execution of untrusted code. Configure available free branch/ruleset protection for main/develop/release/tags, no force/deletion, PR/check requirements, review dismissal and resolution; record solo-maintainer review tradeoffs. Enable available dependency graph, vulnerability alerts/updates, code/secret scanning and push protection, private vulnerability reporting, minimal Actions permissions and approved actions policy. Use release-only scoped OIDC for attestations/signing and verified provenance/SBOM/checksums. Do not create long-lived publish tokens unless necessary/authorized; do not alter account-wide MFA settings. Settings currently unverified; ensure admin denials are reported.
-
-## Next-session prompt
-
-Continue maldous/CircularQuay from feature/initial-implementation. Read this handoff, CONTRIBUTING.md, SECURITY.md, docs/implementation-plan.md and RELEASE.md before editing. This is an incomplete development checkpoint, not a qualified release. Finish authorized implementation and tests using Gitflow and human-maintainable Go. Keep development isolated; do not install into Foo services or touch OffMenu recovery, existing credentials, shell profiles or infrastructure. Use synthetic fixtures; do not disclose secrets. First inspect git status and run formatting plus bounded tests, fix minimum build/integration issues above, then complete root integration and rigorous qualification. Configure GitHub security where permissions allow; explicitly document unavailable controls. No release/main merge or production assurance claim until real required gates pass. Distribution/account instructions belong in RELEASE.md, feature documentation in README. Provide actual evidence, remaining limitations and precise next steps.
-
-## Final checkpoint verification
-
-PASS; GOMAXPROCS=2 go test -p 1 ./...; final checkpoint test output retained in ignored .local/checkpoint-test.log on original cloud workspace.
-
-All committed Go files were normalized with the verified Go formatter. No production assurance is inferred. Draft PR: https://github.com/maldous/CircularQuay/pull/1 .
+- No inline secret values, provider bootstrap tokens, private keys, or browser
+  sessions in policy, fixtures, logs, screenshots, or documentation.
+- No silent offline fallback after denial, trust/TLS failure, malformed input,
+  expiry, or policy mismatch.
+- No arbitrary command/provider URI through MCP; raw reads require an exact
+  explicit grant and are deliberate disclosure.
+- No quality-gate suppression, fabricated green badge, unconditional release
+  claim, or broad credential created to evade a missing permission.
+- No production assertion from compilation, cross-build, static analysis, or a
+  synthetic fixture alone.

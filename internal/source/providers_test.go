@@ -12,10 +12,15 @@ import (
 	"strings"
 	"testing"
 
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -47,7 +52,11 @@ func providerTestMain() bool {
 
 func tokenFixture(t *testing.T) string {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "token")
+	directory := filepath.Join(t.TempDir(), "credential")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(directory, "token")
 	if err := os.WriteFile(p, []byte("synthetic-token"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -56,11 +65,139 @@ func tokenFixture(t *testing.T) string {
 
 func TestRegistryAndLiteralSources(t *testing.T) {
 	testRegistryScope(t)
+	testVersionCapabilities(t)
 	testJSONLiteralSource(t)
 	testEnvironmentLiteralSource(t)
 	if len(Capabilities()) < 10 {
 		t.Fatal("capability inventory missing")
 	}
+}
+
+func testVersionCapabilities(t *testing.T) {
+	t.Helper()
+	types := []struct {
+		name      string
+		versioned bool
+	}{
+		{"json", false}, {"env", false}, {"sops", false}, {"doppler", false}, {"akeyless", false}, {"bitwarden", false}, {"onepassword", false},
+		{"openbao", true}, {"vault", true}, {"infisical", true}, {"aws-sm", true}, {"aws-ssm", true}, {"azure", true}, {"gcp", true},
+	}
+	capabilities := map[string]bool{}
+	for _, capability := range Capabilities() {
+		capabilities[capability.Type] = capability.Versioned
+	}
+	for _, test := range types {
+		t.Run(test.name, func(t *testing.T) {
+			testVersionCapability(t, test.name, test.versioned, capabilities)
+		})
+	}
+}
+
+func testVersionCapability(t *testing.T, name string, versioned bool, capabilities map[string]bool) {
+	t.Helper()
+	if model.SourceSupportsVersion(name) != versioned || capabilities[name] != versioned {
+		t.Fatal("capability inventory disagrees with version contract")
+	}
+	calls := 0
+	registry := NewRegistry()
+	registry.Register(name, ReadFunc(func(context.Context, model.Source, model.Binding) (model.Value, error) {
+		calls++
+		return model.Value{Data: "synthetic"}, nil
+	}))
+	source, binding := versionCapabilityRequest(name)
+	_, err := registry.Read(context.Background(), source, binding)
+	if versioned {
+		requireVersionedRead(t, err, calls)
+		return
+	}
+	requireUnversionedRejection(t, err, calls)
+}
+
+func versionCapabilityRequest(name string) (model.Source, model.Binding) {
+	source := model.Source{Type: name, Resources: []string{"declared"}}
+	binding := model.Binding{Resource: "declared", Version: "2"}
+	if name == "json" || name == "sops" {
+		source.Path = "/declared"
+		binding.Resource = "/declared"
+	}
+	return source, binding
+}
+
+func requireVersionedRead(t *testing.T, err error, calls int) {
+	t.Helper()
+	if err != nil || calls != 1 {
+		t.Fatalf("supported selector was not delivered: %v", err)
+	}
+}
+
+func requireUnversionedRejection(t *testing.T, err error, calls int) {
+	t.Helper()
+	if !fault.Is(err, fault.Invalid) || calls != 0 {
+		t.Fatalf("unsupported selector reached adapter: %v", err)
+	}
+}
+
+func TestProviderVersionResponseEvidence(t *testing.T) {
+	payload := []byte(`{"KEY":"value"}`)
+	checksum := int64(crc32.Checksum(payload, crc32.MakeTable(crc32.Castagnoli)))
+	tests := []struct {
+		name string
+		err  error
+		want fault.Kind
+	}{
+		{"vault_match", vaultVersionError(2, "2"), ""},
+		{"vault_mismatch", vaultVersionError(3, "2"), fault.Trust},
+		{"infisical_match", infisicalVersionError(4, "4"), ""},
+		{"infisical_mismatch", infisicalVersionError(5, "4"), fault.Trust},
+		{"aws_secret_id_match", validateAWSSecretVersion(model.Binding{Version: "id"}, &secretsmanager.GetSecretValueOutput{VersionId: aws.String("id")}), ""},
+		{"aws_secret_id_mismatch", validateAWSSecretVersion(model.Binding{Version: "id"}, &secretsmanager.GetSecretValueOutput{VersionId: aws.String("other")}), fault.Trust},
+		{"aws_secret_stage_match", validateAWSSecretVersion(model.Binding{Version: "stage:CURRENT"}, &secretsmanager.GetSecretValueOutput{VersionStages: []string{"CURRENT"}}), ""},
+		{"aws_secret_stage_mismatch", validateAWSSecretVersion(model.Binding{Version: "stage:CURRENT"}, &secretsmanager.GetSecretValueOutput{VersionStages: []string{"PREVIOUS"}}), fault.Trust},
+		{"aws_parameter_match", validateAWSParameterVersion(model.Binding{Version: "2"}, &ssmtypes.Parameter{Version: 2}), ""},
+		{"aws_parameter_label_match", validateAWSParameterVersion(model.Binding{Version: "approved"}, &ssmtypes.Parameter{Version: 2, Selector: aws.String(":approved")}), ""},
+		{"aws_parameter_mismatch", validateAWSParameterVersion(model.Binding{Version: "2"}, &ssmtypes.Parameter{Version: 3}), fault.Trust},
+		{"azure_match", validateReturnedVersion(model.Binding{Version: "version"}, "version"), ""},
+		{"azure_mismatch", validateReturnedVersion(model.Binding{Version: "version"}, "other"), fault.Trust},
+		{"gcp_match", gcpVersionError(payload, checksum, "projects/project/secrets/key/versions/2", "2"), ""},
+		{"gcp_mismatch", gcpVersionError(payload, checksum, "projects/project/secrets/key/versions/3", "2"), fault.Trust},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.want == "" && test.err != nil {
+				t.Fatalf("version evidence rejected: %v", test.err)
+			}
+			if test.want != "" && !fault.Is(test.err, test.want) {
+				t.Fatalf("version mismatch was not rejected: %v", test.err)
+			}
+		})
+	}
+}
+
+func vaultVersionError(actual int, requested string) error {
+	_, err := vaultValue(vaultResult{Data: struct {
+		Data     map[string]any `json:"data"`
+		Metadata struct {
+			Version      int    `json:"version"`
+			DeletionTime string `json:"deletion_time"`
+			Destroyed    bool   `json:"destroyed"`
+		} `json:"metadata"`
+	}{Data: map[string]any{"KEY": "value"}, Metadata: struct {
+		Version      int    `json:"version"`
+		DeletionTime string `json:"deletion_time"`
+		Destroyed    bool   `json:"destroyed"`
+	}{Version: actual}}}, model.Source{}, model.Binding{Name: "KEY", Version: requested})
+	return err
+}
+
+func infisicalVersionError(actual int, requested string) error {
+	value := "value"
+	_, err := infisicalValue(&value, actual, false, model.Source{}, model.Binding{Version: requested})
+	return err
+}
+
+func gcpVersionError(payload []byte, checksum int64, name, requested string) error {
+	_, err := gcpSecretValue(&secretmanagerpb.AccessSecretVersionResponse{Name: name, Payload: &secretmanagerpb.SecretPayload{Data: payload, DataCrc32C: &checksum}}, model.Source{Project: "project"}, model.Binding{Field: "KEY", Resource: "projects/project/secrets/key", Version: requested})
+	return err
 }
 
 func testRegistryScope(t *testing.T) {
@@ -204,17 +341,20 @@ func writeAkeylessContract(t *testing.T, w http.ResponseWriter, request *http.Re
 	fmt.Fprint(w, `{"KEY":"akeyless-value"}`)
 }
 
+type hostedContractCase struct{ typ, resource, version, want string }
+
 func assertHostedContracts(t *testing.T, registry *Registry, endpoint, token string) {
-	for _, test := range []struct{ typ, resource, version, want string }{{"openbao", "app", "2", "vault-value"}, {"vault", "app", "2", "vault-value"}, {"doppler", "KEY", "", "doppler-value"}, {"infisical", "KEY", "4", "infisical-value"}, {"akeyless", "KEY", "2", "akeyless-value"}} {
-		assertHostedContract(t, registry, endpoint, token, test.typ, test.resource, test.version, test.want)
+	for _, test := range []hostedContractCase{{"openbao", "app", "2", "vault-value"}, {"vault", "app", "2", "vault-value"}, {"doppler", "KEY", "", "doppler-value"}, {"infisical", "KEY", "4", "infisical-value"}, {"akeyless", "KEY", "", "akeyless-value"}} {
+		test.assert(t, registry, endpoint, token)
 	}
 }
 
-func assertHostedContract(t *testing.T, registry *Registry, endpoint, token, typ, resource, version, want string) {
-	source := model.Source{Type: typ, Endpoint: endpoint, Mount: "kv", TokenFile: token, Project: "project", Environment: "test", Resources: []string{resource}}
-	value, err := registry.Read(context.Background(), source, model.Binding{Name: "KEY", Resource: resource, Version: version})
-	if err != nil || value.Data != want {
-		t.Fatalf("%s contract failed: %v", typ, err)
+func (test hostedContractCase) assert(t *testing.T, registry *Registry, endpoint, token string) {
+	t.Helper()
+	source := model.Source{Type: test.typ, Endpoint: endpoint, Mount: "kv", TokenFile: token, Project: "project", Environment: "test", Resources: []string{test.resource}}
+	value, err := registry.Read(context.Background(), source, model.Binding{Name: "KEY", Resource: test.resource, Version: test.version})
+	if err != nil || value.Data != test.want {
+		t.Fatalf("%s contract failed: %v", test.typ, err)
 	}
 	if value.Leased {
 		t.Fatal("static KV duration incorrectly treated as lease")

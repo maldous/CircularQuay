@@ -12,6 +12,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/platform"
+	"github.com/maldous/CircularQuay/internal/quota"
 )
 
 const bareConfig = "[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = true\n\tlogallrefupdates = false\n"
@@ -27,6 +28,9 @@ func executeGit(ctx context.Context, environment []string, limit int64, argument
 	}
 	if platform.ValidateExecutable(program) != nil {
 		return nil, failure(fault.Trust, "git_dependency")
+	}
+	if quota.ValidateUnprivilegedExecution(program) != nil {
+		return nil, failure(fault.Unsupported, "disk_quota_identity")
 	}
 	// This is direct exec, never a shell. program is resolved and ACL-checked
 	// above; arguments are constructed by this package from validated policy,
@@ -59,7 +63,7 @@ func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string,
 	// Ambient Git, shell startup, and cloud credentials are deliberately absent.
 	// These variables provide only executable discovery, OS support and TLS/proxy
 	// transport. Trust in proxy/CA configuration belongs to the host administrator.
-	allowed := map[string]bool{"PATH": true, "SystemRoot": true, "WINDIR": true, "TEMP": true, "TMP": true, "HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true, "http_proxy": true, "https_proxy": true, "all_proxy": true, "no_proxy": true, "SSL_CERT_FILE": true, "SSL_CERT_DIR": true, "GIT_SSL_CAINFO": true}
+	allowed := map[string]bool{"PATH": true, "SystemRoot": true, "WINDIR": true, "HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true, "http_proxy": true, "https_proxy": true, "all_proxy": true, "no_proxy": true, "SSL_CERT_FILE": true, "SSL_CERT_DIR": true, "GIT_SSL_CAINFO": true}
 	environment := make([]string, 0, 48)
 	for _, entry := range os.Environ() {
 		name, _, _ := strings.Cut(entry, "=")
@@ -67,6 +71,7 @@ func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string,
 			environment = append(environment, entry)
 		}
 	}
+	environment = s.temporaryEnvironment(environment)
 	environment = append(environment, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_TERMINAL_PROMPT=0", "GIT_NO_REPLACE_OBJECTS=1", "GIT_ATTR_NOSYSTEM=1", "GIT_OPTIONAL_LOCKS=0")
 	settings := [][2]string{
 		{"credential.helper", ""}, {"credential.interactive", "false"}, {"core.hooksPath", os.DevNull}, {"core.attributesFile", os.DevNull}, {"core.fsmonitor", "false"}, {"http.followRedirects", "false"}, {"http.sslVerify", "true"}, {"protocol.allow", "never"}, {"protocol.https.allow", "always"}, {"fetch.fsckObjects", "true"}, {"transfer.fsckObjects", "true"}, {"submodule.recurse", "false"}, {"fetch.writeCommitGraph", "false"}, {"maintenance.auto", "false"}, {"gc.auto", "0"},
@@ -97,6 +102,13 @@ func (s *store) environment(authenticatedFetch, verifySignature bool) ([]string,
 	}
 	environment = append(environment, "GIT_CONFIG_COUNT="+strconv.Itoa(len(settings)))
 	return environment, nil
+}
+
+func (s *store) temporaryEnvironment(environment []string) []string {
+	if s.temporary == "" {
+		return environment
+	}
+	return append(environment, "TMPDIR="+s.temporary, "TEMP="+s.temporary, "TMP="+s.temporary)
 }
 
 func (s *store) command(ctx context.Context, limit int64, arguments ...string) ([]byte, error) {

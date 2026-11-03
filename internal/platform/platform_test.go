@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
@@ -59,8 +60,24 @@ func TestRunNoInheritanceAndPreservesArguments(t *testing.T) {
 	}
 }
 
+func TestRunRejectsExpiredGenerationBeforeLaunch(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gen := fixtureGeneration()
+	value := gen.Values["APP_SECRET"]
+	value.ExpiresAt = time.Now().Add(-time.Second)
+	gen.Values["APP_SECRET"] = value
+	var out bytes.Buffer
+	_, err = RunWithIO(context.Background(), model.Workload{Command: []string{exe, "--platform-helper"}}, gen, nil, nil, &out, io.Discard)
+	if !fault.Is(err, fault.Expired) || out.Len() != 0 {
+		t.Fatal("expired generation reached child launch")
+	}
+}
+
 func TestInvalidLaunchAndEnvironment(t *testing.T) {
-	for _, args := range [][]string{nil, {"relative"}, {filepath.Join(t.TempDir(), "script.cmd")}, {"/bin/echo", "bad\x00arg"}} {
+	for _, args := range [][]string{nil, {"relative"}, {filepath.Join(secureTempDir(t), "script.cmd")}, {"/bin/echo", "bad\x00arg"}} {
 		if _, err := RunWithIO(context.Background(), model.Workload{Command: args}, fixtureGeneration(), nil, nil, io.Discard, io.Discard); !fault.Is(err, fault.Invalid) {
 			t.Fatal("unsafe executable accepted")
 		}
@@ -86,7 +103,7 @@ func TestInvalidLaunchAndEnvironment(t *testing.T) {
 }
 
 func TestProtectedAtomicDelivery(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "private", "values.json")
+	path := filepath.Join(secureTempDir(t), "private", "values.json")
 	if err := Apply(context.Background(), model.Target{Type: "file", Path: path}, fixtureGeneration()); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +125,7 @@ func TestProtectedAtomicDelivery(t *testing.T) {
 }
 
 func TestStageProtectedFileRemovesFailedStage(t *testing.T) {
-	dir := t.TempDir()
+	dir := secureTempDir(t)
 	_, err := stageProtectedFileWithWriter(dir, []byte("synthetic"), func(_ *os.File, _ []byte) error {
 		return errors.New("synthetic write failure")
 	})
@@ -123,7 +140,7 @@ func TestStageProtectedFileRemovesFailedStage(t *testing.T) {
 
 func TestProtectedFileRejections(t *testing.T) {
 	testRelativeAndDirectoryRejections(t)
-	dir := t.TempDir()
+	dir := secureTempDir(t)
 	testMissingAndOversizeRejections(t, dir)
 	if runtime.GOOS != "windows" {
 		testUnixFileRejections(t, dir)
@@ -138,7 +155,7 @@ func testRelativeAndDirectoryRejections(t *testing.T) {
 	if err := WriteProtected("relative", nil); !fault.Is(err, fault.Invalid) {
 		t.Fatal("relative destination accepted")
 	}
-	dir := t.TempDir()
+	dir := secureTempDir(t)
 	if _, err := ReadProtected(dir, true); !fault.Is(err, fault.Trust) {
 		t.Fatal("directory source accepted")
 	}
@@ -214,7 +231,7 @@ func TestNativeUnsupportedAndInvalidValues(t *testing.T) {
 }
 
 func TestProtectedAuditRecords(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	path := filepath.Join(secureTempDir(t), "audit.jsonl")
 	var group sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		group.Go(func() {
@@ -248,7 +265,7 @@ func TestProtectedAuditRecords(t *testing.T) {
 }
 
 func TestPrivateDirectoryAndExecutableTrust(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "created")
+	dir := filepath.Join(secureTempDir(t), "created")
 	if err := EnsurePrivateDirectory(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -260,6 +277,12 @@ func TestPrivateDirectoryAndExecutableTrust(t *testing.T) {
 }
 
 func testExecutableTrust(t *testing.T) {
+	t.Helper()
+	exe := testExecutableDigest(t)
+	testUnixExecutableTrust(t, exe)
+}
+
+func testExecutableDigest(t *testing.T) string {
 	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
@@ -282,15 +305,51 @@ func testExecutableTrust(t *testing.T) {
 	if err := ValidateExecutable("relative"); !fault.Is(err, fault.Trust) {
 		t.Fatal("relative helper accepted")
 	}
+	return exe
+}
+
+func testUnixExecutableTrust(t *testing.T, exe string) {
+	t.Helper()
 	if runtime.GOOS != "windows" {
-		link := filepath.Join(t.TempDir(), "helper-link")
-		if err := os.Symlink(exe, link); err != nil {
+		if err := ValidateExecutable("/bin/true"); err != nil {
+			t.Fatal("stable system executable alias rejected")
+		}
+		unsafe := filepath.Join(secureTempDir(t), "unsafe-helper")
+		if err := os.WriteFile(unsafe, []byte("synthetic"), 0o666); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(unsafe, 0o666); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(secureTempDir(t), "unsafe-helper-link")
+		if err := os.Symlink(unsafe, link); err != nil {
 			t.Fatal(err)
 		}
 		if err := ValidateExecutable(link); !fault.Is(err, fault.Trust) {
-			t.Fatal("symbolic executable accepted")
+			t.Fatal("symbolic executable to mutable target accepted")
 		}
 	}
+}
+
+func secureTempDir(t *testing.T) string {
+	t.Helper()
+	base := os.TempDir()
+	if runtime.GOOS != "windows" {
+		// Test data must exercise the same immutable-ancestor rule as production.
+		// Do not inherit an arbitrary TMPDIR when the standard root-owned sticky
+		// directory is available.
+		base = "/tmp"
+	}
+	dir, err := os.MkdirTemp(base, "cquay-platform-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }
 
 func testExistingDirectoryPermissions(t *testing.T, dir string) {
@@ -301,6 +360,13 @@ func testExistingDirectoryPermissions(t *testing.T, dir string) {
 		}
 		if err := EnsurePrivateDirectory(dir); !fault.Is(err, fault.Trust) {
 			t.Fatal("public existing state directory accepted")
+		}
+		link := filepath.Join(secureTempDir(t), "private-directory-link")
+		if err := os.Symlink(secureTempDir(t), link); err != nil {
+			t.Fatal(err)
+		}
+		if err := EnsurePrivateDirectory(link); !fault.Is(err, fault.Trust) {
+			t.Fatal("symbolic private directory accepted")
 		}
 	}
 }

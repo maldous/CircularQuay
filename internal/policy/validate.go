@@ -32,6 +32,9 @@ func Validate(policy model.Policy) error {
 	if err := validatePolicyWorkloads(policy); err != nil {
 		return err
 	}
+	if err := validatePathOwnership(policy); err != nil {
+		return err
+	}
 	if err := validateGrants(policy); err != nil {
 		return err
 	}
@@ -71,6 +74,9 @@ func validateSource(source model.Source) error {
 		return err
 	}
 	if err := uniqueExact(source.Resources); err != nil {
+		return err
+	}
+	if err := validateSourceContract(source); err != nil {
 		return err
 	}
 	return validateSourceIdentity(source)
@@ -155,6 +161,9 @@ func validateWorkload(policy model.Policy, workload model.Workload) error {
 	if err := validateWorkloadBindings(policy, workload); err != nil {
 		return err
 	}
+	if err := validateSnapshotDeclaration(workload); err != nil {
+		return err
+	}
 	if err := validateCommand(workload.Command); err != nil {
 		return err
 	}
@@ -210,6 +219,9 @@ func validateBinding(policy model.Policy, workload model.Workload, binding model
 	if !validBindingScope(source, exists, binding) {
 		return invalid("binding_scope")
 	}
+	if binding.Version != "" && !model.SourceSupportsVersion(source.Type) {
+		return invalid("binding_version")
+	}
 	if workload.AuditRequired && !source.AuditVerified {
 		return invalid("audit_capability")
 	}
@@ -245,19 +257,7 @@ func validBindingScope(source model.Source, exists bool, binding model.Binding) 
 
 func validateTargets(workload model.Workload) error {
 	for name, target := range workload.Targets {
-		if !validTarget(name, target) {
-			return invalid("target_declaration")
-		}
-		if target.Endpoint != "" && !secureEndpoint(target.Endpoint, false) {
-			return invalid("target_endpoint")
-		}
-		if err := validateActivation(target); err != nil {
-			return err
-		}
-		if !target.AcceptSnapshot {
-			return invalid("target_snapshot_semantics")
-		}
-		if err := validateTargetExports(workload.Bindings); err != nil {
+		if err := validateTargetDeclaration(name, target, workload.Bindings); err != nil {
 			return err
 		}
 	}
@@ -265,6 +265,25 @@ func validateTargets(workload model.Workload) error {
 		return invalid("online_snapshot")
 	}
 	return nil
+}
+
+func validateTargetDeclaration(name string, target model.Target, bindings []model.Binding) error {
+	if !validTarget(name, target) {
+		return invalid("target_declaration")
+	}
+	if err := validateTargetContract(target); err != nil {
+		return err
+	}
+	if target.Endpoint != "" && !secureEndpoint(target.Endpoint, false) {
+		return invalid("target_endpoint")
+	}
+	if err := validateActivation(target); err != nil {
+		return err
+	}
+	if !target.AcceptSnapshot {
+		return invalid("target_snapshot_semantics")
+	}
+	return validateTargetExports(bindings)
 }
 
 func validTarget(name string, target model.Target) bool {

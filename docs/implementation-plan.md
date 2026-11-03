@@ -10,6 +10,9 @@ This is the durable engineering contract, not a completion report. Scope is impl
 - SOPS/age offline, optional OpenBao Transit online, explicitly authorized hybrid snapshots, and separately labeled native deployed snapshots.
 - Native Linux/systemd, Windows, Termux, container, Windmill, Stokowski and cloud recipes/adapters, qualified individually.
 - Optional local/hosted authenticated MCP with filtered metadata, registered actions and separate per-user/client/key raw-read permissions.
+- Provider-independent identity authorization: use an existing OAuth authorization server directly when it supports a registered CircularQuay API, or a self-hosted server such as Keycloak. No particular identity product, hosted broker or paid plan is a runtime prerequisite.
+- Named issuer trust and typed access-token profiles, configurable scope/role mappings, exact principal/client/resource associations and bounded lifetimes. Context names and permissions are operator-defined; development/production labels are examples only.
+- Standard asymmetric client authentication and sender constraints where qualified: private-key JWT, DPoP and mutual TLS. Offline identity authorization requires an issuer-authorized artifact binding and an explicit clock/revocation trust contract; an ordinary login token or OAuth refresh permission does not establish it.
 - No extra recurring paid provider dependency for the personal reference; free testing accounts authorized, no automatic paid conversion.
 - Strict first-party quality with transparent upstream advisory/mitigation reporting.
 - Public README for motivation/features/user usage; `RELEASE.md` for maintainer/operator account, index, audit, deployment and post-installation directions.
@@ -39,6 +42,17 @@ No automatic history rewrite, estate-wide rotation or production service restart
 | Operator qualification | Relevant implementations | Real reboot/device/provider/client/restore receipts, not merely compilation. |
 
 Independent packages can proceed in parallel after their contracts are fixed.
+Identity interoperability is qualified by capability and configured token
+profile, not by a provider's support for login alone. A resource server accepts
+access tokens for its own audience, never an ID token as a bearer substitute.
+Provider-specific claims such as delegated scopes, application roles and client
+identity require explicit typed validation and mapping before they can grant
+an operation. The v1 JSON schema, Go model, validator, runtime, negative tests
+and operator reference change together; no accepted field may be ignored or
+claim support for an unimplemented integration. External provider entitlements
+and free-tier limits remain deployment prerequisites, not CircularQuay gates
+that can be bypassed by broadening trust.
+
 The initial public product and policy contract are v1. Release stabilization
 uses `release/1.0.0` and `v1.0.0-rc.1` candidates before a qualified `v1.0.0`.
 An optional channel is advertised only for its implemented, qualified scope;

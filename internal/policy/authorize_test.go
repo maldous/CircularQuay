@@ -56,6 +56,11 @@ func TestGrantValidation(t *testing.T) {
 		{Subject: "alice", Workload: "demo", Operations: []string{"status", "status"}},
 		{Subject: "alice", Workload: "demo", Operations: []string{"read"}},
 		{Subject: "alice", Workload: "demo", Operations: []string{"read"}, Keys: []string{"MISSING"}},
+		{Subject: "alice", Workload: "demo", Operations: []string{"read"}, Keys: []string{"DEMO_MESSAGE", "DEMO_MESSAGE"}},
+		{Subject: "alice", Workload: "demo", Operations: []string{"run"}, Keys: []string{"DEMO_MESSAGE"}},
+		{Subject: "alice", Workload: "demo", Operations: []string{"cancel"}},
+		{Subject: "alice", Workload: "demo", Operations: []string{"get_result"}},
+		{Subject: "alice", Workload: "demo", Operations: []string{"read_secret"}, Keys: []string{"DEMO_MESSAGE"}},
 	} {
 		policy := validPolicy()
 		policy.Grants = []model.Grant{grant}
@@ -65,20 +70,23 @@ func TestGrantValidation(t *testing.T) {
 	}
 }
 
-func TestToolNameAliasesRequireTheirOwnGrant(t *testing.T) {
+func TestMixedRunAndReadGrantScopesOnlyReadsByKey(t *testing.T) {
 	policy := validPolicy()
-	policy.Grants = []model.Grant{{Subject: "alice", Workload: "demo", Operations: []string{"list_workloads", "read_secret"}, Keys: []string{"DEMO_MESSAGE"}}}
+	workload := policy.Workloads["demo"]
+	workload.Bindings = append(workload.Bindings, model.Binding{Name: "OTHER_MESSAGE", Source: "fixture", Field: "other", AllowOffline: true})
+	policy.Workloads["demo"] = workload
+	policy.Grants = []model.Grant{{Subject: "alice", Workload: "demo", Operations: []string{"run", "read"}, Keys: []string{"DEMO_MESSAGE"}}}
 	if err := Validate(policy); err != nil {
 		t.Fatal(err)
 	}
-	if !Authorize(policy, "alice", "", "demo", "read_secret", "DEMO_MESSAGE") {
-		t.Fatal("exact alias grant was denied")
+	if !Authorize(policy, "alice", "", "demo", "run", "") {
+		t.Fatal("complete workload run grant was denied")
 	}
-	if Authorize(policy, "alice", "", "demo", "read", "DEMO_MESSAGE") {
-		t.Fatal("alias silently widened operation grant")
+	if !Authorize(policy, "alice", "", "demo", "read", "DEMO_MESSAGE") {
+		t.Fatal("declared read key was denied")
 	}
-	if len(VisibleWorkloads(policy, "alice", "")) != 1 {
-		t.Fatal("tool-name discovery grant was denied")
+	if Authorize(policy, "alice", "", "demo", "read", "OTHER_MESSAGE") {
+		t.Fatal("read key grant widened to another binding")
 	}
 }
 

@@ -3,26 +3,104 @@ version: 2
 project_name: cquay
 env:
   - CGO_ENABLED=0
+snapshot:
+  version_template: '1.0.0-dev.{{ .ShortCommit }}'
 builds:
-  - id: cquay
+  - id: cquay-linux
     main: ./cmd/cquay
     binary: cquay
-    goos: [linux, darwin, windows]
+    goos: [linux]
+    goarch: [386, arm, arm64, amd64, loong64, ppc64le, riscv64, s390x]
+    goarm: [7]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
+  - id: cquay-darwin
+    main: ./cmd/cquay
+    binary: cquay
+    goos: [darwin]
     goarch: [amd64, arm64]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
     ldflags:
       - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
-  - id: cquay-audit
+  - id: cquay-windows
+    main: ./cmd/cquay
+    binary: cquay
+    goos: [windows]
+    goarch: [386, amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
+  - id: cquay-portable-unix
+    main: ./cmd/cquay
+    binary: cquay
+    goos: [freebsd, netbsd, openbsd, dragonfly, illumos, solaris]
+    goarch: [386, amd64, arm64]
+    ignore:
+      - goos: dragonfly
+        goarch: 386
+      - goos: dragonfly
+        goarch: arm64
+      - goos: illumos
+        goarch: 386
+      - goos: illumos
+        goarch: arm64
+      - goos: solaris
+        goarch: 386
+      - goos: solaris
+        goarch: arm64
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    ldflags:
+      - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
+  - id: cquay-audit-linux
     main: ./cmd/cquay-audit
     binary: cquay-audit
-    goos: [linux, darwin, windows]
+    goos: [linux]
+    goarch: [386, arm, arm64, amd64, loong64, ppc64le, riscv64, s390x]
+    goarm: [7]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+  - id: cquay-audit-darwin
+    main: ./cmd/cquay-audit
+    binary: cquay-audit
+    goos: [darwin]
     goarch: [amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+  - id: cquay-audit-windows
+    main: ./cmd/cquay-audit
+    binary: cquay-audit
+    goos: [windows]
+    goarch: [386, amd64, arm64]
+    flags: [-trimpath]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+  - id: cquay-audit-portable-unix
+    main: ./cmd/cquay-audit
+    binary: cquay-audit
+    goos: [freebsd, netbsd, openbsd, dragonfly, illumos, solaris]
+    goarch: [386, amd64, arm64]
+    ignore:
+      - goos: dragonfly
+        goarch: 386
+      - goos: dragonfly
+        goarch: arm64
+      - goos: illumos
+        goarch: 386
+      - goos: illumos
+        goarch: arm64
+      - goos: solaris
+        goarch: 386
+      - goos: solaris
+        goarch: arm64
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
 archives:
   - id: native
-    ids: [cquay, cquay-audit]
+    ids: [cquay-linux, cquay-darwin, cquay-windows, cquay-portable-unix, cquay-audit-linux, cquay-audit-darwin, cquay-audit-windows, cquay-audit-portable-unix]
     name_template: 'cquay_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     formats: [tar.gz]
     format_overrides:
@@ -35,8 +113,9 @@ archives:
       - SECURITY.md
       - SUPPORT.md
       - CHANGELOG.md
-      - docs/qualification.md
-      - docs/operators/**
+      - docs/**
+      - examples/**
+      - internal/policy/schema/policy-v1.schema.json
       - integrations/skills/cquay/**
 checksum:
   name_template: 'cquay_{{ .Version }}_checksums.txt'

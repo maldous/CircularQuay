@@ -7,10 +7,20 @@ import (
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/platform"
 )
 
+func privateStateDirectory(t *testing.T) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), "state")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
 func TestAtomicMetadataAndProcessLock(t *testing.T) {
-	s := Store{Directory: filepath.Join(t.TempDir(), "state")}
+	s := Store{Directory: privateStateDirectory(t)}
 	requireState(t, s, "not_provisioned")
 	if err := s.Write(Record{Workload: "demo", State: "ready", Mode: "offline"}); err != nil {
 		t.Fatal(err)
@@ -52,7 +62,7 @@ func requireUnlock(t *testing.T, release func() error) {
 }
 
 func TestInvalidAndCorruptState(t *testing.T) {
-	s := Store{Directory: t.TempDir()}
+	s := Store{Directory: privateStateDirectory(t)}
 	for _, name := range []string{"../escape", "", strings.Repeat("x", 65)} {
 		if _, err := s.Read(name); !fault.Is(err, fault.Invalid) {
 			t.Fatal("invalid name accepted")
@@ -96,7 +106,7 @@ func TestUnsafeStateDirectory(t *testing.T) {
 }
 
 func TestStateRejectsTrailingJSON(t *testing.T) {
-	s := Store{Directory: t.TempDir()}
+	s := Store{Directory: privateStateDirectory(t)}
 	p := filepath.Join(s.Directory, "demo.json")
 	for _, body := range []string{`{"workload":"demo"} {}`, `{"workload":"demo"} trailing`, `{"workload":"demo","workload":"demo"}`} {
 		if err := os.WriteFile(p, []byte(body), 0600); err != nil {
@@ -109,7 +119,7 @@ func TestStateRejectsTrailingJSON(t *testing.T) {
 }
 
 func TestStateRejectsSymlinkFiles(t *testing.T) {
-	s := Store{Directory: t.TempDir()}
+	s := Store{Directory: privateStateDirectory(t)}
 	target := filepath.Join(t.TempDir(), "target")
 	if err := os.WriteFile(target, []byte(`{"workload":"demo"}`), 0600); err != nil {
 		t.Fatal(err)

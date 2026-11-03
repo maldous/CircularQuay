@@ -58,6 +58,25 @@ func TestInspectSonar(t *testing.T) {
 	}
 }
 
+func TestInspectSonarRejectsConcurrentAnalysis(t *testing.T) {
+	analysisReads := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/api/project_analyses/search" {
+			analysisReads++
+			if analysisReads > 1 {
+				_, _ = io.WriteString(writer, `{"analyses":[{"key":"replacement-analysis","revision":"`+strings.Repeat("a", 40)+`"}]}`)
+				return
+			}
+		}
+		sonarFixture(writer, request)
+	}))
+	defer server.Close()
+	_, err := inspectSonar(context.Background(), server.URL, "synthetic-token", "fixture", strings.Repeat("a", 40), "fixture-task")
+	if err == nil || analysisReads != 2 {
+		t.Fatal("mixed analysis evidence accepted")
+	}
+}
+
 func TestSonarRejectsRedirectAndRawErrors(t *testing.T) {
 	contacted := false
 	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { contacted = true }))
@@ -148,7 +167,7 @@ func sonarOverrideServer(route, response string) *httptest.Server {
 }
 
 func TestSonarPrivateStateAndBootstrap(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "state")
+	directory := privateAssuranceDirectory(t, "sonar-state")
 	if err := InitSonar(directory); err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +239,7 @@ func TestSonarClientAuthorizationNotInURL(t *testing.T) {
 }
 
 func TestSonarCredentialFilesHaveNoPublicPermissions(t *testing.T) {
-	directory := t.TempDir()
+	directory := privateAssuranceDirectory(t, "sonar-state")
 	if err := InitSonar(directory); err != nil {
 		t.Fatal(err)
 	}

@@ -316,7 +316,7 @@ func (s *Service) record(ctx context.Context, p Principal, workload, operation, 
 }
 
 func (s *Service) server(p Principal) *sdk.Server {
-	server := sdk.NewServer(&sdk.Implementation{Name: "CircularQuay", Version: "0.1.0"}, &sdk.ServerOptions{
+	server := sdk.NewServer(&sdk.Implementation{Name: "CircularQuay", Version: "1.0.0"}, &sdk.ServerOptions{
 		Capabilities: &sdk.ServerCapabilities{},
 		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		// Leave protocol negotiation to the official SDK's maintained versions.

@@ -83,7 +83,11 @@ func writeSOPSTestPlaintext(value map[string]json.RawMessage) int {
 
 func sopsFixture(t *testing.T, metadata string) (model.Source, string) {
 	t.Helper()
-	file := filepath.Join(t.TempDir(), "fixture.json")
+	directory := filepath.Join(t.TempDir(), "sops")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(directory, "fixture.json")
 	data := []byte(`{"sops":` + metadata + `,"test_data":{"KEY":"synthetic-only"}}`)
 	if err := platform.WriteProtected(file, data); err != nil {
 		t.Fatal(err)
@@ -150,7 +154,7 @@ func TestSOPSTransitAndTokenScope(t *testing.T) {
 	config.VaultAllowlist = []string{"https://approved.invalid"}
 	config.VaultKeys = []string{"transit/workload"}
 	config.AuditVerified = true
-	config.TokenFile = filepath.Join(t.TempDir(), "token")
+	config.TokenFile = filepath.Join(filepath.Dir(config.Path), "token")
 	if err := platform.WriteProtected(config.TokenFile, []byte("synthetic-token\n")); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +186,11 @@ func TestSnapshotMockRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := model.Snapshot{Path: filepath.Join(t.TempDir(), "snapshot.json"), Recipients: []string{"age1synthetic"}, SOPS: exe}
+	directory := filepath.Join(t.TempDir(), "snapshot")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	config := model.Snapshot{Path: filepath.Join(directory, "snapshot.json"), Recipients: []string{"age1synthetic"}, SOPS: exe}
 	want := map[string]string{"KEY": "synthetic\nUnicode-✓-$()"}
 	if err := EncryptSnapshot(context.Background(), config, want); err != nil {
 		t.Fatal(err)
@@ -202,7 +210,11 @@ func TestSnapshotMockRoundTrip(t *testing.T) {
 }
 
 func TestSOPSEnvironmentValidation(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "secret")
+	directory := filepath.Join(t.TempDir(), "sops")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(directory, "secret")
 	if err := platform.WriteProtected(file, []byte("synthetic")); err != nil {
 		t.Fatal(err)
 	}

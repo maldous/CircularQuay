@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"io"
 	"net"
@@ -119,7 +120,11 @@ func (a application) actionAllowed(id string) bool {
 		return false
 	}
 	w, ok := p.Workloads[id]
-	if !ok || len(w.Command) == 0 || len(w.CommandSHA256) != 64 {
+	return ok && actionIdentityAllowed(w)
+}
+
+func actionIdentityAllowed(w model.Workload) bool {
+	if len(w.Command) == 0 || len(w.CommandSHA256) != 64 {
 		return false
 	}
 	f, err := os.Open(w.Command[0])
@@ -138,7 +143,10 @@ func (a application) actionAllowed(id string) bool {
 	return hex.EncodeToString(h.Sum(nil)) == w.CommandSHA256
 }
 
-type backend struct{ app application }
+type backend struct {
+	app               application
+	resolveGeneration func(context.Context, model.Policy, string) (model.Generation, error)
+}
 
 func (b backend) authorized(ctx context.Context, id, op, key string) (model.Policy, error) {
 	p, err := b.app.load()
@@ -185,11 +193,15 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
-	e, err := b.app.engine(p)
+	scope, err := actionScopeFingerprint(p, workload)
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
-	g, err := e.Resolve(ctx, id)
+	g, err := b.resolve(ctx, p, id)
+	if err != nil {
+		return cqmcp.RunResult{}, err
+	}
+	workload, err = b.authorizeResolvedAction(ctx, id, scope)
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
@@ -202,19 +214,64 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	return actionRunResult(code)
 }
 
+func (b backend) resolve(ctx context.Context, p model.Policy, id string) (model.Generation, error) {
+	if b.resolveGeneration != nil {
+		return b.resolveGeneration(ctx, p, id)
+	}
+	e, err := b.app.engine(p)
+	if err != nil {
+		return model.Generation{}, err
+	}
+	return e.Resolve(ctx, id)
+}
+
+func (b backend) authorizeResolvedAction(ctx context.Context, id string, before [sha256.Size]byte) (model.Workload, error) {
+	p, workload, err := b.authorizeAction(ctx, id)
+	if err != nil {
+		return model.Workload{}, err
+	}
+	after, err := actionScopeFingerprint(p, workload)
+	if err != nil || before != after {
+		return model.Workload{}, fault.New(fault.Denied, "MCP action policy changed")
+	}
+	return workload, nil
+}
+
 func (b backend) authorizeAction(ctx context.Context, id string) (model.Policy, model.Workload, error) {
 	p, err := b.authorized(ctx, id, "run", "")
 	if err != nil {
 		return model.Policy{}, model.Workload{}, err
 	}
-	if !b.app.actionAllowed(id) {
+	workload, ok := p.Workloads[id]
+	if !ok || !actionIdentityAllowed(workload) {
 		return model.Policy{}, model.Workload{}, fault.New(fault.Denied, "action identity")
 	}
-	workload := p.Workloads[id]
 	if err := b.authorizeUntrustedCode(ctx, id, workload); err != nil {
 		return model.Policy{}, model.Workload{}, err
 	}
 	return p, workload, nil
+}
+
+// actionScopeFingerprint binds a resolved generation to the workload and only
+// the source declarations from which its bindings can be resolved. Grants are
+// reauthorized separately so unrelated policy changes do not cancel a run.
+func actionScopeFingerprint(p model.Policy, workload model.Workload) ([sha256.Size]byte, error) {
+	sources := make(map[string]model.Source, len(workload.Bindings))
+	for _, binding := range workload.Bindings {
+		source, ok := p.Sources[binding.Source]
+		if !ok {
+			return [sha256.Size]byte{}, fault.New(fault.Invalid, "action source")
+		}
+		sources[binding.Source] = source
+	}
+	payload, err := json.Marshal(struct {
+		Workload model.Workload          `json:"workload"`
+		Sources  map[string]model.Source `json:"sources"`
+	}{Workload: workload, Sources: sources})
+	if err != nil {
+		return [sha256.Size]byte{}, fault.New(fault.Invalid, "action scope")
+	}
+	return sha256.Sum256(payload), nil
 }
 
 func (b backend) authorizeUntrustedCode(ctx context.Context, id string, workload model.Workload) error {

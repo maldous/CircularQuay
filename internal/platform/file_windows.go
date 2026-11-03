@@ -4,12 +4,42 @@ package platform
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
 func secureMode(_ os.FileMode, _ bool) bool { return true }
+
+// resolvedPathIsOriginal rejects every Windows reparse point in an existing
+// protected path. EvalSymlinks also rewrites harmless case and short-name
+// aliases, so textual comparison would reject a secure path on Windows.
+func resolvedPathIsOriginal(path string) bool {
+	cleaned := filepath.Clean(path)
+	volume := filepath.VolumeName(cleaned)
+	if volume == "" {
+		return false
+	}
+	current := volume + `\`
+	components := strings.Split(strings.TrimPrefix(cleaned[len(volume):], `\`), `\`)
+	for _, component := range components {
+		if component == "" {
+			continue
+		}
+		current = filepath.Join(current, component)
+		name, err := windows.UTF16PtrFromString(current)
+		if err != nil {
+			return false
+		}
+		attributes, err := windows.GetFileAttributes(name)
+		if err != nil || attributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			return false
+		}
+	}
+	return true
+}
 
 func replaceFile(from, to string) error {
 	f, err := windows.UTF16PtrFromString(from)

@@ -11,12 +11,22 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
+func privateCLIDirectory(t *testing.T) string {
+	t.Helper()
+	directory := filepath.Join(t.TempDir(), "cli")
+	if err := platform.EnsurePrivateDirectory(directory); err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
 func TestDoctorReportsGrantIdentity(t *testing.T) {
 	var out, diagnostics bytes.Buffer
-	code := (Runner{Out: &out, Err: &diagnostics}).Run(context.Background(), []string{"doctor"})
+	code := (Runner{Out: &out, Err: &diagnostics}).Run(context.Background(), []string{"doctor", "--identity-only"})
 	principal, err := mcp.LocalPrincipal()
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +40,7 @@ func TestDoctorReportsGrantIdentity(t *testing.T) {
 }
 
 func TestRunReleasesLockBeforeChild(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateCLIDirectory(t)
 	stateDir := filepath.Join(dir, "state")
 	executable, err := os.Executable()
 	if err != nil {
@@ -84,10 +94,7 @@ func TestSyncOncePublishesChangedBytesWithIdenticalMetadata(t *testing.T) {
 
 func syncFixture(t *testing.T) (config, fixture, destination string, modified time.Time) {
 	t.Helper()
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
+	dir := privateCLIDirectory(t)
 	fixture = filepath.Join(dir, "values.json")
 	destination = filepath.Join(dir, "published.json")
 	if err := os.WriteFile(fixture, []byte(`{"message":"first"}`), 0600); err != nil {

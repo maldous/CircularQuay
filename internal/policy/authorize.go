@@ -8,9 +8,7 @@ import (
 )
 
 var operations = map[string]bool{
-	"list": true, "status": true, "run": true, "read": true, "cancel": true,
-	"list_workloads": true, "get_status": true, "run_workload": true,
-	"read_secret": true, "cancel_workload": true, "get_result": true,
+	"list": true, "status": true, "run": true, "read": true,
 }
 
 func validateGrants(policy model.Policy) error {
@@ -37,24 +35,31 @@ func validGrantIdentity(grant model.Grant) bool {
 }
 
 func validateGrantKeys(workload model.Workload, keys []string) error {
+	seen := make(map[string]bool)
 	for _, key := range keys {
-		if !bindingExists(workload, key) || forbiddenBindingName(strings.ToUpper(key)) {
+		if seen[key] || !bindingExists(workload, key) || forbiddenBindingName(strings.ToUpper(key)) {
 			return invalid("grant_key")
 		}
+		seen[key] = true
 	}
 	return nil
 }
 
 func validateGrantOperations(grant model.Grant) error {
 	seen := make(map[string]bool)
+	hasRead := false
 	for _, operation := range grant.Operations {
 		if !operations[operation] || seen[operation] {
 			return invalid("grant_operation")
 		}
-		if rawRead(operation) && len(grant.Keys) == 0 {
-			return invalid("disclosure_scope")
-		}
+		hasRead = hasRead || rawRead(operation)
 		seen[operation] = true
+	}
+	if hasRead && len(grant.Keys) == 0 {
+		return invalid("disclosure_scope")
+	}
+	if !hasRead && len(grant.Keys) != 0 {
+		return invalid("grant_key_scope")
 	}
 	return nil
 }
@@ -64,7 +69,9 @@ func safePrincipal(value string) bool {
 }
 
 // Authorize requires an exact identity, client, workload and operation match.
-// Empty client is a local-client binding, never a wildcard for hosted clients.
+// A run grant authorizes the complete enrolled workload; it cannot restrict
+// resolution to selected bindings. Keys apply only to read in a mixed read/run
+// grant. Empty client is a local-client binding, never a hosted-client wildcard.
 func Authorize(policy model.Policy, subject, client, workload, operation, key string) bool {
 	if !safePrincipal(subject) || !operations[operation] {
 		return false
@@ -88,7 +95,7 @@ func matchingGrant(grant model.Grant, subject, client, workload, operation, key 
 func VisibleWorkloads(policy model.Policy, subject, client string) []string {
 	result := make([]string, 0)
 	for name := range policy.Workloads {
-		if Authorize(policy, subject, client, name, "list", "") || Authorize(policy, subject, client, name, "list_workloads", "") {
+		if Authorize(policy, subject, client, name, "list", "") {
 			result = append(result, name)
 		}
 	}
@@ -105,7 +112,7 @@ func contains(values []string, selected string) bool {
 	return false
 }
 
-func rawRead(operation string) bool { return operation == "read" || operation == "read_secret" }
+func rawRead(operation string) bool { return operation == "read" }
 
 func bindingExists(workload model.Workload, key string) bool {
 	for _, binding := range workload.Bindings {

@@ -14,7 +14,7 @@ import (
 
 func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 	root := fixtureRepository(t)
-	output := filepath.Join(t.TempDir(), "evidence")
+	output := privateAssuranceDirectory(t, "evidence")
 	const secret = "synthetic-marker-do-not-log"
 	fake := sourceAuditCommand(t, secret)
 
@@ -109,13 +109,13 @@ func writeSyntheticCoverage(t *testing.T, args []string) {
 
 func TestEnterpriseCannotPassWithoutSonar(t *testing.T) {
 	root := fixtureRepository(t)
-	file := filepath.Join(t.TempDir(), "token")
+	file := filepath.Join(privateAssuranceDirectory(t, "credential"), "token")
 	if err := os.WriteFile(file, []byte("synthetic-token\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	report := Report{Commit: strings.Repeat("a", 40)}
 	fake := sonarScannerFixture(t)
-	coverage := filepath.Join(t.TempDir(), "coverage.out")
+	coverage := filepath.Join(privateAssuranceDirectory(t, "coverage"), "coverage.out")
 	addSonar(context.Background(), fake, root, nil, Options{Profile: "enterprise"}, coverage, &report)
 	report.finish()
 	if report.Passed {
@@ -175,7 +175,7 @@ func sonarProjectKey(args []string) string {
 }
 
 func TestTokenHandling(t *testing.T) {
-	directory := t.TempDir()
+	directory := privateAssuranceDirectory(t, "token")
 	file := filepath.Join(directory, "token")
 	assertInvalidTokens(t, file)
 	if err := os.WriteFile(file, []byte("safe-value"), 0600); err != nil {
@@ -220,7 +220,7 @@ func TestAuditEnvironmentDoesNotInheritCredentials(t *testing.T) {
 }
 
 func TestAuditOutputProtection(t *testing.T) {
-	root := t.TempDir()
+	root := privateAssuranceDirectory(t, "audit")
 	if _, err := prepareOutput(root, ""); err == nil {
 		t.Fatal("empty output accepted")
 	}
