@@ -22,17 +22,29 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-The current native-verification follow-up is based on published
-`4a485258c3a72a7227502f359b4a049996b4ba61`; its frozen local evidence is retained
-under `.local/qualification/checkpoint18-20261104/`. The source manifest identifies
-the local capture separately from any later published revision. Its
-before/after manifests for Go, JSON, workflows, and canonical model fences are
-identical. Whole-repository normal/race tests, vet, Staticcheck, formatting,
-module tidy/verification, cyclomatic and cognitive-complexity/workflow checks,
-and 12 affected Windows compile-only checks passed. This remains local evidence:
-native CI, exact-candidate Sonar, and a fresh independent managed audit must
-assess a committed candidate. Keep the unchanged quality gates and prior failed
-evidence.
+Published checkpoint `42a3806d68a39583584d22e51469278cfa698cac` has tree
+`d592a8ba1f2c9acb1106982d6eb82a9d94af4921`. Public readback verified all seven
+changed files and preserved all 231 working files. Its source checks and
+synthetic native Linux/macOS/Windows suite passed; all 26 cross-builds and
+CodeQL passed. Coverage and gosec still fail. Exact Sonar reports zero issues
+but fails coverage; the sealed managed diff has partial completeness.
+
+The frozen local checkpoint19 follow-up is based on that published revision.
+Its whole-repository normal/race tests, vet, Staticcheck, formatting, module
+checks, both complexity ceilings of 10, actionlint and 12 Windows compilations
+passed with identical source manifests. Coverage is 5,224/6,082 statements
+(85.89280%), below 100%. Retain `.local/qualification/checkpoint19-20261104/`.
+It propagates audit signals and repository request cancellation, prevents
+promoted `bytes.Buffer.ReadFrom` from bypassing subprocess output caps, bounds
+inherited-pipe waits, and tests Linux systemd invocation/publication contracts
+without running host tools. Exact committed-candidate qualification is separate.
+
+Optional DPoP and typed audit-tool inputs remain separate unmerged work. Do not
+mistake their local files, staged diffs, schema declarations or focused tests
+for delivered or qualified runtime features. Preserve task ownership and exact
+retained evidence. The DPoP review requires protocol, replay/nonce expiry and
+failure conformance; typed tool inputs still need actual probes, fixed
+invocations and rule/server binding before the auditor can rely on them.
 
 ## Latest bounded documentation result
 
@@ -136,6 +148,25 @@ the README without a user-directed reason.
 
 ## Recent local evidence
 
+Checkpoint19 receipts under `.local/qualification/checkpoint19-20261104/`
+record the 24 listed source/test/static/format/module/workflow/compile
+checks passing with identical source manifests. Coverage is 5,224/6,082
+(85.89280%), below the unchanged gate. Real synthetic children prove oversized
+stdout denial, cancellation after startup and finite inherited-pipe waits;
+reader-only `io.Copy` regressions exercise the former promoted `ReadFrom`
+bypass. These mechanisms do not contain descendants or sandbox source code.
+Repository tests prove invalid accepted/config/object/materialized state denies
+before release, and cancellation returns no release while cleaning temporary
+verification state. Linux seams verify fixed argv, empty environment and
+failure/empty/oversized-output preservation of the prior projection without
+starting a service. Native execution and exact-candidate Sonar remain separate.
+The separate scoped gosec receipt under
+`.local/qualification/checkpoint19-static-20261104/` fails: Linux has eight
+findings (G204 ×6, G103 ×2), Windows has nine (G204 ×5, G103 ×4), with zero Go
+errors and zero suppressions. The Linux count decreased because two systemd
+invocations now share one execution boundary; it is not a cleared risk or
+weakened rule set. Both scans preserve identical source manifests.
+
 Checkpoint18 receipts under `.local/qualification/checkpoint18-20261104/`
 record whole-repository normal/race tests, vet, Staticcheck, formatting,
 tidy-diff/module verification, both complexity ceilings of 10, actionlint and
@@ -199,9 +230,34 @@ The same checks correctly reject a `.local` temporary directory with an unsafe
 After source changes, run the applicable checks from protected temporary
 storage and retain exact command, tool version, revision/tree state, and result.
 The source-profile 100% owned-code coverage gate remains unchanged and is not
-met by checkpoint18 or the last published CI receipt.
+met by checkpoint19 or the last published CI receipt.
 
 ## Qualification and release blockers
+
+Published candidate `42a3806d68a39583584d22e51469278cfa698cac` has exact tree
+`d592a8ba1f2c9acb1106982d6eb82a9d94af4921`. Source run 41706881432 tested
+synthetic merge `834345b94f89aa3d1287cf747a85bbd9131f61eb`; public readback
+confirms its tree equals the candidate tree. Native Linux/macOS/Windows and
+all 26 cross-builds passed. Security run 41706881558 passed CodeQL but failed
+gosec with nine findings. Coverage remains 5,133/6,048 (84.87103175%), below
+100%. The source-profile job has no Sonar endpoint; it is separate from the
+completed exact-head Sonar route.
+
+Sonar CE `1b97ca13-5ab7-48ec-98b8-f2e0cc96e96b` completed with current
+analysis `534d0cde-eb0b-45b7-9af4-72cd824f3ff0` and exact revision fences.
+Both prior smells are resolved, with zero issues, bugs, vulnerabilities,
+hotspots and duplication. The gate is ERROR at 78.3% overall / 81.5% new
+coverage. Keep the 2026-11-10 token-expiry warning.
+
+Exact-head Windows cross-static Staticcheck passed all 19 owned packages;
+gosec retains nine unsuppressed G103/G204 findings. Before/after HEAD, tree,
+index and file-content fences matched. Managed diff
+`0100370b-bbe7-4a3c-91ad-5b78c011cd04` is sealed with zero reportable findings
+and partial completeness. Its deferred native runtime and broader-audit scope
+are not retroactively satisfied by the separate native test result.
+Retained receipts are `.local/qualification/ci-42a3806-native-cross.json`,
+`.local/qualification/static-42a3806-20261104/`, and
+`.local/sonar/summary-42a3806d68a3.txt`. These are not production qualification.
 
 Published candidate `4a485258c3a72a7227502f359b4a049996b4ba61` has exact tree
 `f8c53890e348cf8b7fdb56a749b0f8aaca0d00d5`. Native Linux/macOS, all 26
@@ -224,12 +280,12 @@ Sealed managed audit delta `cad20f55-3074-47e5-8dce-f7648dc9141b` from e553
 to 4a has zero new reportable findings but partial completeness; host sandbox,
 tool provenance, and native Windows are deferred. It is not an audit pass.
 
-The captured follow-up replaces the repeated Git command literal and renames
+The follow-up published in `42a` replaces the repeated Git command literal and renames
 the shadowing identifier. It adds protected working/executable directories to
 positive platform/CLI fixtures and a protected per-call temporary directory for
 offline `Current` verification, with prior-temp restoration and cleanup. Whole
-checkpoint18 checks passed locally; exact-candidate native, Sonar and independent
-qualification remain required. No native configuration, credentials or
+checkpoint18 checks passed locally; later exact-candidate receipts are recorded
+above. No native configuration, credentials or
 infrastructure changed.
 
 Published candidate `8ed18f35be811f722068a3cf62d3093038fa8d93` has exact tree

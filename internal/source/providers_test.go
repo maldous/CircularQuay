@@ -1,10 +1,12 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,8 +42,16 @@ func providerTestMain() bool {
 		fmt.Print("synthetic-op-value")
 		os.Exit(0)
 	}
+	return providerVendorTestCommand()
+}
+
+func providerVendorTestCommand() bool {
 	if os.Getenv("BWS_ACCESS_TOKEN") == "" {
 		os.Exit(83)
+	}
+	if len(os.Args) > 3 && os.Args[3] == "overflow" {
+		_, _ = io.Copy(os.Stdout, bytes.NewReader(bytes.Repeat([]byte("x"), 4<<20+10)))
+		os.Exit(0)
 	}
 	if len(os.Args) > 3 && os.Args[3] == "failure" {
 		os.Exit(84)
@@ -495,11 +505,23 @@ func TestNativeVendorContracts(t *testing.T) {
 			t.Fatalf("%s native contract failed: %v", tc.typ, err)
 		}
 	}
+	overflow := model.Source{Type: "bitwarden", Path: exe, TokenFile: token, Project: "synthetic-project", Resources: []string{"overflow"}}
+	if _, err := r.Read(context.Background(), overflow, model.Binding{Resource: "overflow"}); !fault.Is(err, fault.Trust) {
+		t.Fatal("vendor subprocess output limit was not enforced")
+	}
 	if _, _, err := vendorCommand(model.Source{Type: "onepassword", Project: "permitted"}, model.Binding{Resource: "op://other/item/field"}); !fault.Is(err, fault.Denied) {
 		t.Fatal("cross-vault read allowed")
 	}
 	if _, _, err := vendorCommand(model.Source{Type: "onepassword", Environment: "unsupported"}, model.Binding{}); !fault.Is(err, fault.Unsupported) {
 		t.Fatal("unimplemented environment claimed")
+	}
+}
+
+func TestLimitedBufferCopyCannotBypassLimit(t *testing.T) {
+	var output limitedBuffer
+	data := bytes.Repeat([]byte("x"), 4<<20+1)
+	if _, err := io.Copy(&output, io.LimitReader(bytes.NewReader(data), int64(len(data)))); err != nil || !output.overflow || len(output.Bytes()) > 4<<20 {
+		t.Fatal("vendor output cap bypassed by copy")
 	}
 }
 

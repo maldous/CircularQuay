@@ -35,6 +35,8 @@ type commandResult struct {
 }
 type commandFunc func(context.Context, string, []string, string, []string) commandResult
 
+const auditCommandWaitDelay = 250 * time.Millisecond
+
 var revisionPattern = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
 var goVersionPattern = regexp.MustCompile(`^go version (go[0-9]+\.[0-9]+(?:\.[0-9]+)?) [a-z0-9]+/[a-z0-9]+\s*$`)
 var projectPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:-]{1,200}$`)
@@ -371,19 +373,23 @@ func readToken(path string) (string, error) {
 }
 
 type boundedBuffer struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
 
 func (b *boundedBuffer) Write(p []byte) (int, error) {
 	n := len(p)
-	if b.Len()+n > 1<<20 {
+	if b.buffer.Len()+n > 1<<20 {
 		b.overflow = true
 		return n, nil
 	}
-	_, err := b.Buffer.Write(p)
+	_, err := b.buffer.Write(p)
 	return n, err
 }
+
+func (b *boundedBuffer) Bytes() []byte { return b.buffer.Bytes() }
+
+func (b *boundedBuffer) String() string { return b.buffer.String() }
 
 func runCommand(ctx context.Context, binary string, arguments []string, directory string, environment []string) commandResult {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
@@ -391,6 +397,10 @@ func runCommand(ctx context.Context, binary string, arguments []string, director
 	cmd := exec.CommandContext(ctx, binary, arguments...)
 	cmd.Dir = directory
 	cmd.Env = environment
+	// CommandContext kills the immediate process on cancellation, while
+	// WaitDelay bounds a finished process whose descendant retained an output
+	// pipe. Neither mechanism establishes descendant containment.
+	cmd.WaitDelay = auditCommandWaitDelay
 	var buffer boundedBuffer
 	cmd.Stdout = &buffer
 	cmd.Stderr = &buffer

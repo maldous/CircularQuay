@@ -226,17 +226,19 @@ func decodeStrings(data []byte) (map[string]string, error) {
 }
 
 type cappedBuffer struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
 
 func (b *cappedBuffer) Write(data []byte) (int, error) {
-	if b.Len()+len(data) > platform.MaxDocumentSize {
+	if b.buffer.Len()+len(data) > platform.MaxDocumentSize {
 		b.overflow = true
 		return len(data), nil
 	}
-	return b.Buffer.Write(data)
+	return b.buffer.Write(data)
 }
+
+func (b *cappedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
 func runSOPS(ctx context.Context, executable string, args []string, input []byte, ageFile, tokenFile string, allowlist []string) ([]byte, error) {
 	if !filepath.IsAbs(executable) {

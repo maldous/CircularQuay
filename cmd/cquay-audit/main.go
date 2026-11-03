@@ -8,15 +8,34 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
 
 	"github.com/maldous/CircularQuay/internal/assurance"
 )
 
-func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
+func main() { os.Exit(runMain()) }
 
-func run(arguments []string, stdout, stderr io.Writer) int {
+func runMain() int {
+	ctx, cancel := auditSignalContext(context.Background())
+	defer cancel()
+	return run(ctx, os.Args[1:], os.Stdout, os.Stderr)
+}
+
+func auditSignalContext(parent context.Context) (context.Context, context.CancelFunc) {
+	// Native job runners use SIGTERM for shutdown. Pass cancellation through
+	// source checks and Sonar requests so they can finish a failed receipt.
+	signals := []os.Signal{os.Interrupt}
+	if runtime.GOOS != "windows" {
+		signals = append(signals, syscall.SIGTERM)
+	}
+	return signal.NotifyContext(parent, signals...)
+}
+
+func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int {
 	if isSonarCommand(arguments) {
-		return runSonar(arguments, stdout, stderr)
+		return runSonar(ctx, arguments, stdout, stderr)
 	}
 	if len(arguments) == 0 || arguments[0] != "run" {
 		_, _ = fmt.Fprintln(stderr, "usage: cquay-audit run --profile source|enterprise --output DIR")
@@ -36,7 +55,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, "invalid audit arguments")
 		return 2
 	}
-	report, err := assurance.Run(context.Background(), options)
+	report, err := assurance.Run(ctx, options)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "audit could not complete; verify source, output and prerequisites")
 		return 2
@@ -54,7 +73,7 @@ func isSonarCommand(arguments []string) bool {
 	return len(arguments) > 0 && (arguments[0] == "sonar-init" || arguments[0] == "sonar-bootstrap")
 }
 
-func runSonar(arguments []string, stdout, stderr io.Writer) int {
+func runSonar(ctx context.Context, arguments []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet(arguments[0], flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	directory := flags.String("directory", ".local/sonar", "private local bootstrap directory")
@@ -68,7 +87,7 @@ func runSonar(arguments []string, stdout, stderr io.Writer) int {
 	if arguments[0] == "sonar-init" {
 		err = assurance.InitSonar(*directory)
 	} else {
-		err = assurance.BootstrapSonar(context.Background(), *directory, *endpoint, *project)
+		err = assurance.BootstrapSonar(ctx, *directory, *endpoint, *project)
 	}
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "Sonar bootstrap failed; verify a fresh isolated server and private state")

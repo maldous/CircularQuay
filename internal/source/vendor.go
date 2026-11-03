@@ -130,17 +130,19 @@ func onePasswordResourceAllowed(project, resource string) bool {
 }
 
 type limitedBuffer struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
 
 func (b *limitedBuffer) Write(p []byte) (int, error) {
-	if b.Len()+len(p) > 4<<20 {
+	if b.buffer.Len()+len(p) > 4<<20 {
 		b.overflow = true
 		return len(p), nil
 	}
-	return b.Buffer.Write(p)
+	return b.buffer.Write(p)
 }
+
+func (b *limitedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
 type discardBuffer struct{}
 

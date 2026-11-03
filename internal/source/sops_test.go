@@ -67,7 +67,7 @@ func sopsTestOperation(value map[string]json.RawMessage) (int, bool) {
 	case `"failure"`:
 		return 92, true
 	case `"overflow"`:
-		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), platform.MaxDocumentSize+10))
+		_, _ = io.Copy(os.Stdout, bytes.NewReader(bytes.Repeat([]byte("x"), platform.MaxDocumentSize+10)))
 		return 0, true
 	}
 	return 0, false
@@ -175,6 +175,35 @@ func TestSOPSOutputFailureAndBounds(t *testing.T) {
 		if !fault.Is(err, test.kind) {
 			t.Fatal("subprocess failure classification")
 		}
+	}
+}
+
+func TestCappedBufferCopyCannotBypassLimit(t *testing.T) {
+	var output cappedBuffer
+	data := bytes.Repeat([]byte("x"), platform.MaxDocumentSize+1)
+	if _, err := io.Copy(&output, io.LimitReader(bytes.NewReader(data), int64(len(data)))); err != nil || !output.overflow || len(output.Bytes()) > platform.MaxDocumentSize {
+		t.Fatal("SOPS output cap bypassed by copy")
+	}
+}
+
+type legacyEmbeddedCappedBuffer struct {
+	bytes.Buffer
+	overflow bool
+}
+
+func (b *legacyEmbeddedCappedBuffer) Write(data []byte) (int, error) {
+	if b.Len()+len(data) > platform.MaxDocumentSize {
+		b.overflow = true
+		return len(data), nil
+	}
+	return b.Buffer.Write(data)
+}
+
+func TestLegacyEmbeddedCappedBufferCopyBypassesLimit(t *testing.T) {
+	data := bytes.Repeat([]byte("x"), platform.MaxDocumentSize+1)
+	var output legacyEmbeddedCappedBuffer
+	if _, err := io.Copy(&output, io.LimitReader(bytes.NewReader(data), int64(len(data)))); err != nil || output.overflow || output.Len() <= platform.MaxDocumentSize {
+		t.Fatal("legacy embedded buffer did not reproduce the copy bypass")
 	}
 }
 

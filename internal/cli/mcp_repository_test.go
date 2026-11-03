@@ -36,7 +36,7 @@ func TestMCPRepositoryReadUsesSelectedBindingMode(t *testing.T) {
 					fetches++
 					return release, test.fetchError
 				},
-				current: func(model.Repository) (string, error) {
+				current: func(context.Context, model.Repository) (string, error) {
 					currents++
 					return release, nil
 				},
@@ -67,7 +67,7 @@ func TestMCPRepositoryOnlineRunFetchesBeforeResolution(t *testing.T) {
 	fetches, resolutions := 0, 0
 	app.repository = repositoryOperations{
 		fetch:   func(context.Context, model.Repository) (string, error) { fetches++; return release, nil },
-		current: func(model.Repository) (string, error) { return release, nil },
+		current: func(context.Context, model.Repository) (string, error) { return release, nil },
 	}
 	service := mcpRepositoryService(t, app, policy, backend{app: app,
 		resolveGeneration: func(context.Context, model.Policy, string) (model.Generation, error) {
@@ -88,7 +88,7 @@ func TestMCPRepositoryUnauthorizedReadNeverFetches(t *testing.T) {
 	fetches := 0
 	app.repository = repositoryOperations{
 		fetch:   func(context.Context, model.Repository) (string, error) { fetches++; return "", nil },
-		current: func(model.Repository) (string, error) { return "", nil },
+		current: func(context.Context, model.Repository) (string, error) { return "", nil },
 	}
 	service := mcpRepositoryService(t, app, policy, backend{app: app})
 	_, err := service.ReadSecret(context.Background(), cqmcp.Principal{Subject: "local:unapproved"}, "demo", "TOKEN")
@@ -107,7 +107,7 @@ func TestMCPRepositoryRevocationAfterFetchStopsActionBeforeResolution(t *testing
 			writeMCPTestPolicy(t, app.config, policy)
 			return release, nil
 		},
-		current: func(model.Repository) (string, error) { return release, nil },
+		current: func(context.Context, model.Repository) (string, error) { return release, nil },
 	}
 	service := mcpRepositoryService(t, app, policy, backend{
 		app: app,

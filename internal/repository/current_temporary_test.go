@@ -44,6 +44,59 @@ func TestCurrentOfflineVerificationUsesPrivateTemporary(t *testing.T) {
 	}
 }
 
+func TestCurrentContextCancellationPreventsOfflineVerification(t *testing.T) {
+	fixture := newSignedRepositoryFixture(t)
+	first := fixture.writeCommit(t, `{"value":"synthetic-first"}`, true)
+	repo := fixture.repository(first)
+	installSyntheticTransport(t, repo, fixture)
+	_ = fetchRepository(t, repo)
+	fixture.removeToken(t)
+
+	previous := runGit
+	t.Cleanup(func() { runGit = previous })
+	called := false
+	runGit = func(context.Context, []string, int64, ...string) ([]byte, error) {
+		called = true
+		return nil, errors.New("cancelled Current must not start Git verification")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	current, err := CurrentContext(ctx, repo)
+	if called || current != "" || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled Current result: called=%t current=%q err=%v", called, current, err)
+	}
+}
+
+func TestCurrentContextCancellationDuringVerificationCleansTemporary(t *testing.T) {
+	fixture := newSignedRepositoryFixture(t)
+	first := fixture.writeCommit(t, `{"value":"synthetic-first"}`, true)
+	repo := fixture.repository(first)
+	installSyntheticTransport(t, repo, fixture)
+	_ = fetchRepository(t, repo)
+	fixture.removeToken(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	previous := runGit
+	t.Cleanup(func() { runGit = previous })
+	temporary := ""
+	runGit = func(ctx context.Context, environment []string, limit int64, arguments ...string) ([]byte, error) {
+		data, err := previous(ctx, environment, limit, arguments...)
+		if slices.Contains(arguments, "cat-file") && slices.Contains(arguments, "commit") {
+			temporary = assertPrivateVerificationTemporary(t, environment)
+			cancel()
+		}
+		return data, err
+	}
+	current, err := CurrentContext(ctx, repo)
+	if current != "" || !errors.Is(err, context.Canceled) || temporary == "" {
+		t.Fatalf("cancelled verification result: current=%q temporary=%q err=%v", current, temporary, err)
+	}
+	if _, err = os.Lstat(temporary); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cancelled verification left temporary directory: %v", err)
+	}
+}
+
 func TestCurrentVerificationTemporaryRestoresPriorStateAndFailsClosed(t *testing.T) {
 	directory := privateRepositoryDirectory(t, "current-temporary")
 	s := &store{repo: model.Repository{Directory: directory}, temporary: filepath.Join(directory, ".fetch-tmp")}

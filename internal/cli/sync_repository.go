@@ -16,11 +16,11 @@ const repositorySourceOperation = "repository source"
 
 type repositoryOperations struct {
 	fetch   func(context.Context, model.Repository) (string, error)
-	current func(model.Repository) (string, error)
+	current func(context.Context, model.Repository) (string, error)
 }
 
 func nativeRepositoryOperations() repositoryOperations {
-	return repositoryOperations{fetch: repository.Fetch, current: repository.Current}
+	return repositoryOperations{fetch: repository.Fetch, current: repository.CurrentContext}
 }
 
 func (a application) withRepositorySources(ctx context.Context, workload model.Workload, engine *resolve.Engine) (*resolve.Engine, error) {
@@ -80,15 +80,20 @@ func repositorySources(config model.Policy, workload model.Workload) (map[string
 }
 
 func repositoryRelease(ctx context.Context, mode string, repo model.Repository, sources map[string]repositorySource, operations repositoryOperations) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if mode == "offline" {
-		return operations.current(repo)
+		return operations.current(ctx, repo)
 	}
 	if _, err := operations.fetch(ctx, repo); err == nil {
-		return operations.current(repo)
+		return operations.current(ctx, repo)
+	} else if ctx.Err() != nil {
+		return "", ctx.Err()
 	} else if mode != "hybrid" || !fault.Is(err, fault.Unavailable) || !cachedRepositoryValuesAllowed(sources) {
 		return "", err
 	}
-	return operations.current(repo)
+	return operations.current(ctx, repo)
 }
 
 // cachedRepositoryValuesAllowed limits a hybrid transport fallback to bindings

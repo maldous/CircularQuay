@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -18,7 +19,7 @@ func TestOfflineRepositoryUsesCurrentWithoutFetch(t *testing.T) {
 	called := 0
 	operations := repositoryOperations{
 		fetch:   func(context.Context, model.Repository) (string, error) { called++; return "", nil },
-		current: func(model.Repository) (string, error) { return "/private/release", nil },
+		current: func(context.Context, model.Repository) (string, error) { return "/private/release", nil },
 	}
 	release, err := repositoryRelease(context.Background(), "offline", model.Repository{}, literalRepositorySource(true), operations)
 	if err != nil || release != "/private/release" || called != 0 {
@@ -32,7 +33,7 @@ func TestHybridRepositoryFallsBackOnlyForAllowedAvailabilityFailure(t *testing.T
 		fetch: func(context.Context, model.Repository) (string, error) {
 			return "", fault.New(fault.Unavailable, "synthetic transport")
 		},
-		current: func(model.Repository) (string, error) { current++; return "/private/release", nil },
+		current: func(context.Context, model.Repository) (string, error) { current++; return "/private/release", nil },
 	}
 	release, err := repositoryRelease(context.Background(), "hybrid", model.Repository{}, literalRepositorySource(true), operations)
 	if err != nil || release != "/private/release" || current != 1 {
@@ -51,13 +52,94 @@ func TestRepositoryDoesNotFallbackOnRejectedFetch(t *testing.T) {
 				fetch: func(context.Context, model.Repository) (string, error) {
 					return "", fault.New(kind, "synthetic rejection")
 				},
-				current: func(model.Repository) (string, error) { current++; return "/private/release", nil },
+				current: func(context.Context, model.Repository) (string, error) { current++; return "/private/release", nil },
 			}
 			_, err := repositoryRelease(context.Background(), "hybrid", model.Repository{}, literalRepositorySource(true), operations)
 			if !fault.Is(err, kind) || current != 0 {
 				t.Fatalf("rejected fetch error = %v, current=%d", err, current)
 			}
 		})
+	}
+}
+
+func TestRepositoryReleasePreservesRequestContext(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		mode  string
+		fetch func(context.Context, model.Repository) (string, error)
+	}{
+		{"offline", "offline", nil},
+		{"online", "online", func(context.Context, model.Repository) (string, error) { return "/private/release", nil }},
+		{"hybrid_fallback", "hybrid", func(context.Context, model.Repository) (string, error) {
+			return "", fault.New(fault.Unavailable, "synthetic transport")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assertRepositoryReleaseContext(t, test.mode, test.fetch, test.name)
+		})
+	}
+}
+
+func assertRepositoryReleaseContext(t *testing.T, mode string, fetch func(context.Context, model.Repository) (string, error), value string) {
+	t.Helper()
+	ctx := context.WithValue(context.Background(), repositoryContextKey{}, value)
+	operations := repositoryOperations{fetch: fetch, current: assertRepositoryCurrentContext(t, ctx, value)}
+	if mode == "offline" {
+		operations.fetch = unexpectedRepositoryFetch(t)
+	} else {
+		operations.fetch = assertRepositoryFetchContext(t, ctx, operations.fetch)
+	}
+	release, err := repositoryRelease(ctx, mode, model.Repository{}, literalRepositorySource(true), operations)
+	if err != nil || release != "/private/release" {
+		t.Fatalf("context propagation result: release=%q err=%v", release, err)
+	}
+}
+
+func TestRepositoryReleaseDoesNotFallbackAfterCancelledFetch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	current := false
+	operations := repositoryOperations{
+		fetch: func(context.Context, model.Repository) (string, error) {
+			cancel()
+			return "", fault.New(fault.Unavailable, "synthetic transport")
+		},
+		current: func(context.Context, model.Repository) (string, error) {
+			current = true
+			return "/private/release", nil
+		},
+	}
+	if _, err := repositoryRelease(ctx, "hybrid", model.Repository{}, literalRepositorySource(true), operations); !errors.Is(err, context.Canceled) || current {
+		t.Fatalf("cancelled hybrid fallback: current=%t err=%v", current, err)
+	}
+}
+
+type repositoryContextKey struct{}
+
+func assertRepositoryFetchContext(t *testing.T, want context.Context, fetch func(context.Context, model.Repository) (string, error)) func(context.Context, model.Repository) (string, error) {
+	t.Helper()
+	return func(got context.Context, repo model.Repository) (string, error) {
+		if got != want {
+			t.Fatal("repository fetch did not receive the request context")
+		}
+		return fetch(got, repo)
+	}
+}
+
+func assertRepositoryCurrentContext(t *testing.T, want context.Context, value string) func(context.Context, model.Repository) (string, error) {
+	t.Helper()
+	return func(got context.Context, _ model.Repository) (string, error) {
+		if got != want || got.Value(repositoryContextKey{}) != value {
+			t.Fatal("repository current did not receive the request context")
+		}
+		return "/private/release", nil
+	}
+}
+
+func unexpectedRepositoryFetch(t *testing.T) func(context.Context, model.Repository) (string, error) {
+	t.Helper()
+	return func(context.Context, model.Repository) (string, error) {
+		t.Fatal("offline release fetched")
+		return "", nil
 	}
 }
 
@@ -87,7 +169,7 @@ func TestWorkloadCommandRejectsInvalidTargetBeforeRepositoryFetch(t *testing.T) 
 	fetches := 0
 	app := application{config: path, directory: filepath.Join(filepath.Dir(path), "state"), repository: repositoryOperations{
 		fetch:   func(context.Context, model.Repository) (string, error) { fetches++; return "", nil },
-		current: func(model.Repository) (string, error) { return "", nil },
+		current: func(context.Context, model.Repository) (string, error) { return "", nil },
 	}}
 	if _, err := app.workloadCommand(context.Background(), []string{"sync", "--workload", "demo", "--target", "missing"}); !fault.Is(err, fault.Invalid) && !fault.Is(err, fault.Denied) {
 		t.Fatalf("invalid target error = %v", err)
@@ -109,7 +191,7 @@ func TestWorkloadCommandResolvesOnlyAcceptedOfflineRepositoryRelease(t *testing.
 	fetches, currents := 0, 0
 	app := application{config: path, directory: filepath.Join(filepath.Dir(path), "state"), runner: Runner{Out: &output}, repository: repositoryOperations{
 		fetch:   func(context.Context, model.Repository) (string, error) { fetches++; return "", nil },
-		current: func(model.Repository) (string, error) { currents++; return release, nil },
+		current: func(context.Context, model.Repository) (string, error) { currents++; return release, nil },
 	}}
 	if _, err := app.workloadCommand(context.Background(), []string{"sync", "--once", "--workload", "demo"}); err != nil {
 		t.Fatal(err)

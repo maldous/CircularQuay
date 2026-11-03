@@ -219,15 +219,26 @@ func (s *store) acceptCandidate(ctx context.Context, previous accepted, commit s
 	return directory, nil
 }
 
-// Current validates the last accepted data without network access. Cached data
-// remains available during transport outages; provider decryption policy still
-// controls whether a workload is allowed to use it.
+// Current validates the last accepted data without network access using a
+// background context. New callers should pass their request context to
+// CurrentContext so cancellation reaches native verification promptly.
 func Current(repo model.Repository) (string, error) {
+	return CurrentContext(context.Background(), repo)
+}
+
+// CurrentContext validates the last accepted data without network access.
+// Cached data remains available during transport outages; provider decryption
+// policy still controls whether a workload is allowed to use it. Verification
+// is bounded to one minute and honors cancellation from ctx.
+func CurrentContext(ctx context.Context, repo model.Repository) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	s, err := openStore(repo, false)
 	if err != nil {
 		return "", err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	return s.currentRelease(ctx, repo)
 }
@@ -240,12 +251,18 @@ func (s *store) currentRelease(ctx context.Context, repo model.Repository) (stri
 	if state.Commit == "" {
 		return "", failure(fault.Missing, "accepted_release")
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	cleanup, err := prepareCurrentVerificationTemporary(s)
 	if err != nil {
 		return "", err
 	}
 	release, verificationErr := s.verifyCurrentRelease(ctx, repo, state.Commit)
 	cleanupErr := cleanup()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if verificationErr != nil {
 		return "", verificationErr
 	}
