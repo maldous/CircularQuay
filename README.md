@@ -19,7 +19,6 @@ CircularQuay resolves exact values from existing secret providers under a worklo
 
 For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
 
-
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
 ![Implementation: Go](https://img.shields.io/badge/implementation-Go-087f8c)
@@ -209,9 +208,9 @@ Apache-2.0 for CircularQuay's own code and documentation. Dependencies retain th
 
 ## v1 command reference
 
-This is the intended v1 interface for review. The documentation preview notice
-above applies to commands whose implementation is being qualified on this
-working branch.
+This is the intended v1 interface for review. Implementation and production
+qualification are incomplete. Use synthetic data only; see the
+[qualification evidence](docs/qualification.md).
 
 All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
 PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
