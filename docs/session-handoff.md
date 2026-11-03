@@ -22,7 +22,51 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-Exact published checkpoint `6b0888307ebb15ea3ca13a4da42d4056102fe1e4`
+## Latest completed hosted receipt
+
+Published checkpoint `65be10a48257b1207df411b857b2a67c68280ee1` has tree
+`c756b0af4ed3e5bbc7009e7299d704ea17d0d18c`. Public readback verified
+all 11 changed files and all 271 working files; draft PR #1 still targets
+`develop`. Hosted source run `41739246845` passed native Linux/macOS/Windows,
+normal/race tests, vet, bounded fuzzing, both complexity checks and all 26
+cross-builds. The new aggregate check also passed. The source auditor accepts
+the tool/helper manifest and passes unit tests, vet, formatting and source
+identity. Its only required source-profile failure is coverage at 6,054/7,129
+statements (84.92075%). Security run `41739247007` passed Staticcheck with all
+checks, govulncheck and CodeQL with zero annotations. Gosec `-nosec` still
+fails eight findings (G204 ×6, G103 ×2), with zero suppressions. Retain
+`.local/qualification/ci-65be10a-native-cross.json`. No exact65 Sonar or
+managed diff scan is claimed.
+
+This candidate splits the two preceding cyclomatic violations without raising
+the ceiling. Hosted Staticcheck now selects all checks; gosec ignores nosec
+annotations; pinned gocognit uses exact recursion and rejects diagnostics.
+The stable `Cross-build matrix` job requires the whole build matrix to succeed.
+Workflow configuration alone does not enforce GitHub protections. Saving the
+prepared additional required checks and all-severity CodeQL rules still waits
+for GitHub's user-completed `Confirm access` authentication.
+
+Local heavy tests/scans/builds remain held for BAU disk reserve. Three exactly
+identified, completed CircularQuay Go build caches were cleared with pinned
+`go clean -cache`, removing 3,018,936,320 allocated bytes (2.81 GiB). Every
+tracked source byte, module/toolchain cache and nonreproducible qualification
+artifact was preserved. At 2026-11-03 23:32:59 UTC, filesystem free space was
+35,657,736,192 bytes; the reported 70 GiB reserve was still short by
+39,504,191,488 bytes. Other host cleanup is not attributed to CircularQuay.
+Retain `.local/qualification/resource-hold-latest-20261104.json` and its
+exact ownership, cleanup and source-integrity receipts. A later 23:41:09 UTC
+readback measured 618,975,252,480 available bytes (576.47 GiB), above the
+reserve; the much larger external host recovery is not attributed to this
+project. The bounded additional inventory identifies shared global caches,
+active pinned project dependencies and completed task cache portions without
+changing them. Retain `resource-reserve-readback-20261104.json` and
+`resource-go-cache-additional-20261104.json`. Local heavy work remains held
+for shared-resource coordination; hosted CI consumes separate build resources.
+No new local heavy qualification is claimed.
+
+## Previous revision evidence
+
+Previous published checkpoint `6b0888307ebb15ea3ca13a4da42d4056102fe1e4`
 has tree `35781cc4c4eca892e156e7cbc19abca8a0f82507`. Public readback verified
 all nine changed files and all 268 working files. These receipts qualify only
 that revision, not later source edits.
@@ -268,10 +312,23 @@ qualification is claimed for this slice. GitHub-hosted CI can independently
 qualify a published candidate without consuming Foo build storage; Sonar and
 other Foo-heavy qualification remain subject to the capacity hold.
 
-Synthetic cloud-response contract tests are separately preserved, unimported,
-in `/home/user/src/2026-11-04/circularquay-provider-contracts`. Their formatting
-and diff checks passed, but tests/coverage/static checks did not run because of
-the hold. Do not transfer or claim their assertions passed without validation.
+The following test-only candidate guardedly imports two synthetic provider
+contract suites from `/home/user/src/2026-11-04/circularquay-provider-contracts`.
+It exercises real AWS/Azure generated SDKs over memory transports and GCP
+response evidence after the identity boundary. Positive adjacent cases prove
+that stage/selector/version mismatches, missing payloads, denied/missing/error
+responses and malformed JSON cannot disclose any returned value or version.
+Failures require a complete zero `model.Value` and marker-free errors. Azure's
+503 fixture disables SDK retries and preserves the current conservative
+trust-failure classification. Every fixture is synthetic and makes no network
+request. No provider adapter, policy/schema, permission or quality gate changes.
+
+Pinned gofmt parsing and independent source-only review are separate from
+execution. Local heavy validation remains held; exact-candidate hosted tests,
+coverage, static checks and native runs are required before these assertions
+can be reported as passing. Retain `checkpoint26-transfer.json` and
+`checkpoint26-provider-review.md`; the transfer receipt records original worker
+hashes, while root review records the final primary hashes and improvements.
 
 ## Latest bounded documentation result
 

@@ -36,6 +36,28 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 65be10 development receipt
+
+At `65be10a48257b1207df411b857b2a67c68280ee1` (tree
+`c756b0af4ed3e5bbc7009e7299d704ea17d0d18c`),
+[source workflow 41739246845](https://github.com/maldous/CircularQuay/actions/runs/41739246845)
+passed native Linux/macOS/Windows, whole-module normal/race tests, vet,
+bounded fuzzing and all 26 cross-builds. Cyclomatic analysis and pinned
+type-aware cognitive analysis with exact recursion passed; the cognitive
+output was empty. The stable `Cross-build matrix` aggregate passed.
+Synthetic merge `7b636f6c6a9d7d105a4ce110834065867a90ce12` has the same tree.
+
+The source auditor passed helper integrity, tool probes, unit tests, vet,
+formatting and source identity. Its only required source-profile failure is
+coverage: 6,054/7,129 statements (84.92075%), below the unchanged 100% gate.
+[Security workflow 41739247007](https://github.com/maldous/CircularQuay/actions/runs/41739247007)
+passed Staticcheck with all checks, govulncheck and CodeQL with zero
+annotations. Gosec `-nosec` failed eight findings (G204 ×6, G103 ×2), with
+zero suppressions. Retain `.local/qualification/ci-65be10a-native-cross.json`.
+No exact65 Sonar or managed security diff scan is claimed. Passing named
+jobs does not qualify a release or establish required-check enforcement;
+the prepared GitHub hardening still awaits fresh access authentication.
+
 ## Exact 20eac0 development receipt
 
 At `20eac0a2a99faf5d9f51c126d66ece3db107bf01` (tree
