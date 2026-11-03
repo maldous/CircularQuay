@@ -17,12 +17,15 @@ CircularQuay’s app, command, and operations skill are named `cquay` (pronounce
 
 CircularQuay resolves exact values from existing secret providers under a workload-scoped policy, then delivers one complete generation through native operating-system boundaries. It gives teams a portable way to move from provider authorization to a declared workload without inheriting an ambient shell environment or silently applying a partial refresh.
 
+Its [identity-linked access model](#identity-key-access-and-expiry) connects each
+approved person or service to a registered application, explicitly permitted
+secrets, and a signed access deadline.
+
 For example, a developer can use a synthetic configuration to plan the `demo` workload and run its declared command with only the values that policy authorizes; the same model can publish an approved encrypted snapshot or prepare a native service delivery target.
 
 ![Status: development](https://img.shields.io/badge/status-development-9a6700)
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)
 ![Implementation: Go](https://img.shields.io/badge/implementation-Go-087f8c)
-[![Source workflow status](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/source.yml)
 [![Security workflow status](https://github.com/maldous/CircularQuay/actions/workflows/security.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/security.yml)
 
 [![Linux synthetic receipt](https://img.shields.io/badge/Linux%20synthetic%20receipt-c2%20passed-2f855a)](docs/qualification.md#bounded-receipts)
@@ -80,7 +83,7 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-overview-dark.svg">
-  <img alt="Explicit provider mappings pass through CircularQuay policy into native workloads, approved snapshots, and individually authorized MCP disclosure." src="docs/assets/architecture-overview-light.svg">
+  <img alt="The v1 model connects trusted IdP and authorization-server grants with exact provider mappings in the CircularQuay policy core, enforcing identity, permissions, and expiry before workload delivery, approved snapshots, or MCP disclosure." src="docs/assets/architecture-overview-light.svg">
 </picture>
 
 <picture>
@@ -91,6 +94,8 @@ flags, see the [v1 command reference](#v1-command-reference) below.
 ## What it delivers
 
 - **Explicit interoperability:** select exact provider resources and string fields; keep existing stores authoritative.
+- **Identity-bound authorization:** connect trusted IdP identities and registered applications to configurable contexts, workloads, operations, and exact secret keys.
+- **Time-bound access:** verify signed grants and client-key possession; enforce the earliest identity, approved offline-window, or provider expiry.
 - **Workload isolation:** reject duplicate names and undeclared resource access; keep provider bootstrap credentials out of application environments.
 - **Complete generations:** resolve required inputs before activation instead of applying a partial refresh.
 - **Portable encryption:** use upstream SOPS and age rather than a new encryption format.
@@ -164,15 +169,34 @@ and associations are defined in configuration.
 
 ```mermaid
 flowchart TD
-  IDP["Trusted identity provider"] --> AS["Authorization server"]
-  AS --> TICKET["Signed permission ticket"]
+  USER["Person or service"] --> IDP["Trusted identity provider"]
+  IDP -- "Authenticated identity" --> AS["Authorization server"]
+  APP["Registered application and client proof"] --> AS
+  AS -- "Identity, application, permissions and expiry" --> TICKET["Signed permission ticket"]
   TICKET --> CHECK{"cquay checks identity, policy and time"}
-  APP["Registered application and client proof"] --> CHECK
+  AS -. "Trusted public signing keys" .-> CHECK
+  APP -- "Token and proof of client-key possession" --> CHECK
   POLICY["Protected policy and key associations"] --> CHECK
   CHECK -- "Approved" --> SOURCE["Read the exact permitted secret"]
   CHECK -- "Expired or denied" --> DENY["Withhold access"]
   SOURCE --> WORKLOAD["Deliver to the approved workload"]
 ```
+
+### Use an existing IdP or a self-hosted authority
+
+The **identity provider** answers "Who are you?" The **authorization server**
+answers "What may this application do on your behalf, and until when?" One
+enterprise identity platform can perform both roles. CircularQuay uses its
+OAuth and OpenID Connect integration to connect verified identities with
+explicitly configured permissions for the CircularQuay service.
+
+An organization can use its existing provider's API authorization service or
+operate its own authority, such as [Keycloak](https://www.keycloak.org/).
+The configuration identifies the trusted issuer, verification keys, service
+audience, registered clients, identity associations, and permission mappings.
+Trust is established by that explicit configuration and verification of the
+authority's signatures. Teams choose the authority and policy that fit their
+environment; the same access model applies to hosted and self-hosted services.
 
 ### A cryptographic chain of trust
 
