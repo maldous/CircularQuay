@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "Source provenance for the reviewed npm lockfile; this record contains no download URL.",
+  "repository": "maldous/CircularQuay",
+  "source_path": "sdk/typescript/package-lock.json",
+  "workflow": {
+    "name": "SDK qualification",
+    "run_id": 41767625933,
+    "pull_request_head": "4c703c84fd9c1647b9a479c5525fdd3bfc653962",
+    "synthetic_merge": "45fe4e1d7c099d2be2022e910bd0666c9442ebc3",
+    "synthetic_merge_tree": "f098a84ef22731a2cf9556ab664199154f11fb20"
+  },
+  "canonical_artifact": {
+    "id": 13294120337,
+    "name": "typescript-lock-ubuntu-24.04-node-24.22.2",
+    "archive_sha256": "87e73108ef65e653509a52a80842beed2ab8aa5cb0403b7ba0f7815ab47c5d15",
+    "archive_bytes": 27066,
+    "entries": ["package-lock.json", "package-lock.sha256"]
+  },
+  "inputs": {
+    "package_json_sha256": "23d2108e5f08f8d0e42decf34a993da083c417f674956f249af6e2fbf960cd7b",
+    "node": "24.22.2",
+    "npm": "11.19.1"
+  },
+  "lock": {
+    "lockfile_version": 3,
+    "raw_sha256": "32fe7ff4704e824093c00761d570413239c2caa4a4810ca6dff8e5c67e79adf6",
+    "manifest_sha256": "32fe7ff4704e824093c00761d570413239c2caa4a4810ca6dff8e5c67e79adf6",
+    "artifact_matrix": "byte-identical across all nine Ubuntu/macOS/Windows and Node 22.23.4/24.22.2/26.13.0 artifacts"
+  }
+}

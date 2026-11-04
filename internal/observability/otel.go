@@ -31,6 +31,9 @@ import (
 const (
 	maxOTLPRequestBytes  = 1 << 20
 	maxOTLPResponseBytes = 1 << 20
+	instrumentationScope = "github.com/maldous/CircularQuay"
+	operationEventName   = "cquay.operation"
+	outcomeAttributeName = "cquay.outcome"
 )
 
 type otelBackend struct {
@@ -60,7 +63,7 @@ func newOTelBackend(ctx context.Context, config model.Observability, token, vers
 	if err != nil {
 		return nil, err
 	}
-	urls, err := collectorURLs(config.Endpoint)
+	urls, err := parseCollectorURLs(config.Endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +91,7 @@ func newOTelBackend(ctx context.Context, config model.Observability, token, vers
 
 type collectorURLs struct{ traces, metrics, logs string }
 
-func collectorURLs(endpoint string) (collectorURLs, error) {
+func parseCollectorURLs(endpoint string) (collectorURLs, error) {
 	base, err := transport.Endpoint(endpoint)
 	if err != nil || base.Path != "" && base.Path != "/" {
 		return collectorURLs{}, fault.New(fault.Invalid, "observability endpoint")
@@ -286,7 +289,7 @@ func (b *otelBackend) configureTraces(ctx context.Context, config model.Observab
 		),
 	)
 	b.traces = provider
-	b.tracer = provider.Tracer("github.com/maldous/CircularQuay")
+	b.tracer = provider.Tracer(instrumentationScope)
 	return nil
 }
 
@@ -309,7 +312,7 @@ func (b *otelBackend) configureMetrics(ctx context.Context, config model.Observa
 		sdkmetric.WithMaxExportBatchSize(config.BatchSize),
 	)
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithResource(resource), sdkmetric.WithReader(reader))
-	meter := provider.Meter("github.com/maldous/CircularQuay")
+	meter := provider.Meter(instrumentationScope)
 	if err = b.configureOperationMetrics(meter); err != nil {
 		_ = provider.Shutdown(context.Background())
 		return fault.New(fault.Apply, "observability metrics")
@@ -365,7 +368,7 @@ func (b *otelBackend) configureLogs(ctx context.Context, config model.Observabil
 	)
 	provider := sdklog.NewLoggerProvider(sdklog.WithResource(resource), sdklog.WithProcessor(processor))
 	b.logs = provider
-	b.logger = provider.Logger("github.com/maldous/CircularQuay")
+	b.logger = provider.Logger(instrumentationScope)
 	return nil
 }
 
@@ -388,7 +391,7 @@ func (b *otelBackend) health() Health {
 }
 
 func (b *otelBackend) record(ctx context.Context, event Event) {
-	metricAttributes := append(operationAttributes(event.Operation), attribute.String("cquay.outcome", string(event.Outcome)))
+	metricAttributes := append(operationAttributes(event.Operation), attribute.String(outcomeAttributeName, string(event.Outcome)))
 	if b.operationTotal != nil {
 		b.operationTotal.Add(ctx, 1, otelmetric.WithAttributes(metricAttributes...))
 	}
@@ -396,10 +399,10 @@ func (b *otelBackend) record(ctx context.Context, event Event) {
 		logAttributes := append(metricAttributes, attribute.String("cquay.correlation_id", event.Correlation))
 		record := otellog.Record{}
 		record.SetTimestamp(event.At)
-		record.SetEventName("cquay.operation")
+		record.SetEventName(operationEventName)
 		record.SetSeverity(logSeverity(event.Outcome))
 		record.SetSeverityText(string(event.Outcome))
-		record.SetBody(attribute.StringValue("cquay.operation"))
+		record.SetBody(attribute.StringValue(operationEventName))
 		record.AddAttributes(logAttributes...)
 		b.logger.Emit(ctx, record)
 	}
@@ -428,7 +431,7 @@ type otelSpan struct {
 }
 
 func (s otelSpan) end(outcome Outcome) {
-	attributes := append(operationAttributes(s.operation), attribute.String("cquay.outcome", string(outcome)))
+	attributes := append(operationAttributes(s.operation), attribute.String(outcomeAttributeName, string(outcome)))
 	s.span.SetAttributes(attributes...)
 	s.span.End()
 	s.backend.finish(context.Background(), s.operation, outcome, s.correlation, s.started)
@@ -449,7 +452,7 @@ func (b *otelBackend) finish(ctx context.Context, operation Operation, outcome O
 	event := Event{Operation: operation, Outcome: outcome, Correlation: correlation, At: time.Now().UTC()}
 	b.record(ctx, event)
 	if b.operationDuration != nil {
-		attributes := append(operationAttributes(operation), attribute.String("cquay.outcome", string(outcome)))
+		attributes := append(operationAttributes(operation), attribute.String(outcomeAttributeName, string(outcome)))
 		b.operationDuration.Record(ctx, time.Since(started).Seconds(), otelmetric.WithAttributes(attributes...))
 	}
 }

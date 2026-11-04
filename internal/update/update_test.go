@@ -88,7 +88,7 @@ func TestCheckRejectsNonCanonicalTagButAllowsNoEligibleStableRelease(t *testing.
 		}
 	}
 	client := &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
-		return releaseResponse(`[{"tag_name":"v1.2.0-rc.1","prerelease":true}]`), nil
+		return releaseResponse(`[{"tag_name":"v1.2.0-rc.1","prerelease":false}]`), nil
 	})}
 	result, err := Check(context.Background(), config, Options{Version: "1.0.0", StateDirectory: updateStateDirectory(t), client: client})
 	if err != nil || result.Status != "no_eligible_release" || result.Available != "" {

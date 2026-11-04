@@ -127,17 +127,40 @@ jobs:
         shell: bash
         run: python -m unittest discover -s .github/scripts/tests -v
       - name: Lint Python SDK
+        id: python_ruff
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
-        run: python -m ruff check sdk/python
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check ruff --report "$RUNNER_TEMP/cquay-python-reports/ruff.json" --timeout-seconds 300
       - name: Typecheck Python SDK
+        id: python_mypy
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
-        run: python -m mypy sdk/python/src
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check mypy --report "$RUNNER_TEMP/cquay-python-reports/mypy.json" --timeout-seconds 300
       - name: Bandit Python SDK
+        id: python_bandit
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
-        run: python -m bandit -r sdk/python/src
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check bandit --report "$RUNNER_TEMP/cquay-python-reports/bandit.json" --timeout-seconds 300
+      - name: Upload Python static analyzer evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-analyzers-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cquay-python-reports/ruff.json
+            ${{ runner.temp }}/cquay-python-reports/mypy.json
+            ${{ runner.temp }}/cquay-python-reports/bandit.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Audit every reviewed Python lock
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
@@ -151,12 +174,23 @@ jobs:
             python -m pip_audit --strict --disable-pip --require-hashes -r "$lock"
           done; done
       - name: Measure Python SDK coverage
+        id: python_static_coverage
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
-          PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" python -m coverage run --branch -m unittest discover -s sdk/python/tests -v
-          python -m coverage report --fail-under=100
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cquay-python-reports/coverage.json" --progress "$RUNNER_TEMP/cquay-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python static coverage evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-coverage-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cquay-python-reports/coverage.json
+            ${{ runner.temp }}/cquay-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Python SDK static lane
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
@@ -411,8 +445,19 @@ jobs:
         if: ${{ always() && steps.python_tools.outcome == 'success' }}
         shell: bash
         run: |
-          PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" python -m coverage run --branch -m unittest discover -s sdk/python/tests -v
-          python -m coverage report --fail-under=100
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cquay-python-reports/coverage.json" --progress "$RUNNER_TEMP/cquay-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python runtime coverage evidence
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-runtime-coverage-${{ matrix.os }}-python-${{ matrix.python }}
+          path: |
+            ${{ runner.temp }}/cquay-python-reports/coverage.json
+            ${{ runner.temp }}/cquay-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
       - name: Build Python SDK distribution
         id: python_build
         if: ${{ always() && steps.python_tools.outcome == 'success' }}

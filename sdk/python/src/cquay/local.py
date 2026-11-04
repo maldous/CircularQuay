@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -26,7 +27,11 @@ _MAX_ERROR_BYTES = 512
 _CHUNK_BYTES = 65_536
 _TERM_GRACE_SECONDS = 5
 _IJSON_SAFE_INTEGER = 9_007_199_254_740_991
+_MAX_IJSON_DEPTH = 32
+_MAX_IJSON_COLLECTION = 1024
+_MAX_IJSON_NODES = 16_384
 _DENIED_ENV_PREFIXES = ("AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQUAY_CONFIG_")
+_RemotePinArguments = tuple[str, str, str, str, str, str, str, str]
 
 
 class RunStdio(StrEnum):
@@ -214,7 +219,11 @@ class LocalCLIClient:
         """
 
         args = ["bootstrap", "--non-interactive"]
-        args.extend(_pinned_config_arguments(config_source, config_ref, config_path, config_sha256, "bootstrap_pins"))
+        pins = _pinned_config_arguments(
+            config_source, config_ref, config_path, config_sha256, "bootstrap_pins"
+        )
+        if pins is not None:
+            args.extend(pins)
         if output is not None:
             args.extend(("--output", str(_absolute_path(output, "output"))))
         return await self._json("bootstrap", tuple(args))
@@ -236,7 +245,11 @@ class LocalCLIClient:
 
         _handle(workload, "workload")
         args = ["flow", "run", "--workload", workload, "--non-interactive"]
-        args.extend(_pinned_config_arguments(config_source, config_ref, config_path, config_sha256, "flow_pins"))
+        pins = _pinned_config_arguments(
+            config_source, config_ref, config_path, config_sha256, "flow_pins"
+        )
+        if pins is not None:
+            args.extend(pins)
         return await self._inherit("flow", tuple(args))
 
     async def run(self, workload: str, *, override: Sequence[str] = (), stdio: RunStdio) -> int:
@@ -380,20 +393,35 @@ def _valid_version_dto(value: Any) -> bool:
 
 
 def _pinned_config_arguments(
-    source: str | None, ref: str | None, path: str | None, digest: str | None, incomplete_operation: str
-) -> tuple[str, ...]:
+    source: str | None,
+    ref: str | None,
+    path: str | None,
+    digest: str | None,
+    incomplete_operation: str,
+) -> _RemotePinArguments | None:
     pins = (source, ref, path, digest)
     if any(item is not None for item in pins) and not all(item is not None for item in pins):
         raise CircularQuayError(ErrorCategory.INVALID, incomplete_operation)
     if source is None:
-        return ()
+        return None
+    if ref is None or path is None or digest is None:
+        raise CircularQuayError(ErrorCategory.INVALID, incomplete_operation)
     if not _valid_remote_source(source):
         raise CircularQuayError(ErrorCategory.INVALID, "config_source")
     _sha1(ref, "config_ref")
     _sha256(digest, "config_sha256")
     if not isinstance(path, str) or not path or len(path) > 1024:
         raise CircularQuayError(ErrorCategory.INVALID, "config_path")
-    return ("--config-source", source, "--config-ref", ref, "--config-path", path, "--config-sha256", digest)
+    return (
+        "--config-source",
+        source,
+        "--config-ref",
+        ref,
+        "--config-path",
+        path,
+        "--config-sha256",
+        digest,
+    )
 
 
 def _valid_remote_source(value: Any) -> bool:
@@ -511,12 +539,19 @@ def _json_input(value: JSONValue, operation: str) -> bytes:
 def _is_i_json(value: Any, *, depth: int = 0) -> bool:
     """Accept portable I-JSON values for SDK convenience configuration calls."""
 
-    if depth > 32:
+    return _is_i_json_node(value, depth, [0])
+
+
+def _is_i_json_node(value: Any, depth: int, nodes: list[int]) -> bool:
+    if depth > _MAX_IJSON_DEPTH:
+        return False
+    nodes[0] += 1
+    if nodes[0] > _MAX_IJSON_NODES:
         return False
     if isinstance(value, list):
-        return _is_i_json_list(value, depth)
+        return _is_i_json_list(value, depth, nodes)
     if isinstance(value, dict):
-        return _is_i_json_object(value, depth)
+        return _is_i_json_object(value, depth, nodes)
     return _is_i_json_scalar(value)
 
 
@@ -526,18 +561,23 @@ def _is_i_json_scalar(value: Any) -> bool:
     if isinstance(value, int):
         return -_IJSON_SAFE_INTEGER <= value <= _IJSON_SAFE_INTEGER
     if isinstance(value, float):
-        return value == value and value not in {float("inf"), float("-inf")}
+        return math.isfinite(value)
     return False
 
 
-def _is_i_json_list(value: list[Any], depth: int) -> bool:
-    return len(value) <= 1024 and all(_is_i_json(item, depth=depth + 1) for item in value)
+def _is_i_json_list(value: list[Any], depth: int, nodes: list[int]) -> bool:
+    return len(value) <= _MAX_IJSON_COLLECTION and all(
+        _is_i_json_node(item, depth + 1, nodes) for item in value
+    )
 
 
-def _is_i_json_object(value: dict[Any, Any], depth: int) -> bool:
-    if len(value) > 1024:
+def _is_i_json_object(value: dict[Any, Any], depth: int, nodes: list[int]) -> bool:
+    if len(value) > _MAX_IJSON_COLLECTION:
         return False
-    return all(isinstance(key, str) and _is_i_json(item, depth=depth + 1) for key, item in value.items())
+    return all(
+        isinstance(key, str) and _is_i_json_node(item, depth + 1, nodes)
+        for key, item in value.items()
+    )
 
 
 def _safe_json(value: Any, *, depth: int = 0) -> bool:
@@ -550,7 +590,7 @@ def _safe_json(value: Any, *, depth: int = 0) -> bool:
     if isinstance(value, int):
         return not isinstance(value, bool)
     if isinstance(value, float):
-        return value == value and value not in {float("inf"), float("-inf")}
+        return math.isfinite(value)
     if isinstance(value, list):
         return _safe_json_items(value, depth)
     if isinstance(value, dict):

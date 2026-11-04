@@ -29,6 +29,7 @@ const (
 	defaultFeedEndpoint = "https://api.github.com/repos/maldous/CircularQuay/releases"
 	maximumFeedBytes    = 1 << 20
 	cacheName           = "release-awareness.json"
+	releaseResponse     = "release awareness response"
 )
 
 // Options supplies process-local dependencies. StateDirectory is a protected
@@ -276,12 +277,12 @@ func requestReleases(client *http.Client, request *http.Request) ([]release, err
 func decodeReleases(body io.Reader) ([]release, error) {
 	data, err := io.ReadAll(io.LimitReader(body, maximumFeedBytes+1))
 	if err != nil || len(data) > maximumFeedBytes {
-		return nil, fault.New(fault.Trust, "release awareness response")
+		return nil, fault.New(fault.Trust, releaseResponse)
 	}
 	var releases []release
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if decoder.Decode(&releases) != nil || decoder.Decode(&struct{}{}) != io.EOF {
-		return nil, fault.New(fault.Trust, "release awareness response")
+		return nil, fault.New(fault.Trust, releaseResponse)
 	}
 	return releases, nil
 }
@@ -295,18 +296,41 @@ func selectRelease(releases []release, channel string) (string, string, error) {
 			continue
 		}
 		published = true
-		if channel == "stable" && candidate.Prerelease {
+		version, allowed, err := eligibleRelease(candidate, channel)
+		if err != nil {
+			return "", "", err
+		}
+		if !allowed {
 			continue
 		}
 		eligible = true
-		version, ok := canonicalTag(candidate.TagName)
-		if !ok {
-			return "", "", fault.New(fault.Trust, "release awareness response")
-		}
-		if best == "" || semver.Compare(version, best) > 0 {
-			best = version
-		}
+		best = newerRelease(best, version)
 	}
+	return releaseSelection(best, published, eligible)
+}
+
+func eligibleRelease(candidate release, channel string) (string, bool, error) {
+	if channel == "stable" && candidate.Prerelease {
+		return "", false, nil
+	}
+	version, ok := canonicalTag(candidate.TagName)
+	if !ok {
+		return "", false, fault.New(fault.Trust, releaseResponse)
+	}
+	if channel == "stable" && semver.Prerelease(version) != "" {
+		return "", false, nil
+	}
+	return version, true, nil
+}
+
+func newerRelease(current, candidate string) string {
+	if current == "" || semver.Compare(candidate, current) > 0 {
+		return candidate
+	}
+	return current
+}
+
+func releaseSelection(best string, published, eligible bool) (string, string, error) {
 	if !published {
 		return "", "no_release", nil
 	}

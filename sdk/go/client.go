@@ -383,11 +383,17 @@ func validHandle(value string) bool {
 		return false
 	}
 	for _, r := range value {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.') {
+		if !validHandleRune(r) {
 			return false
 		}
 	}
 	return true
+}
+
+// validHandleRune keeps handle grammar separate from the bounded whole-value
+// checks so every accepted identifier is assessed by the same character rule.
+func validHandleRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.'
 }
 
 func boundedText(value string) bool { return len(value) <= maxTextLength }

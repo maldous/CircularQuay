@@ -28,6 +28,9 @@ const (
 const (
 	circularQuayModule = "github.com/maldous/CircularQuay"
 	developmentVersion = "1.0.0-dev"
+	pointerFlag        = "--pointer"
+	expectedSHA256Flag = "--expect-sha256"
+	workloadFlag       = "--workload"
 )
 
 var (
@@ -118,7 +121,7 @@ func (c *LocalClient) ConfigGet(ctx context.Context, pointer string) (Result, er
 	if !validPointer(pointer) {
 		return Result{}, &Error{Category: CategoryInvalid}
 	}
-	return c.jsonCommand(ctx, "config_get", nil, "config", "get", "--pointer", pointer)
+	return c.jsonCommand(ctx, "config_get", nil, "config", "get", pointerFlag, pointer)
 }
 
 // ConfigList lists entries at one RFC 6901 configuration pointer.
@@ -126,7 +129,7 @@ func (c *LocalClient) ConfigList(ctx context.Context, pointer string) (Result, e
 	if !validPointer(pointer) {
 		return Result{}, &Error{Category: CategoryInvalid}
 	}
-	return c.jsonCommand(ctx, "config_list", nil, "config", "list", "--pointer", pointer)
+	return c.jsonCommand(ctx, "config_list", nil, "config", "list", pointerFlag, pointer)
 }
 
 // ConfigSet transactionally assigns one JSON value. ExpectedSHA256 is optional
@@ -137,9 +140,9 @@ func (c *LocalClient) ConfigSet(ctx context.Context, pointer string, value json.
 	}
 	// Keep JSON out of argv, where process listings and telemetry collectors may
 	// expose it. bytes.NewReader below is deliberately a bounded non-TTY input.
-	args := []string{"config", "set", "--pointer", pointer, "--value-file", "-"}
+	args := []string{"config", "set", pointerFlag, pointer, "--value-file", "-"}
 	if expectedSHA256 != "" {
-		args = append(args, "--expect-sha256", expectedSHA256)
+		args = append(args, expectedSHA256Flag, expectedSHA256)
 	}
 	return c.jsonCommand(ctx, "config_set", value, args...)
 }
@@ -149,9 +152,9 @@ func (c *LocalClient) ConfigDelete(ctx context.Context, pointer, expectedSHA256 
 	if pointer == "" || !validPointer(pointer) || !optionalDigest(expectedSHA256) {
 		return Result{}, &Error{Category: CategoryInvalid}
 	}
-	args := []string{"config", "delete", "--pointer", pointer}
+	args := []string{"config", "delete", pointerFlag, pointer}
 	if expectedSHA256 != "" {
-		args = append(args, "--expect-sha256", expectedSHA256)
+		args = append(args, expectedSHA256Flag, expectedSHA256)
 	}
 	return c.jsonCommand(ctx, "config_delete", nil, args...)
 }
@@ -163,7 +166,7 @@ func (c *LocalClient) ConfigReplace(ctx context.Context, document json.RawMessag
 	}
 	args := []string{"config", "replace", "--file", "-"}
 	if expectedSHA256 != "" {
-		args = append(args, "--expect-sha256", expectedSHA256)
+		args = append(args, expectedSHA256Flag, expectedSHA256)
 	}
 	return c.jsonCommand(ctx, "config_replace", document, args...)
 }
@@ -188,7 +191,7 @@ func (c *LocalClient) Status(ctx context.Context, workload string) (Result, erro
 	if !validHandle(workload) {
 		return Result{}, &Error{Category: CategoryInvalid}
 	}
-	return c.jsonCommand(ctx, "status", nil, "status", "--workload", workload, "--json")
+	return c.jsonCommand(ctx, "status", nil, "status", workloadFlag, workload, "--json")
 }
 
 // Snapshot resolves and stores a protected offline snapshot for one workload.
@@ -220,7 +223,7 @@ func (c *LocalClient) RunWorkload(ctx context.Context, workload string) (result 
 	if err = validContext(ctx); err != nil {
 		return EffectResult{}, err
 	}
-	code := c.invoke(ctx, nil, io.Discard, io.Discard, "run", "--workload", workload)
+	code := c.invoke(ctx, nil, io.Discard, io.Discard, "run", workloadFlag, workload)
 	if err = ctx.Err(); err != nil {
 		return EffectResult{}, normalize(err)
 	}
@@ -262,7 +265,7 @@ func (c *LocalClient) Flow(ctx context.Context, request FlowRequest) (result Eff
 	if err = validContext(ctx); err != nil {
 		return EffectResult{}, err
 	}
-	args := []string{"flow", "run", "--workload", request.Workload, "--config-source", request.SourceURL, "--config-ref", request.Ref, "--config-path", request.Path, "--config-sha256", request.SHA256, "--non-interactive"}
+	args := []string{"flow", "run", workloadFlag, request.Workload, "--config-source", request.SourceURL, "--config-ref", request.Ref, "--config-path", request.Path, "--config-sha256", request.SHA256, "--non-interactive"}
 	code := c.invoke(ctx, nil, io.Discard, io.Discard, args...)
 	if err = ctx.Err(); err != nil {
 		return EffectResult{}, normalize(err)
@@ -274,7 +277,7 @@ func (c *LocalClient) workloadJSON(ctx context.Context, command, workload, targe
 	if !validHandle(workload) || (target != "" && !validHandle(target)) {
 		return Result{}, &Error{Category: CategoryInvalid}
 	}
-	args := []string{command, "--workload", workload}
+	args := []string{command, workloadFlag, workload}
 	if target != "" {
 		args = append(args, "--target", target)
 	}
@@ -334,23 +337,36 @@ func sdkBuildIdentity() buildIdentity {
 	if !ok || info == nil {
 		return identity
 	}
-	if info.Main.Path == circularQuayModule && validOfficialV1Tag(info.Main.Version) {
-		identity.version = strings.TrimPrefix(info.Main.Version, "v")
-	} else {
-		for _, module := range info.Deps {
-			if module != nil && module.Path == circularQuayModule && validOfficialV1Tag(module.Version) {
-				identity.version = strings.TrimPrefix(module.Version, "v")
-				break
-			}
-		}
-	}
-	for _, setting := range info.Settings {
-		if setting.Key == "vcs.revision" && commitSetting.MatchString(setting.Value) {
-			identity.commit = setting.Value
-			break
-		}
-	}
+	identity.version = sdkVersion(info)
+	identity.commit = sdkCommit(info.Settings)
 	return identity
+}
+
+// sdkVersion accepts only the SDK's own tagged module metadata; a pseudo or
+// unrelated dependency version must not become the runtime policy identity.
+func sdkVersion(info *debug.BuildInfo) string {
+	if validSDKModule(info.Main) {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	for _, module := range info.Deps {
+		if module != nil && validSDKModule(*module) {
+			return strings.TrimPrefix(module.Version, "v")
+		}
+	}
+	return developmentVersion
+}
+
+func validSDKModule(module debug.Module) bool {
+	return module.Path == circularQuayModule && validOfficialV1Tag(module.Version)
+}
+
+func sdkCommit(settings []debug.BuildSetting) string {
+	for _, setting := range settings {
+		if setting.Key == "vcs.revision" && commitSetting.MatchString(setting.Value) {
+			return setting.Value
+		}
+	}
+	return ""
 }
 
 func validOfficialV1Tag(version string) bool {
@@ -436,41 +452,51 @@ func validIJSON(value any, depth int, nodes *int) bool {
 	case nil, string, bool:
 		return true
 	case json.Number:
-		// Match the other SDKs' I-JSON portability constraint: a value must
-		// be representable as a finite IEEE-754 number before it can cross a
-		// language boundary. The rational check below retains exact integer
-		// range validation rather than relying on a rounded float conversion.
-		if _, err := strconv.ParseFloat(candidate.String(), 64); err != nil {
-			return false
-		}
-		rational, ok := new(big.Rat).SetString(candidate.String())
-		if !ok || !rational.IsInt() {
-			return ok
-		}
-		return new(big.Int).Abs(rational.Num()).Cmp(maxIJSONInteger) <= 0
+		return validIJSONNumber(candidate)
 	case []any:
-		if len(candidate) > maxIJSONCollection {
-			return false
-		}
-		for _, item := range candidate {
-			if !validIJSON(item, depth+1, nodes) {
-				return false
-			}
-		}
-		return true
+		return validIJSONArray(candidate, depth, nodes)
 	case map[string]any:
-		if len(candidate) > maxIJSONCollection {
-			return false
-		}
-		for _, item := range candidate {
-			if !validIJSON(item, depth+1, nodes) {
-				return false
-			}
-		}
-		return true
+		return validIJSONObject(candidate, depth, nodes)
 	default:
 		return false
 	}
+}
+
+// validIJSONNumber preserves cross-SDK numeric portability without accepting
+// rounded integers outside I-JSON's exact interoperable range.
+func validIJSONNumber(value json.Number) bool {
+	if _, err := strconv.ParseFloat(value.String(), 64); err != nil {
+		return false
+	}
+	rational, ok := new(big.Rat).SetString(value.String())
+	if !ok || !rational.IsInt() {
+		return ok
+	}
+	return new(big.Int).Abs(rational.Num()).Cmp(maxIJSONInteger) <= 0
+}
+
+func validIJSONArray(values []any, depth int, nodes *int) bool {
+	if len(values) > maxIJSONCollection {
+		return false
+	}
+	for _, value := range values {
+		if !validIJSON(value, depth+1, nodes) {
+			return false
+		}
+	}
+	return true
+}
+
+func validIJSONObject(values map[string]any, depth int, nodes *int) bool {
+	if len(values) > maxIJSONCollection {
+		return false
+	}
+	for _, value := range values {
+		if !validIJSON(value, depth+1, nodes) {
+			return false
+		}
+	}
+	return true
 }
 
 func validPointer(pointer string) bool {

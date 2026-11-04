@@ -36,6 +36,46 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 4c703c8 SDK and telemetry receipt
+
+Checkpoint `4c703c84fd9c1647b9a479c5525fdd3bfc653962` has tree
+`f098a84ef22731a2cf9556ab664199154f11fb20`. Its
+[source run](https://github.com/maldous/CircularQuay/actions/runs/41767625772)
+and [security run](https://github.com/maldous/CircularQuay/actions/runs/41767625840)
+fail on the `collectorURLs` type/function name collision in observability.
+Native tests and cross-builds cannot compile; Staticcheck and CodeQL do not
+complete analysis. Later gosec/govulncheck steps are not reached. This is
+separate from the resolved predecessor module/import-cycle failures.
+
+The [SDK run](https://github.com/maldous/CircularQuay/actions/runs/41767625933)
+passes Go dependency-lock reproducibility. Go SDK qualification fails at that
+same compiler error. All nine npm lanes produce byte-identical lockfiles;
+all 15 Python runtime lanes resolve wheel-only closures, including Python
+3.15. They then fail the intentional missing-reviewed-lock gate, before
+runtime or distribution qualification. The Python static jobs pass toolchain
+installation and lock-helper tests, record analyzer/audit failures, and are
+cancelled when coverage exceeds the 30-minute job limit. Their unavailable
+logs do not establish individual rule diagnoses or an exact stalled test.
+The aggregate SDK check fails.
+
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41767625773)
+completes upload and Compute Engine analysis but fails strict quality gates:
+0.0% coverage after the compilation failure, 0.2% duplication, 17 open
+issues, and one Python compatibility-version warning. Hotspots are zero.
+Required new-code metrics are absent and fail closed. The analysis binds
+the PR synthetic merge `45fe4e1d7c099d2be2022e910bd0666c9442ebc3`,
+whose tree matches this public candidate. Retain
+the revision-bound `ci-4c703c8-source-security.json` and
+`ci-4c703c8-sonar.json` receipts. The following source/CI corrections require
+their own hosted checks; none of these results qualifies production.
+
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41767625888)
+passes. The [WireMock run](https://github.com/maldous/CircularQuay/actions/runs/41767625763)
+verifies the pinned JAR on Linux, macOS and Windows, then fails tagged-suite
+compilation at the same observability error. It is a completed failure, not
+a cancellation or a provider-suite pass. Retain
+`ci-4c703c84-wiremock-dependency-review.json`.
+
 ## Exact 98c9caa integration receipt
 
 Checkpoint `98c9caa7c5ed6b20f28cec720c73ca4939c4e63c` has tree

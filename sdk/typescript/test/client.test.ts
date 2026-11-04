@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { CquayClient, CquayError, LocalCLIClient, officialMCPAdapter } from "../src/index.ts";
@@ -75,14 +77,19 @@ test("runtime version DTO categories are stable", async () => {
 
 test("remote sources reject literal query and fragment delimiters", async () => {
   const fixture = await readFixture<Array<{ source: string; valid: boolean }>>("remote-source-delimiters.json");
-  for (const { source, valid } of fixture) {
-    const client = { json: async (args: string[]) => args } as unknown as LocalCLIClient;
-    const input = { configSource: source, configRef: "a".repeat(40), configPath: "policy.json", configSHA256: "b".repeat(64), output: "/tmp/policy.json" };
-    if (valid) {
-      await assert.doesNotReject(LocalCLIClient.prototype.bootstrap.call(client, input));
-    } else {
-      await assert.rejects(LocalCLIClient.prototype.bootstrap.call(client, input), error => error instanceof CquayError && error.category === "invalid");
+  const directory = await mkdtemp(join(tmpdir(), "cquay-sdk-bootstrap-"));
+  try {
+    for (const { source, valid } of fixture) {
+      const client = { json: async (args: string[]) => args } as unknown as LocalCLIClient;
+      const input = { configSource: source, configRef: "a".repeat(40), configPath: "policy.json", configSHA256: "b".repeat(64), output: join(directory, "policy.json") };
+      if (valid) {
+        await assert.doesNotReject(LocalCLIClient.prototype.bootstrap.call(client, input));
+      } else {
+        await assert.rejects(LocalCLIClient.prototype.bootstrap.call(client, input), error => error instanceof CquayError && error.category === "invalid");
+      }
     }
+  } finally {
+    await rm(directory, { force: true, recursive: true });
   }
 });
 

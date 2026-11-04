@@ -148,12 +148,23 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(local._is_i_json({"limit": 9_007_199_254_740_991}))
         self.assertFalse(local._is_i_json({"limit": 9_007_199_254_740_992}))
 
+    def test_config_convenience_values_enforce_i_json_global_node_bound(self) -> None:
+        document = [[0] * 1024 for _ in range(15)] + [[0] * 1007]
+        # root + 16 arrays + 16,367 scalars = 16,384 nodes.
+        self.assertTrue(local._is_i_json(document))
+        document[-1].append(0)
+        self.assertFalse(local._is_i_json(document))
+        # A separate per-container bound.
+        self.assertFalse(local._is_i_json([0] * 1025))
+
     def test_remote_config_source_rejects_userinfo_query_and_fragment_before_spawn(self) -> None:
         ref = "a" * 40
         digest = "b" * 64
         valid = local._pinned_config_arguments(
             "https://github.com/acme/cquay-config", ref, "cquay.json", digest, "bootstrap_pins"
         )
+        if valid is None:
+            self.fail("complete remote pin unexpectedly omitted its arguments")
         self.assertEqual("https://github.com/acme/cquay-config", valid[1])
         for source in (
             "https://token@example.test/cquay.json",

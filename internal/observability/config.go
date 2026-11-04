@@ -46,22 +46,40 @@ func New(ctx context.Context, config *model.Observability, options Options) (*Ru
 }
 
 func validateRuntimeConfig(config *model.Observability) error {
+	if err := validatePipelineConfig(config); err != nil {
+		return err
+	}
+	if err := validateResourceConfig(config); err != nil {
+		return err
+	}
+	return validateSignalConfig(config)
+}
+
+func validatePipelineConfig(config *model.Observability) error {
 	if config.ServiceName == "" || config.Endpoint == "" || config.TimeoutSeconds < 1 || config.ExportIntervalSeconds < 1 || config.BatchSize < 1 || config.QueueSize < config.BatchSize {
 		return fault.New(fault.Invalid, "observability configuration")
 	}
-	if _, err := collectorURLs(config.Endpoint); err != nil || (config.TrustStoreFile == "") != (config.TrustStoreSHA256 == "") {
+	if _, err := parseCollectorURLs(config.Endpoint); err != nil || (config.TrustStoreFile == "") != (config.TrustStoreSHA256 == "") {
 		return fault.New(fault.Invalid, "observability transport")
 	}
+	return nil
+}
+
+func validateResourceConfig(config *model.Observability) error {
 	if !oneOf(config.DiagnosticLevel, "off", "error", "info", "debug") || !safeResourceText(config.ServiceName) || !safeResourceText(config.Environment) {
 		return fault.New(fault.Invalid, "observability identity")
 	}
 	if config.ResourceAttributes != nil && (!safeResourceText(config.ResourceAttributes.ServiceNamespace) || !safeResourceText(config.ResourceAttributes.ServiceInstanceID)) {
 		return fault.New(fault.Invalid, "observability resource")
 	}
-	if config.Traces != nil && config.Traces.Enabled != nil && *config.Traces.Enabled && (config.Traces.SampleRatio == nil || *config.Traces.SampleRatio < 0 || *config.Traces.SampleRatio > 1) {
+	return nil
+}
+
+func validateSignalConfig(config *model.Observability) error {
+	if enabled(config.Traces) && (config.Traces.SampleRatio == nil || *config.Traces.SampleRatio < 0 || *config.Traces.SampleRatio > 1) {
 		return fault.New(fault.Invalid, "observability traces")
 	}
-	if config.Metrics != nil && config.Metrics.Enabled != nil && *config.Metrics.Enabled && config.Metrics.IntervalSeconds < 1 {
+	if enabled(config.Metrics) && config.Metrics.IntervalSeconds < 1 {
 		return fault.New(fault.Invalid, "observability metrics")
 	}
 	if !enabled(config.Metrics) && !enabled(config.Traces) && !enabled(config.Logs) {

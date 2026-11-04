@@ -99,6 +99,9 @@ The default feed is the public CircularQuay GitHub releases API. An enterprise
 may select a credential-free HTTPS `feed_endpoint` with compatible release
 metadata and optional protected `token_file` and pinned CA references.
 Checks and responses are bounded; redirects and ambient proxies are denied.
+The stable channel excludes prerelease versions even if a feed incorrectly
+labels them as stable. The release-candidate channel includes eligible
+prerelease and stable versions, using Semantic Version ordering.
 Feed metadata is advisory, not publisher authentication for a binary. Follow
 the release's signature/provenance and installation instructions before
 changing an executable.

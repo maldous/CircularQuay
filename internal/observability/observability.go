@@ -41,10 +41,14 @@ type noopSpan struct{}
 func (noopBackend) begin(ctx context.Context, _ Operation) (context.Context, span) {
 	return ctx, noopSpan{}
 }
-func (noopBackend) event(context.Context, Event)   {}
+func (noopBackend) event(context.Context, Event) {
+	// Disabled telemetry deliberately discards events without opening a sink.
+}
 func (noopBackend) health() Health                 { return Health{} }
 func (noopBackend) shutdown(context.Context) error { return nil }
-func (noopSpan) end(Outcome)                       {}
+func (noopSpan) end(Outcome) {
+	// A disabled span owns no exporter or diagnostic state to finalize.
+}
 
 // Disabled returns a runtime that performs no network work or local logging.
 // It is safe to share between callers.

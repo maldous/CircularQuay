@@ -8,6 +8,63 @@ Do not claim a passed gate without its retained evidence.
 
 ## Published candidate and qualification boundary
 
+Checkpoint `4c703c84fd9c1647b9a479c5525fdd3bfc653962`, tree
+`f098a84ef22731a2cf9556ab664199154f11fb20`, is the current published
+candidate. Public readback verified all 17 changed files and preserved all
+354 working files. PR #1 remains draft against `develop`.
+
+Its source run `41767625772` and security run `41767625840` fail on an
+observability type/function name collision (`collectorURLs`). Tests and
+native/cross builds cannot compile; Staticcheck and CodeQL cannot complete
+analysis, and gosec/govulncheck are not reached. The following source
+correction names the parser `parseCollectorURLs`; it requires a fresh hosted
+compilation and analysis. Do not carry forward an earlier security pass.
+
+The following source also enforces Python's shared 16,384-node I-JSON
+budget, with exact boundary fixtures, and excludes semantic prereleases
+from the stable update channel even when feed metadata labels them stable.
+These are intentional contract corrections, separate from behavior-preserving
+Sonar refactors. Their added tests have not run under the local heavy-work hold.
+
+SDK run `41767625933` passes Go dependency-lock reproducibility. All three
+Go SDK lanes then fail at that same compilation error. All nine TypeScript
+lanes successfully generate identical npm locks and stop at the required
+missing-reviewed-lock gate. All 15 Python runtime lanes generate native
+wheel-only locks and stop at that gate, including Python 3.15. These resolver
+results are not SDK tests. The following correction commits the exact
+reviewed npm/runtime locks with artifact, input and hash provenance.
+
+The three Python static jobs install the reviewed toolchain and pass the lock
+helper tests. Ruff, mypy, Bandit and lock audit have completed failures;
+coverage is interrupted when the jobs exceed their 30-minute limit. Job
+logs are unavailable through the connector and the browser cannot recover
+the analyzer diagnostics. The following CI correction preserves bounded
+analyzer reports before coverage, records test progress and uses explicit
+SDK mypy/coverage configuration. It does not guess source fixes, skip tests,
+or lower a gate. The SDK aggregate fails.
+
+Sonar run `41767625773` uploads analysis and reaches successful Compute
+Engine completion, but fails the strict gate. The retained artifact reports
+0.0% coverage after the Go compilation error, 0.2% duplication, 17 open
+issues and zero hotspots. Required new-code metrics are absent and fail
+closed. One Python compatibility-version warning appears in scanner and
+analysis warnings. Its analysis revision is the PR synthetic merge
+`45fe4e1d7c099d2be2022e910bd0666c9442ebc3`, whose tree matches the
+public candidate. The following source corrections address the actual
+reported literals, complexity, empty no-op rationale and SDK diagnostics;
+it declares the actual Python 3.11–3.15 matrix for analyzer qualification.
+Only a fresh analysis can establish their disposition. Retain
+`ci-4c703c8-source-security.json` and `ci-4c703c8-sonar.json` with the exact
+head/tree and phase distinctions. The hosted correction remains unqualified
+until its own checks complete.
+
+Dependency Review `41767625888` passes. WireMock run `41767625763` verifies
+the pinned JAR on all three platforms, then fails suite compilation at the
+same Go collision; it is not cancelled and establishes no provider-suite
+pass. Retain `ci-4c703c84-wiremock-dependency-review.json`.
+
+### Preceding SDK and telemetry checkpoint
+
 Checkpoint `333a1c7e93cd8be93310f86633549fdc6a6891c9`, tree
 `55e43daf8fa1818376f64bcdfeea7f7a4d0a7099`, publishes the SDK,
 observability and update-awareness source. Public readback verified all 89
