@@ -6,15 +6,12 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
-	"github.com/maldous/CircularQuay/internal/observability"
 )
 
 // Activate requests a declared native service transition after an atomic
 // projection. The caller must skip unchanged generations and authorize service
 // control separately from reading or publishing configuration.
-func Activate(ctx context.Context, target model.Target) (err error) {
-	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseActivation, ProviderKind: "native"})
-	defer func() { complete(observability.OutcomeForError(err)) }()
+func Activate(ctx context.Context, target model.Target) error {
 	if ctx.Err() != nil {
 		return fault.New(fault.Apply, "activation canceled")
 	}

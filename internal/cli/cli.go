@@ -176,7 +176,7 @@ func (a application) dispatchLoadedOperationalPolicy(ctx context.Context, args [
 	}()
 	ctx = observability.WithRuntime(ctx, runtime)
 	observability.Record(ctx, observability.Operation{Phase: observability.PhasePolicy, ProviderKind: "json"}, observability.OutcomeSuccess)
-	if err := a.checkUpdates(ctx); err != nil {
+	if err := a.checkUpdates(ctx, args[0], p.Updates); err != nil {
 		return 0, err
 	}
 	return a.dispatchWithObservability(ctx, args)

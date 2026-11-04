@@ -208,5 +208,14 @@ func hasActivation(w model.Workload, ids []string) bool {
 }
 
 func nativeOperations() targetOperations {
-	return targetOperations{project: apply, activate: platform.Activate}
+	return targetOperations{project: apply, activate: activateObservedTarget}
+}
+
+// activateObservedTarget instruments the application boundary above platform.
+// Native platform primitives also protect telemetry's files and transports, so
+// they must not depend on the observability backend they help initialize.
+func activateObservedTarget(ctx context.Context, target model.Target) (err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseActivation, ProviderKind: "native"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
+	return platform.Activate(ctx, target)
 }

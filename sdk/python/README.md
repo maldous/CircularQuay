@@ -21,8 +21,8 @@ optional because applications own their selected official MCP transport and its
 authentication lifecycle.
 
 ```sh
-python -m pip install 'cquay-sdk==1.0.0.dev0'
-python -m pip install 'cquay-sdk[mcp]==1.0.0.dev0'
+python -m pip install 'cquay-sdk==1.0.0'
+python -m pip install 'cquay-sdk[mcp]==1.0.0'
 ```
 
 Use a pinned public registry, an allowlisted index URL, and the release's

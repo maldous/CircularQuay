@@ -2,14 +2,28 @@
 
 `@maldous/cquay-sdk` is the v1 typed client boundary for CircularQuay. It has
 two explicit adapters: a caller-owned connected MCP client session for the
-four current MCP tools, and a verified local `cquay` executable for the full
+policy-approved MCP tools, and a verified local `cquay` executable for the full
 implemented command interface. It does not discover credentials, load shell
 profiles, create a connection, install a binary, retry work, cache results or
 start a service.
 
-The package is versioned for the v1 release train (`1.0.0-dev.0` in this
-source tree). Registry ownership and publication are release operations; they
-are not established by this package manifest.
+## Install
+
+Select the exact qualified v1 release for your application:
+
+```sh
+npm install --save-exact @maldous/cquay-sdk@1.0.0
+```
+
+The local adapter needs no MCP dependency. For an MCP connection, install the
+qualified official peer separately:
+
+```sh
+npm install --save-exact @modelcontextprotocol/sdk@1.32.2
+```
+
+Verify package provenance and hashes through the selected release's
+[distribution instructions](../../RELEASE.md#official-sdk-distribution).
 
 ## MCP client
 

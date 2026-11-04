@@ -13,25 +13,19 @@ import (
 	"golang.org/x/term"
 )
 
-// checkUpdates applies the non-negotiable local minimum before any caller can
-// reach a repository, provider, workload, or activation effect. The network
-// check is advisory and occurs only during an interactive local CLI session.
-func (a application) checkUpdates(ctx context.Context) error {
-	policy, err := a.load()
-	if err != nil {
-		return err
-	}
-	if err := enforceMinimumVersion(policy, a.version()); err != nil {
-		return err
-	}
-	if policy.Updates == nil || policy.Updates.Check != "interactive" || !interactiveTerminal(a.runner.In, a.runner.Err) {
+// checkUpdates performs only the advisory, interactive release check. The
+// caller has already applied the minimum-version preflight before telemetry or
+// other operational effects. MCP startup is deliberately excluded: a server
+// must not make an ambient release-feed request when a terminal launches it.
+func (a application) checkUpdates(ctx context.Context, command string, config *model.Updates) error {
+	if !shouldCheckUpdates(command, config, interactiveTerminal(a.runner.In, a.runner.Err)) {
 		return nil
 	}
 	store, err := a.store()
 	if err != nil {
 		return err
 	}
-	result, err := update.Check(ctx, policy.Updates, update.Options{Version: a.version(), StateDirectory: store.Directory})
+	result, err := update.Check(ctx, config, update.Options{Version: a.version(), StateDirectory: store.Directory})
 	if err != nil {
 		_, _ = fmt.Fprintln(a.runner.Err, "CircularQuay could not check for updates; continuing.")
 		return nil
@@ -40,6 +34,18 @@ func (a application) checkUpdates(ctx context.Context) error {
 		_, _ = fmt.Fprintf(a.runner.Err, "A newer CircularQuay release is available: %s\nUpgrade instructions: %s\nContinuing with this invocation.\n", result.Available, result.InstructionURL)
 	}
 	return nil
+}
+
+func shouldCheckUpdates(command string, config *model.Updates, terminal bool) bool {
+	if !terminal || config == nil || config.Check != "interactive" {
+		return false
+	}
+	switch command {
+	case "plan", "run", "sync", "snapshot", "apply", "status":
+		return true
+	default:
+		return false
+	}
 }
 
 // enforceMinimumVersion is deliberately usable before telemetry initialization:

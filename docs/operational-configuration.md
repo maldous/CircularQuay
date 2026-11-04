@@ -113,7 +113,8 @@ Disable network checks while requiring a selected minimum runtime:
 
 `minimum_version` uses a complete Semantic Version. It is enforced locally
 before sensitive runtime effects, independently of feed availability. A
-development or malformed build cannot satisfy a declared minimum. Version,
+development or malformed build cannot satisfy a stable production minimum. An
+explicit prerelease minimum follows Semantic Version prerelease ordering. Version,
 configuration repair, `doctor` and explicit update inspection remain available
 for recovery. A failed advisory network check continues the invocation; a
 minimum-version denial requires an approved compatible binary.

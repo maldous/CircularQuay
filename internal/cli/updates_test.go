@@ -47,6 +47,21 @@ func TestUpdateInteractiveGateRejectsSDKStyleStreams(t *testing.T) {
 	}
 }
 
+func TestUpdateCheckEligibilityNeverChecksMCP(t *testing.T) {
+	config := &model.Updates{Check: "interactive"}
+	for command, expected := range map[string]bool{
+		"plan": true, "run": true, "sync": true, "snapshot": true, "apply": true, "status": true,
+		"mcp": false, "doctor": false, "config": false, "init": false, "update": false,
+	} {
+		if actual := shouldCheckUpdates(command, config, true); actual != expected {
+			t.Fatalf("update eligibility for %q = %t, want %t", command, actual, expected)
+		}
+	}
+	if shouldCheckUpdates("run", config, false) || shouldCheckUpdates("run", nil, true) || shouldCheckUpdates("run", &model.Updates{Check: "never"}, true) {
+		t.Fatal("advisory check enabled without an interactive update declaration and terminal")
+	}
+}
+
 func TestRunnerBuildVersionControlsMinimumRuntimeGate(t *testing.T) {
 	directory := privateCLIDirectory(t)
 	fixture := filepath.Join(directory, "fixture.json")

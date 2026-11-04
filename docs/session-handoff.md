@@ -6,15 +6,41 @@ installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
-## Current published source and candidate boundary
+## Published candidate and qualification boundary
 
-The published feature branch is `19cdf833206708a99aee142f4dc7f5b335be5dbb`,
-with tree `373f28ab40c92ce7022718e8ff25e21957f59526`. Draft PR #1 still
-targets `develop`. The three Sonar workflow checkpoints after `8406e66` were
-published through temporary indexes while SDK/runtime writers were active;
-the local HEAD was deliberately retained at `8406e66`. Preserve the full
-working-file fence before bringing that checkout forward. The public branch
-parent, rather than the old local HEAD, is the next publication parent.
+Checkpoint `333a1c7e93cd8be93310f86633549fdc6a6891c9`, tree
+`55e43daf8fa1818376f64bcdfeea7f7a4d0a7099`, publishes the SDK,
+observability and update-awareness source. Public readback verified all 89
+changed files and preserved all 349 working files; the guarded mixed reset
+brought the checkout forward cleanly. Draft PR #1 targets `develop`. The
+receipts below identify their exact source, rather than implying that an
+older analysis qualifies the current feature-branch head.
+
+SDK run `41765210485` generated and verified Go dependency metadata, then
+correctly failed because those lock changes were not committed. Compilation
+also caught an activation telemetry import cycle. TypeScript failed before
+npm because its setup-node commit did not exist. Python 3.11–3.14 generated
+12 native-platform resolver artifacts and failed the missing-reviewed-lock
+gate; Python 3.15 failed resolution because Bandit's PyYAML dependency had
+no eligible wheel. None of this establishes SDK runtime qualification.
+Retain `checkpoint35-sdk-locks/receipt.json` and its Python manifest.
+
+The working correction applies exactly the reviewed Go metadata and three
+Python 3.14 static-tool locks with source/artifact/hash provenance. It moves
+activation instrumentation above the platform primitives, fixes the official
+setup-node pin, separates the analyzer interpreter from the 3.11–3.15 runtime
+matrix, and excludes terminal-launched MCP servers from automatic advisory
+update checks. Missing npm/runtime-test locks remain hard failures until
+actual hosted output is reviewed and committed. No source distributions,
+ignored findings or weakened coverage gates supply a bypass.
+
+The preceding `19cdf833206708a99aee142f4dc7f5b335be5dbb` has tree
+`373f28ab40c92ce7022718e8ff25e21957f59526` and the completed Sonar
+receipt below. PR #1's base is the empty initial repository at
+`faf8e0242847d9a0026139762d6558ecd39debac`. Do not fabricate a Go baseline
+or assume that two analyses run now establish a historical new-code boundary.
+The private proposed baseline patch is unmergeable until the pinned server's
+actual API and correct initial-analysis semantics are demonstrated.
 
 Sonar run `41762521270` successfully reached HTTP readiness, scanner upload,
 Compute Engine analysis and all six revision-bound server readbacks. The sole
@@ -36,15 +62,17 @@ unsuppressed gosec findings. Dependency Review and native WireMock passed.
 Retain `ci-19cdf83-native-security.json`. Those receipts do not qualify the
 following source candidate, including its extracted MCP claim-filter helper.
 
-The working candidate addresses those three code smells, adds official Go,
+Checkpoint `333a1c7` addresses those three code smells, adds official Go,
 TypeScript and Python SDKs, and implements configurable OTLP observability
 and release awareness. SDK error/DTO/limit contracts and operational policy
 have independent source reviews. Official MCP stdio fixtures and native SDK
 qualification belong to the hosted matrix. No source review establishes a
 compilation, runtime, coverage, interoperability or security pass.
 
-New exporter module closure, npm lock and per-platform/interpreter Python
-hash locks require hosted resolution and review. The SDK workflow retains
+The generated exporter module closure and Python static-tool hashes have
+hosted resolver evidence; their committed reproducibility remains unpassed.
+The npm and per-platform/interpreter runtime-test locks require hosted
+resolution and review. The SDK workflow retains
 actual generated lock evidence and fails until reviewed locks are committed;
 normal qualification uses read-only Go modules and hash-checked Python/npm
 locks. Do not invent hashes or call this bootstrap a passing dependency gate.

@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [develop, main, 'release/**']
   push:
-    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
+    branches: [develop, main, 'release/**', 'hotfix/**']
   workflow_dispatch:
 
 permissions:
@@ -99,6 +99,71 @@ jobs:
           go vet ./sdk/go
           test -z "$(gofmt -l sdk/go)"
 
+  python-static-security:
+    name: Python static and security (3.14, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.14', check-latest: true }
+      - name: Install reviewed static-tool closure
+        id: static_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          lock="sdk/python/locks/ci-${p}-py314.txt"
+          test -f "$lock"
+          python .github/scripts/sdk_python_lock.py --verify-lock "$lock" --requirements sdk/python/requirements-ci.txt
+          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+      - name: Test lock helper
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m unittest discover -s .github/scripts/tests -v
+      - name: Lint Python SDK
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m ruff check sdk/python
+      - name: Typecheck Python SDK
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m mypy sdk/python/src
+      - name: Bandit Python SDK
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m bandit -r sdk/python/src
+      - name: Audit every reviewed Python lock
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          python -m pip_audit --strict --disable-pip --require-hashes -r "sdk/python/locks/ci-${p}-py314.txt"
+          for platform in linux darwin win32; do for interpreter in py311 py312 py313 py314 py315; do
+            lock="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
+            test -f "$lock"
+            python -m pip_audit --strict --disable-pip --require-hashes -r "$lock"
+          done; done
+      - name: Measure Python SDK coverage
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" python -m coverage run --branch -m unittest discover -s sdk/python/tests -v
+          python -m coverage report --fail-under=100
+      - name: Build Python SDK static lane
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cquay-python-static-dist" sdk/python
+
   typescript:
     name: TypeScript SDK (Node ${{ matrix.node }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -116,7 +181,7 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@48b55a011bda9d9f6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
@@ -305,22 +370,24 @@ jobs:
             3.15) interpreter=py315 ;;
             *) exit 1 ;;
           esac
-          committed="sdk/python/locks/ci-${platform}-${interpreter}.txt"
+          committed="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
           if test -f "$committed"; then
             cp "$committed" "$evidence/selected.txt"
-            python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-ci.txt
+            python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-test.txt
             python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            sha256sum sdk/python/requirements-test.txt "$evidence/selected.txt" > "$evidence/inputs.sha256"
             echo 'missing=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-ci.txt
-          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$GITHUB_SHA" --requirements sdk/python/requirements-ci.txt
+          python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-test.txt
+          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$GITHUB_SHA" --requirements sdk/python/requirements-test.txt
+          sha256sum sdk/python/requirements-test.txt "$evidence/generated.txt" > "$evidence/inputs.sha256"
           echo 'missing=true' >> "$GITHUB_OUTPUT"
       - name: Upload generated Python lock evidence
         if: ${{ always() && steps.python_lock.outputs.missing == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: python-lock-${{ matrix.os }}-python-${{ matrix.python }}
+          name: python-runtime-lock-${{ matrix.os }}-python-${{ matrix.python }}
           path: ${{ runner.temp }}/cquay-python-lock
           if-no-files-found: error
           retention-days: 7
@@ -339,20 +406,6 @@ jobs:
           set -euo pipefail
           umask 077
           python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cquay-python-lock/selected.txt"
-          python -m unittest discover -s .github/scripts/tests -v
-      - name: Lint and typecheck Python SDK
-        id: python_static
-        if: ${{ always() && steps.python_tools.outcome == 'success' }}
-        shell: bash
-        run: |
-          python -m ruff check sdk/python
-          python -m mypy sdk/python/src
-      - name: Security scan Python SDK
-        id: python_bandit
-        if: ${{ always() && steps.python_tools.outcome == 'success' }}
-        shell: bash
-        run: |
-          python -m bandit -r sdk/python/src
       - name: Measure Python SDK coverage
         id: python_coverage
         if: ${{ always() && steps.python_tools.outcome == 'success' }}
@@ -382,14 +435,6 @@ jobs:
           "$cquay_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cquay-python-lock/selected.txt"
           "$cquay_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cquay-python-dist/*.whl
           "$cquay_python" -c 'import cquay; assert cquay.__version__ == "1.0.0.dev0"'
-      - name: Audit installed Python SDK dependencies
-        if: ${{ always() && steps.python_install.outcome == 'success' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
-          if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
-          "$cquay_python" -m pip_audit --strict
       - name: Exercise the installed Python local client against cquay
         if: ${{ always() && steps.python_install.outcome == 'success' }}
         shell: bash
@@ -467,3 +512,19 @@ jobs:
           path: ${{ runner.temp }}/cquay-python-dist
           if-no-files-found: warn
           retention-days: 7
+
+  sdk-qualification:
+    name: SDK qualification
+    needs: [go-dependency-lock, go, typescript, python-static-security, python]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every SDK qualification family
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ needs['go-dependency-lock'].result }}' = success
+          test '${{ needs.go.result }}' = success
+          test '${{ needs.typescript.result }}' = success
+          test '${{ needs['python-static-security'].result }}' = success
+          test '${{ needs.python.result }}' = success
