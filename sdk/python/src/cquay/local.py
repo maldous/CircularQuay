@@ -13,17 +13,17 @@ import time
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 from urllib.parse import urlsplit
 
 from .errors import CircularQuayError, ErrorCategory
 from .types import JSONValue, Observation, Observer
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_SEMVER_RUNTIME = re.compile(r"^(?P<major>0|[1-9]\d*)\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 _MAX_INPUT_BYTES = 1_048_576
 _MAX_OUTPUT_BYTES = 1_048_576
 _MAX_ERROR_BYTES = 512
+_MAX_VERSION_LENGTH = 256
 _CHUNK_BYTES = 65_536
 _TERM_GRACE_SECONDS = 5
 _IJSON_SAFE_INTEGER = 9_007_199_254_740_991
@@ -86,7 +86,11 @@ class LocalCLIClient:
                 raise OSError
             digest, opened = _file_sha256(self._executable)
             after = os.lstat(self._executable)
-            if _identity(before) != _identity(opened) or _identity(before) != _identity(after) or digest != self._expected_sha256:
+            identities_match = (
+                _identity(before) == _identity(opened)
+                and _identity(before) == _identity(after)
+            )
+            if not identities_match or digest != self._expected_sha256:
                 raise OSError
         except (OSError, ValueError):
             raise CircularQuayError(ErrorCategory.INTEGRITY, "cli_identity") from None
@@ -94,10 +98,11 @@ class LocalCLIClient:
     async def version(self) -> dict[str, JSONValue]:
         """Return the native executable's v1 version metadata."""
 
-        value = await self._json("version", ("version",))
-        if not _valid_version_dto(value):
+        value = await self._json_object("version", ("version",))
+        major = _version_major(value)
+        if major is None:
             raise CircularQuayError(ErrorCategory.PROTOCOL, "version")
-        if _SEMVER_RUNTIME.fullmatch(value["version"]).group("major") != "1":
+        if major != "1":
             raise CircularQuayError(ErrorCategory.UNSUPPORTED, "version")
         return value
 
@@ -126,7 +131,7 @@ class LocalCLIClient:
         args: list[str] = ["init"]
         if output is not None:
             args.extend(("--output", str(_absolute_path(output, "output"))))
-        return await self._json("init", tuple(args))
+        return await self._json_object("init", tuple(args))
 
     async def config_init(self, *, output: str | Path | None = None) -> dict[str, JSONValue]:
         """Create the same protected synthetic policy via ``config init``."""
@@ -134,9 +139,11 @@ class LocalCLIClient:
         args: list[str] = ["config", "init"]
         if output is not None:
             args.extend(("--output", str(_absolute_path(output, "output"))))
-        return await self._json("config_init", tuple(args))
+        return await self._json_object("config_init", tuple(args))
 
-    async def doctor(self, *, fix: bool = False, identity_only: bool = False) -> dict[str, JSONValue]:
+    async def doctor(
+        self, *, fix: bool = False, identity_only: bool = False
+    ) -> dict[str, JSONValue]:
         """Run local readiness checks; ``fix`` only requests native JSON formatting."""
 
         if fix and identity_only:
@@ -146,51 +153,65 @@ class LocalCLIClient:
             args.append("--fix")
         if identity_only:
             args.append("--identity-only")
-        return await self._json("doctor", tuple(args), accepted_codes={0, 1})
+        return await self._json_object("doctor", tuple(args), accepted_codes={0, 1})
 
     async def config_validate(self) -> dict[str, JSONValue]:
-        return await self._json("config_validate", ("config", "validate"))
+        return await self._json_object("config_validate", ("config", "validate"))
 
     async def config_get(self, pointer: str) -> dict[str, JSONValue]:
         _pointer(pointer)
-        return await self._json("config_get", ("config", "get", "--pointer", pointer))
+        return await self._json_object(
+            "config_get", ("config", "get", "--pointer", pointer)
+        )
 
     async def config_list(self, pointer: str = "") -> dict[str, JSONValue]:
         _pointer(pointer)
         args = ["config", "list"]
         if pointer:
             args.extend(("--pointer", pointer))
-        return await self._json("config_list", tuple(args))
+        return await self._json_object("config_list", tuple(args))
 
-    async def config_set(self, pointer: str, value: JSONValue, *, expect_sha256: str | None = None) -> dict[str, JSONValue]:
+    async def config_set(
+        self,
+        pointer: str,
+        value: JSONValue,
+        *,
+        expect_sha256: str | None = None,
+    ) -> dict[str, JSONValue]:
         """Set one JSON pointer value through stdin, never through process argv."""
 
         _pointer(pointer)
         body = _json_input(value, "config_set")
         args = ["config", "set", "--pointer", pointer, "--value-file", "-"]
         _append_expected_digest(args, expect_sha256)
-        return await self._json("config_set", tuple(args), stdin=body)
+        return await self._json_object("config_set", tuple(args), stdin=body)
 
-    async def config_delete(self, pointer: str, *, expect_sha256: str | None = None) -> dict[str, JSONValue]:
+    async def config_delete(
+        self, pointer: str, *, expect_sha256: str | None = None
+    ) -> dict[str, JSONValue]:
         _pointer(pointer)
         args = ["config", "delete", "--pointer", pointer]
         _append_expected_digest(args, expect_sha256)
-        return await self._json("config_delete", tuple(args))
+        return await self._json_object("config_delete", tuple(args))
 
-    async def config_replace(self, policy: JSONValue, *, expect_sha256: str | None = None) -> dict[str, JSONValue]:
+    async def config_replace(
+        self, policy: JSONValue, *, expect_sha256: str | None = None
+    ) -> dict[str, JSONValue]:
         """Replace policy JSON through stdin after native full-policy validation."""
 
         body = _json_input(policy, "config_replace")
         args = ["config", "replace", "--file", "-"]
         _append_expected_digest(args, expect_sha256)
-        return await self._json("config_replace", tuple(args), stdin=body)
+        return await self._json_object("config_replace", tuple(args), stdin=body)
 
     async def plan(self) -> dict[str, JSONValue]:
-        return await self._json("plan", ("plan",))
+        return await self._json_object("plan", ("plan",))
 
     async def status(self, workload: str) -> dict[str, JSONValue]:
         _handle(workload, "workload")
-        return await self._json("status", ("status", "--workload", workload, "--json"))
+        return await self._json_object(
+            "status", ("status", "--workload", workload, "--json")
+        )
 
     async def snapshot(self, workload: str, *, target: str | None = None) -> dict[str, JSONValue]:
         return await self._workload_json("snapshot", workload, target=target)
@@ -226,7 +247,7 @@ class LocalCLIClient:
             args.extend(pins)
         if output is not None:
             args.extend(("--output", str(_absolute_path(output, "output"))))
-        return await self._json("bootstrap", tuple(args))
+        return await self._json_object("bootstrap", tuple(args))
 
     async def flow(
         self,
@@ -266,10 +287,18 @@ class LocalCLIClient:
         program = tuple(_argument(item, "run_override") for item in override)
         if program and not os.path.isabs(program[0]):
             raise CircularQuayError(ErrorCategory.INVALID, "run_override")
-        args = ("run", "--workload", workload, *( ("--", *program) if program else () ))
+        separator_and_program = ("--", *program) if program else ()
+        args = ("run", "--workload", workload, *separator_and_program)
         return await self._inherit("run", args)
 
-    async def _workload_json(self, command: str, workload: str, *, target: str | None = None, once: bool = False) -> dict[str, JSONValue]:
+    async def _workload_json(
+        self,
+        command: str,
+        workload: str,
+        *,
+        target: str | None = None,
+        once: bool = False,
+    ) -> dict[str, JSONValue]:
         _handle(workload, "workload")
         args = [command, "--workload", workload]
         if target is not None:
@@ -277,9 +306,16 @@ class LocalCLIClient:
             args.extend(("--target", target))
         if once:
             args.append("--once")
-        return await self._json(command, tuple(args))
+        return await self._json_object(command, tuple(args))
 
-    async def _json(self, operation: str, arguments: tuple[str, ...], *, stdin: bytes | None = None, accepted_codes: set[int] | None = None) -> dict[str, JSONValue] | JSONValue:
+    async def _json(
+        self,
+        operation: str,
+        arguments: tuple[str, ...],
+        *,
+        stdin: bytes | None = None,
+        accepted_codes: set[int] | None = None,
+    ) -> JSONValue:
         output, code, failure = await self._captured(operation, arguments, stdin=stdin)
         if code not in (accepted_codes or {0}):
             _raise_exit(operation, failure or ErrorCategory.PROCESS)
@@ -291,7 +327,31 @@ class LocalCLIClient:
             raise CircularQuayError(ErrorCategory.PROTOCOL, operation)
         return value
 
-    async def _captured(self, operation: str, arguments: tuple[str, ...], *, stdin: bytes | None = None) -> tuple[bytes, int, ErrorCategory | None]:
+    async def _json_object(
+        self,
+        operation: str,
+        arguments: tuple[str, ...],
+        *,
+        stdin: bytes | None = None,
+        accepted_codes: set[int] | None = None,
+    ) -> dict[str, JSONValue]:
+        value = await self._json(
+            operation,
+            arguments,
+            stdin=stdin,
+            accepted_codes=accepted_codes,
+        )
+        if not isinstance(value, dict):
+            raise CircularQuayError(ErrorCategory.PROTOCOL, operation)
+        return value
+
+    async def _captured(
+        self,
+        operation: str,
+        arguments: tuple[str, ...],
+        *,
+        stdin: bytes | None = None,
+    ) -> tuple[bytes, int, ErrorCategory | None]:
         started = time.monotonic()
         outcome = "success"
         process: asyncio.subprocess.Process | None = None
@@ -321,15 +381,27 @@ class LocalCLIClient:
         finally:
             if process is not None and process.returncode is None:
                 await _reap(process)
-            _observe(self._observer, operation, str(outcome), int((time.monotonic() - started) * 1000))
+            _observe(
+                self._observer,
+                operation,
+                str(outcome),
+                int((time.monotonic() - started) * 1000),
+            )
 
     async def _start_captured(
         self, arguments: tuple[str, ...], stdin: bytes | None
     ) -> asyncio.subprocess.Process:
         process = await asyncio.create_subprocess_exec(
-            str(self._executable), "--config", str(self._config), "--state-dir", str(self._state_dir), *arguments,
+            str(self._executable),
+            "--config",
+            str(self._config),
+            "--state-dir",
+            str(self._state_dir),
+            *arguments,
             stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=dict(self._environment),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=dict(self._environment),
         )
         if stdin is not None and process.stdin is not None:
             process.stdin.write(stdin)
@@ -344,7 +416,12 @@ class LocalCLIClient:
         try:
             self.verify_identity()
             process = await asyncio.create_subprocess_exec(
-                str(self._executable), "--config", str(self._config), "--state-dir", str(self._state_dir), *arguments,
+                str(self._executable),
+                "--config",
+                str(self._config),
+                "--state-dir",
+                str(self._state_dir),
+                *arguments,
                 stdin=None, stdout=None, stderr=None, env=dict(self._environment),
             )
             code = await process.wait()
@@ -371,7 +448,12 @@ class LocalCLIClient:
         finally:
             if process is not None and process.returncode is None:
                 await _reap(process)
-            _observe(self._observer, operation, str(outcome), int((time.monotonic() - started) * 1000))
+            _observe(
+                self._observer,
+                operation,
+                str(outcome),
+                int((time.monotonic() - started) * 1000),
+            )
 
 
 def _absolute_path(value: str | Path, operation: str) -> Path:
@@ -381,15 +463,63 @@ def _absolute_path(value: str | Path, operation: str) -> Path:
     return path
 
 
-def _valid_version_dto(value: Any) -> bool:
+def _version_major(value: dict[str, JSONValue]) -> str | None:
     if not isinstance(value, dict) or set(value) != {"version", "commit", "go", "maturity"}:
-        return False
-    version = value.get("version")
-    return (
-        all(isinstance(value.get(field), str) for field in ("commit", "go", "maturity"))
-        and isinstance(version, str)
-        and _SEMVER_RUNTIME.fullmatch(version) is not None
+        return None
+    version = value["version"]
+    if not all(isinstance(value[field], str) for field in ("commit", "go", "maturity")):
+        return None
+    if not isinstance(version, str):
+        return None
+    return _semver_major(version)
+
+
+def _semver_major(version: str) -> str | None:
+    """Return a strict SemVer major or ``None`` without retaining malformed input."""
+
+    try:
+        encoded_length = len(version.encode("utf-8"))
+    except UnicodeEncodeError:
+        return None
+    if not version or encoded_length > _MAX_VERSION_LENGTH:
+        return None
+    if version.startswith("v"):
+        version = version[1:]
+    core_and_prerelease, *build_parts = version.split("+")
+    if len(build_parts) > 1:
+        return None
+    if build_parts and not _valid_semver_identifiers(build_parts[0], numeric=False):
+        return None
+    core, separator, prerelease = core_and_prerelease.partition("-")
+    if separator and not _valid_semver_identifiers(prerelease, numeric=True):
+        return None
+    parts = core.split(".")
+    if len(parts) != 3 or not all(_valid_semver_number(part) for part in parts):
+        return None
+    return parts[0]
+
+
+def _valid_semver_identifiers(value: str, *, numeric: bool) -> bool:
+    return bool(value) and all(
+        _valid_semver_identifier(identifier, numeric=numeric)
+        for identifier in value.split(".")
     )
+
+
+def _valid_semver_identifier(value: str, *, numeric: bool) -> bool:
+    valid_characters = all(
+        (character.isascii() and character.isalnum()) or character == "-"
+        for character in value
+    )
+    if not value or not valid_characters:
+        return False
+    if numeric and all("0" <= character <= "9" for character in value):
+        return _valid_semver_number(value)
+    return True
+
+
+def _valid_semver_number(value: str) -> bool:
+    return value == "0" or (value[:1] in "123456789" and value.isascii() and value.isdecimal())
 
 
 def _pinned_config_arguments(
@@ -491,12 +621,26 @@ def _argument(value: str, operation: str) -> str:
 
 
 def _handle(value: str, operation: str) -> None:
-    if not isinstance(value, str) or not value or len(value) > 128 or value in {".", ".."} or any(not (item.isascii() and (item.isalnum() or item in "_.-")) for item in value):
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 128
+        or value in {".", ".."}
+        or any(
+            not (item.isascii() and (item.isalnum() or item in "_.-"))
+            for item in value
+        )
+    ):
         raise CircularQuayError(ErrorCategory.INVALID, operation)
 
 
 def _pointer(value: str) -> None:
-    if not isinstance(value, str) or len(value) > 4096 or (value and not value.startswith("/")) or "\x00" in value:
+    if (
+        not isinstance(value, str)
+        or len(value) > 4096
+        or (value and not value.startswith("/"))
+        or "\x00" in value
+    ):
         raise CircularQuayError(ErrorCategory.INVALID, "json_pointer")
     index = 0
     while index < len(value):
@@ -528,7 +672,12 @@ def _json_input(value: JSONValue, operation: str) -> bytes:
     if not _is_i_json(value):
         raise CircularQuayError(ErrorCategory.INVALID, operation)
     try:
-        body = json.dumps(value, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+        body = json.dumps(
+            value,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
     except (TypeError, ValueError):
         raise CircularQuayError(ErrorCategory.INVALID, operation) from None
     if len(body) > _MAX_INPUT_BYTES:
@@ -580,7 +729,7 @@ def _is_i_json_object(value: dict[Any, Any], depth: int, nodes: list[int]) -> bo
     )
 
 
-def _safe_json(value: Any, *, depth: int = 0) -> bool:
+def _safe_json(value: Any, *, depth: int = 0) -> TypeGuard[JSONValue]:
     if depth > 32:
         return False
     if value is None or isinstance(value, bool):
@@ -605,14 +754,20 @@ def _safe_json_items(items: list[Any], depth: int) -> bool:
 def _safe_json_object(items: dict[Any, Any], depth: int) -> bool:
     if len(items) > 1024:
         return False
-    return all(_safe_json_key(key) and _safe_json(value, depth=depth + 1) for key, value in items.items())
+    return all(
+        _safe_json_key(key) and _safe_json(value, depth=depth + 1)
+        for key, value in items.items()
+    )
 
 
 def _safe_json_key(value: Any) -> bool:
     return isinstance(value, str) and len(value) <= 512
 
 
-async def _read_bounded(stream: asyncio.StreamReader | None, limit: int = _MAX_OUTPUT_BYTES) -> tuple[bytes, bool]:
+async def _read_bounded(
+    stream: asyncio.StreamReader | None,
+    limit: int = _MAX_OUTPUT_BYTES,
+) -> tuple[bytes, bool]:
     if stream is None:
         return b"", False
     parts: list[bytes] = []
@@ -680,7 +835,11 @@ async def _capture_process_output(
             raise CircularQuayError(ErrorCategory.PROTOCOL, operation)
         code = await process.wait()
         if code != 0:
-            failure = ErrorCategory.PROCESS if not error_output else _cli_failure_category(error_output)
+            failure = (
+                ErrorCategory.PROCESS
+                if not error_output
+                else _cli_failure_category(error_output)
+            )
             return output, code, failure
         return output, code, None
     finally:
@@ -732,7 +891,9 @@ def _cli_failure_category(data: bytes) -> ErrorCategory:
         "unsupported_capability": ErrorCategory.UNSUPPORTED,
     }
     category = document.get("error")
-    return categories.get(category, ErrorCategory.PROTOCOL) if isinstance(category, str) else ErrorCategory.PROTOCOL
+    if not isinstance(category, str):
+        return ErrorCategory.PROTOCOL
+    return categories.get(category, ErrorCategory.PROTOCOL)
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -752,6 +913,15 @@ def _observe(observer: Observer | None, operation: str, outcome: str, duration_m
     if observer is None:
         return
     try:
-        observer(Observation(operation=operation, outcome=outcome, duration_ms=max(0, duration_ms)))
-    except Exception:
-        pass
+        observer(
+            Observation(
+                operation=operation,
+                outcome=outcome,
+                duration_ms=max(0, duration_ms),
+            )
+        )
+    except Exception as error:
+        # Observer callbacks are advisory; retaining their errors could leak
+        # provider data and must not replace a completed operation outcome.
+        del error
+        return

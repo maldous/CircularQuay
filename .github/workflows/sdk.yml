@@ -223,40 +223,78 @@ jobs:
         with:
           go-version: '1.27.3'
           cache: false
-      - name: Materialize missing npm lock evidence
-        id: lock
+      - name: Produce and compare npm lock closure
+        id: npm_lock
         shell: bash
         run: |
           set -euo pipefail
           umask 077
+          evidence="$RUNNER_TEMP/cquay-sdk-lock"
+          stage="$evidence/stage"
+          max_manifest_bytes=262144
+          max_lock_bytes=4194304
+          require_bounded_file() {
+            test -f "$1"
+            test "$(wc -c < "$1")" -le "$2"
+          }
+          mkdir -m 0700 "$evidence" "$stage"
+          trap 'rm -rf "$stage"' EXIT
+          require_bounded_file sdk/typescript/package.json "$max_manifest_bytes"
+          cp sdk/typescript/package.json "$stage/package.json"
           if test -f sdk/typescript/package-lock.json; then
-            echo 'missing=false' >> "$GITHUB_OUTPUT"
-            exit 0
+            require_bounded_file sdk/typescript/package-lock.json "$max_lock_bytes"
+            cp sdk/typescript/package-lock.json "$stage/package-lock.json"
+            cp sdk/typescript/package-lock.json "$evidence/reviewed-package-lock.json"
+            reviewed=true
+          else
+            reviewed=false
           fi
-          mkdir -p "$RUNNER_TEMP/cquay-sdk-lock"
-          (
-            cd sdk/typescript
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          )
-          cp sdk/typescript/package-lock.json "$RUNNER_TEMP/cquay-sdk-lock/package-lock.json"
-          sha256sum "$RUNNER_TEMP/cquay-sdk-lock/package-lock.json" > "$RUNNER_TEMP/cquay-sdk-lock/package-lock.sha256"
-          echo 'missing=true' >> "$GITHUB_OUTPUT"
-      - name: Upload generated lock evidence
-        if: ${{ always() && steps.lock.outputs.missing == 'true' }}
+          {
+            printf 'revision=%s\n' "$GITHUB_SHA"
+            printf 'tree=%s\n' "$(git rev-parse "${GITHUB_SHA}^{tree}")"
+            printf 'runner_os=%s\n' "$RUNNER_OS"
+            node --version
+            npm --version
+            sha256sum sdk/typescript/package.json
+            if test "$reviewed" = true; then sha256sum sdk/typescript/package-lock.json; fi
+          } > "$evidence/receipt.txt"
+          if ! (
+            cd "$stage"
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          ); then
+            printf 'producer=failed\n' >> "$evidence/receipt.txt"
+            echo 'status=producer_failed' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          require_bounded_file "$stage/package-lock.json" "$max_lock_bytes"
+          cp "$stage/package-lock.json" "$evidence/generated-package-lock.json"
+          sha256sum "$evidence"/*package-lock.json > "$evidence/locks.sha256"
+          if test "$reviewed" = true && cmp -s sdk/typescript/package-lock.json "$stage/package-lock.json"; then
+            echo 'status=match' >> "$GITHUB_OUTPUT"
+            printf 'comparison=match\n' >> "$evidence/receipt.txt"
+          else
+            echo 'status=drift' >> "$GITHUB_OUTPUT"
+            printf 'comparison=drift\n' >> "$evidence/receipt.txt"
+          fi
+      - name: Upload npm lock evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typescript-lock-${{ matrix.os }}-node-${{ matrix.node }}
           path: ${{ runner.temp }}/cquay-sdk-lock
           if-no-files-found: error
           retention-days: 7
-      - name: Require reviewed npm lockfile
+      - name: RequireReviewedLock
+        id: require_reviewed_lock
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
-          test '${{ steps.lock.outputs.missing }}' = false
+          test '${{ steps.npm_lock.outputs.status }}' = match
           test -f sdk/typescript/package-lock.json
       - name: Install TypeScript dependencies from the reviewed lock
         id: npm_install
+        if: ${{ always() && steps.require_reviewed_lock.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail

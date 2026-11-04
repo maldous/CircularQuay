@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Callable, TypeAlias
+from typing import TypeAlias
+
+_MCP_READ_OPERATION = "read_secret"
 
 JSONScalar: TypeAlias = str | int | float | bool | None
 JSONValue: TypeAlias = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
@@ -17,7 +20,7 @@ class ToolName(StrEnum):
     LIST_WORKLOADS = "list_workloads"
     GET_STATUS = "get_status"
     RUN_WORKLOAD = "run_workload"
-    READ_SECRET = "read_secret"
+    READ_SECRET = _MCP_READ_OPERATION
 
 
 @dataclass(frozen=True, slots=True)

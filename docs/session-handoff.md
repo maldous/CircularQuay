@@ -8,9 +8,74 @@ Do not claim a passed gate without its retained evidence.
 
 ## Published candidate and qualification boundary
 
+Use `git rev-parse HEAD` to select the current checkout. Every receipt below
+qualifies only its recorded revision, tree and execution scope.
+
+Publication `9d12512b11b462908f69159a16144dd80a0d0764`, tree
+`bcfb89e4aa6974945163861f0f8bd3ce21ed0760`, has a complete public
+readback of 35 changed files and all 374 working files. The checkout was
+clean after publication; PR #1 remains draft against `develop`.
+
+Source run `41776969369` and security run `41776969295` expose two further
+compile causes: the MCP status/run methods redeclare named results with
+`:=`, and an update-error constant collides with a test helper. The following
+source uses assignment to the named results and a distinct operation-name
+constant. Its package-wide source review found no analogous telemetry
+declaration collision; compilation is not a source-review result.
+Final metadata records all 31 source jobs and both security jobs failed.
+Staticcheck and CodeQL are compilation-blocked; govulncheck, gosec and CodeQL
+analysis are skipped. Fuzzing and complexity checks are not reached.
+
+SDK run `41776969298` passes Go lock reproducibility. All three Go SDK jobs
+fail before SDK tests at those MCP declarations. Reviewed npm locks install
+successfully and the jobs reach actual lint, type, test, coverage and audit
+checks. They expose owned type/style/test failures, 52.89% line coverage in
+the recorded TypeScript sample, and 14 moderate toolchain dependency
+advisories. Python static jobs install reviewed locks and pass helper tests;
+their structured artifacts attribute 64 Ruff, 28 mypy and three Bandit
+diagnostics to SDK source. Runtime closures install successfully where their
+jobs have started. Python coverage/build/consumer/MCP results were still
+pending at this receipt; do not infer a runtime pass or exact stalled test.
+
+The subsequent authenticated Ubuntu static-coverage artifact `13298656230`
+records a bounded 1,200,004 ms timeout and the exact incomplete test
+`test_client.MCPClientTests.test_cancellation_propagates`. Its test double
+rejects the adapter's `arguments` keyword before setting the start event,
+so the fixture waits indefinitely. The following fixture correction uses
+the actual keyword contract, a bounded wait, task cleanup and explicit
+cancellation/observer assertions. This is not evidence that product
+cancellation failed. Retain `checkpoint38-python-timeout.json`.
+
+The following SDK source also aligns strict runtime-version DTO/SemVer
+validation across Go, Python and TypeScript. Go exposes linked-core metadata;
+the other local adapters inspect a selected native executable. TypeScript
+toolchain fixes declare exact `glob` and `minimatch` overrides. The existing
+lock/provenance remain evidence for the older inputs: hosted lock production
+must retain the new closure, fail on drift, and await actual review before
+installing it. No hand-edited integrity data supplies a pass.
+
+Sonar run `41776969359` completes upload, CE and six HTTP-200 readbacks at
+analysis `027a6c1b-e18e-4d48-ac45-4ecb0107e208`. Its synthetic merge is
+`685444aa9a0ed7500b83954eec722a71c967101a`, with the public candidate's
+tree. The previous 17 issues are absent; three new helper-regex issues
+remain. Coverage is 0.0% after compilation fails, duplication is 0.2%,
+hotspots and CE warnings are zero, and required new-code metrics are absent.
+The pinned Python analyzer explicitly warns that it coerces declared 3.15
+to 3.14. Keep that warning failed; current upstream source is not evidence
+of released-tool support. The following source repairs the reported SDK and
+regex causes without suppressions. Fresh qualification remains required.
+
+WireMock `41776969322` passes the tagged synthetic provider suite on Linux,
+macOS and Windows. Dependency Review `41776969351` passes. These do not
+qualify live providers or the following source changes. Retain
+`ci-9d12512-source-security.json`, `ci-9d12512-sonar.json` and
+`ci-9d12512b-wiremock-dependency-review.json`.
+
+### Preceding dependency checkpoint
+
 Checkpoint `4c703c84fd9c1647b9a479c5525fdd3bfc653962`, tree
-`f098a84ef22731a2cf9556ab664199154f11fb20`, is the current published
-candidate. Public readback verified all 17 changed files and preserved all
+`f098a84ef22731a2cf9556ab664199154f11fb20`, is the preceding dependency
+checkpoint. Public readback verified all 17 changed files and preserved all
 354 working files. PR #1 remains draft against `develop`.
 
 Its source run `41767625772` and security run `41767625840` fail on an

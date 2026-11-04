@@ -1,6 +1,6 @@
 # CircularQuay Go SDK
 
-`github.com/maldous/CircularQuay/sdk/go` is the v1 Go client for CircularQuay's optional Model Context Protocol (MCP) interface.
+`github.com/maldous/CircularQuay/sdk/go` gives Go applications access to the linked CircularQuay core and its optional Model Context Protocol (MCP) interface.
 
 It wraps a session you create with the official [MCP Go SDK](https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk/mcp) v1.8.0 dependency pinned by this repository.
 
@@ -43,18 +43,19 @@ password := secret.Value() // plaintext; avoid logging or serializing it
 
 ## Local client
 
-`NewLocal` exposes the complete current local CLI contract without spawning a subprocess or accepting a generic command string. It requires absolute configuration and state paths, so it cannot silently use a user's ambient default state:
+`NewLocal` calls the linked CircularQuay core in-process rather than spawning a subprocess or accepting a generic command string. It requires absolute configuration and state paths, so it cannot silently use a user's ambient default state:
 
 ```go
 local, err := cquay.NewLocal(cquay.LocalOptions{
     ConfigPath: "/srv/cquay/cquay.json", StateDirectory: "/srv/cquay/state",
 })
+version, err := local.AssertRuntimeCompatibility(ctx)
 plan, err := local.Plan(ctx)
 status, err := local.Status(ctx, "payments")
 updated, err := local.ConfigSet(ctx, "/workloads/payments", json.RawMessage(policyJSON), priorSHA256)
 ```
 
-The local client provides typed entry points for configuration CRUD and validation, doctor, plan, status, snapshot, sync, apply, bootstrap, CI flow, and explicit update awareness. Operations that can execute a child process (`RunWorkload` and `Flow`) discard child stdout and stderr and return only an exit code. JSON-returning methods expose only bounded public CLI JSON DTOs; they do not expose internal Go types. `ConfigSet` and `ConfigReplace` accept portable I-JSON: finite IEEE-754 numbers, integers in the safe IEEE-754 range, and bounded document depth, collection size, and node count. Use the CLI's raw file interface for a wider valid JSON declaration.
+The local client provides typed entry points for configuration CRUD and validation, doctor, plan, status, snapshot, sync, apply, bootstrap, CI flow, explicit update awareness, and linked-core v1 compatibility (`Version` and `AssertRuntimeCompatibility`). Those compatibility methods validate metadata from the embedded core; they do not inspect or pin an external executable. Operations that can execute a child process (`RunWorkload` and `Flow`) discard child stdout and stderr and return only an exit code. JSON-returning methods expose only bounded public CLI JSON DTOs; they do not expose internal Go types. `ConfigSet` and `ConfigReplace` accept portable I-JSON: finite IEEE-754 numbers, integers in the safe IEEE-754 range, and bounded document depth, collection size, and node count. Use the CLI's raw file interface for a wider valid JSON declaration.
 
 ## Observability
 

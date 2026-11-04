@@ -34,9 +34,6 @@ DIAGNOSTIC = re.compile(
     r"^(?P<path>sdk/python/(?:src|tests)/[^:]+\.py):(?P<line>[1-9]\d{0,8})"
     r"(?::(?P<column>[1-9]\d{0,8}))?:\s*(?P<message>.+)$"
 )
-RUFF_RULE = re.compile(r"^(?P<rule>[A-Z]+\d+)\s+(?P<message>.+)$")
-MYPY_RULE = re.compile(r"^(?:error: )?(?P<message>.*?)(?:\s+\[(?P<rule>[^][]+)\])?$")
-BANDIT_ISSUE = re.compile(r"^>> Issue: \[(?P<rule>B\d+):[^]]+\]\s*(?P<message>.*)$")
 BANDIT_LOCATION = re.compile(
     r"^\s*Location: (?P<path>sdk/python/(?:src|tests)/[^:]+\.py):"
     r"(?P<line>[1-9]\d{0,8})(?::(?P<column>0|[1-9]\d{0,8}))?$"
@@ -121,10 +118,9 @@ class Capture:
         self._consume_line(line)
 
     def _consume_line(self, line: str) -> None:
-        issue = BANDIT_ISSUE.fullmatch(line)
+        issue = _bandit_issue(line)
         if issue is not None:
-            self.bandit_rule = issue.group("rule")
-            self.bandit_message = issue.group("message")
+            self.bandit_rule, self.bandit_message = issue
             return
         location = BANDIT_LOCATION.fullmatch(line)
         if location is not None and self.bandit_rule is not None:
@@ -168,14 +164,52 @@ def _integer(value: str | None) -> int | None:
 
 def _diagnostic_fields(check: str, text: str) -> tuple[str, str] | None:
     if check == "ruff":
-        match = RUFF_RULE.fullmatch(text)
-        return (match.group("rule"), match.group("message")) if match is not None else None
-    if check == "mypy":
-        match = MYPY_RULE.fullmatch(text)
-        if match is None:
+        fields = text.split(None, 1)
+        if len(fields) != 2 or not _ruff_rule(fields[0]):
             return None
-        return (match.group("rule") or "mypy", match.group("message"))
+        return fields[0], fields[1]
+    if check == "mypy":
+        return _mypy_diagnostic(text)
     return None
+
+
+def _bandit_issue(line: str) -> tuple[str, str] | None:
+    """Parse Bandit's fixed issue header without a backtracking expression."""
+
+    prefix = ">> Issue: ["
+    if not line.startswith(prefix):
+        return None
+    closing = line.find("]", len(prefix))
+    if closing < 0:
+        return None
+    rule, separator, kind = line[len(prefix) : closing].partition(":")
+    if not separator or not kind or not rule.startswith("B") or not rule[1:].isdigit():
+        return None
+    return rule, line[closing + 1 :].lstrip()
+
+
+def _ruff_rule(value: str) -> bool:
+    """Recognize Ruff's uppercase-letter and decimal-code format directly."""
+
+    prefix = 0
+    while prefix < len(value) and "A" <= value[prefix] <= "Z":
+        prefix += 1
+    return 0 < prefix < len(value) and value[prefix:].isdigit()
+
+
+def _mypy_diagnostic(text: str) -> tuple[str, str]:
+    """Separate mypy's optional bracketed rule from its public diagnostic."""
+
+    message = text.removeprefix("error: ")
+    if not message.endswith("]"):
+        return "mypy", message
+    opening = message.rfind("[")
+    if opening == 0 or not message[opening - 1].isspace():
+        return "mypy", message
+    rule = message[opening + 1 : -1]
+    if not rule or "[" in rule or "]" in rule:
+        return "mypy", message
+    return rule, message[:opening].rstrip()
 
 
 def _safe_message(value: str) -> str | None:

@@ -8,24 +8,50 @@ import re
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeGuard, TypeVar
 
 from .errors import CircularQuayError, ErrorCategory
-from .types import Observation, Observer, SecretDisclosure, ToolCatalog, ToolName, WorkloadRun, WorkloadStatus
+from .types import (
+    Observation,
+    Observer,
+    SecretDisclosure,
+    ToolCatalog,
+    ToolName,
+    WorkloadRun,
+    WorkloadStatus,
+)
 
 _MAX_WORKLOADS = 4096
 _MAX_HANDLE_LENGTH = 128
 _MAX_PROVIDER_VERSION_BYTES = 4_096
 _MAX_SECRET_BYTES = 65_536
 _MAX_STRUCTURED_BYTES = 1_048_576
-_RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+_RFC3339 = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 _MODES = frozenset({"offline", "online", "hybrid"})
 _STATES = frozenset(
     {
-        "unprovisioned", "ready", "pending", "error", "running", "stopped", "unknown",
-        "not_provisioned", "blocked", "resolved", "snapshotted", "applied", "activated",
-        "apply_failed", "pending_activation", "partial_resolved", "partial_applied",
-        "partial_activated", "partial_apply_failed", "partial_pending_activation",
+        "unprovisioned",
+        "ready",
+        "pending",
+        "error",
+        "running",
+        "stopped",
+        "unknown",
+        "not_provisioned",
+        "blocked",
+        "resolved",
+        "snapshotted",
+        "applied",
+        "activated",
+        "apply_failed",
+        "pending_activation",
+        "partial_resolved",
+        "partial_applied",
+        "partial_activated",
+        "partial_apply_failed",
+        "partial_pending_activation",
     }
 )
 _RUN_STATES = frozenset({"completed", "failed", "running", "cancelled"})
@@ -71,13 +97,15 @@ class CircularQuayClient:
     :meth:`disclosures`.
     """
 
-    def __init__(self, adapter: MCPClientSessionAdapter, *, observer: Observer | None = None) -> None:
+    def __init__(
+        self, adapter: MCPClientSessionAdapter, *, observer: Observer | None = None
+    ) -> None:
         if adapter is None:
             raise CircularQuayError(ErrorCategory.INVALID, "mcp_adapter")
         self._adapter = adapter
         self._observer = observer
 
-    def disclosures(self) -> "DisclosureClient":
+    def disclosures(self) -> DisclosureClient:
         """Return the explicit plaintext-disclosure interface."""
 
         return DisclosureClient(self)
@@ -96,7 +124,9 @@ class CircularQuayClient:
         """Return safe state for one exact workload."""
 
         _validate_handle(workload, "workload")
-        result = await self._tool(ToolName.GET_STATUS, {"workload": workload}, _parse_status)
+        result = await self._tool(
+            ToolName.GET_STATUS, {"workload": workload}, _parse_status
+        )
         if result.workload != workload:
             raise CircularQuayError(ErrorCategory.PROTOCOL, "get_status")
         return result
@@ -105,20 +135,41 @@ class CircularQuayClient:
         """Invoke a server-enrolled action for one exact workload."""
 
         _validate_handle(workload, "workload")
-        return await self._tool(ToolName.RUN_WORKLOAD, {"workload": workload}, _parse_run)
+        return await self._tool(
+            ToolName.RUN_WORKLOAD, {"workload": workload}, _parse_run
+        )
 
     async def _read_secret(self, workload: str, key: str) -> SecretDisclosure:
         _validate_handle(workload, "workload")
         _validate_handle(key, "key")
-        result = await self._tool(ToolName.READ_SECRET, {"workload": workload, "key": key}, _parse_secret)
+        result = await self._tool(
+            ToolName.READ_SECRET,
+            {"workload": workload, "key": key},
+            _parse_secret,
+        )
         if result.alias != key:
             raise CircularQuayError(ErrorCategory.PROTOCOL, "read_secret")
         return result
 
-    async def _tool(self, tool: ToolName, arguments: Mapping[str, str], parser: Callable[[Any], _T]) -> _T:
-        return await self._perform(str(tool), lambda: self._adapter.call_tool(tool, arguments), lambda raw: parser(_result_data(raw, str(tool))))
+    async def _tool(
+        self,
+        tool: ToolName,
+        arguments: Mapping[str, str],
+        parser: Callable[[Any], _T],
+    ) -> _T:
+        operation = str(tool)
+        return await self._perform(
+            operation,
+            lambda: self._adapter.call_tool(tool, arguments),
+            lambda raw: parser(_result_data(raw, operation)),
+        )
 
-    async def _perform(self, operation: str, invoke: Callable[[], Awaitable[Any]], parser: Callable[[Any], _T]) -> _T:
+    async def _perform(
+        self,
+        operation: str,
+        invoke: Callable[[], Awaitable[Any]],
+        parser: Callable[[Any], _T],
+    ) -> _T:
         started = time.monotonic()
         outcome = "success"
         try:
@@ -137,7 +188,12 @@ class CircularQuayClient:
             outcome = ErrorCategory.PROTOCOL
             raise CircularQuayError(ErrorCategory.PROTOCOL, operation) from None
         finally:
-            _observe(self._observer, operation, str(outcome), int((time.monotonic() - started) * 1000))
+            _observe(
+                self._observer,
+                operation,
+                str(outcome),
+                int((time.monotonic() - started) * 1000),
+            )
 
 
 class DisclosureClient:
@@ -192,7 +248,11 @@ def _parse_catalog(raw: Any) -> ToolCatalog:
     if next_cursor not in (None, ""):
         raise CircularQuayError(ErrorCategory.PROTOCOL, "discover_tools")
     tools = _field(raw, "tools", default=None)
-    if not isinstance(tools, Sequence) or isinstance(tools, (str, bytes)) or len(tools) > len(_KNOWN_TOOLS):
+    if (
+        not isinstance(tools, Sequence)
+        or isinstance(tools, (str, bytes))
+        or len(tools) > len(_KNOWN_TOOLS)
+    ):
         raise CircularQuayError(ErrorCategory.PROTOCOL, "discover_tools")
     available: list[ToolName] = []
     for tool in tools:
@@ -214,10 +274,10 @@ def _parse_workloads(data: Mapping[str, Any]) -> tuple[str, ...]:
         raise CircularQuayError(ErrorCategory.PROTOCOL, "list_workloads")
     workloads: list[str] = []
     for value in values:
-        _validate_handle(value, "list_workloads")
-        if value in workloads:
+        workload = _validated_handle(value, "list_workloads")
+        if workload in workloads:
             raise CircularQuayError(ErrorCategory.PROTOCOL, "list_workloads")
-        workloads.append(value)
+        workloads.append(workload)
     if workloads != sorted(workloads):
         raise CircularQuayError(ErrorCategory.PROTOCOL, "list_workloads")
     return tuple(workloads)
@@ -225,8 +285,11 @@ def _parse_workloads(data: Mapping[str, Any]) -> tuple[str, ...]:
 
 def _parse_status(data: Mapping[str, Any]) -> WorkloadStatus:
     _only(data, {"workload", "mode", "state"}, "get_status")
-    workload, mode, state = data.get("workload"), data.get("mode"), data.get("state")
-    _validate_handle(workload, "get_status")
+    workload = _validated_handle(data.get("workload"), "get_status")
+    mode = data.get("mode")
+    state = data.get("state")
+    if not isinstance(mode, str) or not isinstance(state, str):
+        raise CircularQuayError(ErrorCategory.PROTOCOL, "get_status")
     if mode not in _MODES or state not in _STATES:
         raise CircularQuayError(ErrorCategory.PROTOCOL, "get_status")
     return WorkloadStatus(workload=workload, mode=mode, state=state)
@@ -234,17 +297,24 @@ def _parse_status(data: Mapping[str, Any]) -> WorkloadStatus:
 
 def _parse_run(data: Mapping[str, Any]) -> WorkloadRun:
     _only(data, {"id", "status", "exit_code"}, "run_workload")
-    identifier, status, exit_code = data.get("id"), data.get("status"), data.get("exit_code")
-    _validate_handle(identifier, "run_workload")
-    if status not in _RUN_STATES or isinstance(exit_code, bool) or not isinstance(exit_code, int) or not 0 <= exit_code <= 255:
+    identifier = _validated_handle(data.get("id"), "run_workload")
+    status = data.get("status")
+    exit_code = data.get("exit_code")
+    if (
+        not isinstance(status, str)
+        or status not in _RUN_STATES
+        or isinstance(exit_code, bool)
+        or not isinstance(exit_code, int)
+        or not 0 <= exit_code <= 255
+    ):
         raise CircularQuayError(ErrorCategory.PROTOCOL, "run_workload")
     return WorkloadRun(identifier=identifier, status=status, exit_code=exit_code)
 
 
 def _parse_secret(data: Mapping[str, Any]) -> SecretDisclosure:
     _only(data, {"alias", "value", "version", "expires_at"}, "read_secret")
-    alias, value = data.get("alias"), data.get("value")
-    _validate_handle(alias, "read_secret")
+    alias = _validated_handle(data.get("alias"), "read_secret")
+    value = data.get("value")
     if not _bounded_utf8_text(value, _MAX_SECRET_BYTES):
         raise CircularQuayError(ErrorCategory.PROTOCOL, "read_secret")
     version = _secret_version(data.get("version"))
@@ -260,7 +330,7 @@ def _secret_version(value: Any) -> str | None:
     return value
 
 
-def _bounded_utf8_text(value: Any, maximum: int) -> bool:
+def _bounded_utf8_text(value: Any, maximum: int) -> TypeGuard[str]:
     if not isinstance(value, str):
         return False
     try:
@@ -283,7 +353,13 @@ def _secret_expiry(value: Any) -> datetime | None:
 
 
 def _is_legacy_zero_time(value: datetime | None) -> bool:
-    return value is not None and value.year == 1 and value.month == 1 and value.day == 1 and value.hour == value.minute == value.second == value.microsecond == 0
+    return (
+        value is not None
+        and value.year == 1
+        and value.month == 1
+        and value.day == 1
+        and value.hour == value.minute == value.second == value.microsecond == 0
+    )
 
 
 def _parse_timestamp(value: Any, operation: str) -> datetime:
@@ -323,7 +399,11 @@ def _field_present(value: Any, *names: str) -> tuple[bool, Any]:
 
 
 def _object(value: Any, operation: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping) or len(value) > 8 or not all(isinstance(key, str) for key in value):
+    if (
+        not isinstance(value, Mapping)
+        or len(value) > 8
+        or not all(isinstance(key, str) for key in value)
+    ):
         raise CircularQuayError(ErrorCategory.PROTOCOL, operation)
     return value
 
@@ -334,17 +414,43 @@ def _only(data: Mapping[str, Any], allowed: set[str], operation: str) -> None:
 
 
 def _validate_handle(value: Any, operation: str) -> None:
-    if not isinstance(value, str) or not value or len(value) > _MAX_HANDLE_LENGTH or value in {".", ".."}:
-        raise CircularQuayError(ErrorCategory.INVALID if operation in {"workload", "key"} else ErrorCategory.PROTOCOL, operation)
-    if any(not (character.isascii() and (character.isalnum() or character in "_.-")) for character in value):
-        raise CircularQuayError(ErrorCategory.INVALID if operation in {"workload", "key"} else ErrorCategory.PROTOCOL, operation)
+    _validated_handle(value, operation)
+
+
+def _validated_handle(value: Any, operation: str) -> str:
+    category = (
+        ErrorCategory.INVALID
+        if operation in {"workload", "key"}
+        else ErrorCategory.PROTOCOL
+    )
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > _MAX_HANDLE_LENGTH
+        or value in {".", ".."}
+    ):
+        raise CircularQuayError(category, operation)
+    if any(
+        not (character.isascii() and (character.isalnum() or character in "_.-"))
+        for character in value
+    ):
+        raise CircularQuayError(category, operation)
+    return value
 
 
 def _observe(observer: Observer | None, operation: str, outcome: str, duration_ms: int) -> None:
     if observer is None:
         return
     try:
-        observer(Observation(operation=operation, outcome=outcome, duration_ms=max(0, duration_ms)))
-    except Exception:
-        # Observer failure must never alter a successful call or cause a retry.
-        pass
+        observer(
+            Observation(
+                operation=operation,
+                outcome=outcome,
+                duration_ms=max(0, duration_ms),
+            )
+        )
+    except Exception as error:
+        # The observer is advisory.  Do not retain diagnostics or alter the
+        # completed operation's outcome when a caller callback fails.
+        del error
+        return

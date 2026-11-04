@@ -264,6 +264,42 @@ diagnostic producer does not replace the independent auditor's transitive
 runtime binding. Retain redacted evidence separately from bootstrap state;
 cleanup removes only the explicitly owned Compose project and its volumes.
 
+### Branch-aware Sonar qualification
+
+Select a Sonar deployment whose actual entitlement and analyzer versions cover
+the release's languages and branch model. Retain overall and new-code coverage,
+duplication, issue, hotspot and warning readbacks, with the exact source revision
+and analysis ID. A successful upload or completed Compute Engine task is one
+phase of qualification.
+
+For a public open-source repository, an accepted
+[SonarQube Cloud OSS organization](https://docs.sonarsource.com/sonarqube-cloud/administering-sonarcloud/managing-subscription/subscription-plans#oss-plan)
+provides branch/PR analysis and custom quality profiles/gates. Verify the actual
+OSS entitlement before configuring the project. The ordinary Free plan has a
+different branch scope. Follow the
+[GitHub onboarding procedure](https://docs.sonarsource.com/sonarqube-cloud/getting-started/github)
+to bind only the selected repository. Keep human project/gate administration
+separate from the analysis principal, grant that principal only the required
+project analysis access, and retain a finite, revocable CI token in the selected
+GitHub Actions secret. Credential values never belong in source, command
+arguments, reports or support messages. Fork PRs receive no analysis credential.
+
+Configure and read back a dedicated
+[quality gate and profile](https://docs.sonarsource.com/sonarqube-cloud/standards/managing-quality-gates/introduction-to-quality-gates)
+with the unchanged CircularQuay requirements: 100% owned coverage, zero
+duplication, zero owned issues/hotspots/warnings/dispositions, and both complexity
+ceilings of 10. Retain overall-code assertions alongside PR new-code checks.
+Qualify every declared language version against the actual analyzer; scanner
+runtime compatibility does not establish analyzed-language support.
+
+The initial empty `develop` branch is the real PR base. Use a branch-capable
+analysis route with that actual reference; retain both branch/SCM associations.
+An ephemeral first Community Build analysis has no new-code period, and a
+specific-analysis UUID denotes a server snapshot rather than a Git commit.
+Absent required new-code metrics remain a failed gate. Use the revision-scoped
+[qualification record](docs/qualification.md) for actual support and results;
+this operator procedure does not establish account enrollment or a passing scan.
+
 See [assurance contract](docs/assurance.md), the audit environment's own instructions, and generated report schema. Publish commit/tool versions, real results, hotspot review, upstream advisories and untested platforms. Do not include raw MCP responses or operational values in the report.
 
 ## 4. Post-installation enrollment

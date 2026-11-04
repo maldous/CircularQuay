@@ -36,6 +36,53 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 9d12512 SDK and telemetry receipt
+
+Publication `9d12512b11b462908f69159a16144dd80a0d0764` has tree
+`bcfb89e4aa6974945163861f0f8bd3ce21ed0760`. Its
+[source](https://github.com/maldous/CircularQuay/actions/runs/41776969369)
+and [security](https://github.com/maldous/CircularQuay/actions/runs/41776969295)
+checks expose MCP named-result redeclarations and an update constant/test
+helper collision. Tests and analyzers blocked by compilation are not passes.
+The following source corrects those causes; it requires new compilation.
+Final metadata records 31/31 source jobs and 2/2 security jobs failed;
+Staticcheck/CodeQL stop at compilation and later security analysis is skipped.
+
+The [SDK run](https://github.com/maldous/CircularQuay/actions/runs/41776969298)
+passes Go lock reproducibility. All three Go SDK jobs fail before tests on
+the MCP declarations. npm locks install and expose actual lint/type/test,
+coverage and audit failures, including a recorded 52.89% line-coverage
+sample and 14 moderate toolchain dependency advisories. Python static
+tool installation and helper tests pass; structured reports attribute 64
+Ruff, 28 mypy and three Bandit diagnostics to source. Started runtime lanes
+install their reviewed closures. Coverage and later consumer/MCP results
+remain pending at this receipt; they are not qualified by source review.
+
+The later authenticated Ubuntu coverage artifact `13298656230` reports a
+1,200,004 ms timeout at `test_cancellation_propagates`. The fixture's fake
+session rejects the adapter's `arguments` keyword before setting its start
+event. The following test repair supplies the correct contract, bounded
+waiting and cleanup; it does not establish a product cancellation failure
+or a post-repair test pass. Retain `checkpoint38-python-timeout.json`.
+
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41776969359)
+uploads and completes CE analysis `027a6c1b-e18e-4d48-ac45-4ecb0107e208`
+with six HTTP-200 revision-bound readbacks. It binds synthetic merge
+`685444aa9a0ed7500b83954eec722a71c967101a`, whose tree matches this
+publication. The previous 17 issues are absent; three helper-regex issues
+remain. Coverage is 0.0% after compilation failure, duplication 0.2%, and
+hotspots/CE warnings zero. Required new-code metrics are absent. A scanner
+warning explicitly rejects Python 3.15 and falls back to 3.14. The warning
+gate remains failed; current analyzer source does not qualify an unreleased
+tool or establish support in the pinned version.
+
+[WireMock](https://github.com/maldous/CircularQuay/actions/runs/41776969322)
+passes its tagged synthetic suite on Linux, macOS and Windows, and
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41776969351)
+passes. Retain `ci-9d12512-source-security.json`, `ci-9d12512-sonar.json`
+and `ci-9d12512b-wiremock-dependency-review.json`. None of these results
+qualifies production or a later source candidate.
+
 ## Exact 4c703c8 SDK and telemetry receipt
 
 Checkpoint `4c703c84fd9c1647b9a479c5525fdd3bfc653962` has tree

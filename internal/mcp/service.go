@@ -347,7 +347,7 @@ func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (
 	if !s.authorized(p, workload, "status", "") {
 		return Status{}, fault.New(fault.Denied, "mcp status")
 	}
-	status, err := s.backend.Status(withPrincipal(ctx, p), workload)
+	status, err = s.backend.Status(withPrincipal(ctx, p), workload)
 	if err != nil {
 		return Status{}, safeError(err, "mcp status")
 	}
@@ -382,7 +382,7 @@ func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string)
 	if ctx.Err() != nil {
 		return RunResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
-	result, err := s.backend.Run(withPrincipal(ctx, p), workload)
+	result, err = s.backend.Run(withPrincipal(ctx, p), workload)
 	if err != nil {
 		return RunResult{}, safeError(err, mcpAction)
 	}

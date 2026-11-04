@@ -8,7 +8,15 @@ import unittest
 from dataclasses import asdict
 from types import SimpleNamespace
 
-from cquay import CircularQuayClient, CircularQuayError, ErrorCategory, MCPClientSessionAdapter, ToolName
+from cquay import (
+    CircularQuayClient,
+    CircularQuayError,
+    ErrorCategory,
+    MCPClientSessionAdapter,
+    ToolName,
+)
+
+_ASYNC_TEST_DEADLINE_SECONDS = 1
 
 
 class FakeSession:
@@ -29,14 +37,21 @@ class FakeSession:
 
 
 def response(value: object, *, is_error: bool = False) -> object:
-    return SimpleNamespace(structuredContent=value, content=[SimpleNamespace(text=json.dumps(value))], isError=is_error)
+    return SimpleNamespace(
+        structuredContent=value,
+        content=[SimpleNamespace(text=json.dumps(value))],
+        isError=is_error,
+    )
 
 
 class MCPClientTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.session = FakeSession()
         self.events: list[object] = []
-        self.client = CircularQuayClient(MCPClientSessionAdapter(self.session), observer=self.events.append)
+        self.client = CircularQuayClient(
+            MCPClientSessionAdapter(self.session),
+            observer=self.events.append,
+        )
 
     async def test_current_tool_contract_and_safe_outputs(self) -> None:
         catalog = await self.client.discover_tools()
@@ -46,11 +61,15 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         self.session.responses["list_workloads"] = response({"workloads": ["alpha", "beta"]})
         self.assertEqual(("alpha", "beta"), await self.client.list_workloads())
 
-        self.session.responses["get_status"] = response({"workload": "alpha", "mode": "online", "state": "ready"})
+        self.session.responses["get_status"] = response(
+            {"workload": "alpha", "mode": "online", "state": "ready"}
+        )
         status = await self.client.get_status("alpha")
         self.assertEqual("ready", status.state)
 
-        self.session.responses["run_workload"] = response({"id": "job-1", "status": "completed", "exit_code": 0})
+        self.session.responses["run_workload"] = response(
+            {"id": "job-1", "status": "completed", "exit_code": 0}
+        )
         run = await self.client.run_workload("alpha")
         self.assertEqual("job-1", run.identifier)
         self.assertEqual(("run_workload", {"workload": "alpha"}), self.session.calls[-1])
@@ -58,18 +77,24 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_disclosure_requires_explicit_interface_and_redacts(self) -> None:
         self.assertFalse(hasattr(self.client, "read_secret"))
         marker = "SYNTHETIC_VALUE_NEVER_LOGGED"
-        self.session.responses["read_secret"] = response({"alias": "API_KEY", "value": marker, "version": "v1"})
+        self.session.responses["read_secret"] = response(
+            {"alias": "API_KEY", "value": marker, "version": "v1"}
+        )
         disclosure = await self.client.disclosures().read_secret("alpha", "API_KEY")
         self.assertEqual(marker, disclosure.reveal())
         self.assertNotIn(marker, repr(disclosure))
         self.assertNotIn(marker, json.dumps(disclosure.redacted_dict()))
 
     async def test_rejects_ambiguous_or_unbounded_server_output(self) -> None:
-        self.session.responses["list_workloads"] = response({"workloads": ["alpha"], "unexpected": "channel"})
+        self.session.responses["list_workloads"] = response(
+            {"workloads": ["alpha"], "unexpected": "channel"}
+        )
         with self.assertRaisesRegex(CircularQuayError, "protocol"):
             await self.client.list_workloads()
 
-        self.session.responses["get_status"] = response({"workload": "other", "mode": "online", "state": "ready"})
+        self.session.responses["get_status"] = response(
+            {"workload": "other", "mode": "online", "state": "ready"}
+        )
         with self.assertRaises(CircularQuayError):
             await self.client.get_status("alpha")
 
@@ -167,17 +192,42 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({"operation", "outcome", "duration_ms"}, set(event))
         self.assertNotIn(marker, json.dumps(event))
 
+    async def test_advisory_observer_failure_does_not_replace_success(self) -> None:
+        def broken_observer(_: object) -> None:
+            raise RuntimeError("synthetic observer failure")
+
+        client = CircularQuayClient(
+            MCPClientSessionAdapter(self.session),
+            observer=broken_observer,
+        )
+        self.session.responses["list_workloads"] = response({"workloads": ["alpha"]})
+        self.assertEqual(("alpha",), await client.list_workloads())
+
     async def test_cancellation_propagates(self) -> None:
         started = asyncio.Event()
+        cancelled = asyncio.Event()
 
-        async def blocked(_: str, __: dict[str, str]) -> object:
+        async def blocked(_: str, arguments: dict[str, str]) -> object:
+            del arguments
             started.set()
-            await asyncio.Event().wait()
-            raise AssertionError("unreachable")
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
 
         self.session.call_tool = blocked  # type: ignore[method-assign]
         task = asyncio.create_task(self.client.list_workloads())
-        await started.wait()
-        task.cancel()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
+        try:
+            await asyncio.wait_for(
+                started.wait(), timeout=_ASYNC_TEST_DEADLINE_SECONDS
+            )
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            self.assertTrue(cancelled.is_set())
+            self.assertEqual("cancelled", self.events[-1].outcome)
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)

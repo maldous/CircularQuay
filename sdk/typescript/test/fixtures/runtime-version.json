@@ -5,6 +5,66 @@
     "category": "protocol"
   },
   {
+    "name": "malformed-version-string-is-protocol",
+    "value": { "version": "1.invalid", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "major-only-shorthand-is-protocol",
+    "value": { "version": "1", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "major-minor-shorthand-is-protocol",
+    "value": { "version": "1.2", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "incompatible-major-shorthand-is-protocol",
+    "value": { "version": "2", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "prefixed-major-shorthand-is-protocol",
+    "value": { "version": "v1", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "core-components-reject-leading-zero",
+    "value": { "version": "1.01.0", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "empty-prerelease-identifier-is-protocol",
+    "value": { "version": "1.0.0-alpha..1", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "padded-numeric-prerelease-is-protocol",
+    "value": { "version": "1.0.0-01", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "trailing-newline-is-protocol",
+    "value": { "version": "1.0.0\n", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "control-character-is-protocol",
+    "value": { "version": "1.0.0-\u0001", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "v1-prerelease-and-build-are-supported",
+    "value": { "version": "1.0.0-alpha.1+build.7", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "success"
+  },
+  {
+    "name": "v-prefix-is-supported",
+    "value": { "version": "v1.0.0", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "success"
+  },
+  {
     "name": "incompatible-major-is-unsupported",
     "value": { "version": "2.0.0", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
     "category": "unsupported"

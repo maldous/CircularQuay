@@ -68,10 +68,15 @@ test("local update checks remain explicit API surface", () => {
 });
 
 test("runtime version DTO categories are stable", async () => {
-  const fixture = await readFixture<Array<{ value: unknown; category: string }>>("runtime-version.json");
+  const fixture = await readFixture<Array<{ value: unknown; category: "protocol" | "success" | "unsupported" }>>("runtime-version.json");
   for (const { value, category } of fixture) {
     const client = { json: async () => value } as unknown as LocalCLIClient;
-    await assert.rejects(LocalCLIClient.prototype.version.call(client), error => error instanceof CquayError && error.category === category);
+    const invoke = () => LocalCLIClient.prototype.version.call(client);
+    if (category === "success") {
+      await assert.doesNotReject(invoke());
+    } else {
+      await assert.rejects(invoke(), error => error instanceof CquayError && error.category === category);
+    }
   }
 });
 
@@ -85,7 +90,10 @@ test("remote sources reject literal query and fragment delimiters", async () => 
       if (valid) {
         await assert.doesNotReject(LocalCLIClient.prototype.bootstrap.call(client, input));
       } else {
-        await assert.rejects(LocalCLIClient.prototype.bootstrap.call(client, input), error => error instanceof CquayError && error.category === "invalid");
+        await assert.rejects(
+          async () => LocalCLIClient.prototype.bootstrap.call(client, input),
+          error => error instanceof CquayError && error.category === "invalid"
+        );
       }
     }
   } finally {

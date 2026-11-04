@@ -74,6 +74,20 @@ class CaptureTest(unittest.TestCase):
         capture.consume(b"   Location: sdk/python/src/cquay/client.py:42:0\n")
         self.assertEqual("B101", capture.diagnostics[0].rule)
 
+    def test_parses_mypy_rule_without_backtracking_expression(self) -> None:
+        capture = CHECK.Capture("mypy")
+        capture.consume(
+            b"sdk/python/src/cquay/client.py:19: error: synthetic type error [arg-type]\n"
+        )
+        self.assertEqual(
+            ("arg-type", "synthetic type error"),
+            (capture.diagnostics[0].rule, capture.diagnostics[0].message),
+        )
+
+        empty_message = CHECK.Capture("mypy")
+        empty_message.consume(b"sdk/python/src/cquay/client.py:19: [arg-type]\n")
+        self.assertTrue(empty_message.malformed)
+
 
 class ProtectedReportTest(unittest.TestCase):
     def test_writes_machine_readable_structured_report(self) -> None:

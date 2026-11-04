@@ -59,6 +59,14 @@ credentials are excluded. Cancellation does not imply that an already completed
 remote action was undone; reconcile status before deciding whether to retry.
 The SDKs never automatically repeat a potentially effectful action.
 
+Version inspection validates the four string fields `version`, `commit`, `go`
+and `maturity`. The version is a complete Semantic Version of at most 256 UTF-8
+bytes, with an optional `v` prefix. Malformed metadata is `protocol`; a valid
+incompatible major is `unsupported`. Prerelease and build identifiers retain
+their Semantic Version rules. Go checks its linked core; Python and TypeScript
+inspect their explicitly selected native executable. Version metadata does not
+authenticate a publisher or replace artifact verification.
+
 Raw secret reads require an explicitly selected disclosure interface and a
 separate server grant. Secret wrappers redact ordinary string/JSON/debug
 representations; deliberate `reveal` access returns plaintext. The caller
@@ -92,7 +100,8 @@ of authorization.
 
 Compatibility and conformance cover the same positive, denial, expiry,
 cancellation, strict-response and redaction fixtures in all three languages.
-Installed package bytes, supported runtime versions, native executable versions
-and provenance are identified in each release's qualification matrix. See
+Installed package bytes, supported runtime versions, linked-core and native
+executable versions, and provenance are identified in each release's
+qualification matrix. See
 [verification](verification.md) for measured results and
 [the enterprise contract](enterprise-integration.md) for operational controls.
