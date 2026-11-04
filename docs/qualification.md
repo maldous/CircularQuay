@@ -36,6 +36,45 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 98c9caa integration receipt
+
+Checkpoint `98c9caa7c5ed6b20f28cec720c73ca4939c4e63c` has tree
+`01e7251bdb02b10b5f6304c0a4dfcf5f277442af`. The actual
+[WireMock matrix](https://github.com/maldous/CircularQuay/actions/runs/41753111836)
+passed on Linux, macOS and Windows, including Java setup, the pinned JAR
+verification and the tagged synthetic OpenBao provider suite. The PR synthetic
+merge has the same tree. This proves that suite, not a live provider deployment.
+
+The [source run](https://github.com/maldous/CircularQuay/actions/runs/41753111878)
+passed macOS and all 26 cross-builds. Windows failed a trust-store schema
+fixture using a native absolute path; Linux found `validateIdentityAuthority`
+at cyclomatic complexity 11 versus the unchanged ceiling of 10. Coverage was
+6,246/7,303 statements (85.52650%) versus 100%.
+[Security analysis](https://github.com/maldous/CircularQuay/actions/runs/41753111921)
+retains eight unsuppressed gosec findings. These failures remain recorded even
+when a later source candidate supplies corrections.
+
+The first [hosted Sonar run](https://github.com/maldous/CircularQuay/actions/runs/41753111704)
+stopped before bootstrap: the runner soft file-descriptor limit was 65,536,
+below the required 131,072. Runner-only `vm.max_map_count` preparation reached
+524,288. Cleanup also failed because it attempted Compose before its environment
+file existed. No container, coverage, scanner, CE or analysis readback ran.
+The following workflow correction raises only eligible runner soft limits,
+records their hard limits, and distinguishes pre-bootstrap cleanup from a
+partial Compose start. The actual follow-up result is required.
+
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41753111900)
+identified three upstream advisories in `go-jose/v4` 4.1.4:
+[JSON parsing](https://github.com/advisories/GHSA-vvm8-gf78-28g4),
+[CBC-HMAC processing](https://github.com/advisories/GHSA-4w3g-jfj2-cw2q), and
+[RSA JWK parsing](https://github.com/advisories/GHSA-mgcc-cww5-fp2q).
+The minimal combined fixed version is 4.1.6. Its upstream 4,096-bit RSA JWK bound
+is retained. The update's two checksums were read from the official Go checksum
+database over HTTPS; no local resolver, signed-log proof, build or test execution
+is claimed under the shared-resource hold. Exact-candidate hosted module and
+identity tests remain required. Two upstream Scorecard warnings are retained
+separately; they are not suppressed or represented as cleared.
+
 ## Exact 060639 development receipt
 
 At `060639f36c1c7309769f34e3b88812e42d02cabf` (tree

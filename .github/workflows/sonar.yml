@@ -50,10 +50,19 @@ jobs:
 
           compose_project="cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
+          compose_start_attempted=0
           cleanup() {
             status=$?
             trap - EXIT INT TERM
             set +e
+            if (( compose_start_attempted == 0 )); then
+              printf 'cleanup=skipped-no-compose-resources\n' >"$evidence/cleanup-status.txt"
+              exit "$status"
+            fi
+            if ! test -f "$state/compose.env"; then
+              printf 'cleanup_status=missing-compose-env\n' >"$evidence/cleanup-status.txt"
+              exit 1
+            fi
             timeout 60s "${compose[@]}" down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
             cleanup_status=$?
             if (( cleanup_status != 0 )); then
@@ -62,11 +71,13 @@ jobs:
             fi
             exit "$status"
           }
-          trap cleanup EXIT INT TERM
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
 
           result=0
-          fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; result=1; }
-          fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; exit 2; }
+          fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-failure:%s\n' "$1" >&2; result=1; }
+          fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-fatal:%s\n' "$1" >&2; exit 2; }
           for command in docker curl jq sha256sum unzip timeout go; do
             command -v "$command" >>"$evidence/tools.txt" 2>&1 || fatal "missing-tool:$command"
           done
@@ -88,10 +99,25 @@ jobs:
           vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable-after-set"
           printf 'after=%s\n' "$vm_max_map_count" >>"$evidence/vm.max_map_count.txt"
           [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] && (( vm_max_map_count >= 524288 )) || fatal "vm-max-map-count-too-low"
-          ulimit -n >"$evidence/ulimit-n.txt" 2>&1 || fatal "ulimit-n-unavailable"
-          test "$(cat "$evidence/ulimit-n.txt")" -ge 131072 || fatal "ulimit-n-too-low"
-          ulimit -u >"$evidence/ulimit-u.txt" 2>&1 || fatal "ulimit-u-unavailable"
-          test "$(cat "$evidence/ulimit-u.txt")" -ge 8192 || fatal "ulimit-u-too-low"
+          limit_is_adequate() { [[ "$1" == unlimited ]] || { [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" >= "$2" )); }; }
+          nofile_soft_before="$(ulimit -Sn)" || fatal "ulimit-n-soft-unavailable"
+          nofile_hard_before="$(ulimit -Hn)" || fatal "ulimit-n-hard-unavailable"
+          printf 'soft_before=%s\nhard_before=%s\n' "$nofile_soft_before" "$nofile_hard_before" >"$evidence/ulimit-n.txt"
+          limit_is_adequate "$nofile_hard_before" 131072 || fatal "ulimit-n-hard-too-low"
+          if ! limit_is_adequate "$nofile_soft_before" 131072; then ulimit -Sn 131072 || fatal "ulimit-n-soft-set-failed"; fi
+          nofile_soft_after="$(ulimit -Sn)" || fatal "ulimit-n-soft-unavailable-after-set"
+          nofile_hard_after="$(ulimit -Hn)" || fatal "ulimit-n-hard-unavailable-after-set"
+          printf 'soft_after=%s\nhard_after=%s\n' "$nofile_soft_after" "$nofile_hard_after" >>"$evidence/ulimit-n.txt"
+          limit_is_adequate "$nofile_soft_after" 131072 || fatal "ulimit-n-too-low"
+          nproc_soft_before="$(ulimit -Su)" || fatal "ulimit-u-soft-unavailable"
+          nproc_hard_before="$(ulimit -Hu)" || fatal "ulimit-u-hard-unavailable"
+          printf 'soft_before=%s\nhard_before=%s\n' "$nproc_soft_before" "$nproc_hard_before" >"$evidence/ulimit-u.txt"
+          limit_is_adequate "$nproc_hard_before" 8192 || fatal "ulimit-u-hard-too-low"
+          if ! limit_is_adequate "$nproc_soft_before" 8192; then ulimit -Su 8192 || fatal "ulimit-u-soft-set-failed"; fi
+          nproc_soft_after="$(ulimit -Su)" || fatal "ulimit-u-soft-unavailable-after-set"
+          nproc_hard_after="$(ulimit -Hu)" || fatal "ulimit-u-hard-unavailable-after-set"
+          printf 'soft_after=%s\nhard_after=%s\n' "$nproc_soft_after" "$nproc_hard_after" >>"$evidence/ulimit-u.txt"
+          limit_is_adequate "$nproc_soft_after" 8192 || fatal "ulimit-u-too-low"
           cat /proc/sys/fs/file-max >"$evidence/fs.file-max.txt" 2>&1 || fatal "fs-file-max-unavailable"
           test "$(cat "$evidence/fs.file-max.txt")" -ge 131072 || fatal "fs-file-max-too-low"
           awk '/MemAvailable:|MemTotal:/{print}' /proc/meminfo >"$evidence/memory.txt" 2>&1 || fatal "memory-unavailable"
@@ -110,6 +136,7 @@ jobs:
 
           go build -p 1 -trimpath -o "$root/cquay-audit" ./cmd/cquay-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
           "$root/cquay-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+          compose_start_attempted=1
           timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
           timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
 
@@ -251,7 +278,7 @@ jobs:
           (( result == 0 )) || exit 1
       - name: Upload redacted Sonar evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sonar-ephemeral-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ env.CQUAY_SONAR_EVIDENCE }}

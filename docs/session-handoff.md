@@ -50,6 +50,35 @@ established exploit. The synthetic merge tree matches this documentation
 checkpoint; none of these results qualifies the following source candidate.
 Retain `ci-d801d47-native-cross.json`.
 
+## Published integration checkpoint
+
+Checkpoint `98c9caa7c5ed6b20f28cec720c73ca4939c4e63c` has tree
+`01e7251bdb02b10b5f6304c0a4dfcf5f277442af`. Public readback verified all
+43 changed files and all 299 working files; the checkout was clean. PR #1
+remains draft against `develop`. WireMock run `41753111836` passed all three
+native platforms on the matching PR merge tree. Source run `41753111878`
+passed macOS and all 26 cross-builds, but Windows exposed a trust-store schema
+path mismatch and Linux found cyclomatic complexity 11. Coverage remained
+6,246/7,303 statements (85.52650%). Security still reports eight unsuppressed
+gosec findings. Retain the three `ci-98c9caa-*` receipts.
+
+Sonar run `41753111704` failed its file-descriptor prerequisite before analysis;
+cleanup incorrectly attempted Compose before its environment file existed.
+Dependency Review run `41753111900` flagged three real upstream go-jose 4.1.4
+advisories; 4.1.6 is the minimal combined fix. The following candidate corrects
+schema grammar, extracts a cohesive claim-filter helper, updates that dependency
+without changing its RSA bound, and repairs hosted prerequisite/cleanup paths.
+It does not waive any gate. Go metadata is retained under
+`checkpoint31-dependency-metadata`; no module ZIP or local Go resolver was run.
+
+The user additionally requires official Go, TypeScript and Python SDKs with
+registry/operator release directions, and v1 configurable remote observability,
+metrics, traces and diagnostics. Enterprise identity lifecycle, access review,
+audit retention/export, interoperability and long-term operational requirements
+are part of the acceptance scope. ISO 27001 support is a technical-control and
+evidence goal, not a certification claim. Managed UI support follows the runtime
+capabilities; no running managed service or SDK publication is implied.
+
 ## Integration source follow-up
 
 The next reviewed candidate adds per-authority protected, digest-pinned private

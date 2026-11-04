@@ -147,6 +147,30 @@ func TestNamedIdentityTrustStoreDeclarationIsPairedAndPinned(t *testing.T) {
 	}
 }
 
+func TestIdentityTrustStoreSchemaCanonicalWindowsPaths(t *testing.T) {
+	for path, wantValid := range map[string]bool{
+		`C:\ProgramData\CircularQuay\identity-roots.pem`:    true,
+		`C:/ProgramData/CircularQuay/identity-roots.pem`:    false,
+		`\\server\share\identity-roots.pem`:                 true,
+		`C:\ProgramData\\CircularQuay\identity-roots.pem`:   false,
+		`C:\ProgramData\CircularQuay\..\identity-roots.pem`: false,
+		`C:\ProgramData/CircularQuay\identity-roots.pem`:    false,
+		`C:identity-roots.pem`:                              false,
+	} {
+		t.Run(path, func(t *testing.T) {
+			policy := namedIdentityPolicy()
+			authority := policy.MCP.Authorities["workforce"]
+			authority.TrustStoreFile = path
+			authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+			policy.MCP.Authorities["workforce"] = authority
+			valid := resolvedPolicySchema(t).Validate(policyJSONValue(t, policy)) == nil
+			if valid != wantValid {
+				t.Fatalf("schema accepted %q = %t, want %t", path, valid, wantValid)
+			}
+		})
+	}
+}
+
 func TestAuthorityFingerprintBindsOnlySelectedTrust(t *testing.T) {
 	config := namedIdentityPolicy().MCP
 	first := MCPAuthorityFingerprint(config, "workforce")

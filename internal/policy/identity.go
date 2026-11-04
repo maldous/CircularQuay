@@ -54,10 +54,8 @@ func validateIdentityAuthority(name string, authority model.IdentityAuthority) e
 	if !validTrustStoreDeclaration(authority) {
 		return invalid("identity_trust_store")
 	}
-	for _, identities := range [][]string{authority.Clients, authority.Subjects, authority.RequiredRoles} {
-		if !validIdentityValues(identities, false) {
-			return invalid("identity_claim_filter")
-		}
+	if !validIdentityClaimFilters(authority) {
+		return invalid("identity_claim_filter")
 	}
 	if !validIdentityValues(authority.RequiredScopes, true) {
 		return invalid("identity_scope")
@@ -66,6 +64,15 @@ func validateIdentityAuthority(name string, authority model.IdentityAuthority) e
 		return invalid("identity_sender_constraint")
 	}
 	return validateTokenPermissions(authority.Permissions)
+}
+
+func validIdentityClaimFilters(authority model.IdentityAuthority) bool {
+	for _, values := range [][]string{authority.Clients, authority.Subjects, authority.RequiredRoles} {
+		if !validIdentityValues(values, false) {
+			return false
+		}
+	}
+	return true
 }
 
 // VerifierAuthority maps a non-secret policy declaration into the shared access
