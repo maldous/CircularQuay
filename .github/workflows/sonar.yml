@@ -51,6 +51,52 @@ jobs:
           compose_project="cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
           compose_start_attempted=0
+          startup_diagnostics_collected=0
+          collect_startup_diagnostics() {
+            (( compose_start_attempted == 1 && startup_diagnostics_collected == 0 )) || return 0
+            startup_diagnostics_collected=1
+            set +e
+            states="$state/startup-container-states.ndjson"
+            classes="$state/startup-failure-classes.txt"
+            : >"$states"
+            : >"$classes"
+            for service in sonarqube database; do
+              inspect_available=false
+              lifecycle=''
+              running=''
+              exit_code=''
+              oom_killed=''
+              restart_count=''
+              health=''
+              container_id="$(timeout 10s "${compose[@]}" ps --all -q "$service" 2>/dev/null)"
+              if [[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+                # Inspect exactly the service lifecycle fields needed to
+                # distinguish exit, OOM, restart, and health states.
+                fields="$(timeout 10s docker inspect --format '{{.State.Status}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null)"
+                IFS='|' read -r lifecycle running exit_code oom_killed restart_count health <<<"$fields"
+                if test -n "${lifecycle:-}" && test -n "${running:-}" && test -n "${exit_code:-}" && test -n "${oom_killed:-}" && test -n "${restart_count:-}" && test -n "${health:-}"; then
+                  inspect_available=true
+                fi
+              fi
+              timeout 15s "${compose[@]}" logs --no-color --tail 200 "$service" >"$state/${service}-startup.log" 2>&1
+              log_exit_status=$?
+              case "$log_exit_status" in ''|*[!0-9]*) log_exit_status=255;; esac
+              if test "$inspect_available" = true; then
+                jq -cn --arg service "$service" --arg lifecycle "$lifecycle" --arg running "$running" --arg exit_code "$exit_code" --arg oom_killed "$oom_killed" --arg restart_count "$restart_count" --arg health "$health" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:true,status:$lifecycle,running:$running,exit_code:$exit_code,oom_killed:$oom_killed,restart_count:$restart_count,health:$health,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+              else
+                jq -cn --arg service "$service" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:false,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+              fi
+            done
+            for class in 'java.lang.OutOfMemoryError' 'java.lang.IllegalStateException' 'java.net.BindException' 'java.net.ConnectException' 'java.sql.SQLException' 'org.elasticsearch.bootstrap.BootstrapException' 'org.elasticsearch.ElasticsearchException'; do
+              grep -Fqs "$class" "$state/sonarqube-startup.log" "$state/database-startup.log" && printf '%s\n' "$class" >>"$classes"
+            done
+            timeout 15s "${compose[@]}" exec -T sonarqube sh -c 'for process in /proc/[0-9]*; do test -r "$process/comm" || continue; comm=$(cat "$process/comm"); case "$comm" in java|java*) printf "pid=%s comm=%s\\n" "${process##*/}" "$comm"; cat "$process/limits"; exit 0;; esac; done; exit 3' >"$evidence/sonarqube-java-process-limits.txt" 2>&1
+            java_limits_status=$?
+            java_process_found=false
+            if test "$java_limits_status" = 0 && grep -q '^pid=[0-9][0-9]* comm=java' "$evidence/sonarqube-java-process-limits.txt"; then java_process_found=true; fi
+            jq -n --slurpfile container_states "$states" --rawfile failure_classes "$classes" --arg java_process_status "$java_limits_status" --argjson java_process_found "$java_process_found" '{container_inspect:$container_states,known_startup_failure_classes:($failure_classes | split("\n") | map(select(length > 0))),java_process_limits:{available:($java_process_status == "0"),process_found:$java_process_found},diagnostics_availability:"present; classifications are not proof of zero startup failures"}' >"$evidence/startup-diagnostics.json"
+            return 0
+          }
           cleanup() {
             status=$?
             trap - EXIT INT TERM
@@ -59,15 +105,17 @@ jobs:
               printf 'cleanup=skipped-no-compose-resources\n' >"$evidence/cleanup-status.txt"
               exit "$status"
             fi
+            collect_startup_diagnostics
             if ! test -f "$state/compose.env"; then
               printf 'cleanup_status=missing-compose-env\n' >"$evidence/cleanup-status.txt"
-              exit 1
+              if (( status == 0 )); then exit 1; fi
+              exit "$status"
             fi
             timeout 60s "${compose[@]}" down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
             cleanup_status=$?
             if (( cleanup_status != 0 )); then
               printf 'cleanup_status=%s\n' "$cleanup_status" >"$evidence/cleanup-status.txt"
-              exit 1
+              if (( status == 0 )); then exit 1; fi
             fi
             exit "$status"
           }
@@ -140,7 +188,10 @@ jobs:
             fi
             sleep 2
           done
-          (( ready == 1 )) || fatal "sonar-not-ready"
+          if (( ready != 1 )); then
+            collect_startup_diagnostics
+            fatal "sonar-not-ready"
+          fi
           "$root/cquay-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project circularquay --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
 
           # The lock's archive digest was read from the official SonarSource
