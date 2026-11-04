@@ -13,6 +13,15 @@ engine and fail closed at protected boundaries. No profile is a claim of
 certification or immunity from compromise. Actual implementation and test
 evidence is recorded in [qualification](qualification.md).
 
+Profiles apply through [canonical hierarchy and locked controls](configuration-governance.md)
+and [lifecycle workflows](credential-lifecycle.md). Optional SCIM or exposure
+integrations become mandatory for a descendant when locked by an authorized
+ancestor; a local preference cannot disable them. Required freshness failures
+deny affected release in strict mode. Warning/exception policy never permits
+issuer-revoked credentials, self-approval or bypass of required audit. Provider
+mutation requires its own supported capability and grant. OTel export remains
+operational delivery, not an immutable-store or required-audit guarantee.
+
 ## Safeguards that never become optional
 
 Every profile validates its schemas and supported versions, protects local

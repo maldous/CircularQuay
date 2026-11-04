@@ -54,6 +54,24 @@ The [enterprise contract](enterprise-integration.md), [SDK contract](sdks.md),
 [operational configuration](operational-configuration.md) supply the matching
 configuration, failure and acceptance boundaries.
 
+## Governed lifecycle threats
+
+The [canonical governance](configuration-governance.md) and
+[lifecycle contracts](credential-lifecycle.md) address directory-event replay or
+identity reassignment, permissive multi-group/override resolution, stale posture,
+confused workload identity, and an external allow overriding local denial.
+Required unknown/stale decisions deny; locks, exact identity/version binding,
+current-generation rechecks and forward migrations preserve known denials.
+
+Scanner APIs/webhooks can carry plaintext; bounded allowlisted ingestion and
+separate protected credentials prevent raw responses becoming diagnostics.
+Incident closure or a guessed secret-hash association cannot trigger automatic
+issuer mutation or clear exposure. Partial/uncertain rotation/revocation needs
+durable staged reconciliation and separate consumer/issuer evidence. OTel
+export does not prove immutable audit or recall released material. These
+controls require their own implementation/qualification; naming an integration
+is not evidence that its boundary is enforced.
+
 ## Disclosure limitations
 
 MCP raw values can enter client/model context, transcripts, or telemetry. No server response annotation can guarantee downstream retention. Invoking an arbitrary application also does not guarantee that application's logs remain secret-free.

@@ -37,6 +37,14 @@ agent setup without adding implicit authority. The
 and custody contract. No client can recall plaintext or a copied age private
 key; encryption alone does not enforce an access deadline.
 
+The [canonical configuration](configuration-governance.md) combines defaults,
+locks and group rules across every interface. [Lifecycle integration](credential-lifecycle.md)
+adds supported SCIM provisioning/deprovisioning, authorized provider-native
+rotation/revocation, GitHub and optional GitGuardian exposure policy, and
+secret-free operational export. An incident's workflow state cannot prove issuer
+containment or erase prior exposure; telemetry export cannot guarantee immutable
+audit.
+
 The [qualification matrix](qualification.md) records tested platforms,
 providers, release artifacts, and operational evidence.
 

@@ -112,6 +112,18 @@ Choose [straightforward default operation or an enforced strict security
 profile](docs/security-profiles.md). [Discovery and administration](docs/management-and-discovery.md)
 share explicit trust, scoped permissions and [signed-change safeguards](docs/administration-security.md)
 across the CLI, UI, SDKs and optional MCP.
+Manage organisational defaults, group rules and locked settings through
+[one governed configuration](docs/configuration-governance.md). Add SCIM
+provisioning where supported, coordinate authorized provider-native rotation
+and revocation, and use GitHub secret-scanning signals with an optional
+GitGuardian block/warn/approved-exception policy. The
+[lifecycle guide](docs/credential-lifecycle.md) keeps directory changes,
+exposure, incident closure and issuer remediation distinct. Operational events
+export without secrets through OpenTelemetry; export is not an immutable-audit
+guarantee. Optional workload OIDC/SPIFFE identity, device-posture/Conditional
+Access and external policy engines such as OPA apply within that same policy
+and permission ceiling.
+
 The guides describe the complete v1 end state; [qualification
 evidence](docs/qualification.md) records what each exact revision has proved.
 

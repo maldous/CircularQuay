@@ -16,4 +16,12 @@ recorded in [qualification](docs/qualification.md), not inferred from examples.
 
 Never include actual credential values, ciphertext from operational environments, private endpoint details, tokens, recovery material, environment dumps or raw MCP secret responses in public support requests. Maintainers should request a reduced synthetic reproduction rather than sensitive diagnostics.
 
+For [lifecycle integrations](docs/credential-lifecycle.md), include only safe
+operation IDs, exact supported profile/version and outcome categories. State
+whether the problem concerns directory propagation, exposure evidence, a policy
+exception, issuer mutation or consumer activation. Never include raw GitHub or
+GitGuardian alert bodies, secret hashes or replacement credentials. Unsupported
+SCIM/provider/plan capabilities need qualification; no support report authorizes
+account enrollment, purchases, incident dismissal or live revocation.
+
 Before a release is marked stable, its release notes must identify supported versions, known limitations, migration and rollback constraints, dependencies and the evidence supporting each qualified capability. Registries and package managers have separate publication and verification records; a GitHub release alone does not establish availability elsewhere.

@@ -48,6 +48,34 @@ its own environments, workload identities, groups, operation scopes, source
 connections and review cadence. Ambiguous, missing or unknown mappings grant
 nothing.
 
+## Governed lifecycle and exposure policy
+
+[One canonical configuration](configuration-governance.md) supplies typed
+hierarchy, defaults, locks and deterministic group resolution to every
+administrative interface. [SCIM provisioning/deprovisioning](credential-lifecycle.md#provision-and-deprovision-where-supported)
+is optional where the selected directory profile supports it; it updates
+metadata and triggers the declared offboarding response without itself granting
+runtime access. Reconciliation, token validity and local/offline revocation
+have separately measured propagation bounds.
+
+The [lifecycle contract](credential-lifecycle.md) defines separately authorized
+provider-native rotation/revocation, GitHub scanning and optional GitGuardian
+block/warn/approved-exception policy. Incident closure is not issuer revocation,
+verified replacement or permission to resume use. Each connector has distinct
+credentials, exact account/version binding, scopes, freshness and safe metadata
+outputs; unknown capabilities fail closed rather than inheriting a broad token.
+
+[Workload federation, SPIFFE, device-posture/Conditional Access and optional
+external policy engines](credential-lifecycle.md#workload-identity-posture-and-external-decisions)
+intersect the same policy ceiling. Enroll exact trust, signal/bundle revisions,
+bounded metadata and freshness; unavailable required decisions deny. Qualify
+headless versus user-device applicability independently, and deliver the
+necessary [forward migrations](credential-lifecycle.md#forward-migrations-and-complete-delivery).
+
+Secret-free OpenTelemetry lifecycle events support operations. They do not
+establish immutable storage, exactly-once delivery or required-audit durability.
+The audit boundary below remains independently enforced.
+
 ## Audit contract
 
 Audit is a durable authorization and release-decision record, not a debug log

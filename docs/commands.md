@@ -54,6 +54,15 @@ operations and active window without exporting bootstrap material. See
 [agent integration](agent-integrations.md), [SDKs](sdks.md) and
 [managed-key administration](managed-key-service.md).
 
+The [canonical lifecycle contract](credential-lifecycle.md) extends v1
+administration to supported SCIM, issuer rotation/revocation and GitHub/optional
+GitGuardian exposure policies under [hierarchy and locks](configuration-governance.md).
+This does not add command names to the current dispatcher. Local config CRUD
+cannot synthesize a remote management operation or accept unsupported schema
+fields. Inspect the selected executable and enrolled catalog before acting;
+account connections, scanning transmission and issuer mutations require their
+own actual authorization.
+
 ## Operational inspection
 
 Use `cquay --config PATH update check --json` for advisory release metadata.

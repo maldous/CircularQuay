@@ -104,6 +104,26 @@ client-plugin manifest, App binding, public listing or managed-service endpoint
 is established by them. See [agent integration](agent-integrations.md) for the
 package contract and [release procedures](../RELEASE.md) for publishing.
 
+## Lifecycle design and executable capability
+
+Read [canonical configuration governance](configuration-governance.md) and
+[credential lifecycle](credential-lifecycle.md) for hierarchy/defaults/locks,
+SCIM, provider-native remediation, GitHub/GitGuardian gates and secret-free
+OTel export. These are full-v1 design requirements. The current CLI dispatcher,
+workload MCP catalog and runtime schema do not supply new SCIM, scanner-gate,
+rotation/revocation or exposure-exception administration merely because the
+requirements are documented. Optional OIDC/SPIFFE, device posture/Conditional
+Access and external policy engines likewise require their selected profile and
+implementation evidence; enabling a mode name is insufficient. Do not invent
+verbs, tools, JSON fields or direct provider calls to fill that gap; inspect the selected revision and its receipts.
+
+Preserve separate account/operation grants, exact credential-version bindings
+and durable exposure state. No account connection, purchase, scan transmission,
+incident update or issuer mutation is authorized by this guide. Directory
+removal, scanner closure, issuer revocation and verified rotation differ;
+OTLP export is not immutable audit. Record capability gaps in the existing
+qualification/handoff workflow while retaining the coherent product contract.
+
 ## Set up and verify a bounded change
 
 Read [getting started](getting-started.md) for synthetic setup. Native source

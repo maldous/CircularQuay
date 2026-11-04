@@ -118,6 +118,22 @@ qualification matrix. See
 [verification](verification.md) for measured results and
 [the enterprise contract](enterprise-integration.md) for operational controls.
 
+## Governed lifecycle administration
+
+The v1 [canonical policy](configuration-governance.md) and
+[lifecycle contract](credential-lifecycle.md) use common typed resources,
+authorization, validation, approvals, revision guards and required audit through
+CLI/API/SDK/MCP. Local config CRUD does not implement remote SCIM, scanner or
+issuer administration. Select only public methods/tools actually supported by
+the chosen package and server; unsupported operations fail explicitly.
+
+Provisioning, exposure-policy changes, exceptions and provider-native
+rotation/revocation retain separate authority and secure credential references.
+Return safe operation identifiers and allowlisted outcomes; never replacement
+values, raw scanner responses or a guessed GitGuardian secret-hash binding.
+Reconcile ambiguous issuer effects before retrying. SDK observers export only
+safe telemetry, which does not guarantee immutable or durable audit.
+
 ## Agent integration and distribution
 
 Applications own SDK lifecycle and transport. Agent clients additionally use the

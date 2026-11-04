@@ -105,6 +105,18 @@ SDK version metadata authenticates a server or widens a grant. SDK observers,
 logs and traces carry only approved metadata; client shutdown and collector
 failure cannot authorize repeating an action that may have completed.
 
+## Lifecycle management parity
+
+V1 management exposes the [canonical policy](../configuration-governance.md)
+and [lifecycle resources](../credential-lifecycle.md) under common authorization,
+validation, approvals, revision guards and required audit. This does not extend
+the current four-tool workload catalog by inference. Never fabricate SCIM,
+scanner-exception or provider-revocation tools, use raw-read to correlate a
+credential, or wrap a denied action in a mutable script. Supported asynchronous
+mutations return safe operation state; cancellation/timeout does not prove an
+issuer effect was undone. Keep scanner/provider payloads and replacement bytes
+outside model context and telemetry.
+
 ## Acceptance and removal
 
 Test wrong issuer/audience/client/expiry, Host/Origin/DNS rebinding, cross-user discovery/read/status, guessed IDs, policy changes, secret-free non-read results, cache isolation and resource limits. Synthetic read markers must appear only in authorized responses, never server logs or audit bundles.

@@ -61,6 +61,30 @@ reports the applicable freshness bound instead of claiming immediate issuer
 revocation from an old token. Strongly consistent permission reads prevent an
 outdated replica or cached allow from overriding an acknowledged service deny.
 
+## Provisioning, exposure and issuer response
+
+The service uses [one governed configuration](configuration-governance.md) for
+tenant defaults, locked controls, groups, contexts and effective workload rules.
+Its [lifecycle contract](credential-lifecycle.md) includes optional qualified
+SCIM provisioning/deprovisioning, independently authorized provider-native
+rotation/revocation, GitHub scanning and optional GitGuardian exposure policy.
+UI/API/CLI/SDK/MCP mutations use common validation, authorization, approval,
+revision guards and required durable audit; an interface cannot widen a grant.
+
+Optional workload OIDC/SPIFFE, device-posture/Conditional Access and external
+policy evaluators follow the same [lifecycle profiles](credential-lifecycle.md#workload-identity-posture-and-external-decisions),
+authorization ceiling and forward migration contract. They cannot substitute
+for tenant isolation, grant approval or required audit.
+
+Directory removal fences future access under the declared freshness profile.
+Incident closure cannot remove a known exposure block, and an exposure exception
+cannot override issuer revocation. Credential references remain protected and
+scanner/provider/directory credentials remain separate. Rotate application
+credentials at their issuer when authorized; distributing a new age key alone
+does not invalidate credentials or ciphertext already accessible to a recipient.
+OTLP exports contain approved metadata only and do not make the audit store
+immutable or recall released keys.
+
 ## Key lookup and client behavior
 
 ```mermaid

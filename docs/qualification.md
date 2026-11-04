@@ -22,6 +22,7 @@ This matrix distinguishes implementation from independent or live qualification.
 | Public distribution | Source publication in progress | No release, module-index, OCI or MCP Registry publication claimed. |
 | Remote discovery and administration | [Complete v1 contract](management-and-discovery.md) and [security controls](administration-security.md) defined; no managed control-plane implementation | Runtime local CRUD/bootstrap and four-operation MCP do not establish remote administration, enrollment or generic service discovery. |
 | Product-wide assurance profiles | [Default/strict contract](security-profiles.md) defined; no profile field or unified enforcement in the current policy model/schema | No strict-mode, downgrade-resistance or enterprise-compliance qualification is claimed. Existing baseline controls require their own exact evidence. |
+| Canonical hierarchy and lifecycle | [Governance](configuration-governance.md) and [lifecycle](credential-lifecycle.md) contracts defined; current schema remains the flat local runtime policy | Group/default/lock compilation, managed sessions/SCIM, provider-native mutation, scanner gates and cross-interface lifecycle administration remain unimplemented. |
 
 ## Source workflow scope
 
@@ -37,6 +38,64 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact fa767446 hosted receipt
+
+Publication `fa767446175f76ae442ff81baff4b5d7ac2d73bf`, tree
+`77843bdaec5eab412d1ed6a490b854af563c1b2b`, has verified public blobs for
+all 62 changed files and preserves 392 working files. Its PR analysis uses
+synthetic merge `cfdbad1966e5a0d3ecca56f946ec8bcc30aee3f2` with the same tree.
+These are exact-candidate outcomes; the following documentation and OTel
+extraction require their own hosted evidence.
+
+[Source 41800110446](https://github.com/maldous/CircularQuay/actions/runs/41800110446)
+passes Linux tests/race/vet and bounded fuzzing before one remaining cyclomatic
+finding: `newOTelBackend` has complexity 12. The cognitive analyzer is not
+reached. All previous assurance-parser complexity findings are absent.
+The independent source auditor still fails unit tests attributed to the
+tag-only integration package, vet with unknown attribution, and coverage at
+7,295/8,735 statements (83.514596451%). Its source identity matches before and
+after. A source-only extraction preserves signal ordering, error identity and
+partial setup cleanup; no post-extraction analyzer/runtime pass is claimed.
+
+[Security 41800110516](https://github.com/maldous/CircularQuay/actions/runs/41800110516)
+passes Staticcheck, govulncheck and CodeQL build/analysis/upload. Gosec retains
+six G204 and two G103 findings, unsuppressed. Revision-bound authoritative
+CodeQL alert counts and current GitGuardian incident disposition remain absent.
+Source scanner findings are separate from the planned runtime exposure gate.
+
+[Sonar 41800110421](https://github.com/maldous/CircularQuay/actions/runs/41800110421)
+completes CE task `35a7d8ac-dd45-4033-9f89-e94feddb0928` and analysis
+`24d5e45d-f969-42a8-9294-cf3e15182736`; all retained readbacks are HTTP 200.
+All four prior assurance findings are closed: issues, violations, hotspots and
+duplication groups are zero; overall duplication is 0.0%. The strict gate still
+fails at 66.6% coverage, absent required new-code metrics and one Python 3.15
+fallback warning. CE warnings are zero. Only Go coverage is imported; Python
+XML/TypeScript LCOV production/ingestion remain required.
+
+[SDK 41800110386](https://github.com/maldous/CircularQuay/actions/runs/41800110386)
+is explicitly partial at the retained observation: 30 of 31 observed jobs are
+terminal and the macOS Node 26 lane remains active. Go SDK tests pass on all
+three native platforms, and Go lock reproducibility passes. Completed Ubuntu/
+Windows TypeScript lanes pass lint/type/audit, package membership and the
+fresh installed ESM consumer. The selected Ubuntu Node 24 run has 18/18 tests
+and both official TypeScript/Go MCP scripts passing; coverage still fails at
+72.14% lines/statements, 69.34% functions and 82.55% branches.
+
+Windows Python 3.12–3.15 installed/minimal consumers retain their failure.
+The new native diagnostic succeeds and emits only finite synthetic records:
+ordinary creation fails `parent_identity`, prepared creation fails
+`directory_identity`, both `trust_failure`. These identify protected-directory
+checks, not a proven cause or remedy; permissions were not relaxed and consumers
+were not retried. Python coverage and Intel macOS wheel/advisory gates remain
+unmet. Do not infer a full SDK or installed-client qualification pass.
+
+[WireMock 41800110400](https://github.com/maldous/CircularQuay/actions/runs/41800110400)
+and [Dependency Review 41800110517](https://github.com/maldous/CircularQuay/actions/runs/41800110517)
+pass. Eight of nine automatic PR/push runs are terminal at capture; the SDK
+workflow is active. No manual rerun/cancellation occurred. Retain the exact
+source/security/Sonar/TypeScript/Windows diagnostic receipts and
+`checkpoint43-fa767-workflow-observation.json`; none qualifies a later tree.
 
 ## Exact 208bfe0 hosted receipt
 
@@ -635,6 +694,31 @@ The design has bounded independent source review only; protocol vectors,
 downgrade/abuse testing, native/provider/host qualification and independent
 security audit of those implementations remain required. No security mode or
 ISO/FIPS certification is established by these documents.
+
+The [canonical governance](configuration-governance.md) and
+[credential lifecycle](credential-lifecycle.md) contracts additionally cover
+hierarchical defaults/locks, deterministic groups, clean environment sessions,
+SCIM, provider-native mutation, GitHub/GitGuardian exposure gates, lifecycle
+event export, workload federation/SPIFFE, posture/Conditional Access, external
+policy decisions and forward migrations. Current source has no corresponding
+canonical hierarchy compiler, managed session/provisioning resources, immutable
+credential-incident associations, issuer mutation workflow or cross-interface
+lifecycle administration. The flat policy's provider/delivery/telemetry
+environment fields are not an organisation/group/environment authority model.
+Existing runtime OTLP operation telemetry does not establish lifecycle-event
+integration or an immutable audit store. Existing named-issuer/DPoP checks and
+individual provider authentication do not qualify every federation, posture,
+SPIFFE or external-evaluator profile in the design.
+
+Read-only official documentation research establishes relevant API/privacy
+constraints, not account entitlement or a live connector. GitGuardian base
+incident metadata uses the separately qualified `incidents:read` profile;
+broader validity routes are not assumed safe. Generic GitGuardian webhooks may
+carry matched secrets and are excluded. GitHub metadata requires qualified
+read-only repository access and `hide_secret=true`; unhidden responses deny.
+No credential value/hash lookup, account enrollment, API scan, provider
+mutation or secret transmission occurred. Explicit nonsecret version binding,
+durable admission and synthetic/live qualification remain implementation gates.
 
 ## Integration implementation and qualification status
 

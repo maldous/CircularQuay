@@ -60,6 +60,31 @@ allowlisted results. `read_secret` is a separate intentional plaintext release;
 a client/model may retain it. A plugin cannot promise that hidden tool calls,
 response annotations or secret wrappers erase those copies.
 
+## Lifecycle administration
+
+Agent clients follow the [canonical hierarchy and locks](configuration-governance.md)
+and [lifecycle contract](credential-lifecycle.md). V1 CLI/API/SDK/MCP parity means
+one authorization/validation/approval/audit engine; a plugin is not a shortcut
+around a missing or denied operation. Optional SCIM, exposure exceptions and
+provider-native rotation/revocation require their separately authorized profiles.
+Inspect the selected release's actual catalog/schema; do not fabricate commands
+or request secrets to correlate an incident. A read-only connector may receive
+sensitive fields. GitHub list/get profiles require `hide_secret=true` and reject
+unhidden secrets; only approved bounded metadata reaches the model. A warning
+presents a separately authorized finite exception, never permission to bypass a
+known exposure block.
+
+Optional workload/posture/external-policy profiles use that same canonical
+ceiling and finite freshness, not caller-supplied identity or an unchecked OPA
+allow. Unsupported challenges/decisions fail closed, and migrations fix forward
+without discarding locks or exposure/revocation state.
+
+No skill text can connect an account, purchase access, dismiss a vendor incident
+or revoke an issuer credential by implication. Keep directory, GitHub,
+GitGuardian and provider credentials in their independent protected references.
+Incident closure, issuer invalidity and replacement activation remain distinct
+facts. Approved OTel export never implies immutable or durable required audit.
+
 ## Packaging and qualification
 
 The release owner validates the selected manifest schema, package identity,

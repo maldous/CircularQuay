@@ -18,6 +18,30 @@ Use local redacted scanner results by default. Optional GitGuardian scanning is 
 
 Do not broadly revoke unrelated credentials, alter production service state, rewrite history or publish an advisory without the relevant owner's authorization. Emergency-stop paths and audit preservation must remain available.
 
+## Directory, exposure-gate and issuer workflows
+
+Use [the lifecycle workflow](../credential-lifecycle.md) and
+[canonical gate policy](../configuration-governance.md) to bind the incident to
+an exact tenant, subject or credential version. Directory offboarding fences
+sessions, delegation and queued effects under its declared propagation bounds.
+GitHub/GitGuardian reads need separate scopes and protected references; raw
+alerts may contain plaintext and must not enter incident tickets or telemetry.
+GitHub list/get metadata profiles require `hide_secret=true` and reject responses
+with unhidden secrets. Do not infer GitGuardian identifiers by hashing a value.
+
+Preserve known exposure blocks when a vendor incident is resolved, ignored,
+unavailable or stale. Block/warn/approved-exception decisions use the canonical
+locks. A known exposed version stays blocked unless an explicitly approved
+finite exception authorizes its exact use, presented with a warning; no exception
+overrides issuer revocation or grants access. Routine
+rotation can prepare/activate a replacement before retiring the old version;
+a separately authorized compromise policy may require revocation first. Use
+only supported issuer-native operations, reconcile uncertain effects before
+retry and retain partial consumer outcomes. Closing the incident, revoking the
+issuer credential and verifying rotation are independent recorded actions.
+Secret-free OTLP events assist diagnosis; exporter success is not immutable
+history or required-audit durability.
+
 ## SDK, telemetry and distribution incidents
 
 Identify the exact package/native version, immutable artifact digest, safe fault

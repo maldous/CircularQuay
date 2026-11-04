@@ -70,6 +70,24 @@ retriable failure. Required security audit follows its own durability contract.
 Configure collector retention, access control, alerts and SIEM routing in the
 collector platform. See [enterprise integration](enterprise-integration.md).
 
+## Lifecycle events and audit separation
+
+[Lifecycle and compromise workflows](credential-lifecycle.md) use the same
+canonical observability policy for approved operation/outcome/duration,
+evidence-freshness, queue/backlog and exporter-health signals. SCIM, GitHub,
+GitGuardian and issuer adapters cannot attach raw bodies, secret-derived hashes,
+credential references, replacement values or uncontrolled identity/source labels.
+Bound event attributes and cardinality; preserve safe opaque correlation only
+where the declared profile permits it. A scanner API's read-only permission
+does not make its entire response suitable telemetry.
+
+OTLP is best-effort operational export. Collector receipt does not establish
+immutable retention, complete incident history, exactly-once delivery or durable
+required audit. Storage integrity, independent checkpoints, retention and restore
+are separate [audit controls](enterprise-integration.md#audit-contract). Export
+failure cannot waive an exposure block, authorize remediation or turn an already
+completed issuer mutation into an automatic retry.
+
 ## Release awareness
 
 An interactive policy checks the stable channel at most once each day:

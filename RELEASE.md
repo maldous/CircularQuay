@@ -564,6 +564,27 @@ Host immutable `.mcpb` assets on GitHub Releases. Registry references require th
 
 Do not promise automatic architecture selection by every client. Keep the first listing OCI-only if native selection is unqualified. MCPB X.509/PKCS#7 signing is not Sigstore provenance; a self-signed signature is not automatically trusted. If a target requires unavailable paid trust, record that channel incomplete rather than bypassing client security.
 
+## Lifecycle integration qualification
+
+Before claiming [canonical governance](docs/configuration-governance.md) or
+[lifecycle integration](docs/credential-lifecycle.md), record the exact schema,
+effective-policy compiler, directory/SCIM provider, scanner instance/entitlement,
+repository/App installation and issuer adapter profiles. Verify independent
+least-privilege credentials/permissions, hierarchy locks/group conflicts,
+provision/deprovision freshness, metadata-only ingestion, exposure exceptions,
+issuer-native remediation and cross-interface authorization/validation/audit.
+Do not publish a connector recipe that silently transmits a credential or uses
+GitGuardian's internal identifier as a local hash lookup.
+
+Synthetic tests and read-only research establish no account connection, purchase,
+scanner enrollment, live rotation/revocation or verified provider entitlement.
+Live-profile qualification requires its own authorization and redacted receipts;
+incident status, issuer containment, replacement activation and external audit
+retention remain independently evidenced. OTel export qualification proves only
+its safe signals and delivery behavior, not immutable storage. Keep unsupported
+features visible in revision-scoped qualification without weakening the full-v1
+product contract.
+
 ## 7. Skills and client-specific plugins
 
 The versioned Agent Skills package lives at `integrations/skills/cquay/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.

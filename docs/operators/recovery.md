@@ -41,6 +41,14 @@ Python/TypeScript native-digest selection, MCP resource/authority association
 and agent/plugin configuration. An update notice, stale metadata cache or
 removed registry listing cannot authorize a downgraded or unauthenticated binary.
 
+For [canonical governance and lifecycle changes](../credential-lifecycle.md#forward-migrations-and-complete-delivery),
+apply the necessary reviewed versioned migrations and fix forward through a
+corrected authenticated revision. Preserve locks, authority generations,
+directory disable/delete history, exposure blocks, revoked versions and pending
+issuer-operation state. Backup restoration must reconcile those facts against
+current authority before effects; it cannot restore a permissive old policy or
+act as a rollback-first substitute for completing the v1 contract.
+
 ## Replacement host
 
 1. Install authenticated native artifacts.

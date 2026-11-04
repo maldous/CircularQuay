@@ -211,6 +211,38 @@ Model exact authorization, generation/fallback, expiry/rollback, bootstrap acycl
     control. Strict requirements propagate through every interface, descendant,
     cache and recovery path; unsupported assurance and attempted downgrade deny.
 
+## Canonical configuration and lifecycle acceptance
+
+The [configuration-governance contract](configuration-governance.md) and
+[lifecycle contract](credential-lifecycle.md) are part of the complete v1
+acceptance scope. Implement one typed policy graph with defaults, inherited
+locks, deterministic group resolution, explicit override bounds and shared
+CLI/API/UI/SDK/MCP authorization, validation, revision/approval and required audit.
+No interface-specific policy file or local edit can bypass the effective ceiling.
+
+Qualify optional SCIM provisioning/deprovisioning, reconciliation and stale-event
+fencing; supported provider-native rotation/revocation with exact version binding,
+partial/uncertain-effect recovery and old-version containment; GitHub scanning
+and optional GitGuardian block/warn/authorized-exception decisions with separate
+permissions, bounded metadata and freshness rules. Do not derive GitGuardian
+identifiers from local secret hashes. Exposure, scanner closure, issuer
+revocation and verified rotation have independent evidence. Unsupported provider
+mutations remain explicit failures with a scoped owner next step.
+
+Qualify optional workload OIDC/SPIFFE, device-posture/Conditional Access and
+external policy-engine profiles against the same canonical authority ceiling.
+Required stale/unknown/undefined decisions deny, including OPA HTTP success
+without a typed allow. Complete versioned schema/data/API migrations preserve
+locks, revocation/exposure history, replay and audit state; fix forward through
+reviewed corrected revisions, never revive a permissive old policy or call
+partial interface support the finished product.
+
+Test secret-free lifecycle/compromise outcomes through OTLP and SDK observers;
+export neither guarantees immutable audit nor waives durable required audit.
+Account connections, purchases, secret transmission and live issuer mutation
+need independent authorization and qualified capability evidence. Mock fixtures,
+documentation and schema work do not establish any of those outcomes.
+
 ## Evidence and remaining work
 
 Actual outcomes are machine-readable audit reports and [qualification receipts](qualification.md), not checkmarks added to this plan. Current live-account, native-host, client and publication status is recorded in `RELEASE.md`. Claims must stay narrower than the observed evidence.

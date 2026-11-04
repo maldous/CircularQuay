@@ -13,6 +13,8 @@ verify it.
 
 ## Configure and automate
 
+- [One canonical configuration: hierarchy, defaults, locks and group resolution](configuration-governance.md)
+- [SCIM lifecycle, exposure gates and provider-native rotation/revocation](credential-lifecycle.md)
 - [Configuration reference and v1 JSON schema](configuration.md)
 - [Complete Linux deployment example](../examples/linux-deployment.json)
 - [CLI commands, CRUD and examples](commands.md)

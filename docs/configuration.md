@@ -29,6 +29,22 @@ enroll its signing trust locally. The reference is
 structurally and semantically valid policy, not a claim that those placeholder
 paths, identity, systemd unit, provider, or MCP issuer are qualified.
 
+## Canonical governance and lifecycle
+
+The [configuration-governance contract](configuration-governance.md) defines
+one tenant policy graph, typed inheritance, defaults, locked settings,
+deterministic multi-group resolution and bounded user overrides. Supported
+runtime JSON is its effective policy, not a second independently editable
+control-plane authority. Credentials remain protected references.
+
+[Lifecycle integration](credential-lifecycle.md) applies that graph to optional
+workload OIDC/SPIFFE, posture/Conditional Access, external policy decisions,
+SCIM, provider-native rotation/revocation, GitHub scanning and optional
+GitGuardian decisions. CLI, API, UI, SDK and MCP share authorization, validation,
+approval, revision and required-audit rules. Use only fields supported by the
+selected schema/runtime; do not add design fields to an executable example,
+invent environment settings or bypass an ancestor lock with local CRUD.
+
 ## Loading and filesystem boundary
 
 `cquay --config PATH` loads JSON or YAML. Relative references are resolved

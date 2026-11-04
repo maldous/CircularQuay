@@ -12,6 +12,14 @@ your identity provider establishes who you are, a signed permission ticket
 states what you may collect and when, and CircularQuay checks that ticket
 against the exact key and workload before handing anything over.
 
+The [canonical hierarchy and group rules](configuration-governance.md) also
+apply to [SCIM provisioning and lifecycle](credential-lifecycle.md). Directory
+metadata, workload OIDC/SPIFFE identity and device-posture/Conditional Access
+evidence have distinct trust/freshness profiles; none independently grants a
+secret. Optional external policy decisions only narrow current authority.
+Offboarding, exposure decisions, issuer revocation and verified replacement
+retain separate evidence and cannot recall keys or plaintext already copied.
+
 ### One identity, explicit permissions
 
 When identity integration is enabled, a person or service authenticates through

@@ -39,6 +39,16 @@ separate controls. See [SDKs](sdks.md), [bootstrap/CI](configuration-repositorie
 [enterprise operations](enterprise-integration.md) and
 [operational configuration](operational-configuration.md).
 
+[Canonical governance](configuration-governance.md) compiles typed hierarchy,
+defaults, locks and deterministic groups into one effective policy. The
+[lifecycle boundary](credential-lifecycle.md) carries authenticated directory
+changes, scanner evidence and separately authorized issuer mutations through the
+same validation/authorization/approval/audit engine for CLI/API/UI/SDK/MCP.
+External provider mutation and consumer activation are not one transaction;
+durable intent, staged reconciliation and current-generation fencing preserve
+known blocks and uncertain outcomes. OTel export is an independent operational
+path, not an immutable-audit guarantee.
+
 ## Distinct authorities
 
 Human administration, repository download, age decryption, provider authentication, destination publication, and recovery custody are distinct. A Git read key does not decrypt a document. A Google/passkey login does not automatically authenticate a service. A publisher does not need every runtime grant.

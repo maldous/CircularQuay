@@ -152,6 +152,19 @@ are independently recorded in the release evidence.
 | SIEM and audit export | Emit durable, redacted administrative and authorization-decision records for approved audit consumers. | Audit records identify actor, authority, operation, object reference, policy/version, decision and time without recording key/plaintext/token material. Delivery failure behavior is explicit; key release requires the durable audit contract selected by the service profile. |
 | Alerts, incidents and recovery | Integrate with existing on-call/incident systems using scoped webhooks or collector credentials. | Alert delivery cannot grant access or relax a failed retrieval. Recovery validates artifact digests, trust material, backup authority and fresh identities; it does not copy machine-bound key-store state as a portable restore. See [incident response](operators/incident-response.md). |
 
+## Directory, scanner and provider lifecycle
+
+The [canonical configuration](configuration-governance.md) owns hierarchy,
+defaults, locks and deterministic group resolution for every integration.
+[Lifecycle integration](credential-lifecycle.md) qualifies SCIM where supported,
+workload OIDC/SPIFFE, device-posture/Conditional Access, external policy
+evaluators, provider-native rotation/revocation and GitHub scanning with optional GitGuardian
+block/warn/authorized exceptions. Each has independent instance/account scope,
+permissions, credential references, version bindings, freshness and failure
+semantics. Provisioning grants no runtime authority; incident closure grants no
+issuer containment; secret-free OTel export grants no immutable audit. No
+integration is enabled or connected merely because it appears in this design.
+
 ## Integration acceptance contract
 
 Before a new integration enters a v1 configuration schema, CircularQuay requires

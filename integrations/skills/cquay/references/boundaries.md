@@ -24,3 +24,11 @@ disclosure receipt. Installation/update notices, SDK observers, configuration
 readback and plugin instructions must not become alternate disclosure paths.
 A host administrator can defeat local custody; protected clocks and hardware
 cannot recall material already exported to an authorized recipient.
+
+Provisioning is not authentication or authorization. Workload identity, fresh
+posture and an external allow cannot widen the canonical grant or override an
+exposure block. Scanner closure, issuer revocation and verified replacement
+are different evidence. A warning is not an exception grant, and an exception
+cannot revive an issuer-invalid credential. Provider mutations and account
+connections require their own authority. Forward migrations preserve known
+denials and history; telemetry delivery proves no immutable audit guarantee.

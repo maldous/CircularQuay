@@ -2,6 +2,19 @@
 
 Live provider tests are optional and use dedicated fabricated projects. Basic local installation and synthetic auditing require none of these accounts. Human administration, machine retrieval and destination publication are separate identities.
 
+## Rotation and revocation capability
+
+[Provider-native lifecycle operations](../credential-lifecycle.md#authorized-provider-native-rotation-and-revocation)
+are separately authorized from reads, store writes and offline export. Qualify
+each issuer/account/resource profile, permissions, operation semantics and
+verification route. A new secret-store version is not necessarily a changed
+issuer credential; an unsupported provider must not fall back to an arbitrary
+script. Protect replacement material, reconcile ambiguous mutation outcomes
+and verify old-version disposition and consumer activation independently.
+GitHub/GitGuardian/directory credentials and permissions never substitute for
+issuer mutation authority. No account connection or live mutation follows from
+this operator guide.
+
 ## Free account routes
 
 | Provider | Confirmed setup route | Required free-plan check |

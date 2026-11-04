@@ -11,6 +11,67 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
+Latest reviewed publication `fa767446175f76ae442ff81baff4b5d7ac2d73bf`, tree
+`77843bdaec5eab412d1ed6a490b854af563c1b2b`, has readback for all 62 changed
+files and preserves 392 working files. PR #1 remains draft to `develop`.
+[Exact fa767446 evidence](qualification.md#exact-fa767446-hosted-receipt)
+records source/security/Sonar failures and the explicitly partial SDK
+observation. All four prior Sonar assurance findings are closed; coverage,
+new-code metrics and the Python-version warning still fail. TypeScript fixture,
+package and ESM consumer repairs pass in completed Ubuntu/Windows lanes;
+the selected run has 18/18 tests but fails real coverage. Windows Python's new
+diagnostic narrows the failure to protected-directory checks without relaxing
+permissions or retrying consumers. Do not claim a cause/remedy from those codes.
+
+The following OTel helper extraction addresses the remaining observed
+`newOTelBackend` complexity 12. It preserves client/resource/URL prerequisites,
+trace→metrics→logs ordering, error identity and cleanup. Independent source
+review and pinned formatting pass; no post-extraction runtime/analyzer has run.
+Retain exact `internal/observability/otel.go` SHA-256 and later hosted evidence.
+
+The documentation owner handed off 29 stable lifecycle/support/skill paths in
+`lifecycle-docs-20261104/assessment.json` and `scope-manifest.json`, with contained
+patch, static validation and primary-source research. Root owns the new
+canonical governance document and qualification/handoff. Preserve the owner's
+manifest; root amendments get their own exact fences. The complete v1 now
+includes canonical hierarchy/defaults/locks and deterministic group handling,
+SCIM, authorized issuer-native rotation/revocation, GitHub and optional
+GitGuardian metadata exposure gates, safe OTel events, OIDC/SPIFFE workload
+identity, posture/Conditional Access and optional bounded external policy
+decisions. These contracts do not add unsupported JSON fields or CLI/MCP verbs.
+
+Required implementation remains explicit in qualification: canonical schema/
+compiler and protected enrollment/deployment contracts, managed lifecycle and
+session/credential-version state, common authorization/approval/audit and
+typed API/CLI/SDK/MCP parity, safe metadata adapters and verified provider
+mutation/reconciliation. All belong to v1. Workload/profile, scanner and issuer
+evidence remain separate. Known compromised versions block unless an approved
+finite exact-version exception permits a still-valid operation; warnings only
+present that exception. Incident closure cannot prove rotation/revocation or
+clear the block. No exception revives an expired/revoked credential. Age keys
+and consumer plaintext cannot be recalled.
+
+Official API research verified GitGuardian `Authorization: Token` and the
+base read-only incident profile, excluded generic secret-bearing webhooks,
+and required GitHub `hide_secret=true` with exact repository permissions.
+No accounts, keys, secret scans, plaintext/value-hash queries, provider
+mutations, purchases or infrastructure changes were performed. Endpoint/plan/
+privacy and nonsecret association qualification precede live operation.
+Use forward corrections/migrations that preserve locks, trust generations,
+offboarding/compromise history, replay/approvals and audit.
+
+New retained receipts include `configuration-governance-review.json`,
+`checkpoint43-typescript-fa767-hosted.json`, `ci-fa767446-sonar.json`,
+`checkpoint43-security-fa767446.json`, the source receipt and its separate
+`checkpoint43-source-go-sdk-amendment.json`, and
+`checkpoint40-windows-config-init-diagnostic.json` (its content binds fa767446
+despite the historical filename prefix). The source reviewer corrected an
+initial receipt in place; the later amendment explicitly records its old/new
+hash transition and that the original bytes were not retained. Do not describe
+that overwritten first receipt as immutable evidence.
+
+The following checkpoint is historical and retains its own scope.
+
 Publication `208bfe016a8e00c55d9e2394b2a930eec64cd606`, tree
 `386b60dbdc59d95aee63c1ca7dfeee9e2a71368d`, has public blob readback
 for all 20 changed files and preserves all 383 working files. Its six PR

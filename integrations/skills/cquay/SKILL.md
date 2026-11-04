@@ -1,6 +1,6 @@
 ---
 name: cquay
-description: Configure, inspect and run CircularQuay workloads through its CLI, official SDKs or optional MCP connection. Use for bootstrap, policy CRUD, CI flow, telemetry and scoped administration; raw disclosure requires its own authorization.
+description: Configure, inspect and run CircularQuay workloads through its CLI, official SDKs or optional MCP connection. Use for bootstrap, policy CRUD, CI flow, telemetry and scoped lifecycle administration; raw disclosure requires its own authorization.
 license: Apache-2.0
 metadata:
   compatibility: Requires the selected CircularQuay executable or official SDK/MCP adapter, protected policy and state, and dependencies for enabled features.
@@ -80,6 +80,24 @@ Release awareness is notice-and-continue. `update check --json` is the explicit
 inspection route; SDK/MCP/CI sessions never prompt or install updates. A failed
 advisory check cannot waive an explicit local minimum version. Verify a new
 artifact and obtain installation authority separately.
+
+## Governed lifecycle administration
+
+Read [lifecycle task boundaries](references/lifecycle.md) for canonical
+hierarchy/defaults/locks, SCIM, workload OIDC/SPIFFE, posture/Conditional Access,
+external policy engines, scanner gates and provider-native remediation. These
+v1 requirements do not create tools or fields in the selected release. Use only
+its verified capabilities under common validation/authorization/approval/audit.
+GitHub/GitGuardian/issuer permissions and protected references remain separate;
+no account connection, purchase, scan transmission or live mutation is implied.
+Incident closure does not prove revocation or rotation. Warning/exception policy
+cannot override issuer denial; a known exposure permits use only through a
+separately approved finite exact-version exception, presented with a warning.
+GitHub metadata requests require `hide_secret=true` and rejection of unhidden
+secret responses. Return allowlisted metadata, never raw alerts or
+replacement keys; never infer GitGuardian identifiers from a local secret hash.
+OTel export is not immutable audit. Fix forward through approved migrations
+without resetting locks, exposure, revocation or replay state.
 
 ## Raw disclosure and recovery
 

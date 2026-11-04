@@ -60,3 +60,11 @@ bundle, and a language SDK is an application package; none authenticates the
 others. Match identities, versions, contained paths and artifact digests, and
 retain the selected client's positive and denial test evidence. Removal from a
 client or registry does not revoke an issued provider credential.
+
+For SCIM, workload federation/SPIFFE, posture/Conditional Access, external policy
+engines, exposure gates and issuer rotation/revocation, read
+[lifecycle tasks](lifecycle.md). These design requirements are not additional
+commands in the table. Discover actual capabilities, retain separate grants,
+use canonical locks and common administration checks, and return a bounded
+unsupported result for absent tooling. Never add unrecognized policy fields or
+turn a local config write into a remote issuer effect.
