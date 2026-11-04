@@ -41,7 +41,7 @@ func TestGoFailureMetadataDeniesUntrackedOrUnscopedCandidates(t *testing.T) {
 	}
 }
 
-func TestGoFailureMetadataRedactsRawTextAndFailsClosedOnBounds(t *testing.T) {
+func TestGoFailureMetadataRedactsRawText(t *testing.T) {
 	scope, source := failureMetadataScope()
 	const secret = "synthetic-secret-must-not-appear"
 	metadata := summarizeGoFailure(parseGoFailureCapture([]string{"vet"}, []byte(secret), false), scope, source)
@@ -49,6 +49,10 @@ func TestGoFailureMetadataRedactsRawTextAndFailsClosedOnBounds(t *testing.T) {
 	if err != nil || metadata.State != "unknown" || strings.Contains(string(encoded), secret) {
 		t.Fatalf("raw diagnostic leaked or unknown failure accepted: %s %#v", encoded, metadata)
 	}
+}
+
+func TestGoFailureMetadataFailsClosedOnSummaryBounds(t *testing.T) {
+	scope, source := failureMetadataScope()
 	locations := make([]GoFailureLocation, maxGoFailureLocations+1)
 	for index := range locations {
 		locations[index] = GoFailureLocation{Path: "internal/example/value.go", Line: index + 1}
@@ -59,6 +63,15 @@ func TestGoFailureMetadataRedactsRawTextAndFailsClosedOnBounds(t *testing.T) {
 	if metadata := summarizeGoFailure(goFailureCapture{overflow: true}, scope, source); metadata.State != "overflow" {
 		t.Fatalf("output overflow did not remain explicit: %#v", metadata)
 	}
+}
+
+func TestGoFailureMetadataStopsAtParserBounds(t *testing.T) {
+	testParserLocationBound(t)
+	testParserPackageBound(t)
+}
+
+func testParserLocationBound(t *testing.T) {
+	t.Helper()
 	var output strings.Builder
 	for index := 0; index <= maxGoFailureLocations; index++ {
 		output.WriteString("internal/example/value.go:")
@@ -68,11 +81,16 @@ func TestGoFailureMetadataRedactsRawTextAndFailsClosedOnBounds(t *testing.T) {
 	if !capture.overflow || len(capture.locations) != maxGoFailureLocations {
 		t.Fatalf("parser did not stop at the location cap: %#v", capture)
 	}
+}
+
+func testParserPackageBound(t *testing.T) {
+	t.Helper()
+	var output strings.Builder
 	output.Reset()
 	for index := 0; index <= maxGoFailurePackages; index++ {
 		output.WriteString("# github.com/maldous/CircularQuay/internal/example\n")
 	}
-	capture = parseGoFailureCapture([]string{"vet"}, []byte(output.String()), false)
+	capture := parseGoFailureCapture([]string{"vet"}, []byte(output.String()), false)
 	if !capture.overflow || len(capture.packages) != maxGoFailurePackages {
 		t.Fatalf("parser did not stop at the package cap: %#v", capture)
 	}
@@ -83,7 +101,7 @@ func TestExecuteGoSourceCheckAttachesOnlyBoundedFailureMetadata(t *testing.T) {
 	command := func(context.Context, string, []string, string, []string) commandResult {
 		return commandResult{exitCode: 1, goFailure: goFailureCapture{packages: []string{"github.com/maldous/CircularQuay/internal/example"}, locations: []GoFailureLocation{{Path: "internal/example/value_test.go", Line: 9}}}}
 	}
-	check := executeGoSourceCheck(context.Background(), command, "unit_tests", "go", []string{"test"}, ".", nil, scope, source)
+	check := executeGoSourceCheck(context.Background(), command, goSourceCheckSpec{name: "unit_tests", binary: "go", arguments: []string{"test"}, directory: ".", scope: scope, source: source})
 	if check.Status != "failed" || check.Code != "command_failed" || check.Failure == nil || check.Failure.State != "observed" || len(check.Failure.Locations) != 1 || check.Failure.Locations[0].Path != "internal/example/value_test.go" {
 		t.Fatalf("failure metadata changed command outcome or lost a tracked test location: %#v", check)
 	}

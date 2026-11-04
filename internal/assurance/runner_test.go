@@ -46,9 +46,12 @@ func runForTest(ctx context.Context, options Options, command commandFunc) (Repo
 	audit.report.Checks = append(audit.report.Checks, format)
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
-	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, command, "unit_tests", audit.options.GoBinary, testArguments, audit.root, audit.environment, scope, audit.report.Source))
+	goCheck := goSourceCheckSpec{name: "unit_tests", binary: audit.options.GoBinary, arguments: testArguments, directory: audit.root, environment: audit.environment, scope: scope, source: audit.report.Source}
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, command, goCheck))
 	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
-	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, command, "go_vet", audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment, scope, audit.report.Source))
+	goCheck.name = "go_vet"
+	goCheck.arguments = append([]string{"vet"}, scope.packages...)
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, command, goCheck))
 	addTestExternalChecks(ctx, command, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
 	addSonar(ctx, command, audit.root, audit.environment, audit.options, coveragePath, &audit.report)
 	audit.recordAfterIdentity(ctx, identity, runCommand)

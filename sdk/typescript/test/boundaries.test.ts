@@ -5,11 +5,11 @@ import { CquayClient, CquayError, LocalCLIClient } from "../src/index.ts";
 test("local configuration CRUD sends bounded JSON through stdin", async () => {
   const calls: Array<{ args: string[]; options: unknown }> = [];
   const client = recordingClient(calls);
-  await client.configSet("/workloads/api", { enabled: true }, "a".repeat(64));
-  await client.configReplace({ schema_version: 1 });
-  await client.configDelete("/workloads/api");
-  await client.configGet("/workloads/api");
-  await client.configList();
+  await LocalCLIClient.prototype.configSet.call(client, "/workloads/api", { enabled: true }, "a".repeat(64));
+  await LocalCLIClient.prototype.configReplace.call(client, { schema_version: 1 });
+  await LocalCLIClient.prototype.configDelete.call(client, "/workloads/api");
+  await LocalCLIClient.prototype.configGet.call(client, "/workloads/api");
+  await LocalCLIClient.prototype.configList.call(client);
   assert.deepEqual(calls[0]?.args, ["config", "set", "--pointer", "/workloads/api", "--value-file", "-", "--expect-sha256", "a".repeat(64)]);
   assert.equal((calls[0]?.options as { stdin?: string }).stdin, '{"enabled":true}');
   assert.deepEqual(calls[1]?.args, ["config", "replace", "--file", "-"]);
@@ -19,34 +19,34 @@ test("local configuration CRUD sends bounded JSON through stdin", async () => {
 
 test("local configuration rejects malformed pointers and nonportable JSON", async () => {
   const client = recordingClient([]);
-  assert.throws(() => client.configGet("workloads/api"), invalid);
-  assert.throws(() => client.configSet("/~2", "value"), invalid);
-  assert.throws(() => client.configReplace(Number.POSITIVE_INFINITY), invalid);
-  assert.throws(() => client.configReplace(Number.MAX_SAFE_INTEGER + 1), invalid);
+  assert.throws(() => LocalCLIClient.prototype.configGet.call(client, "workloads/api"), invalid);
+  assert.throws(() => LocalCLIClient.prototype.configSet.call(client, "/~2", "value"), invalid);
+  assert.throws(() => LocalCLIClient.prototype.configReplace.call(client, Number.POSITIVE_INFINITY), invalid);
+  assert.throws(() => LocalCLIClient.prototype.configReplace.call(client, Number.MAX_SAFE_INTEGER + 1), invalid);
   const cyclic: { self?: unknown } = {};
   cyclic.self = cyclic;
-  assert.throws(() => client.configReplace(cyclic), invalid);
+  assert.throws(() => LocalCLIClient.prototype.configReplace.call(client, cyclic), invalid);
 });
 
 test("local operations validate modes, targets, and remote pins before dispatch", async () => {
   const calls: Array<{ args: string[]; options: unknown }> = [];
   const client = recordingClient(calls);
-  await client.doctor({ fix: true });
-  await client.doctor({ identityOnly: true });
-  await client.status("api");
-  await client.snapshot("api", "user");
-  await client.apply("api", "user");
-  await client.sync("api");
-  await client.bootstrap(validPin("/absolute/policy.json"));
+  await LocalCLIClient.prototype.doctor.call(client, { fix: true });
+  await LocalCLIClient.prototype.doctor.call(client, { identityOnly: true });
+  await LocalCLIClient.prototype.status.call(client, "api");
+  await LocalCLIClient.prototype.snapshot.call(client, "api", "user");
+  await LocalCLIClient.prototype.apply.call(client, "api", "user");
+  await LocalCLIClient.prototype.sync.call(client, "api");
+  await LocalCLIClient.prototype.bootstrap.call(client, validPin("/absolute/policy.json"));
   assert.deepEqual(calls.map(call => call.args), [
     ["doctor", "--fix"], ["doctor", "--identity-only"], ["status", "--workload", "api", "--json"],
     ["snapshot", "--workload", "api", "--target", "user"], ["apply", "--workload", "api", "--target", "user"],
     ["sync", "--workload", "api", "--once"], ["bootstrap", "--config-source", "https://github.com/acme/policy", "--config-ref", "a".repeat(40), "--config-path", "policy.json", "--config-sha256", "b".repeat(64), "--output", "/absolute/policy.json", "--non-interactive"]
   ]);
-  assert.throws(() => client.doctor({ fix: true, identityOnly: true }), invalid);
-  assert.throws(() => client.apply("..", "user"), invalid);
-  assert.throws(() => client.bootstrap(validPin("relative.json")), invalid);
-  assert.throws(() => client.bootstrap({ ...validPin("/absolute/policy.json"), configSource: "https://user:token@example.test/policy" }), invalid);
+  assert.throws(() => LocalCLIClient.prototype.doctor.call(client, { fix: true, identityOnly: true }), invalid);
+  assert.throws(() => LocalCLIClient.prototype.apply.call(client, "..", "user"), invalid);
+  assert.throws(() => LocalCLIClient.prototype.bootstrap.call(client, validPin("relative.json")), invalid);
+  assert.throws(() => LocalCLIClient.prototype.bootstrap.call(client, { ...validPin("/absolute/policy.json"), configSource: "https://user:token@example.test/policy" }), invalid);
 });
 
 test("MCP results enforce ordering, shape, and safe error categories", async () => {

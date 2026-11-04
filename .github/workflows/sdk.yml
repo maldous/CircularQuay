@@ -332,9 +332,11 @@ jobs:
           test -f package-lock.json
           tarball=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (!Array.isArray(v) || v.length !== 1 || typeof v[0]?.filename !== "string") process.exit(1); process.stdout.write(v[0].filename)' "$RUNNER_TEMP/cquay-sdk-pack.json")
           test -f "$tarball"
-          tar -tf "$tarball" | grep -qx 'package/dist/index.js'
-          tar -tf "$tarball" | grep -qx 'package/dist/index.d.ts'
-          tar -tf "$tarball" | grep -qx 'package/LICENSE'
+          pack_members="$RUNNER_TEMP/cquay-sdk-pack-members.txt"
+          tar -tf "$tarball" > "$pack_members"
+          grep -Fxq 'package/dist/index.js' "$pack_members"
+          grep -Fxq 'package/dist/index.d.ts' "$pack_members"
+          grep -Fxq 'package/LICENSE' "$pack_members"
       - name: Exercise the installed TypeScript local client against cquay
         if: ${{ always() && steps.typescript_pack.outcome == 'success' }}
         shell: bash
@@ -352,15 +354,11 @@ jobs:
           tarball=$(find "$GITHUB_WORKSPACE/sdk/typescript" -maxdepth 1 -name '*.tgz' -print -quit)
           test -n "$tarball"
           npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund --prefix "$consumer" "$tarball"
-          export CQUAY_CONSUMER="$consumer"
-          node --input-type=module <<'NODE'
+          cat > "$consumer/conformance.mjs" <<'NODE'
+          import { LocalCLIClient } from "@maldous/cquay-sdk";
           import { mkdtemp, realpath } from "node:fs/promises";
-          import { createRequire } from "node:module";
           import { tmpdir } from "node:os";
           import { join } from "node:path";
-          import { pathToFileURL } from "node:url";
-          const require = createRequire(`${process.env.CQUAY_CONSUMER}/package.json`);
-          const { LocalCLIClient } = await import(pathToFileURL(require.resolve("@maldous/cquay-sdk")).href);
           const root = await realpath(await mkdtemp(join(tmpdir(), "cquay-sdk-")));
           const executablePath = await realpath(process.env.CQUAY_EXECUTABLE);
           const client = await LocalCLIClient.create({ executablePath, expectedSHA256: process.env.CQUAY_EXECUTABLE_SHA256, configPath: join(root, "policy.json"), stateDirectory: join(root, "state"), environment: {} });
@@ -368,6 +366,7 @@ jobs:
           await client.doctor();
           await client.plan();
           NODE
+          node "$consumer/conformance.mjs"
       - name: Exercise the official MCP TypeScript client against synthetic cquay
         if: ${{ always() && steps.typescript_build.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.node == '24.22.2' }}
         shell: bash
@@ -522,6 +521,7 @@ jobs:
           "$cquay_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cquay-python-dist/*.whl
           "$cquay_python" -c 'import cquay; assert cquay.__version__ == "1.0.0.dev0"'
       - name: Exercise the installed Python local client against cquay
+        id: python_installed_client
         if: ${{ always() && steps.python_install.outcome == 'success' }}
         shell: bash
         run: |
@@ -534,18 +534,38 @@ jobs:
           [[ "$cquay_sha256" =~ ^[a-f0-9]{64}$ ]]
           cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
           if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
-          CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
+          CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" CQUAY_DIAGNOSTIC_ROOT_FILE="$RUNNER_TEMP/cquay-python-diagnostic-root.txt" "$cquay_python" - <<'PY'
           import asyncio, os, tempfile
           from pathlib import Path
-          from cquay import LocalCLIClient
+          from cquay import CircularQuayError, ErrorCategory, LocalCLIClient
           async def main():
               root = Path(tempfile.mkdtemp(prefix="cquay-sdk-")).resolve()
               client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
-              await client.config_init()
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      try:
+                          Path(os.environ["CQUAY_DIAGNOSTIC_ROOT_FILE"]).write_text(str(root) + "\n", encoding="utf-8", newline="\n")
+                      except OSError:
+                          pass
+                  raise
               await client.doctor()
               await client.plan()
           asyncio.run(main())
           PY
+      - name: Diagnose native Windows configuration trust without retrying the consumer
+        if: ${{ always() && runner.os == 'Windows' && steps.python_installed_client.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$RUNNER_TEMP/cquay-python-diagnostic-root.txt"
+          if ! test -f "$request"; then
+            printf '%s\n' 'Native trust diagnostic not selected; the original consumer failure remains.'
+            exit 0
+          fi
+          IFS= read -r diagnostic_root < "$request"
+          CQUAY_CONFIG_INIT_DIAGNOSTIC_ROOT="$diagnostic_root" go test -count=1 -timeout 2m -run '^TestConfigInitWindowsDiagnostic$' -v ./internal/cli
       - name: Exercise Python local client without optional MCP dependency
         if: ${{ always() && steps.python_build.outcome == 'success' }}
         shell: bash

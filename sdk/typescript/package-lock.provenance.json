@@ -5,16 +5,16 @@
   "source_path": "sdk/typescript/package-lock.json",
   "workflow": {
     "name": "SDK qualification",
-    "run_id": 41781361730,
-    "pull_request_head": "a26e39e46930893259b8385c65953b0896e5bdab",
-    "synthetic_merge": "9248c1b37a4d67b8fd90d6a8373138822a6d3240",
-    "synthetic_merge_tree": "ee50f613145dc21d1d6ea1db24452cd206b25a0f"
+    "run_id": 41790956319,
+    "pull_request_head": "208bfe016a8e00c55d9e2394b2a930eec64cd606",
+    "synthetic_merge": "d5268bb25786ae5a54e142a81746e5ed15bd7c69",
+    "synthetic_merge_tree": "386b60dbdc59d95aee63c1ca7dfeee9e2a71368d"
   },
   "canonical_artifact": {
-    "id": 13299816417,
+    "id": 13302914486,
     "name": "typescript-lock-ubuntu-24.04-node-24.22.2",
-    "archive_sha256": "53d9469c8d854cebff225a16b9fca656bfc4e97cbc59c7f50ab95eb55d9d5f9a",
-    "archive_bytes": 54433,
+    "archive_sha256": "81c07ad4c4b5ed52ecc468c27bc2ef14b20ddd2dea308d5d05273cc83b796086",
+    "archive_bytes": 54529,
     "entries": [
       "generated-package-lock.json",
       "reviewed-package-lock.json",
@@ -23,7 +23,7 @@
     ]
   },
   "inputs": {
-    "package_json_sha256": "605ebfca9f2d5485a384654434d587b08b3046990698c72ff12d0383a352c41b",
+    "package_json_sha256": "8ae34daa854cdc03835cac587d8802fcdfa55d7d11ab98b353388622c6fbb3cc",
     "overrides": {
       "glob": "14.0.3",
       "minimatch": "11.0.4"
@@ -32,18 +32,29 @@
       "22.23.4",
       "24.22.2",
       "26.13.0"
-    ],
-    "npm": "10.9.9"
+    ]
   },
   "lock": {
     "lockfile_version": 3,
     "raw_sha256": "e601a7fdccd24a461d6508bb8b4f5ec9aba955b688600660d5e0b26e0260f7bf",
+    "bytes": 112879,
     "registry": "https://registry.npmjs.org/",
     "integrity": "all 234 resolved records use validated sha512 SRI",
-    "artifact_matrix": "byte-identical across all nine Ubuntu/macOS/Windows and Node 22.23.4/24.22.2/26.13.0 artifacts",
     "resolved_overrides": {
       "glob": "14.0.3",
       "minimatch": "11.0.4"
     }
-  }
+  },
+  "artifact_matrix": [
+    {"id": 13303078937, "cell": "ubuntu-24.04/node-22.23.4", "archive_sha256": "eee1745e654721b32abb909569770b368b89698387455fe61b9683675f849b0b", "archive_bytes": 54529, "npm": "10.9.9"},
+    {"id": 13302914486, "cell": "ubuntu-24.04/node-24.22.2", "archive_sha256": "81c07ad4c4b5ed52ecc468c27bc2ef14b20ddd2dea308d5d05273cc83b796086", "archive_bytes": 54529, "npm": "11.19.1"},
+    {"id": 13302959384, "cell": "ubuntu-24.04/node-26.13.0", "archive_sha256": "a5972efd2c235fe30deb468487c9dfff7a43eeacb5ecbfac36bcb2fbb785e5bc", "archive_bytes": 54529, "npm": "11.20.0"},
+    {"id": 13303935171, "cell": "macos-15-intel/node-22.23.4", "archive_sha256": "2a11c44ce2398d2e82fdb9cc40a69a0fc72417905e4879afe45309ee9fb44260", "archive_bytes": 54532, "npm": "10.9.9"},
+    {"id": 13302954920, "cell": "macos-15-intel/node-24.22.2", "archive_sha256": "0f8a88288a80e625cce8a2a5e0ef5b80e317c590a52b493a36292f3643a8bd82", "archive_bytes": 54532, "npm": "11.19.1"},
+    {"id": 13303687265, "cell": "macos-15-intel/node-26.13.0", "archive_sha256": "58dd5ce6fe06c750e1f83d3683b7d3442c366aec1fdc5e337461a5053fc99253", "archive_bytes": 54532, "npm": "11.20.0"},
+    {"id": 13302654661, "cell": "windows-2025/node-22.23.4", "archive_sha256": "987a7bad81e3f37e0a08a309e67bcb54a0accbbf264160767b8182c2b663cda9", "archive_bytes": 54529, "npm": "10.9.9"},
+    {"id": 13302764378, "cell": "windows-2025/node-24.22.2", "archive_sha256": "e5e541c50f475dc904488f6992971415495d46e9ca4a8491878f9a1d1a13511a", "archive_bytes": 54530, "npm": "11.19.1"},
+    {"id": 13303672214, "cell": "windows-2025/node-26.13.0", "archive_sha256": "13747982a8fd75f1bd23699f27c524545d4617906980bd949ee1c538fc090134", "archive_bytes": 54530, "npm": "11.20.0"}
+  ],
+  "qualification_caveat": "This record proves lock closure reproduction only. Source, coverage, installed-consumer, MCP, and full SDK qualification require their respective hosted gates to pass."
 }

@@ -30,54 +30,104 @@ type goFailureCapture struct {
 	overflow  bool
 }
 
+// goSourceCheckSpec binds a Go command to the manifest-derived source scope
+// whose failures may be summarized in the version-one report.
+type goSourceCheckSpec struct {
+	name        string
+	binary      string
+	arguments   []string
+	directory   string
+	environment []string
+	scope       goSourceScope
+	source      *SourceIdentity
+}
+
 // executeGoSourceCheck retains only source-bound failure metadata for the two
 // Go commands whose differing audit environment needs attribution.
-func executeGoSourceCheck(ctx context.Context, command commandFunc, name, binary string, arguments []string, directory string, environment []string, scope goSourceScope, source *SourceIdentity) Check {
+func executeGoSourceCheck(ctx context.Context, command commandFunc, specification goSourceCheckSpec) Check {
 	start := time.Now()
-	result := command(ctx, binary, arguments, directory, environment)
-	check := classifyCommand(name, true, result, time.Since(start))
+	result := command(ctx, specification.binary, specification.arguments, specification.directory, specification.environment)
+	check := classifyCommand(specification.name, true, result, time.Since(start))
 	if check.Status == "failed" {
-		check.Failure = summarizeGoFailure(result.goFailure, scope, source)
+		check.Failure = summarizeGoFailure(result.goFailure, specification.scope, specification.source)
 	}
 	return check
 }
 
 func parseGoFailureCapture(arguments []string, output []byte, overflow bool) goFailureCapture {
-	if len(arguments) == 0 || arguments[0] != "test" && arguments[0] != "vet" {
+	if !goFailureCommand(arguments) {
 		return goFailureCapture{}
 	}
 	capture := goFailureCapture{overflow: overflow}
-	if overflow {
+	if capture.overflow {
 		return capture
 	}
+	return scanGoFailureOutput(capture, output)
+}
+
+func scanGoFailureOutput(capture goFailureCapture, output []byte) goFailureCapture {
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	scanner.Buffer(make([]byte, 256), 64<<10)
 	for scanner.Scan() {
-		line := scanner.Text()
-		if match := goFailurePackageLine.FindStringSubmatch(line); match != nil {
-			if len(capture.packages) >= maxGoFailurePackages {
-				capture.overflow = true
-				return capture
-			}
-			capture.packages = append(capture.packages, match[1])
-			continue
-		}
-		if match := goFailureLocationLine.FindStringSubmatch(line); match != nil {
-			lineNumber, err := strconv.Atoi(match[2])
-			if err != nil || lineNumber > maxGoFailureLine {
-				capture.unknown = true
-				continue
-			}
-			if len(capture.locations) >= maxGoFailureLocations {
-				capture.overflow = true
-				return capture
-			}
-			capture.locations = append(capture.locations, GoFailureLocation{Path: match[1], Line: lineNumber})
+		capture = parseGoFailureLine(capture, scanner.Text())
+		if capture.overflow {
+			return capture
 		}
 	}
 	if scanner.Err() != nil {
 		capture.unknown = true
 	}
+	return capture
+}
+
+func goFailureCommand(arguments []string) bool {
+	return len(arguments) > 0 && (arguments[0] == "test" || arguments[0] == "vet")
+}
+
+// parseGoFailureLine gives package records precedence over locations and stops
+// retaining candidates as soon as either metadata cap is exceeded.
+func parseGoFailureLine(capture goFailureCapture, line string) goFailureCapture {
+	if match := goFailurePackageLine.FindStringSubmatch(line); match != nil {
+		return appendGoFailurePackage(capture, match[1])
+	}
+	location, matched, valid := goFailureLocation(line)
+	if !matched {
+		return capture
+	}
+	if !valid {
+		capture.unknown = true
+		return capture
+	}
+	return appendGoFailureLocation(capture, location)
+}
+
+func appendGoFailurePackage(capture goFailureCapture, candidate string) goFailureCapture {
+	if len(capture.packages) >= maxGoFailurePackages {
+		capture.overflow = true
+		return capture
+	}
+	capture.packages = append(capture.packages, candidate)
+	return capture
+}
+
+func goFailureLocation(line string) (GoFailureLocation, bool, bool) {
+	match := goFailureLocationLine.FindStringSubmatch(line)
+	if match == nil {
+		return GoFailureLocation{}, false, false
+	}
+	lineNumber, err := strconv.Atoi(match[2])
+	if err != nil || lineNumber > maxGoFailureLine {
+		return GoFailureLocation{}, true, false
+	}
+	return GoFailureLocation{Path: match[1], Line: lineNumber}, true, true
+}
+
+func appendGoFailureLocation(capture goFailureCapture, candidate GoFailureLocation) goFailureCapture {
+	if len(capture.locations) >= maxGoFailureLocations {
+		capture.overflow = true
+		return capture
+	}
+	capture.locations = append(capture.locations, candidate)
 	return capture
 }
 
@@ -112,6 +162,14 @@ func boundFailurePackages(candidates []string, scope goSourceScope) ([]string, b
 }
 
 func boundFailureLocations(candidates []GoFailureLocation, source *SourceIdentity) ([]GoFailureLocation, bool) {
+	allowed, valid := allowedGoFailurePaths(source)
+	if !valid {
+		return nil, false
+	}
+	return boundAllowedFailureLocations(candidates, allowed)
+}
+
+func allowedGoFailurePaths(source *SourceIdentity) (map[string]bool, bool) {
 	if source == nil {
 		return nil, false
 	}
@@ -121,16 +179,17 @@ func boundFailureLocations(candidates []GoFailureLocation, source *SourceIdentit
 			allowed[file.Path] = true
 		}
 	}
+	return allowed, true
+}
+
+func boundAllowedFailureLocations(candidates []GoFailureLocation, allowed map[string]bool) ([]GoFailureLocation, bool) {
 	locations := make([]GoFailureLocation, 0, len(candidates))
 	seen := map[GoFailureLocation]bool{}
 	for _, candidate := range candidates {
-		if candidate.Line < 1 || candidate.Line > maxGoFailureLine || !validFailurePath(candidate.Path) || !allowed[candidate.Path] {
+		if !allowedFailureLocation(candidate, allowed) {
 			return nil, false
 		}
-		if !seen[candidate] {
-			seen[candidate] = true
-			locations = append(locations, candidate)
-		}
+		locations = appendUniqueFailureLocation(locations, seen, candidate)
 	}
 	sort.Slice(locations, func(left, right int) bool {
 		if locations[left].Path == locations[right].Path {
@@ -139,6 +198,21 @@ func boundFailureLocations(candidates []GoFailureLocation, source *SourceIdentit
 		return locations[left].Path < locations[right].Path
 	})
 	return locations, true
+}
+
+func allowedFailureLocation(candidate GoFailureLocation, allowed map[string]bool) bool {
+	if candidate.Line < 1 || candidate.Line > maxGoFailureLine {
+		return false
+	}
+	return validFailurePath(candidate.Path) && allowed[candidate.Path]
+}
+
+func appendUniqueFailureLocation(locations []GoFailureLocation, seen map[GoFailureLocation]bool, candidate GoFailureLocation) []GoFailureLocation {
+	if seen[candidate] {
+		return locations
+	}
+	seen[candidate] = true
+	return append(locations, candidate)
 }
 
 func uniqueBoundedStrings(candidates []string, allowed map[string]bool) ([]string, bool) {

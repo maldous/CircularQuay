@@ -171,9 +171,12 @@ func (audit *auditRun) recordChecks(ctx context.Context, tools *qualifiedTools, 
 	audit.report.Checks = append(audit.report.Checks, format)
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
-	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), "unit_tests", audit.options.GoBinary, testArguments, audit.root, audit.environment, scope, audit.report.Source))
+	goCheck := goSourceCheckSpec{name: "unit_tests", binary: audit.options.GoBinary, arguments: testArguments, directory: audit.root, environment: audit.environment, scope: scope, source: audit.report.Source}
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), goCheck))
 	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
-	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), "go_vet", audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment, scope, audit.report.Source))
+	goCheck.name = "go_vet"
+	goCheck.arguments = append([]string{"vet"}, scope.packages...)
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), goCheck))
 	addExternalChecks(ctx, tools, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
 	addSonarWithTools(audit.options, &audit.report)
 	audit.report.Checks = append(audit.report.Checks, Check{Name: "native_reboot_and_restore", Status: "not_run", Code: "requires_qualified_native_environment"}, Check{Name: "independent_review", Status: "not_run", Code: "requires_independent_reviewer"})
