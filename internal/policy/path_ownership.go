@@ -34,12 +34,32 @@ func validateTrustStoreLocations(policy model.Policy, policyFile string) error {
 	policyPath := canonicalPath(policyFile)
 	repository := canonicalPath(policy.Repository.Directory)
 	for _, authority := range policy.MCP.Authorities {
-		trustStore := canonicalPath(authority.TrustStoreFile)
-		if trustStore == policyPath || withinPath(repository, trustStore) {
+		if protectedReferenceInMutableLocation(authority.TrustStoreFile, policyPath, repository) {
 			return invalid("identity_trust_store_path")
 		}
 	}
+	for _, reference := range operationalProtectedReferences(policy) {
+		if protectedReferenceInMutableLocation(reference, policyPath, repository) {
+			return invalid("operational_protected_path")
+		}
+	}
 	return nil
+}
+
+func protectedReferenceInMutableLocation(path, policyPath, repository string) bool {
+	canonical := canonicalPath(path)
+	return canonical == policyPath || withinPath(repository, canonical)
+}
+
+func operationalProtectedReferences(policy model.Policy) []string {
+	var paths []string
+	if policy.Observability != nil {
+		paths = append(paths, policy.Observability.TokenFile, policy.Observability.TrustStoreFile)
+	}
+	if policy.Updates != nil {
+		paths = append(paths, policy.Updates.TokenFile, policy.Updates.TrustStoreFile)
+	}
+	return paths
 }
 
 func validateReservedPolicyPaths(policy model.Policy, policyFile string) error {
@@ -58,6 +78,7 @@ func rejectReservedMetadataPaths(paths []string, reserved string) error {
 
 func policyLocalPaths(policy model.Policy) []string {
 	paths := []string{policy.Repository.Directory, policy.Repository.AllowedSignersFile, policy.Repository.TokenFile, policy.MCP.AuditPath}
+	paths = append(paths, operationalProtectedReferences(policy)...)
 	for _, authority := range policy.MCP.Authorities {
 		paths = append(paths, authority.TrustStoreFile)
 	}
@@ -97,6 +118,9 @@ type pathOwners struct {
 func (owners *pathOwners) addPolicyInputs(policy model.Policy) {
 	owners.addInput(policy.Repository.AllowedSignersFile)
 	owners.addInput(policy.Repository.TokenFile)
+	for _, path := range operationalProtectedReferences(policy) {
+		owners.addInput(path)
+	}
 	for _, authority := range policy.MCP.Authorities {
 		owners.addInput(authority.TrustStoreFile)
 	}

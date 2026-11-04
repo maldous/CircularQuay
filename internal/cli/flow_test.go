@@ -125,6 +125,40 @@ func TestRunnerFlowExplicitConfigSuppressesAmbientRemote(t *testing.T) {
 	}
 }
 
+func TestFlowEnforcesMinimumBeforeProviderOrChild(t *testing.T) {
+	clearFlowEnvironment(t)
+	t.Setenv("GITHUB_ACTIONS", "true")
+	directory := privateCLIDirectory(t)
+	config := filepath.Join(directory, "policy.json")
+	working := filepath.Join(directory, "work")
+	if err := platform.EnsurePrivateDirectory(working); err != nil {
+		t.Fatal(err)
+	}
+	policy := model.Policy{
+		Version: 1,
+		Sources: map[string]model.Source{
+			"fixture": {Type: "json", Path: filepath.Join(directory, "provider-must-not-be-read.json")},
+		},
+		Workloads: map[string]model.Workload{
+			"demo": {Mode: "offline", Directory: working, Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{copyProtectedTestExecutable(t, directory), "-test.run=^TestFlowChild$", "--", "cquay-flow-child", "success"}},
+		},
+		Updates: &model.Updates{Check: "never", MinimumVersion: "v999.0.0"},
+	}
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = platform.CreateProtectedExclusive(config, data); err != nil {
+		t.Fatal(err)
+	}
+	var output, diagnostics bytes.Buffer
+	a := application{config: config, directory: filepath.Join(directory, "state"), runner: Runner{Out: &output, Err: &diagnostics}}
+	_, err = a.flowWithFetcher(context.Background(), []string{"run", "--workload", "demo"}, nil)
+	if !fault.Is(err, fault.Denied) || bytes.Contains(output.Bytes(), []byte("flow-child-ack")) || diagnostics.Len() != 0 {
+		t.Fatalf("minimum gate error=%v stdout=%q stderr=%q", err, output.Bytes(), diagnostics.Bytes())
+	}
+}
+
 func TestFlowCancellationPreventsFetchAndTemporaryPolicy(t *testing.T) {
 	clearFlowEnvironment(t)
 	t.Setenv("GITHUB_ACTIONS", "true")

@@ -13,6 +13,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/source"
 	"github.com/maldous/CircularQuay/internal/state"
 )
@@ -52,11 +53,15 @@ func (e *Engine) Resolve(ctx context.Context, id string) (model.Generation, erro
 }
 
 // ResolveFresh deliberately ignores an existing snapshot when seeding or refreshing it.
-func (e *Engine) ResolveFresh(ctx context.Context, id string) (model.Generation, error) {
+func (e *Engine) ResolveFresh(ctx context.Context, id string) (generation model.Generation, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseRefresh, ProviderKind: "none"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	return e.resolve(ctx, id, false)
 }
 
-func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (model.Generation, error) {
+func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (generation model.Generation, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseResolve, ProviderKind: "none"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if err := checkCancellation(ctx); err != nil {
 		return model.Generation{}, err
 	}
@@ -65,9 +70,11 @@ func (e *Engine) resolve(ctx context.Context, id string, allowFallback bool) (mo
 		return model.Generation{}, err
 	}
 	if allowFallback && w.Mode == "offline" && w.Snapshot.Path != "" {
-		return e.restore(ctx, id, w)
+		generation, err = e.restore(ctx, id, w)
+		return generation, err
 	}
-	return e.readGeneration(ctx, id, w, allowFallback)
+	generation, err = e.readGeneration(ctx, id, w, allowFallback)
+	return generation, err
 }
 
 func (e *Engine) workload(id string) (model.Workload, error) {
@@ -148,6 +155,7 @@ func (e *Engine) failed(ctx context.Context, id string, w model.Workload, cause 
 			return model.Generation{}, err
 		}
 		if eligibleFallback(w, cause, allowFallback) {
+			observability.Record(ctx, observability.Operation{Phase: observability.PhaseRecovery, ProviderKind: "none"}, observability.OutcomeFallback)
 			return e.restore(ctx, id, w)
 		}
 		return model.Generation{}, cause
@@ -283,7 +291,9 @@ func (e *Engine) fingerprint(id string) (string, error) {
 }
 
 // Snapshot stores only explicitly exportable static values with their provenance.
-func (e *Engine) Snapshot(ctx context.Context, g model.Generation) error {
+func (e *Engine) Snapshot(ctx context.Context, g model.Generation) (err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseSnapshot, ProviderKind: "sops"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if err := checkCancellation(ctx); err != nil {
 		return err
 	}
@@ -321,7 +331,9 @@ func (e *Engine) encodeSnapshot(generation model.Generation) (string, error) {
 	return string(encoded), nil
 }
 
-func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (model.Generation, error) {
+func (e *Engine) restore(ctx context.Context, id string, w model.Workload) (generation model.Generation, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseRecovery, ProviderKind: "sops"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if err := e.restoreAllowed(ctx, id, w); err != nil {
 		return model.Generation{}, err
 	}

@@ -1,5 +1,27 @@
 {
   "version": 1,
+  "observability": {
+    "enabled": true,
+    "service_name": "cquay",
+    "environment": "reference",
+    "diagnostic_level": "info",
+    "resource_attributes": {
+      "service_namespace": "reference-team",
+      "service_instance_id": "reference-host"
+    },
+    "metrics": {"enabled": true, "interval_seconds": 30},
+    "traces": {"enabled": true, "sample_ratio": 0.1},
+    "logs": {"enabled": true},
+    "endpoint": "https://collector.example.test",
+    "timeout_seconds": 5,
+    "export_interval_seconds": 5,
+    "batch_size": 128,
+    "queue_size": 1024
+  },
+  "updates": {
+    "check": "never",
+    "minimum_version": "1.0.0"
+  },
   "sources": {
     "service-sops": {
       "type": "sops",

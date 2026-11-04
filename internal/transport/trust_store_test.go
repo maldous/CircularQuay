@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -58,6 +59,77 @@ func TestTrustStoreHTTPClientUsesDeclaredReplacementRoots(t *testing.T) {
 	if response, err := otherClient.Get(server.URL); err == nil {
 		_ = response.Body.Close()
 		t.Fatal("unrelated replacement root verified authority")
+	}
+}
+
+func TestTrustStoreHTTPClientNoProxyIgnoresInheritedProxy(t *testing.T) {
+	rootPEM, certificate := syntheticTrustStoreCertificate(t)
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{certificate}}
+	server.StartTLS()
+	t.Cleanup(server.Close)
+
+	poisoned := 0
+	proxy := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { poisoned++ }))
+	t.Cleanup(proxy.Close)
+	proxyURL, err := url.Parse(proxy.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Fatal("default transport is not concrete")
+	}
+	originalProxy := base.Proxy
+	base.Proxy = func(*http.Request) (*url.URL, error) { return proxyURL, nil }
+	t.Cleanup(func() { base.Proxy = originalProxy })
+
+	path := filepath.Join(canonicalTrustStoreDirectory(t), "authority-roots.pem")
+	if err := platform.WriteProtected(path, rootPEM); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(rootPEM)
+	client, err := TrustStoreHTTPClientNoProxy(path, hex.EncodeToString(digest[:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Get(server.URL)
+	if err != nil || response.StatusCode != http.StatusNoContent {
+		t.Fatalf("replacement-root request = response %v, error %v", response, err)
+	}
+	_ = response.Body.Close()
+	if poisoned != 0 {
+		t.Fatal("ambient proxy received a trust-store request")
+	}
+}
+
+func TestTrustStoreHTTPClientNoProxyDropsAmbientTLSConfig(t *testing.T) {
+	rootPEM, _ := syntheticTrustStoreCertificate(t)
+	path := filepath.Join(canonicalTrustStoreDirectory(t), "authority-roots.pem")
+	if err := platform.WriteProtected(path, rootPEM); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(rootPEM)
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Fatal("default transport is not concrete")
+	}
+	originalTLS := base.TLSClientConfig
+	base.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS13, ServerName: "ambient.invalid"}
+	t.Cleanup(func() { base.TLSClientConfig = originalTLS })
+	client, err := TrustStoreHTTPClientNoProxy(path, hex.EncodeToString(digest[:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bounded, ok := client.Transport.(boundedResponseTransport)
+	if !ok {
+		t.Fatal("no-proxy client is not bounded")
+	}
+	configured, ok := bounded.base.(*http.Transport)
+	if !ok || configured.TLSClientConfig == nil || configured.TLSClientConfig.MinVersion != tls.VersionTLS12 || configured.TLSClientConfig.ServerName != "" || configured.TLSClientConfig.RootCAs == nil {
+		t.Fatal("no-proxy client inherited ambient TLS configuration")
 	}
 }
 

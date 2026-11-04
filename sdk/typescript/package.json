@@ -1,0 +1,46 @@
+{
+  "name": "@maldous/cquay-sdk",
+  "version": "1.0.0-dev.0",
+  "description": "Typed, policy-bound MCP and local CLI clients for CircularQuay v1.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maldous/CircularQuay.git",
+    "directory": "sdk/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": { "optional": true }
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@types/node": "24.10.1",
+    "c8": "12.0.0",
+    "eslint": "10.14.0",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "typescript-eslint": "8.72.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint src --no-inline-config --max-warnings 0",
+    "coverage": "c8 --all --include 'src/**/*.ts' --extension .ts --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm test",
+    "test": "node --experimental-strip-types --test test/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.14"
+  }
+}

@@ -10,6 +10,31 @@
 - **Optional MCP:** expose authorized status and named actions, with a separate permission for each raw secret disclosure.
 - **Inspectable assurance:** source, tests, a policy model, release identities, and a reproducible audit route.
 
+## Bootstrap, integrate and operate
+
+`cquay bootstrap` selects local configuration first, then enrolled discovery;
+explicit options override environment settings, local configuration and
+verified discovery in that order. Discovery provides a trusted configuration
+reference, never authority by itself. `cquay flow run` applies the same model
+to GitHub Actions, GitLab CI and Azure Pipelines. See the
+[configuration and CI guide](configuration-repositories.md).
+
+The [official SDKs](sdks.md) give Go, TypeScript and Python applications the
+same policy boundary, safe error categories, cancellation and explicit
+secret-disclosure controls. [Operational configuration](operational-configuration.md)
+selects remote metrics, traces, diagnostics and release awareness, with bounded
+export and no secret-bearing telemetry. Required audit has its own durability
+policy. Interactive release notices continue without consuming workload input;
+automation remains non-interactive and installation remains explicit.
+
+The [enterprise contract](enterprise-integration.md) defines identity lifecycle,
+access review, audit retention/export, version compatibility, recovery and
+extension governance for the complete v1 product. CLI and optional MCP
+administration share scoped policy checks and audited, time-bound delegation.
+The [managed key service](managed-key-service.md) has its own linked UI/API
+and custody contract. No client can recall plaintext or a copied age private
+key; encryption alone does not enforce an access deadline.
+
 The [qualification matrix](qualification.md) records tested platforms,
 providers, release artifacts, and operational evidence.
 

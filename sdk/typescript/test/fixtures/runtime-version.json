@@ -1,0 +1,12 @@
+[
+  {
+    "name": "malformed-version-dto-is-protocol",
+    "value": { "version": 1, "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "protocol"
+  },
+  {
+    "name": "incompatible-major-is-unsupported",
+    "value": { "version": "2.0.0", "commit": "synthetic", "go": "go1.27", "maturity": "development" },
+    "category": "unsupported"
+  }
+]

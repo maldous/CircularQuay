@@ -82,9 +82,9 @@ func mutateNativeHelper(t *testing.T, manifest *ToolManifest, locations ToolLoca
 	case "digest":
 		helper.SHA256 = digest([]byte("wrong"))
 	case "basename":
-		copy := filepath.Join(filepath.Dir(helper.Path), "other")
-		writeTool(t, copy, nativeHelperFixture)
-		helper.Path = copy
+		helperCopy := filepath.Join(filepath.Dir(helper.Path), "other")
+		writeTool(t, helperCopy, nativeHelperFixture)
+		helper.Path = helperCopy
 	case "source", "output":
 		directory := locations.Source
 		if scenario == "output" {

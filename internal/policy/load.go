@@ -36,6 +36,9 @@ func Load(path string) (model.Policy, error) {
 	if err := ValidateLoadedTrustStores(result.MCP); err != nil {
 		return model.Policy{}, err
 	}
+	if err := ValidateLoadedOperationalReferences(result); err != nil {
+		return model.Policy{}, err
+	}
 	return result, nil
 }
 
@@ -102,10 +105,18 @@ func decodePolicy(data []byte, result *model.Policy) error {
 }
 
 func decodeJSON(data []byte, result *model.Policy) error {
-	if jsondocument.Decode(data, result) != nil || hasJSONNull(data) {
+	if jsondocument.Decode(data, result) != nil || hasJSONNull(data) || !validOperationalDocument(jsonDocument(data)) {
 		return fault.New(fault.Invalid, "policy_json")
 	}
 	return nil
+}
+
+func jsonDocument(data []byte) any {
+	var document any
+	if json.Unmarshal(data, &document) != nil {
+		return nil
+	}
+	return document
 }
 
 func hasJSONNull(data []byte) bool {
@@ -149,6 +160,10 @@ func decodeYAML(data []byte, result *model.Policy) error {
 	if err := decoder.Decode(&node); err != nil || !safeYAML(&node, 0) {
 		return fault.New(fault.Invalid, "policy_yaml")
 	}
+	var document any
+	if node.Decode(&document) != nil || !validOperationalDocument(document) {
+		return fault.New(fault.Invalid, "policy_yaml")
+	}
 	var extra yaml.Node
 	if err := decoder.Decode(&extra); err != io.EOF {
 		return fault.New(fault.Invalid, "policy_yaml")
@@ -162,7 +177,7 @@ func decodeYAML(data []byte, result *model.Policy) error {
 }
 
 func safeYAML(node *yaml.Node, depth int) bool {
-	if depth > 32 || node.Kind == yaml.AliasNode || node.Anchor != "" || strings.HasPrefix(node.Tag, "!") && !strings.HasPrefix(node.Tag, "!!") {
+	if depth > 32 || node.Kind == yaml.AliasNode || node.Anchor != "" || node.Tag == "!!null" || strings.HasPrefix(node.Tag, "!") && !strings.HasPrefix(node.Tag, "!!") {
 		return false
 	}
 	for _, child := range node.Content {

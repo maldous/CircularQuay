@@ -29,6 +29,15 @@ Community analysis is one component. Its language/advanced-analysis coverage is 
 
 Formatting, vet, Staticcheck, focused gosec, govulncheck, CodeQL, fuzzing, race tests, property/fault tests, shell/workflow analyzers, repository/asset checks, secret scanning, SBOM/license analysis, native integration and actual reboot/restore tests each have a distinct role.
 
+Owned SDK code is in the same release scope. TypeScript uses strict type
+checking, ESLint/typescript-eslint, SonarJS and complexity ceilings of 10,
+V8/c8 coverage and locked dependency audit. Python uses strict typing, Ruff,
+Bandit, measured coverage and dependency audit. No inline suppression or
+coverage exclusion may manufacture a pass. SDK package installation and
+official MCP/native CLI conformance are separate checks, so an earlier
+coverage failure cannot erase their evidence. Runtime and artifact versions,
+dependency locks, source scope and exact results accompany each receipt.
+
 The race lane is distinct from static release builds and is unavailable on some targets. Cross-compilation does not establish native correctness. Linux coverage cannot hide untested Windows/Android paths.
 
 TLA+/TLC explores a bounded policy/state-machine model. Commit its assumptions, bounds and results, then replay traces against implementation tests. This does not formally verify the OS, TLS, providers, SDKs, or specification itself.

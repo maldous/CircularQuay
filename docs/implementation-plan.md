@@ -1,6 +1,12 @@
 # Implementation and qualification plan
 
-This is the durable engineering contract, not a completion report. Scope is implemented in the cloud workspace. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
+This is the durable engineering contract, not a completion report. Implementation and qualification use explicitly selected, isolated development environments; verify the actual executor and checkout for each session. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
+
+V1 is one complete product contract. Work packages describe implementation
+dependencies and parallel ownership; they do not define reduced releases or
+defer a promised capability. Source checkpoints make changes reviewable. Fixes
+move the implementation forward against the same acceptance requirements.
+Launch requires the whole declared contract and its revision-bound evidence.
 
 ## Accepted product decisions
 
@@ -15,6 +21,13 @@ This is the durable engineering contract, not a completion report. Scope is impl
 - Standard asymmetric client authentication and sender constraints where qualified: private-key JWT, DPoP and mutual TLS. Offline identity authorization requires an issuer-authorized artifact binding and an explicit clock/revocation trust contract; an ordinary login token or OAuth refresh permission does not establish it.
 - No extra recurring paid provider dependency for the personal reference; free testing accounts authorized, no automatic paid conversion.
 - Strict first-party quality with transparent upstream advisory/mitigation reporting.
+- Official Go, TypeScript and Python SDKs share the supported CLI/MCP contract,
+  explicit credentials, cancellation, safe errors and cross-language conformance.
+- Runtime OpenTelemetry metrics, traces and structured diagnostics are v1
+  capabilities, configured through protected policy with bounded export and no
+  value-bearing telemetry. Required security audit remains independently durable.
+- Policy-controlled release awareness supports interactive notices, explicit
+  automation, stable/RC channels, enterprise feeds and air-gapped minimum versions.
 - Public README for motivation/features/user usage; `RELEASE.md` for maintainer/operator account, index, audit, deployment and post-installation directions.
 
 ## Managed-key product contract
@@ -92,6 +105,8 @@ No automatic history rewrite, estate-wide rotation or production service restart
 | Providers | Core | Narrow value adapters with identity, version, lifecycle, typed failure and export contracts. |
 | Native delivery | Core | Protected process/file/native projections, correct restart/recreation behavior and scoped ownership. |
 | MCP | Core/provider boundaries | Per-request verified identity, filtered discovery, action/read separation and safe output/audit behavior. |
+| Official SDKs | Stable CLI/MCP contracts | Go, TypeScript and Python parity, typed safe errors, explicit disclosure, cancellation/reaping, native conformance, locked builds, registry install and provenance receipts. |
+| Observability and operations | Core/runtime boundaries | Safe correlated metrics/traces/logs, finite queues/export/shutdown, collector failure isolation, operational health, update awareness and local version policy. |
 | Managed hosted connections | Qualified MCP and explicit hosted scope | External IdP/resource-server separation; typed tenant/environment/principal/connection isolation; approved identity associations; client and operation grants; lifecycle/revocation bounds and administrative audit. Local/CI/preview/production use the controlled-delivery contract in [managed key service](managed-key-service.md); see [hosted identity](hosted-identity.md). |
 | Assurance | Starts with foundation | Fresh independent Sonar route, scope/coverage validation, complementary checks, formal/conformance and negative tests. |
 | Distribution | Tested artifacts | Immutable native/Go/OCI/MCP/MCPB metadata, signatures, provenance, free account directions and clean install. |
@@ -162,6 +177,19 @@ Model exact authorization, generation/fallback, expiry/rollback, bootstrap acycl
 10. MCP wrong issuer/audience/client, guessed IDs, cross-user access, bad Host/Origin and mutable action bypass fail.
 11. Independent backup restoration works without old machine TPM/DPAPI state; OpenBao needs independent data/seal recovery.
 12. Unfamiliar developer follows only the tagged source and `RELEASE.md` to install, audit, provision a free synthetic provider, enroll, distribute or identify the exact remaining step, and clean up.
+13. The same allowed/denied/expired/cancelled operation has matching SDK semantics
+    in Go, TypeScript and Python; no value enters argv, logs, error details or hooks.
+14. Synthetic OTLP collectors receive only the declared safe vocabulary. Exporter
+    outage, queue saturation, cancellation and shutdown stay bounded and cannot
+    waive required audit or turn a completed effect into an automatic retry.
+15. Interactive release notices never consume workload input; automation has no
+    prompt. Disabled/offline checks make no connection, while an explicit local
+    minimum version denies sensitive operations before credential or provider use.
+16. SDK and native RC/stable artifacts have their own immutable versions and
+    independently verified registry/download, installation and provenance receipts.
+17. Enterprise access reviews, lifecycle/revocation, audit retention/export,
+    tenant isolation and recovery satisfy the [enterprise contract](enterprise-integration.md),
+    with clear customer responsibilities and no certification claim.
 
 ## Evidence and remaining work
 

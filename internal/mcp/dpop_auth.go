@@ -10,6 +10,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/dpop"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 )
 
@@ -45,20 +46,25 @@ func requireAccessToken(options accessTokenOptions) func(http.Handler) http.Hand
 }
 
 func (h accessTokenHandler) serve(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	ctx, complete := observability.Start(r.Context(), observability.Operation{Phase: observability.PhaseAuthorization, ProviderKind: "mcp"})
+	r = r.WithContext(ctx)
 	scheme, token, info, ok := verifiedRequest(r, h.verifier)
 	if !ok {
+		complete(observability.OutcomeDenied)
 		writeTokenChallenge(w, h.metadataURL, challengeScheme(scheme), "")
 		return
 	}
 	if acceptsBearer(scheme, info, r) {
+		complete(observability.OutcomeSuccess)
 		serveVerifiedBearer(w, r, token, info, h.bearer, next)
 		return
 	}
 	if scheme != "DPoP" {
+		complete(observability.OutcomeDenied)
 		writeTokenChallenge(w, h.metadataURL, "DPoP", "")
 		return
 	}
-	h.serveDPoP(w, r, token, info, next)
+	h.serveDPoP(w, r, token, info, next, complete)
 }
 
 func verifiedRequest(r *http.Request, verifier auth.TokenVerifier) (string, string, *auth.TokenInfo, bool) {
@@ -80,21 +86,24 @@ func serveVerifiedBearer(w http.ResponseWriter, r *http.Request, token string, i
 	bearer(next).ServeHTTP(w, r.WithContext(ctx))
 }
 
-func (h accessTokenHandler) serveDPoP(w http.ResponseWriter, r *http.Request, token string, info *auth.TokenInfo, next http.Handler) {
+func (h accessTokenHandler) serveDPoP(w http.ResponseWriter, r *http.Request, token string, info *auth.TokenInfo, next http.Handler, complete func(observability.Outcome)) {
 	constraint, fingerprint, jkt, ok := dpopConstraint(h.config, info)
 	if r.Header.Values("DPoP") == nil || h.replay == nil || !ok {
+		complete(observability.OutcomeDenied)
 		writeTokenChallenge(w, h.metadataURL, "DPoP", "")
 		return
 	}
 	proof := dpop.Verifier{Config: dpop.Config{Resource: h.config.Resource, MaxAge: seconds(constraint.ProofMaxAgeSeconds), Skew: seconds(constraint.ClockSkewSeconds)}, Store: h.replay}
 	nextNonce, err := proof.Verify(r.Context(), r, token, fingerprint, jkt, info.Expiration)
 	if writeDPoPFailure(w, h.metadataURL, err) {
+		complete(observability.OutcomeDenied)
 		return
 	}
 	authenticatedRequest := r.Clone(context.WithValue(r.Context(), verifiedTokenKey{}, verifiedToken{raw: token, info: info}))
 	authenticatedRequest.Header = r.Header.Clone()
 	authenticatedRequest.Header.Set("Authorization", "Bearer "+token)
 	w.Header().Set("DPoP-Nonce", nextNonce)
+	complete(observability.OutcomeSuccess)
 	h.bearer(next).ServeHTTP(w, authenticatedRequest)
 }
 

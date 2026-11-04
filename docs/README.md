@@ -19,10 +19,13 @@ verify it.
 - [Configuration repositories, GitHub Actions, GitLab CI and Azure Pipelines](configuration-repositories.md)
 - [Provider interoperability](providers.md) and [provider operator guide](operators/providers.md)
 - [Platform and architecture matrix](platform-support.md)
+- [Observability, diagnostics and release awareness](operational-configuration.md)
 
 ## Connect identities and tools
 
 - [Integration guide](integrations.md)
+- [Official Go, TypeScript and Python SDKs](sdks.md)
+- [Enterprise identity, audit, observability, lifecycle and extension governance](enterprise-integration.md)
 - [AWS, Azure, Google Cloud and emulator validation](integrations/cloud-provider-validation.md)
 - [Keycloak and OpenBao fixture contracts](integrations/identity-and-provider-fixtures.md)
 - [Compatibility gateway and independent local composition](integrations/compatibility-gateway.md)

@@ -18,6 +18,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/dpop"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/policy"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -189,25 +190,40 @@ func New(p model.Policy, backend Backend, options Options) (*Service, error) {
 	if err := policy.Validate(p); err != nil {
 		return nil, err
 	}
-	if options.Audit == nil && p.MCP.AuditPath != "" {
-		audit, err := NewFileAuditor(p.MCP.AuditPath)
-		if err != nil {
-			return nil, err
-		}
-		options.Audit = audit
+	if err := configureAudit(&options, p); err != nil {
+		return nil, err
 	}
-	var replay dpop.Store
-	if policyRequiresDPoP(p) {
-		if trustStoreWithinDPoPState(p.MCP, options.DPoPStateDirectory) {
-			return nil, fault.New(fault.Invalid, "dpop trust store")
-		}
-		store, err := dpop.NewPersistentStore(options.DPoPStateDirectory)
-		if err != nil {
-			return nil, fault.New(fault.Trust, "dpop replay store")
-		}
-		replay = store
+	replay, err := createDPoPReplayStore(p, options.DPoPStateDirectory)
+	if err != nil {
+		return nil, err
 	}
 	return &Service{configured: p, backend: backend, options: options, now: time.Now, dpopStore: replay}, nil
+}
+
+func configureAudit(options *Options, policy model.Policy) error {
+	if options.Audit != nil || policy.MCP.AuditPath == "" {
+		return nil
+	}
+	audit, err := NewFileAuditor(policy.MCP.AuditPath)
+	if err != nil {
+		return err
+	}
+	options.Audit = audit
+	return nil
+}
+
+func createDPoPReplayStore(policy model.Policy, stateDirectory string) (dpop.Store, error) {
+	if !policyRequiresDPoP(policy) {
+		return nil, nil
+	}
+	if protectedOperationalInputWithinDPoPState(policy, stateDirectory) {
+		return nil, fault.New(fault.Invalid, "dpop protected input")
+	}
+	store, err := dpop.NewPersistentStore(stateDirectory)
+	if err != nil {
+		return nil, fault.New(fault.Trust, "dpop replay store")
+	}
+	return store, nil
 }
 
 func policyRequiresDPoP(p model.Policy) bool {
@@ -219,22 +235,40 @@ func policyRequiresDPoP(p model.Policy) bool {
 	return false
 }
 
-// trustStoreWithinDPoPState prevents the replay-store writer from sharing a
-// directory with authority trust. Policy validation has already established
-// absolute, cleaned trust-store paths before this runtime-only comparison.
-func trustStoreWithinDPoPState(config model.MCP, stateDirectory string) bool {
+// protectedOperationalInputWithinDPoPState prevents the replay-store writer
+// from sharing a directory with any protected operational input. Policy
+// validation has already established absolute, cleaned paths before this
+// runtime-only comparison. In particular, the DPoP nonce store cannot become
+// a writer to telemetry/update authorization or replacement-root files.
+func protectedOperationalInputWithinDPoPState(policy model.Policy, stateDirectory string) bool {
 	if !filepath.IsAbs(stateDirectory) {
 		return false
 	}
 	stateDirectory = filepath.Clean(stateDirectory)
-	for _, authority := range config.Authorities {
-		trustStore := authority.TrustStoreFile
-		relative, err := filepath.Rel(stateDirectory, trustStore)
+	for _, protected := range protectedOperationalInputs(policy) {
+		if protected == "" {
+			continue
+		}
+		relative, err := filepath.Rel(stateDirectory, protected)
 		if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 			return true
 		}
 	}
 	return false
+}
+
+func protectedOperationalInputs(policy model.Policy) []string {
+	paths := make([]string, 0, len(policy.MCP.Authorities)+4)
+	for _, authority := range policy.MCP.Authorities {
+		paths = append(paths, authority.TrustStoreFile)
+	}
+	if config := policy.Observability; config != nil {
+		paths = append(paths, config.TokenFile, config.TrustStoreFile)
+	}
+	if config := policy.Updates; config != nil {
+		paths = append(paths, config.TokenFile, config.TrustStoreFile)
+	}
+	return paths
 }
 
 func (s *Service) current() model.Policy {
@@ -304,7 +338,9 @@ func (s *Service) ListWorkloads(ctx context.Context, p Principal) ([]string, err
 }
 
 // GetStatus checks authorization before asking the backend for even metadata.
-func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (Status, error) {
+func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (status Status, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseMCP, ProviderKind: "mcp"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if ctx.Err() != nil {
 		return Status{}, fault.New(fault.Unavailable, mcpRequest)
 	}
@@ -327,7 +363,9 @@ func (s *Service) GetStatus(ctx context.Context, p Principal, workload string) (
 }
 
 // RunWorkload invokes only a locally enrolled and independently approved action.
-func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string) (RunResult, error) {
+func (s *Service) RunWorkload(ctx context.Context, p Principal, workload string) (result RunResult, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseMCP, ProviderKind: "mcp"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if ctx.Err() != nil {
 		return RunResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
@@ -392,7 +430,9 @@ func (s *Service) mayReadAll(p Principal, id string, w model.Workload) bool {
 
 // ReadSecret deliberately discloses one declared static value to the MCP client.
 // Revocation cannot recall a value already delivered into client/model context.
-func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key string) (SecretResult, error) {
+func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key string) (result SecretResult, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseMCP, ProviderKind: "mcp"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if ctx.Err() != nil {
 		return SecretResult{}, fault.New(fault.Unavailable, mcpRequest)
 	}
@@ -421,7 +461,12 @@ func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key str
 	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
 		return SecretResult{}, err
 	}
-	return SecretResult{Alias: key, Value: value.Data, Version: value.Version, ExpiresAt: value.ExpiresAt}, nil
+	result = SecretResult{Alias: key, Value: value.Data, Version: value.Version}
+	if !value.ExpiresAt.IsZero() {
+		expiresAt := value.ExpiresAt
+		result.ExpiresAt = &expiresAt
+	}
+	return result, nil
 }
 
 func (s *Service) recheck(ctx context.Context, p Principal, workload, operation, key, denied string) error {
@@ -452,10 +497,10 @@ func (s *Service) validateDisclosure(workload string, value model.Value) error {
 
 // SecretResult is the sole protocol result allowed to carry plaintext.
 type SecretResult struct {
-	Alias     string    `json:"alias"`
-	Value     string    `json:"value"`
-	Version   string    `json:"version,omitempty"`
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	Alias     string     `json:"alias"`
+	Value     string     `json:"value"`
+	Version   string     `json:"version,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 func safeError(err error, operation string) error { return fault.New(fault.Category(err), operation) }

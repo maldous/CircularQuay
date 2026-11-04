@@ -13,7 +13,11 @@ The badges below are retained **historical scoped receipts**, not current-head o
 [![TLC finite model](https://img.shields.io/badge/TLC%20finite%20model-bounded%20pass-2f855a)](qualification.md#bounded-receipts)
 
 
-The [060639 receipt](qualification.md#exact-060639-development-receipt) records native Linux/macOS/Windows, all 26 cross-builds, both complexity ceilings, Staticcheck, govulncheck and CodeQL passes. Coverage and gosec failed. The latest historical Sonar receipt also fails coverage; it is not a current-source Sonar result. Independent audit, live providers, reboot/recovery and release-artifact qualification have separate acceptance evidence.
+The [060639 receipt](qualification.md#exact-060639-development-receipt) records native Linux/macOS/Windows, all 26 cross-builds, both complexity ceilings, Staticcheck, govulncheck and CodeQL passes. Coverage and gosec failed.
+
+The [19cdf83 Sonar run](https://github.com/maldous/CircularQuay/actions/runs/41762521270) completed scanner upload, Compute Engine analysis and revision-bound server readbacks. It reported zero scanner/analysis warnings and zero hotspots. Its quality gate failed: Sonar coverage was 79.4%, three code smells remained open, and the fresh project supplied neither required new-code metric. The separate Go profile covered 6,248 of 7,306 statements (85.52%); these measurements have different inventories and are not interchangeable. This receipt covers that published tree only. SDKs, observability and update-awareness source require their own exact-revision hosted results and reviewed dependency locks.
+
+Independent audit, live providers, reboot/recovery and release-artifact qualification have separate acceptance evidence. No release or production qualification is established.
 
 See [integration testing](integration-testing.md) for disposable provider validation and [security reporting](../SECURITY.md) for private vulnerability handling.
 

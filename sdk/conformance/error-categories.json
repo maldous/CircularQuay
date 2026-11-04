@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "purpose": "The required public, detail-free error category contract for every CircularQuay v1 SDK.",
+  "categories": [
+    "invalid",
+    "denied",
+    "trust",
+    "unavailable",
+    "expired",
+    "unsupported",
+    "protocol",
+    "cancelled",
+    "integrity",
+    "process"
+  ],
+  "native_cli_faults": {
+    "invalid_policy": "invalid",
+    "access_denied": "denied",
+    "trust_failure": "trust",
+    "expired_value": "expired",
+    "unsupported_capability": "unsupported",
+    "unavailable": "unavailable",
+    "missing_value": "unavailable",
+    "activation_failed": "unavailable"
+  },
+  "boundary_conditions": {
+    "present_malformed_unknown_extra_duplicate_or_oversized_safe_cli_error": "protocol",
+    "oversized_cli_json_or_diagnostic": "protocol",
+    "malformed_mcp_payload": "protocol",
+    "mcp_is_error_without_a_safe_structured_category": "denied",
+    "caller_context_or_abort_cancellation": "cancelled",
+    "pinned_executable_or_path_identity_failure": "integrity",
+    "abnormal_child_or_spawn_failure_without_diagnostics": "process",
+    "effectful_run_or_flow_nonzero_exit_after_successful_wrapper": "return_exit_code_without_retry",
+    "unsupported_runtime_major_version": "unsupported"
+  },
+  "mcp_profile": {
+    "pagination": "one_page_only",
+    "maximum_tools": 4,
+    "allowed_tools": [
+      "list_workloads",
+      "get_status",
+      "run_workload",
+      "read_secret"
+    ],
+    "tool_set": "unique_authorization_filtered_subset",
+    "reject": [
+      "nonempty_next_cursor",
+      "unknown_tool",
+      "duplicate_tool"
+    ]
+  },
+  "resource_profile": {
+    "maximum_workload_handles": 4096,
+    "maximum_typed_json_reply_bytes": 1048576,
+    "over_budget_response": "protocol",
+    "interpretation": "These are SDK response budgets, not policy limits or partial-enumeration support. The MCP transport must enforce its raw response bound before exposing a parsed result."
+  },
+  "secret_disclosure_profile": {
+    "provider_version": "opaque UTF-8 text, at most 4096 bytes, with no C0 or DEL control characters; it is never validated as a workload handle",
+    "secret_value": "UTF-8 text at most 65536 bytes",
+    "expiry": {
+      "timestamp_syntax": "RFC3339 datetime with T, seconds, optional dot fractional seconds, and Z or numeric offset",
+      "legacy_zero_timestamp": "no_expiry",
+      "valid_present_expired_timestamp": "expired",
+      "malformed_timestamp": "protocol"
+    }
+  },
+  "configuration_json_portability": {
+    "number_contract": "I-JSON-compatible finite numbers; integers must be within -9007199254740991 through 9007199254740991",
+    "convenience_methods": "reject_nonfinite_or_unsafe_integers",
+    "raw_json_route": "Operators whose valid declarations need a wider numeric representation use the native CLI's exact raw JSON input route."
+  },
+  "local_remote_configuration_pin": {
+    "source": "absolute HTTPS URL at most 4096 bytes with no userinfo, query, or fragment",
+    "reason": "The source is passed to the native CLI; rejecting credential-bearing URL components keeps secrets out of SDK command arguments.",
+    "ref": "exact lowercase 40-character immutable commit identifier",
+    "sha256": "exact lowercase 64-character content digest"
+  },
+  "observation": {
+    "operation": "fixed_allowlist_only",
+    "outcome": "success_or_exact_error_category",
+    "duration": "nonnegative_duration_only",
+    "observer_failure": "must_not_change_completed_operation"
+  },
+  "language_conventions": {
+    "python_cancellation": "asyncio.CancelledError is re-raised after bounded owned-child cleanup; its observation outcome is cancelled",
+    "go_cancellation": "a detail-free Error with category cancelled is returned",
+    "typescript_cancellation": "a detail-free CquayError with category cancelled is rejected"
+  },
+  "safety": {
+    "raw_server_error_text": "must_not_be_retained_or_serialized",
+    "raw_cli_stderr": "must_not_be_retained_or_serialized",
+    "safe_cli_error_parsing": "allowlisted_category_only_and_bounded"
+  }
+}

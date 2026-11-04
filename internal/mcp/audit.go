@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/platform"
 )
 
@@ -56,7 +57,9 @@ func NewFileAuditor(path string) (*FileAuditor, error) {
 	return &FileAuditor{path: path}, nil
 }
 
-func (a *FileAuditor) Record(ctx context.Context, event Event) error {
+func (a *FileAuditor) Record(ctx context.Context, event Event) (err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseAudit, ProviderKind: "mcp"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if ctx.Err() != nil {
 		return fault.New(fault.Unavailable, "audit cancelled")
 	}

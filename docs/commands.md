@@ -19,6 +19,7 @@ local policy exists. `version` reports the executable version.
 | Doctor | `cquay doctor [--fix\|--identity-only]`. A missing or unsafe selected policy is non-zero. `--identity-only` reports the local kernel-derived subject without checking policy. `--fix` canonically formats a valid protected JSON policy only; it does not alter grants, provider settings, services, or deployment state. |
 | Plan and status | `cquay plan`; `cquay status --workload ID [--json]`. |
 | Workload lifecycle | `cquay run --workload ID [--target ID] [-- ABSOLUTE-PROGRAM ARGS…]`; `cquay snapshot --workload ID [--target ID]`; `cquay apply --workload ID --target ID`; `cquay sync --workload ID [--target ID] [--once]`. `apply` requires an explicit target; only `run` accepts arguments after `--`. |
+| Release awareness | `cquay update check --json` returns bounded, advisory release metadata using the selected policy. Startup notices are non-blocking; SDK, MCP and automation sessions never prompt. See [release awareness and minimum versions](operational-configuration.md#release-awareness). |
 | MCP | `cquay mcp serve [--transport stdio\|http] [--tls-cert PATH --tls-key PATH]`. HTTP uses the policy listener address (or loopback `127.0.0.1:8080`); a non-loopback listener requires both TLS paths. |
 
 Configuration operations are cooperative: each writer takes the private local

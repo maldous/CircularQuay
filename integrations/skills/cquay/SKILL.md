@@ -8,7 +8,7 @@ metadata:
 
 # cquay
 
-`cquay` (pronounced “c-key”) is the app and CLI for the CircularQuay project.
+`cquay` (pronounced “see-key”) is the app and CLI for the CircularQuay project.
 
 Read the installed version's help and capability matrix before acting. Use exact predeclared workload/key aliases and the configured identity. Never put real credentials in prompts, argv, examples, logs, issues or screenshots.
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/maldous/CircularQuay/internal/repository"
 	"github.com/maldous/CircularQuay/internal/resolve"
@@ -23,7 +24,9 @@ func nativeRepositoryOperations() repositoryOperations {
 	return repositoryOperations{fetch: repository.Fetch, current: repository.CurrentContext}
 }
 
-func (a application) withRepositorySources(ctx context.Context, workload model.Workload, engine *resolve.Engine) (*resolve.Engine, error) {
+func (a application) withRepositorySources(ctx context.Context, workload model.Workload, engine *resolve.Engine) (updatedEngine *resolve.Engine, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseRepository, ProviderKind: "repository"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	sources, err := repositorySources(engine.Policy, workload)
 	if err != nil || len(sources) == 0 {
 		return engine, err

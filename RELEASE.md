@@ -11,13 +11,16 @@ All commands use a chosen immutable version. `v1.0.0` below is an example until 
 | Repository/module | `github.com/maldous/CircularQuay` |
 | Runtime command | `github.com/maldous/CircularQuay/cmd/cquay` |
 | Audit command | `github.com/maldous/CircularQuay/cmd/cquay-audit` |
+| Go SDK package | `github.com/maldous/CircularQuay/sdk/go` (root module) |
+| TypeScript SDK | npm `@maldous/cquay-sdk` |
+| Python SDK | PyPI `cquay-sdk`, import `cquay` |
 | Native executables | `cquay`, `cquay-audit` (`.exe` on Windows) |
 | Public OCI package | `ghcr.io/maldous/circularquay` |
 | Official MCP Registry name | `io.github.maldous/circularquay` |
 
 Record application/tag, policy schema, runtime MCP protocol, Registry descriptor schema, SDK, native artifacts, OCI digest, MCP bundles, skill/plugin package and audit-profile versions separately. A Registry schema date is not an MCP protocol version.
 
-CircularQuay is the project name. The app, executable, release asset prefix and operations skill are `cquay`, pronounced “c-key”; the separate audit executable is `cquay-audit`. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
+CircularQuay is the project name. The app, executable, release asset prefix and operations skill are `cquay`, pronounced “see-key”; the separate audit executable is `cquay-audit`. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
 
 ### Initial work ledger
 
@@ -26,6 +29,7 @@ CircularQuay is the project name. The app, executable, release asset prefix and 
 | GitHub repository | Source published on `feature/initial-implementation`; draft PR #1 targets `develop` | Keep implementation on feature branches until reviewed gates pass. |
 | Native release / Go tag / pkg.go.dev | Not published by this implementation task | Complete gates and publish a new immutable version. |
 | GHCR / MCP Registry / MCPB | Not published | Verify artifacts and metadata before publishing. |
+| Go / npm / PyPI SDKs | Source development; registry ownership and publication unverified | Complete cross-language qualification and the official SDK distribution procedure below. |
 | External test-provider accounts | Not attempted in this implementation task | Use the confirmed free routes below when running connected tests. |
 | Local source/audit execution | Consult generated evidence | A check not run is not a pass. |
 | Native reboot/device/provider qualification | Pending operator-owned infrastructure | Record exact versions, tests and sanitized receipts. |
@@ -56,6 +60,7 @@ Each release must provide:
 - Source archive, exact toolchain/build inputs and audit evidence for the release commit. Record artifact digests and reproducibility scope.
 - Installation, upgrade, removal, migration and recovery directions; known limitations; compatibility changes; security-advisory links; and the community/private-support routes.
 - Separate publication receipts for Go module indexing, GHCR, MCP Registry/MCPB and any qualified package-manager listing. Do not advertise a channel merely because its manifest exists.
+- Official SDK versions, supported language/native/MCP compatibility, direct registry links, package digests, SBOMs, provenance and independent installation receipts.
 
 The release page is `https://github.com/maldous/CircularQuay/releases/tag/<tag>` and asset URLs follow `https://github.com/maldous/CircularQuay/releases/download/<tag>/<asset>`. Replace every placeholder with an existing verified asset. The [Releases index](https://github.com/maldous/CircularQuay/releases) is the entry point until releases exist; do not present example `v1.0.0` links as current downloads.
 
@@ -277,6 +282,12 @@ An installed binary is not an enrolled environment. Complete these operator acti
 10. Enable optional MCP only after issuer/audience/client/disclosure policy is qualified.
 11. Run reboot, outage, denial, rotation and independent restore tests.
 12. Record remaining features as unqualified and remove temporary grants/resources when finished.
+13. Select telemetry signals and protected collector trust/credential references;
+    validate safe export, bounded outage behavior and the independent required
+    audit path. Configure collector-side retention, access and alerting.
+14. Choose update channel/feed or disable checks, and record any local minimum
+    runtime requirement. Verify offline behavior and recovery commands before
+    enabling that requirement. See [operational configuration](docs/operational-configuration.md).
 
 Platform details: [installation](docs/operators/installation.md), [MCP](docs/operators/mcp.md), [recovery](docs/operators/recovery.md).
 
@@ -332,6 +343,124 @@ Verify the installed commands from a clean module/cache location and inspect:
 Use Go tooling rather than manually lowercasing or constructing escaped proxy paths. Private dependencies require `GOPRIVATE` before resolution; the operational ciphertext repository must not become a public Go module.
 
 Never move/reuse a published tag. For a defect, publish a higher corrected version and a `retract` directive where appropriate. Retraction is not deletion, and cached source may remain accessible. Negative lookups before a tag exists can be cached; do not retag to fix propagation. Official reference: <https://go.dev/doc/modules/publishing>.
+
+### Official SDK distribution
+
+The three SDKs follow one v1 compatibility and conformance contract. Their
+registry records are independent distribution channels; a successful native
+release does not establish npm/PyPI ownership or publication. Use the
+[SDK guide](docs/sdks.md) for consumer APIs and this section for publisher setup.
+
+| Release | Git/root Go module | npm package version / channel | Python distribution version |
+| --- | --- | --- | --- |
+| Candidate | `v1.0.0-rc.1` | `1.0.0-rc.1` / `next` | `1.0.0rc1` |
+| Stable | `v1.0.0` | `1.0.0` / `latest` | `1.0.0` |
+
+These are naming examples, not published versions. Development metadata does
+not constitute an RC. Set each package's version in reviewed source before
+qualification. The Go SDK belongs to the root module: use the root `v1...`
+tag, never `sdk/go/v1...` or a new nested module. Stable package metadata and
+bytes differ from RC metadata and bytes. Build and qualify the stable tag as
+its own immutable version; never relabel RC files or replace a published version.
+
+#### Registry configuration after repository setup
+
+The authorized registry owner completes these actions through each registry's
+normal authenticated account interface. Record account custody, MFA/recovery,
+package maintainers, protected release environment and expected repository
+identity without recording credentials. Confirm real ownership of `maldous`
+on GitHub, the npm `@maldous` scope, and the PyPI `cquay-sdk` project. Name
+availability alone is not ownership. Resolve any conflict before changing
+consumer instructions; never publish a misleading alternate namespace.
+
+Configure separate GitHub release environments for npm, PyPI and TestPyPI.
+Restrict allowed release refs, approvals and publisher identity. Register the
+**actual reviewed publisher workflow filename** and exact environment name
+with each registry after that workflow is installed. The SDK validation
+workflow has read-only permissions and is not a publisher. Grant `id-token:
+write` only to the isolated publishing job; source builds and PR tests have
+no publication authority. Pin publishing actions/toolchains to reviewed immutable
+versions and require the checked-out source to match the triggering release tag.
+
+For npm, configure the package's trusted publisher for GitHub user `maldous`,
+repository `CircularQuay`, the exact workflow filename and npm environment.
+Use a supported hosted runner and qualified Node/npm versions (the documented
+minimum is Node 22.14.0/npm 11.5.1). Prefer stage-only publishing with human MFA
+approval; enable direct publication or dist-tag management only when the
+approved workflow needs them. New publisher bindings expire if their first
+publication is not completed within the registry's documented window. After
+verification, disallow persistent publishing tokens. If initial namespace
+creation needs a human registry action, complete it through that interface.
+Do not create a broad token to bypass missing ownership. See
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+
+For PyPI, configure an existing or pending trusted publisher for project
+`cquay-sdk`, GitHub owner `maldous`, repository `CircularQuay`, the reviewed
+workflow filename and the protected PyPI environment. Configure TestPyPI
+separately with its own environment/publisher. Use the official pinned PyPA
+publishing action with OIDC and attestations enabled. It uploads previously
+qualified wheel/sdist files; the publishing job does not rebuild them.
+TestPyPI uses a distinct index and OIDC audience; a successful rehearsal does
+not publish or promote a package to PyPI. See
+[PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+and [attestations](https://docs.pypi.org/attestations/).
+
+No Go-index account or upload credential is needed. Publish the qualified
+root-module tag through the existing Git release process and verify discovery
+using the normal module proxy/checksum route. See
+[Go module publishing](https://go.dev/doc/modules/publishing).
+
+#### Build, inspect and publish the selected bytes
+
+Use isolated, reproducible build environments with committed dependency locks,
+exact toolchain versions and no provider credentials. Run native CLI/MCP
+conformance, cross-language error/expiry/cancellation/redaction tests, all
+owned-code quality/coverage/security gates and package-installation tests.
+Preserve logs, source/tree identity, lock digests, artifact hashes, license
+inventory, SBOM and provenance in the release receipt. Inspect archive entries
+against the package allowlist; reject fixtures, caches, credentials, private
+state, unexpected executables and undeclared lifecycle scripts.
+
+For TypeScript, run locked installation, type checking, tests and build in
+`sdk/typescript`, then inspect `npm pack --json` and its resulting tarball.
+Install that exact tarball into a clean consumer and rerun conformance before
+publication. Publish/stage the verified tarball, not an unreviewed directory.
+Use `next` for a candidate and `latest` for a qualified stable version; channel
+pointers never change the immutable version's bytes. Verify provenance binds
+the expected repository, workflow, source commit and tarball digest.
+
+For Python, build wheel and sdist from `sdk/python` using the release's locked
+build inputs. Install the wheel in a clean virtual environment; separately
+build a wheel from the sdist and verify its contents and behavior. Publish the
+exact retained files with the trusted publisher. Verify both registry SHA-256
+values, project URLs, supported Python metadata, license and attestations.
+Dependency installation for TestPyPI must use explicit approved sources; do
+not add an unrestricted extra index that permits dependency confusion.
+
+After public registry readback, verify anonymous consumer routes for the chosen
+version. The following stable examples are valid only once that exact version
+has actually been published and independently verified:
+
+```sh
+go get github.com/maldous/CircularQuay/sdk/go@v1.0.0
+npm install --save-exact @maldous/cquay-sdk@1.0.0
+python -m pip install 'cquay-sdk==1.0.0'
+```
+
+Verify `pkg.go.dev/github.com/maldous/CircularQuay/sdk/go@v1.0.0`,
+`npmjs.com/package/@maldous/cquay-sdk/v/1.0.0`, and
+`pypi.org/project/cquay-sdk/1.0.0/` against the release receipt. Production
+consumers use their approved package mirror/registry, dependency lock and
+hash/provenance policy. Language packages do not silently fetch or install a
+native executable. TypeScript/Python local adapters require a separately
+authenticated native `cquay` artifact and its exact digest.
+
+Record each registry as published and independently verified only after its
+actual readback and clean-consumer test. A permission, namespace, entitlement
+or registry failure leaves that channel unqualified. Remove temporary
+publisher grants and rehearsal resources without deleting retained evidence.
+Withdraw a faulty version through the ecosystem's deprecation/yank/retraction
+route and issue a higher corrective version; cached copies cannot be recalled.
 
 ## 6. Publish MCP distribution
 

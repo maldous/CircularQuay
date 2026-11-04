@@ -7,6 +7,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/state"
 )
@@ -34,8 +35,10 @@ func selectedTargets(w model.Workload, target string) ([]string, error) {
 // Reconciliation exposes partial projection honestly. Destinations are separate
 // stores and cannot form a distributed transaction. No service is transitioned
 // until every selected projection has succeeded and its receipt is durable.
-func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g model.Generation, ids []string, operations targetOperations) (state.Record, error) {
-	record, err := generationRecord(w, g, "resolved")
+func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g model.Generation, ids []string, operations targetOperations) (record state.Record, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseProjection, ProviderKind: "none"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
+	record, err = generationRecord(w, g, "resolved")
 	if err != nil {
 		return record, err
 	}
@@ -43,8 +46,8 @@ func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g mo
 	if err != nil {
 		return record, err
 	}
-	complete := completeSelection(w, ids)
-	record.State = scopedPhase(complete, "resolved")
+	selectionComplete := completeSelection(w, ids)
+	record.State = scopedPhase(selectionComplete, "resolved")
 	record.Targets = retainedTargets(previous.Targets, len(ids))
 	for _, id := range ids {
 		record.Targets[id] = state.TargetRecord{State: "resolved", Generation: record.Generation, Current: true}
@@ -52,7 +55,7 @@ func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g mo
 	if err = s.Write(record); err != nil {
 		return record, err
 	}
-	reconciler := targetReconciler{store: s, workload: w, generation: g, record: &record, operations: operations, complete: complete}
+	reconciler := targetReconciler{store: s, workload: w, generation: g, record: &record, operations: operations, complete: selectionComplete}
 	if err = reconciler.projectAll(ctx, ids); err != nil {
 		return record, err
 	}
@@ -174,7 +177,13 @@ func completeSelection(w model.Workload, ids []string) bool {
 	return true
 }
 
-func projectTarget(ctx context.Context, w model.Workload, g model.Generation, id string, operations targetOperations) error {
+func projectTarget(ctx context.Context, w model.Workload, g model.Generation, id string, operations targetOperations) (err error) {
+	provider := "none"
+	if target, found := w.Targets[id]; found {
+		provider = target.Type
+	}
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseProjection, ProviderKind: provider})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if ctx.Err() != nil {
 		return fault.New(fault.Apply, "projection canceled")
 	}

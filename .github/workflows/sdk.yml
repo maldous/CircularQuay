@@ -1,0 +1,469 @@
+name: SDK qualification
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-dependency-lock:
+    name: Go dependency lock reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Resolve and retain bounded lock evidence
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cquay-go-lock"
+          mkdir -m 0700 "$evidence"
+          sha256sum go.mod go.sum > "$evidence/before.sha256"
+          go mod tidy
+          go mod verify
+          sha256sum go.mod go.sum > "$evidence/after.sha256"
+          cp go.mod go.sum "$evidence/"
+          {
+            printf 'revision=%s\n' "$GITHUB_SHA"
+            go version
+            go env GOTOOLCHAIN GOFLAGS
+          } > "$evidence/receipt.txt"
+          if git diff --quiet -- go.mod go.sum; then
+            echo 'drift=false' >> "$GITHUB_OUTPUT"
+          else
+            git diff --binary -- go.mod go.sum > "$evidence/lock.diff"
+            echo 'drift=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload generated Go dependency evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-lock-${{ github.sha }}
+          path: ${{ runner.temp }}/cquay-go-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed reproducible Go dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.resolve.outputs.drift }}' = false
+
+  go:
+    name: Go SDK (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run complete Go SDK contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -count=1 ./sdk/go
+          go vet ./sdk/go
+          test -z "$(gofmt -l sdk/go)"
+
+  typescript:
+    name: TypeScript SDK (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        node: ['22.23.4', '24.22.2', '26.13.0']
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9d9f6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Materialize missing npm lock evidence
+        id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if test -f sdk/typescript/package-lock.json; then
+            echo 'missing=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/cquay-sdk-lock"
+          (
+            cd sdk/typescript
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          )
+          cp sdk/typescript/package-lock.json "$RUNNER_TEMP/cquay-sdk-lock/package-lock.json"
+          sha256sum "$RUNNER_TEMP/cquay-sdk-lock/package-lock.json" > "$RUNNER_TEMP/cquay-sdk-lock/package-lock.sha256"
+          echo 'missing=true' >> "$GITHUB_OUTPUT"
+      - name: Upload generated lock evidence
+        if: ${{ always() && steps.lock.outputs.missing == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typescript-lock-${{ matrix.os }}-node-${{ matrix.node }}
+          path: ${{ runner.temp }}/cquay-sdk-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require reviewed npm lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.lock.outputs.missing }}' = false
+          test -f sdk/typescript/package-lock.json
+      - name: Install TypeScript dependencies from the reviewed lock
+        id: npm_install
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cd sdk/typescript
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lint TypeScript SDK
+        id: typescript_lint
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run lint
+      - name: Typecheck TypeScript SDK
+        id: typescript_typecheck
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run typecheck
+      - name: Measure TypeScript SDK coverage
+        id: typescript_coverage
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run coverage
+      - name: Build TypeScript SDK
+        id: typescript_build
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run build
+      - name: Verify TypeScript package contents
+        id: typescript_pack
+        if: ${{ always() && steps.typescript_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm pack --json > "$RUNNER_TEMP/cquay-sdk-pack.json"
+          test -f package-lock.json
+          tarball=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (!Array.isArray(v) || v.length !== 1 || typeof v[0]?.filename !== "string") process.exit(1); process.stdout.write(v[0].filename)' "$RUNNER_TEMP/cquay-sdk-pack.json")
+          test -f "$tarball"
+          tar -tf "$tarball" | grep -qx 'package/dist/index.js'
+          tar -tf "$tarball" | grep -qx 'package/dist/index.d.ts'
+          tar -tf "$tarball" | grep -qx 'package/LICENSE'
+      - name: Exercise the installed TypeScript local client against cquay
+        if: ${{ always() && steps.typescript_pack.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cquay_binary="$RUNNER_TEMP/cquay-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
+          go build -trimpath -o "$cquay_binary" ./cmd/cquay
+          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          export CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256"
+          consumer=$(mktemp -d)
+          printf '{"name":"cquay-sdk-consumer","private":true,"type":"module"}\n' > "$consumer/package.json"
+          tarball=$(find "$GITHUB_WORKSPACE/sdk/typescript" -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund --prefix "$consumer" "$tarball"
+          export CQUAY_CONSUMER="$consumer"
+          node --input-type=module <<'NODE'
+          import { mkdtemp, realpath } from "node:fs/promises";
+          import { createRequire } from "node:module";
+          import { tmpdir } from "node:os";
+          import { join } from "node:path";
+          import { pathToFileURL } from "node:url";
+          const require = createRequire(`${process.env.CQUAY_CONSUMER}/package.json`);
+          const { LocalCLIClient } = await import(pathToFileURL(require.resolve("@maldous/cquay-sdk")).href);
+          const root = await mkdtemp(join(tmpdir(), "cquay-sdk-"));
+          const executablePath = await realpath(process.env.CQUAY_EXECUTABLE);
+          const client = await LocalCLIClient.create({ executablePath, expectedSHA256: process.env.CQUAY_EXECUTABLE_SHA256, configPath: join(root, "policy.json"), stateDirectory: join(root, "state"), environment: {} });
+          await client.configInit(join(root, "policy.json"));
+          await client.doctor();
+          await client.plan();
+          NODE
+      - name: Exercise the official MCP TypeScript client against synthetic cquay
+        if: ${{ always() && steps.typescript_build.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.node == '24.22.2' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cquay-sdk-mcp"
+          go build -trimpath -o "$binary" ./cmd/cquay
+          config="$root/policy.json"
+          state="$root/state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          CQUAY_EXECUTABLE="$binary" CQUAY_CONFIG="$config" CQUAY_STATE_DIRECTORY="$state" node sdk/conformance/typescript-mcp.mjs
+          CQUAY_EXECUTABLE="$binary" CQUAY_CONFIG="$config" CQUAY_STATE_DIRECTORY="$state" bash sdk/conformance/go-mcp.sh
+      - name: Audit every locked npm dependency
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm audit --audit-level=low
+
+  python:
+    name: Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          check-latest: true
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Resolve or verify Python SDK lock evidence
+        id: python_lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cquay-python-lock"
+          mkdir -m 0700 "$evidence"
+          case "$RUNNER_OS" in
+            Linux) platform=linux ;;
+            macOS) platform=darwin ;;
+            Windows) platform=win32 ;;
+            *) exit 1 ;;
+          esac
+          case '${{ matrix.python }}' in
+            3.11) interpreter=py311 ;;
+            3.12) interpreter=py312 ;;
+            3.13) interpreter=py313 ;;
+            3.14) interpreter=py314 ;;
+            3.15) interpreter=py315 ;;
+            *) exit 1 ;;
+          esac
+          committed="sdk/python/locks/ci-${platform}-${interpreter}.txt"
+          if test -f "$committed"; then
+            cp "$committed" "$evidence/selected.txt"
+            python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-ci.txt
+            python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            echo 'missing=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-ci.txt
+          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$GITHUB_SHA" --requirements sdk/python/requirements-ci.txt
+          echo 'missing=true' >> "$GITHUB_OUTPUT"
+      - name: Upload generated Python lock evidence
+        if: ${{ always() && steps.python_lock.outputs.missing == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-lock-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cquay-python-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed reviewed Python lock
+        id: python_lock_committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.python_lock.outputs.missing }}' = false
+          test -f "$RUNNER_TEMP/cquay-python-lock/selected.txt"
+      - name: Install Python SDK qualification tools
+        id: python_tools
+        if: ${{ always() && steps.python_lock_committed.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cquay-python-lock/selected.txt"
+          python -m unittest discover -s .github/scripts/tests -v
+      - name: Lint and typecheck Python SDK
+        id: python_static
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          python -m ruff check sdk/python
+          python -m mypy sdk/python/src
+      - name: Security scan Python SDK
+        id: python_bandit
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          python -m bandit -r sdk/python/src
+      - name: Measure Python SDK coverage
+        id: python_coverage
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" python -m coverage run --branch -m unittest discover -s sdk/python/tests -v
+          python -m coverage report --fail-under=100
+      - name: Build Python SDK distribution
+        id: python_build
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cquay-python-dist" sdk/python
+      - name: Install Python SDK distribution in a fresh environment
+        id: python_install
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m venv "$RUNNER_TEMP/cquay-python-venv"
+          if test -x "$RUNNER_TEMP/cquay-python-venv/bin/python"; then
+            cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
+          else
+            cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"
+          fi
+          "$cquay_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cquay-python-lock/selected.txt"
+          "$cquay_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cquay-python-dist/*.whl
+          "$cquay_python" -c 'import cquay; assert cquay.__version__ == "1.0.0.dev0"'
+      - name: Audit installed Python SDK dependencies
+        if: ${{ always() && steps.python_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
+          if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
+          "$cquay_python" -m pip_audit --strict
+      - name: Exercise the installed Python local client against cquay
+        if: ${{ always() && steps.python_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cquay_binary="$RUNNER_TEMP/cquay-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
+          go build -trimpath -o "$cquay_binary" ./cmd/cquay
+          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
+          if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
+          CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
+          import asyncio, os, tempfile
+          from pathlib import Path
+          from cquay import LocalCLIClient
+          async def main():
+              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-"))
+              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
+              await client.config_init()
+              await client.doctor()
+              await client.plan()
+          asyncio.run(main())
+          PY
+      - name: Exercise Python local client without optional MCP dependency
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/cquay-python-minimal"
+          cquay_python="$RUNNER_TEMP/cquay-python-minimal/bin/python"
+          if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-minimal/Scripts/python.exe"; fi
+          "$cquay_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cquay-python-dist/*.whl
+          cquay_binary="$RUNNER_TEMP/cquay-sdk-minimal"
+          if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
+          go build -trimpath -o "$cquay_binary" ./cmd/cquay
+          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
+          import asyncio, os, tempfile
+          from pathlib import Path
+          from cquay import LocalCLIClient
+          async def main():
+              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-minimal-"))
+              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
+              await client.config_init()
+              await client.doctor()
+          asyncio.run(main())
+          PY
+      - name: Exercise the official Python MCP client against synthetic cquay
+        if: ${{ always() && steps.python_install.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.python == '3.15' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cquay-sdk-python-mcp"
+          go build -trimpath -o "$binary" ./cmd/cquay
+          config="$root/policy.json"
+          state="$root/state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
+          if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
+          CQUAY_EXECUTABLE="$binary" CQUAY_CONFIG="$config" CQUAY_STATE_DIRECTORY="$state" "$cquay_python" sdk/conformance/python-mcp.py
+      - name: Upload Python package evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-sdk-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cquay-python-dist
+          if-no-files-found: warn
+          retention-days: 7

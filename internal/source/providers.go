@@ -7,6 +7,7 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/transport"
 )
 
@@ -62,7 +63,9 @@ func (r *Registry) Register(name string, reader Reader) {
 }
 
 // Read enforces exact scope before any adapter receives a value request.
-func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (value model.Value, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseSource, ProviderKind: s.Type})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	if !allowed(s, b) {
 		return model.Value{}, fault.New(fault.Denied, "source_scope")
 	}
@@ -75,7 +78,8 @@ func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (m
 	if reader == nil {
 		return model.Value{}, fault.New(fault.Unsupported, "source_type")
 	}
-	return reader.Read(ctx, s, b)
+	value, err = reader.Read(ctx, s, b)
+	return value, err
 }
 
 func validateVersionCapability(s model.Source, b model.Binding) error {

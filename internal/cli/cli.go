@@ -10,9 +10,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/source"
@@ -27,6 +29,11 @@ var Commit = "unknown"
 type Runner struct {
 	In       io.Reader
 	Out, Err io.Writer
+	// BuildVersion and BuildCommit identify the embedding artifact. Empty
+	// values use the native binary's reproducible build values. SDK callers
+	// must supply only trusted module build metadata, never environment input.
+	BuildVersion string
+	BuildCommit  string
 }
 
 type application struct {
@@ -35,6 +42,8 @@ type application struct {
 	directory      string
 	runner         Runner
 	repository     repositoryOperations
+	buildVersion   string
+	buildCommit    string
 }
 
 // Run executes a command and returns a stable CLI or child status.
@@ -62,12 +71,40 @@ func (r Runner) Run(ctx context.Context, args []string) int {
 	if len(commands) == 0 {
 		return r.usage()
 	}
-	a := application{config: *config, configExplicit: flagWasSet(f, "config"), directory: *stateDir, runner: r}
+	a := application{config: *config, configExplicit: flagWasSet(f, "config"), directory: *stateDir, runner: r, buildVersion: r.buildVersion(), buildCommit: r.buildCommit()}
 	code, err := a.dispatch(ctx, commands)
 	if err != nil {
 		return r.failure(err)
 	}
 	return code
+}
+
+func (r Runner) buildVersion() string {
+	if r.BuildVersion != "" {
+		return r.BuildVersion
+	}
+	return Version
+}
+
+func (r Runner) buildCommit() string {
+	if r.BuildCommit != "" {
+		return r.BuildCommit
+	}
+	return Commit
+}
+
+func (a application) version() string {
+	if a.buildVersion != "" {
+		return a.buildVersion
+	}
+	return Version
+}
+
+func (a application) commit() string {
+	if a.buildCommit != "" {
+		return a.buildCommit
+	}
+	return Commit
 }
 
 func (r Runner) failure(err error) int {
@@ -82,7 +119,7 @@ func (r Runner) failure(err error) int {
 }
 
 func (r Runner) usage() int {
-	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <bootstrap|flow|init|config|doctor|plan|run|sync|snapshot|apply|status|providers|mcp|version>")
+	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <bootstrap|flow|init|config|doctor|plan|run|sync|snapshot|apply|status|update|providers|mcp|version>")
 	return 0
 }
 
@@ -91,7 +128,7 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 	case "help", "--help", "-h":
 		return a.runner.usage(), nil
 	case "version":
-		return a.print(map[string]string{"version": Version, "commit": Commit, "go": "1.27", "maturity": "development"})
+		return a.print(map[string]string{"version": a.version(), "commit": a.commit(), "go": "1.27", "maturity": "development"})
 	case "providers":
 		return a.print(source.Capabilities())
 	case "bootstrap":
@@ -103,6 +140,55 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 }
 
 func (a application) dispatchConfigured(ctx context.Context, args []string) (int, error) {
+	if args[0] == "init" || args[0] == "config" || args[0] == "doctor" || args[0] == "update" {
+		return a.dispatchConfiguredRuntime(ctx, args)
+	}
+	p, err := a.preflightOperationalPolicy()
+	if err != nil {
+		return 0, err
+	}
+	return a.dispatchLoadedOperationalPolicy(ctx, args, p)
+}
+
+// preflightOperationalPolicy loads the selected policy and applies its local
+// runtime floor before any operational receipt, telemetry credential, provider
+// credential, repository, child-process, or workload effect.
+func (a application) preflightOperationalPolicy() (model.Policy, error) {
+	p, err := a.load()
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err := enforceMinimumVersion(p, a.version()); err != nil {
+		return model.Policy{}, err
+	}
+	return p, nil
+}
+
+func (a application) dispatchLoadedOperationalPolicy(ctx context.Context, args []string, p model.Policy) (int, error) {
+	runtime, err := a.newObservability(ctx, p)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		flush, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = runtime.Shutdown(flush)
+	}()
+	ctx = observability.WithRuntime(ctx, runtime)
+	observability.Record(ctx, observability.Operation{Phase: observability.PhasePolicy, ProviderKind: "json"}, observability.OutcomeSuccess)
+	if err := a.checkUpdates(ctx); err != nil {
+		return 0, err
+	}
+	return a.dispatchWithObservability(ctx, args)
+}
+
+func (a application) dispatchWithObservability(ctx context.Context, args []string) (code int, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseCLI, ProviderKind: "none"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
+	return a.dispatchConfiguredRuntime(ctx, args)
+}
+
+func (a application) dispatchConfiguredRuntime(ctx context.Context, args []string) (int, error) {
 	switch args[0] {
 	case "init":
 		return a.initialize(args[1:])
@@ -112,6 +198,8 @@ func (a application) dispatchConfigured(ctx context.Context, args []string) (int
 		return a.configCommand(args[1:])
 	case "plan":
 		return a.plan()
+	case "update":
+		return a.updateCommand(ctx, args[1:])
 	case "status":
 		return a.status(args[1:])
 	case "run", "sync", "snapshot", "apply":
@@ -121,6 +209,18 @@ func (a application) dispatchConfigured(ctx context.Context, args []string) (int
 	default:
 		return 0, fault.New(fault.Invalid, "command")
 	}
+}
+
+func (a application) newObservability(ctx context.Context, policy model.Policy) (*observability.Runtime, error) {
+	directory := ""
+	if policy.Observability != nil && policy.Observability.DiagnosticLevel != "off" {
+		store, err := a.store()
+		if err != nil {
+			return nil, err
+		}
+		directory = store.Directory
+	}
+	return observability.New(ctx, policy.Observability, observability.Options{DiagnosticDirectory: directory, Version: a.version()})
 }
 
 func (a application) print(value any) (int, error) {

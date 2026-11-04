@@ -6,6 +6,63 @@ installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
+## Current published source and candidate boundary
+
+The published feature branch is `19cdf833206708a99aee142f4dc7f5b335be5dbb`,
+with tree `373f28ab40c92ce7022718e8ff25e21957f59526`. Draft PR #1 still
+targets `develop`. The three Sonar workflow checkpoints after `8406e66` were
+published through temporary indexes while SDK/runtime writers were active;
+the local HEAD was deliberately retained at `8406e66`. Preserve the full
+working-file fence before bringing that checkout forward. The public branch
+parent, rather than the old local HEAD, is the next publication parent.
+
+Sonar run `41762521270` successfully reached HTTP readiness, scanner upload,
+Compute Engine analysis and all six revision-bound server readbacks. The sole
+published container port was `9000/tcp` at `127.0.0.1:44533`; actual Java PID 1
+limits were nofile 131072 and nproc 8192, soft and hard. Scanner warnings,
+analysis warnings and hotspots were zero. The quality gate failed: Sonar
+coverage 79.4%, Go profile 6248/7306 statements (85.518751711%), three open
+code smells, and absent new-code coverage/duplication metrics on this fresh
+project. Retain `ci-19cdf83-sonar.json`; scanner exit 3 followed a successful
+analysis and expresses a quality-gate failure. It was not a scanner crash.
+
+The matching `19cdf83` source run `41762521195` passed Linux normal/race
+checks, vet and bounded fuzzing, plus native macOS/Windows and all declared
+cross-builds. It failed cyclomatic complexity at `mcp.New` (11 versus 10).
+The source-profile job also failed, but its sanitized log does not establish
+an attributable unit-test/vet cause; do not call it coverage-only. Security
+run `41762521288` passed Staticcheck, govulncheck and CodeQL and failed eight
+unsuppressed gosec findings. Dependency Review and native WireMock passed.
+Retain `ci-19cdf83-native-security.json`. Those receipts do not qualify the
+following source candidate, including its extracted MCP claim-filter helper.
+
+The working candidate addresses those three code smells, adds official Go,
+TypeScript and Python SDKs, and implements configurable OTLP observability
+and release awareness. SDK error/DTO/limit contracts and operational policy
+have independent source reviews. Official MCP stdio fixtures and native SDK
+qualification belong to the hosted matrix. No source review establishes a
+compilation, runtime, coverage, interoperability or security pass.
+
+New exporter module closure, npm lock and per-platform/interpreter Python
+hash locks require hosted resolution and review. The SDK workflow retains
+actual generated lock evidence and fails until reviewed locks are committed;
+normal qualification uses read-only Go modules and hash-checked Python/npm
+locks. Do not invent hashes or call this bootstrap a passing dependency gate.
+
+Interactive release awareness is an advisory, timeout-bounded notice with a
+canonical upgrade URL; it reads no answer, installs nothing and continues on
+check failure. It is disabled for automatic SDK/non-TTY use. Explicit
+`update check --json` exposes structured results. A configured local minimum
+version is enforced before telemetry credentials, provider access, operational
+receipts and workload effects; recovery/inspection commands remain available.
+Version comparison is not proof of executable authenticity.
+
+Local heavy tests, builds, scans, package/module resolution, Java and Docker
+remain held for shared-host coordination. Hosted CI is the qualification
+route. Use synthetic fixtures and preserve the original infrastructure,
+credentials and production/release prohibitions. Keep qualification/status
+records candid while product guides describe the complete v1 contract.
+
 ## Resumption and retained scope
 
 The user resumed CircularQuay delivery on 4 November 2026. The earlier pause
@@ -522,7 +579,7 @@ qualification only.
 ## Start here
 
 - Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
-  binary, release-asset prefix, and skill are `cquay` ("c-key");
+  binary, release-asset prefix, and skill are `cquay` ("see-key");
   `cquay-audit` is separate.
 - Development branch: `feature/initial-implementation`. This continuation
   includes `4886fc8660706909376f3543ad7cab186d9256b9`; use `git rev-parse HEAD`

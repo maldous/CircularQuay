@@ -5,12 +5,77 @@ import "time"
 
 // Policy contains declarations, never credential values.
 type Policy struct {
-	Version    int                 `json:"version" yaml:"version"`
-	Sources    map[string]Source   `json:"sources" yaml:"sources"`
-	Workloads  map[string]Workload `json:"workloads" yaml:"workloads"`
-	Grants     []Grant             `json:"grants,omitempty" yaml:"grants,omitempty"`
-	MCP        MCP                 `json:"mcp,omitempty" yaml:"mcp,omitempty"`
-	Repository Repository          `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Version       int                 `json:"version" yaml:"version"`
+	Sources       map[string]Source   `json:"sources" yaml:"sources"`
+	Workloads     map[string]Workload `json:"workloads" yaml:"workloads"`
+	Grants        []Grant             `json:"grants,omitempty" yaml:"grants,omitempty"`
+	MCP           MCP                 `json:"mcp,omitempty" yaml:"mcp,omitempty"`
+	Repository    Repository          `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Observability *Observability      `json:"observability,omitempty" yaml:"observability,omitempty"`
+	Updates       *Updates            `json:"updates,omitempty" yaml:"updates,omitempty"`
+}
+
+// Observability configures explicit, bounded OpenTelemetry Protocol export.
+// It declares destinations and protected file references, never credentials or
+// free-form headers. A nil declaration leaves telemetry disabled.
+type Observability struct {
+	Enabled               *bool               `json:"enabled" yaml:"enabled"`
+	ServiceName           string              `json:"service_name,omitempty" yaml:"service_name,omitempty"`
+	Environment           string              `json:"environment,omitempty" yaml:"environment,omitempty"`
+	DiagnosticLevel       string              `json:"diagnostic_level,omitempty" yaml:"diagnostic_level,omitempty"`
+	ResourceAttributes    *ResourceAttributes `json:"resource_attributes,omitempty" yaml:"resource_attributes,omitempty"`
+	Metrics               *MetricsSignal      `json:"metrics,omitempty" yaml:"metrics,omitempty"`
+	Traces                *TracesSignal       `json:"traces,omitempty" yaml:"traces,omitempty"`
+	Logs                  *LogsSignal         `json:"logs,omitempty" yaml:"logs,omitempty"`
+	Endpoint              string              `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	TokenFile             string              `json:"token_file,omitempty" yaml:"token_file,omitempty"`
+	TrustStoreFile        string              `json:"trust_store_file,omitempty" yaml:"trust_store_file,omitempty"`
+	TrustStoreSHA256      string              `json:"trust_store_sha256,omitempty" yaml:"trust_store_sha256,omitempty"`
+	TimeoutSeconds        int                 `json:"timeout_seconds,omitempty" yaml:"timeout_seconds,omitempty"`
+	ExportIntervalSeconds int                 `json:"export_interval_seconds,omitempty" yaml:"export_interval_seconds,omitempty"`
+	BatchSize             int                 `json:"batch_size,omitempty" yaml:"batch_size,omitempty"`
+	QueueSize             int                 `json:"queue_size,omitempty" yaml:"queue_size,omitempty"`
+}
+
+// ResourceAttributes is deliberately closed to prevent secret or arbitrary
+// identity data from becoming telemetry resource attributes.
+type ResourceAttributes struct {
+	ServiceNamespace  string `json:"service_namespace,omitempty" yaml:"service_namespace,omitempty"`
+	ServiceInstanceID string `json:"service_instance_id,omitempty" yaml:"service_instance_id,omitempty"`
+}
+
+// MetricsSignal configures metric collection without accepting an arbitrary
+// exporter or attributes.
+type MetricsSignal struct {
+	Enabled         *bool `json:"enabled" yaml:"enabled"`
+	IntervalSeconds int   `json:"interval_seconds,omitempty" yaml:"interval_seconds,omitempty"`
+}
+
+// TracesSignal configures sampled traces. SampleRatio is a pointer because
+// zero is an intentional valid value that retains propagation but exports no
+// sampled spans.
+type TracesSignal struct {
+	Enabled     *bool    `json:"enabled" yaml:"enabled"`
+	SampleRatio *float64 `json:"sample_ratio,omitempty" yaml:"sample_ratio,omitempty"`
+}
+
+// LogsSignal configures structured log export through the shared OTLP client.
+type LogsSignal struct {
+	Enabled *bool `json:"enabled" yaml:"enabled"`
+}
+
+// Updates declares non-authoritative release awareness. It can enforce a
+// local minimum version while network checks are disabled for air-gapped use.
+type Updates struct {
+	Check            string `json:"check" yaml:"check"`
+	Channel          string `json:"channel,omitempty" yaml:"channel,omitempty"`
+	IntervalHours    int    `json:"interval_hours,omitempty" yaml:"interval_hours,omitempty"`
+	TimeoutSeconds   int    `json:"timeout_seconds,omitempty" yaml:"timeout_seconds,omitempty"`
+	FeedEndpoint     string `json:"feed_endpoint,omitempty" yaml:"feed_endpoint,omitempty"`
+	TokenFile        string `json:"token_file,omitempty" yaml:"token_file,omitempty"`
+	TrustStoreFile   string `json:"trust_store_file,omitempty" yaml:"trust_store_file,omitempty"`
+	TrustStoreSHA256 string `json:"trust_store_sha256,omitempty" yaml:"trust_store_sha256,omitempty"`
+	MinimumVersion   string `json:"minimum_version,omitempty" yaml:"minimum_version,omitempty"`
 }
 
 // Repository declares an authenticated, signed ciphertext release source.

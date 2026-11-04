@@ -69,7 +69,7 @@ jobs:
           cquay_cognitive_log="$RUNNER_TEMP/cquay-cognitive.log"
           # Type-aware analysis loads each native package once per owning
           # directory. Treat warnings/fallback diagnostics as a failed check.
-          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd >"$cquay_cognitive_log" 2>&1; then
+          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd sdk/go >"$cquay_cognitive_log" 2>&1; then
             cat "$cquay_cognitive_log"
             exit 1
           fi

@@ -18,6 +18,10 @@ so do not add one to a policy; editors can associate the schema out of band.
 complete, fabricated Linux reference. It declares one SOPS/age-backed hybrid
 workload, an encrypted systemd credential projection, and an optional hosted
 MCP authorization surface with a named identity authority and signed repository.
+It also declares remote telemetry with an illustrative collector and a local
+minimum runtime while disabling release-feed connections. Collector access,
+retention and optional credential/CA references use the
+[operational configuration contract](operational-configuration.md).
 The paths, recipient, executable, DNS names, and
 subject are illustrative; provision replacements under the intended operator
 and service identities before use. Pin the actual initial signed commit and
@@ -104,6 +108,8 @@ identities, services, or deployment state.
 | `grants` | array, optional | Exact MCP subject/client/workload/operation grants. An omitted list grants nothing. |
 | `mcp` | object, optional | MCP listener and trusted authorization-server declarations. It does not configure login or token issuance. |
 | `repository` | object, optional | Signed release-source declaration. `sync` invokes its guarded `FetchCurrent` path; native, recovery, provider, and release qualification remain separate requirements. |
+| `observability` | object, optional | Explicit OTLP/HTTP metrics, traces and logs with protected collector trust/credentials and finite budgets. See [operational configuration](operational-configuration.md). |
+| `updates` | object, optional | Interactive release awareness or disabled checks, with an independently enforced optional minimum runtime. See [operational configuration](operational-configuration.md#release-awareness). |
 
 ## `sources.<id>` fields
 

@@ -112,7 +112,7 @@ func (a application) flowRemote(ctx context.Context, options flowOptions, runner
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	return (application{config: config, directory: a.directory, runner: a.runner, repository: a.repository}).flowLocal(ctx, options.workload, runner, "pinned", source.ref, source.digest)
+	return (application{config: config, directory: a.directory, runner: a.runner, repository: a.repository, buildVersion: a.version(), buildCommit: a.commit()}).flowLocal(ctx, options.workload, runner, "pinned", source.ref, source.digest)
 }
 
 // fetchFlowPolicy validates every remote pin before any retrieval. A canceled
@@ -135,13 +135,17 @@ func fetchFlowPolicy(ctx context.Context, source bootstrapOptions, fetch bootstr
 }
 
 func (a application) flowLocal(ctx context.Context, workload string, runner ciRunner, sourceKind, ref, digest string) (int, error) {
+	p, err := a.preflightOperationalPolicy()
+	if err != nil {
+		return 0, err
+	}
 	if err := a.flowReceipt(runner, sourceKind, workload, ref, digest); err != nil {
 		return 0, err
 	}
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	return a.workloadCommand(ctx, []string{"run", "--workload", workload})
+	return a.dispatchLoadedOperationalPolicy(ctx, []string{"run", "--workload", workload}, p)
 }
 
 // flowReceipt records non-secret provenance before child dispatch. The runner

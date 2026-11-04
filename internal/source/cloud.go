@@ -40,6 +40,7 @@ import (
 )
 
 const awsVersionStagePrefix = "stage:"
+const gcpVersionPathSeparator = "/versions/"
 
 func registerCloud(r *Registry) {
 	r.Register("aws-sm", ReadFunc(readAWSSecret))
@@ -432,7 +433,7 @@ func gcpResource(s model.Source, b model.Binding) (string, error) {
 	if strings.ContainsAny(version, "/\x00?#") {
 		return "", fault.New(fault.Invalid, "gcp_version")
 	}
-	return b.Resource + "/versions/" + version, nil
+	return b.Resource + gcpVersionPathSeparator + version, nil
 }
 
 func readGCP(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
@@ -477,14 +478,14 @@ func gcpSecretValue(result *secretmanagerpb.AccessSecretVersionResponse, s model
 	if err != nil {
 		return model.Value{}, err
 	}
-	return model.Value{Data: data, Version: b.Resource + "/versions/" + version, AuditVerified: s.AuditVerified}, nil
+	return model.Value{Data: data, Version: b.Resource + gcpVersionPathSeparator + version, AuditVerified: s.AuditVerified}, nil
 }
 
 func validateGCPReturnedResource(s model.Source, b model.Binding, actual string) (string, error) {
 	if _, err := gcpResource(s, b); err != nil {
 		return "", err
 	}
-	prefix := b.Resource + "/versions/"
+	prefix := b.Resource + gcpVersionPathSeparator
 	if !strings.HasPrefix(actual, prefix) {
 		return "", fault.New(fault.Trust, "source_resource_mismatch")
 	}

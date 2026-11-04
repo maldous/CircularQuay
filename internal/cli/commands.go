@@ -15,6 +15,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/deliver"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/observability"
 	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/state"
@@ -119,7 +120,9 @@ func (a application) status(args []string) (int, error) {
 	return a.print(r)
 }
 
-func (a application) workloadCommand(ctx context.Context, args []string) (int, error) {
+func (a application) workloadCommand(ctx context.Context, args []string) (code int, err error) {
+	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseWorkload, ProviderKind: "native"})
+	defer func() { complete(observability.OutcomeForError(err)) }()
 	request, err := parseWorkloadRequest(args)
 	if err != nil {
 		return 0, err

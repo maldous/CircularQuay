@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -148,6 +149,18 @@ func TestDisclosureReceiptAndIsolation(t *testing.T) {
 	a.fail = true
 	if _, err := s.ReadSecret(context.Background(), p, "alpha", "SERVICE_KEY"); !fault.Is(err, fault.Apply) {
 		t.Fatal("audit failure permitted response", err)
+	}
+}
+
+func TestSecretResultWireExpiryIsOptional(t *testing.T) {
+	plain, err := json.Marshal(SecretResult{Alias: "SERVICE_KEY", Value: "synthetic"})
+	if err != nil || strings.Contains(string(plain), "expires_at") {
+		t.Fatalf("zero expiry was serialized: %s, error %v", plain, err)
+	}
+	expires := time.Date(2026, time.November, 4, 12, 0, 0, 0, time.UTC)
+	leased, err := json.Marshal(SecretResult{Alias: "SERVICE_KEY", Value: "synthetic", ExpiresAt: &expires})
+	if err != nil || !strings.Contains(string(leased), `"expires_at":"2026-11-04T12:00:00Z"`) {
+		t.Fatalf("nonzero expiry was not serialized exactly: %s, error %v", leased, err)
 	}
 }
 

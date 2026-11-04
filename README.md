@@ -16,7 +16,7 @@ authorization is required and where an encrypted offline copy is appropriate.
 CircularQuay gets the right secrets to the right apps, wherever they run.
 Keep your existing secret stores, choose what each app can access, and manage
 it all from one configuration. The app and command are **`cquay`**, pronounced
-**“c-key.”**
+**“see-key.”**
 
 Use it on its own, or connect an **optional identity provider** to tie access
 to a person or service and a time limit. An **optional MCP connector** brings
@@ -25,6 +25,9 @@ the same controls to AI assistants and agents.
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)](LICENSE)
 [![Source checks](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/source.yml)
 [![Security analysis](https://github.com/maldous/CircularQuay/actions/workflows/security.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/security.yml)
+[![WireMock integration](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml)
+[![SonarQube gate](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml)
+[![SDK conformance](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml)
 
 [Testing and audit results](docs/verification.md) · [Downloads](https://github.com/maldous/CircularQuay/releases) · [Documentation](docs/README.md)
 
@@ -77,6 +80,28 @@ or [edit your JSON policy with the CLI](docs/commands.md#configuration-crud).
 Explore [how it works](docs/product-guide.md), [providers and platforms](docs/runtime-boundaries.md),
 and the [feature comparison](docs/comparison.md).
 
+## Build and operate with your team
+
+Bootstrap a scoped session from local configuration or an authenticated,
+trusted discovery source. Use the same policy in GitHub Actions, GitLab CI
+and Azure Pipelines, with explicit overrides and workload identity. The
+[bootstrap and CI guide](docs/configuration-repositories.md) explains trust,
+precedence and non-interactive operation.
+
+Integrate applications through the official [Go, TypeScript and Python
+SDKs](docs/sdks.md). Configure [metrics, traces and structured
+diagnostics](docs/operational-configuration.md) for your monitoring platform;
+keep required security audit independently durable. Release notices continue
+without consuming application input, while an explicit minimum-version policy
+controls which runtimes may perform sensitive operations.
+
+The [enterprise contract](docs/enterprise-integration.md) brings together
+identity lifecycle, access reviews, audit export and retention, recovery,
+compatible extensions and controlled upgrades. These controls support your
+organisation's security programme without claiming ISO 27001 certification.
+The guides describe the complete v1 end state; [qualification
+evidence](docs/qualification.md) records what each exact revision has proved.
+
 ## Make AI access deliberate
 
 Your enterprise identity server can let an approved AI tool use selected
@@ -103,6 +128,8 @@ key that an authorized application has already copied.
 | Configure sources, permissions and delivery | [Configuration guide and schema](docs/configuration.md) · [Complete Linux example](examples/linux-deployment.json) |
 | Automate setup and policy changes | [Command reference with examples](docs/commands.md) · [Git and CI setup](docs/configuration-repositories.md) |
 | Connect identity, providers or hosting platforms | [Integration guide](docs/integrations.md) · [Platform matrix](docs/platform-support.md) |
+| Integrate an application or enterprise monitoring | [Go, TypeScript and Python SDKs](docs/sdks.md) · [Enterprise integration](docs/enterprise-integration.md) |
+| Configure monitoring and release awareness | [Operational configuration](docs/operational-configuration.md) |
 | Understand the security and test evidence | [Security model](docs/threat-model.md) · [Testing and verification](docs/verification.md) |
 | Contribute, ask for help or report a problem | [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Private security reporting](SECURITY.md) |
 

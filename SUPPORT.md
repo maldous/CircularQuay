@@ -1,6 +1,6 @@
 # cquay support
 
-CircularQuay is the project; `cquay` (pronounced “c-key”) is its app, executable and operations skill.
+CircularQuay is the project; `cquay` (pronounced “see-key”) is its app, executable and operations skill.
 
 The project is under development. There is no production certification, paid support contract, guaranteed response time or supported stable release yet. Published versions must state their qualified platform and provider matrix explicitly.
 

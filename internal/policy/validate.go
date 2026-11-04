@@ -35,6 +35,12 @@ func Validate(policy model.Policy) error {
 	if err := validatePathOwnership(policy); err != nil {
 		return err
 	}
+	if err := validateObservability(policy.Observability); err != nil {
+		return err
+	}
+	if err := validateUpdates(policy.Updates); err != nil {
+		return err
+	}
 	if err := validateGrants(policy); err != nil {
 		return err
 	}
@@ -420,6 +426,9 @@ func validateBootstrapSeparation(policy model.Policy) error {
 	paths := make(map[string]bool)
 	rememberPath(paths, policy.Repository.TokenFile)
 	rememberPath(paths, policy.Repository.AllowedSignersFile)
+	for _, path := range operationalProtectedReferences(policy) {
+		rememberPath(paths, path)
+	}
 	for _, source := range policy.Sources {
 		rememberPath(paths, source.TokenFile)
 		rememberPath(paths, source.AgeIdentityFile)
