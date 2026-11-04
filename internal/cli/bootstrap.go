@@ -10,7 +10,6 @@ import (
 	"github.com/maldous/CircularQuay/internal/bootstrap"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/platform"
-	"github.com/maldous/CircularQuay/internal/policy"
 )
 
 const (
@@ -47,7 +46,7 @@ func (a application) bootstrapWithFetcher(ctx context.Context, args []string, fe
 		return 0, fault.New(fault.Invalid, "bootstrap output")
 	}
 	if options.sourceURL == "" {
-		return a.validateLocalBootstrap(destination)
+		return a.validateLocalBootstrap(ctx, destination)
 	}
 	if !pinnedBootstrapRequest(options.ref, options.digest) || fetch == nil {
 		return 0, fault.New(fault.Invalid, "bootstrap pin")
@@ -59,7 +58,7 @@ func (a application) bootstrapWithFetcher(ctx context.Context, args []string, fe
 	if err != nil {
 		return 0, err
 	}
-	if _, err = policy.Parse(result.Bytes, destination); err != nil {
+	if _, err = a.resolvePolicyBytes(ctx, result.Bytes, destination); err != nil {
 		return 0, err
 	}
 	if err = platform.CreateProtectedExclusive(destination, result.Bytes); err != nil {
@@ -97,12 +96,12 @@ func configPathDefault() string {
 	return "cquay.json"
 }
 
-func (a application) validateLocalBootstrap(destination string) (int, error) {
-	configuration, err := policy.Load(destination)
+func (a application) validateLocalBootstrap(ctx context.Context, destination string) (int, error) {
+	policy, err := a.loadPolicy(ctx, destination)
 	if err != nil {
 		return 0, err
 	}
-	return a.print(map[string]any{"state": "validated", "source": "local", "policy": destination, "version": configuration.Version})
+	return a.print(map[string]any{"state": "validated", "source": "local", "policy": destination, "version": policy.Version})
 }
 
 func prepareBootstrapDestination(destination string) error {

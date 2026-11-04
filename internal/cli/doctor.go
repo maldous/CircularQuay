@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"io"
 	"os"
@@ -15,7 +16,7 @@ import (
 
 // doctor reports local declaration and executable readiness without invoking a
 // provider, reading credential contents, or changing service configuration.
-func (a application) doctor(args []string) (int, error) {
+func (a application) doctor(ctx context.Context, args []string, loaded ...model.Policy) (int, error) {
 	flags := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	fix := flags.Bool("fix", false, "normalize a protected JSON config")
@@ -28,10 +29,10 @@ func (a application) doctor(args []string) (int, error) {
 		report.Config = "not_checked"
 		return a.print(report)
 	}
-	return a.doctorReadiness(&report, *fix)
+	return a.doctorReadiness(ctx, &report, *fix, loaded)
 }
 
-func (a application) doctorReadiness(report *doctorReport, fix bool) (int, error) {
+func (a application) doctorReadiness(ctx context.Context, report *doctorReport, fix bool, loaded []model.Policy) (int, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, "policy path")
@@ -40,12 +41,12 @@ func (a application) doctorReadiness(report *doctorReport, fix bool) (int, error
 		report.Config, report.Fix = "missing_default", "not_applicable"
 		return printDoctor(a, *report, 1)
 	}
-	policy, err := a.load()
+	policy, err := a.recoveryPolicy(ctx, loaded)
 	if err != nil {
 		return 0, err
 	}
 	report.Config, report.Dependencies = "valid", declaredDependencies(policy)
-	report.Fix, err = a.doctorFormatting(fix)
+	report.Fix, err = a.doctorFormatting(ctx, fix)
 	if err != nil {
 		return 0, err
 	}
@@ -55,11 +56,21 @@ func (a application) doctorReadiness(report *doctorReport, fix bool) (int, error
 	return printDoctor(a, *report, 1)
 }
 
-func (a application) doctorFormatting(fix bool) (string, error) {
+func (a application) recoveryPolicy(ctx context.Context, loaded []model.Policy) (model.Policy, error) {
+	if len(loaded) == 1 {
+		return loaded[0], nil
+	}
+	if len(loaded) != 0 {
+		return model.Policy{}, fault.New(fault.Invalid, "policy snapshot")
+	}
+	return a.loadPolicy(ctx, a.config)
+}
+
+func (a application) doctorFormatting(ctx context.Context, fix bool) (string, error) {
 	if !fix {
 		return "not_requested", nil
 	}
-	changed, err := a.formatConfig()
+	changed, err := a.formatConfigContext(ctx)
 	if err != nil {
 		return "", err
 	}

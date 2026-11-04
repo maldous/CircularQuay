@@ -32,9 +32,16 @@ func Validate(policy model.Policy) error {
 	if err := validatePolicyWorkloads(policy); err != nil {
 		return err
 	}
+	if err := validateConfigurationGuard(policy); err != nil {
+		return err
+	}
 	if err := validatePathOwnership(policy); err != nil {
 		return err
 	}
+	return validatePolicyControls(policy)
+}
+
+func validatePolicyControls(policy model.Policy) error {
 	if err := validateObservability(policy.Observability); err != nil {
 		return err
 	}
@@ -48,7 +55,7 @@ func Validate(policy model.Policy) error {
 }
 
 func validPolicyStructure(policy model.Policy) bool {
-	return policy.Version == 1 && len(policy.Sources) > 0 && len(policy.Workloads) > 0
+	return policy.Version == 1 && policy.Composition == nil && len(policy.Sources) > 0 && len(policy.Workloads) > 0
 }
 
 func validatePolicySources(sources map[string]model.Source) error {
@@ -424,6 +431,7 @@ func validSHA256(value string) bool {
 
 func validateBootstrapSeparation(policy model.Policy) error {
 	paths := make(map[string]bool)
+	rememberConfigurationInputs(paths, policy.ConfigurationGuard)
 	rememberPath(paths, policy.Repository.TokenFile)
 	rememberPath(paths, policy.Repository.AllowedSignersFile)
 	for _, path := range operationalProtectedReferences(policy) {
@@ -445,6 +453,15 @@ func validateBootstrapSeparation(policy model.Policy) error {
 		}
 	}
 	return nil
+}
+
+func rememberConfigurationInputs(paths map[string]bool, guard *model.ConfigurationGuard) {
+	if guard == nil {
+		return
+	}
+	for _, path := range guard.Inputs {
+		rememberPath(paths, path)
+	}
 }
 
 func rememberPath(paths map[string]bool, path string) {

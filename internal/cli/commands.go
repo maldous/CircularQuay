@@ -61,11 +61,7 @@ func writeNew(path string, data []byte) error {
 	return platform.CreateProtectedExclusive(path, data)
 }
 
-func (a application) plan() (int, error) {
-	p, err := a.load()
-	if err != nil {
-		return 0, err
-	}
+func (a application) plan(p model.Policy) (int, error) {
 	type entry struct {
 		ID       string `json:"id"`
 		Mode     string `json:"mode"`
@@ -94,17 +90,13 @@ func workloadFlags(command string, args []string) (string, string, []string, err
 	return *id, *target, f.Args(), nil
 }
 
-func (a application) status(args []string) (int, error) {
+func (a application) status(args []string, p model.Policy) (int, error) {
 	f := flag.NewFlagSet("status", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	id := f.String("workload", "", "workload ID")
 	_ = f.Bool("json", false, "JSON output")
 	if f.Parse(args) != nil || *id == "" || f.NArg() != 0 {
 		return 0, fault.New(fault.Invalid, "status arguments")
-	}
-	p, err := a.load()
-	if err != nil {
-		return 0, err
 	}
 	if _, ok := p.Workloads[*id]; !ok {
 		return 0, fault.New(fault.Invalid, "workload")
@@ -120,14 +112,18 @@ func (a application) status(args []string) (int, error) {
 	return a.print(r)
 }
 
-func (a application) workloadCommand(ctx context.Context, args []string) (code int, err error) {
+func (a application) workloadCommand(ctx context.Context, args []string, loaded ...model.Policy) (code int, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseWorkload, ProviderKind: "native"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
+	p, err := a.commandPolicy(ctx, loaded)
+	if err != nil {
+		return 0, err
+	}
 	request, err := parseWorkloadRequest(args)
 	if err != nil {
 		return 0, err
 	}
-	request, workload, engine, err := a.prepareWorkloadCommand(request)
+	request, workload, engine, err := a.prepareWorkloadCommand(p, request)
 	if err != nil {
 		return 0, err
 	}
@@ -154,6 +150,16 @@ func (a application) workloadCommand(ctx context.Context, args []string) (code i
 	return a.completeWorkloadCommand(ctx, request, workload, engine, g)
 }
 
+func (a application) commandPolicy(ctx context.Context, loaded []model.Policy) (model.Policy, error) {
+	if len(loaded) == 1 {
+		return loaded[0], nil
+	}
+	if len(loaded) != 0 {
+		return model.Policy{}, fault.New(fault.Invalid, "policy snapshot")
+	}
+	return a.preflightOperationalPolicy(ctx)
+}
+
 type workloadRequest struct {
 	command  string
 	id       string
@@ -177,11 +183,7 @@ func parseWorkloadRequest(args []string) (workloadRequest, error) {
 	return workloadRequest{command: command, id: id, target: target, override: override}, nil
 }
 
-func (a application) prepareWorkloadCommand(request workloadRequest) (workloadRequest, model.Workload, *resolve.Engine, error) {
-	p, err := a.load()
-	if err != nil {
-		return request, model.Workload{}, nil, err
-	}
+func (a application) prepareWorkloadCommand(p model.Policy, request workloadRequest) (workloadRequest, model.Workload, *resolve.Engine, error) {
 	workload, ok := p.Workloads[request.id]
 	if !ok {
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "workload")
@@ -190,6 +192,7 @@ func (a application) prepareWorkloadCommand(request workloadRequest) (workloadRe
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "explicit target required")
 	}
 	if request.command == "apply" || request.command == "sync" {
+		var err error
 		request.targets, err = selectedTargets(workload, request.target)
 		if err != nil {
 			return request, model.Workload{}, nil, err

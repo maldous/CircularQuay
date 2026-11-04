@@ -14,6 +14,9 @@ const configLockDirectory = ".cquay-config-lock"
 // validatePathOwnership prevents one policy-owned writer from replacing another
 // local input or writer. It operates on canonical paths after Load binds paths.
 func validatePathOwnership(policy model.Policy) error {
+	if err := validateTrustStoreLocations(policy, ""); err != nil {
+		return err
+	}
 	return validatePathOwnershipWithPolicyFile(policy, "")
 }
 
@@ -31,19 +34,69 @@ func validatePolicyFileOwnership(policy model.Policy, policyFile string) error {
 // repository content. A signed repository must not be able to replace a root
 // bundle after the local policy has selected it.
 func validateTrustStoreLocations(policy model.Policy, policyFile string) error {
+	if err := validateTrustCredentialSeparation(policy); err != nil {
+		return err
+	}
 	policyPath := canonicalPath(policyFile)
 	repository := canonicalPath(policy.Repository.Directory)
 	for _, authority := range policy.MCP.Authorities {
-		if protectedReferenceInMutableLocation(authority.TrustStoreFile, policyPath, repository) {
+		if protectedReferenceInMutableLocation(authority.TrustStoreFile, policyPath, repository) || configurationOwnsReference(policy.ConfigurationGuard, authority.TrustStoreFile) {
 			return invalid("identity_trust_store_path")
 		}
 	}
 	for _, reference := range operationalProtectedReferences(policy) {
-		if protectedReferenceInMutableLocation(reference, policyPath, repository) {
+		if protectedReferenceInMutableLocation(reference, policyPath, repository) || configurationOwnsReference(policy.ConfigurationGuard, reference) {
 			return invalid("operational_protected_path")
 		}
 	}
 	return nil
+}
+
+// Trust anchors and bootstrap secrets have distinct custody and parsers. Sharing
+// a pathname would let credential rotation also replace verification authority.
+func validateTrustCredentialSeparation(policy model.Policy) error {
+	credentials := credentialPaths(policy)
+	for _, reference := range trustStorePaths(policy) {
+		if path := canonicalPath(reference); path != "" && credentials[path] {
+			return invalid("trust_store_credential_path")
+		}
+	}
+	return nil
+}
+
+func trustStorePaths(policy model.Policy) []string {
+	var paths []string
+	for _, authority := range policy.MCP.Authorities {
+		paths = append(paths, authority.TrustStoreFile)
+	}
+	if policy.Observability != nil {
+		paths = append(paths, policy.Observability.TrustStoreFile)
+	}
+	if policy.Updates != nil {
+		paths = append(paths, policy.Updates.TrustStoreFile)
+	}
+	return paths
+}
+
+func credentialPaths(policy model.Policy) map[string]bool {
+	paths := map[string]bool{canonicalPath(policy.Repository.TokenFile): true}
+	for _, source := range policy.Sources {
+		paths[canonicalPath(source.TokenFile)] = true
+		paths[canonicalPath(source.AgeIdentityFile)] = true
+	}
+	for _, workload := range policy.Workloads {
+		paths[canonicalPath(workload.Snapshot.IdentityFile)] = true
+		for _, target := range workload.Targets {
+			paths[canonicalPath(target.TokenFile)] = true
+		}
+	}
+	if policy.Observability != nil {
+		paths[canonicalPath(policy.Observability.TokenFile)] = true
+	}
+	if policy.Updates != nil {
+		paths[canonicalPath(policy.Updates.TokenFile)] = true
+	}
+	return paths
 }
 
 func protectedReferenceInMutableLocation(path, policyPath, repository string) bool {
@@ -78,6 +131,10 @@ func rejectReservedMetadataPaths(paths []string, reserved string) error {
 
 func policyLocalPaths(policy model.Policy) []string {
 	paths := []string{policy.Repository.Directory, policy.Repository.AllowedSignersFile, policy.Repository.TokenFile, policy.MCP.AuditPath}
+	if policy.ConfigurationGuard != nil {
+		paths = append(paths, policy.ConfigurationGuard.Inputs...)
+		paths = append(paths, policy.ConfigurationGuard.ReadOnlyRoots...)
+	}
 	paths = append(paths, operationalProtectedReferences(policy)...)
 	for _, authority := range policy.MCP.Authorities {
 		paths = append(paths, authority.TrustStoreFile)
@@ -97,6 +154,9 @@ func policyLocalPaths(policy model.Policy) []string {
 
 func validatePathOwnershipWithPolicyFile(policy model.Policy, policyFile string) error {
 	owners := pathOwners{inputs: make(map[string]bool), writers: make(map[string]bool), remote: make(map[string]bool), repository: canonicalPath(policy.Repository.Directory)}
+	if policy.ConfigurationGuard != nil {
+		owners.readOnlyRoots = policy.ConfigurationGuard.ReadOnlyRoots
+	}
 	owners.addPolicyInputs(policy)
 	owners.addInput(policyFile)
 	if err := owners.addWriter(policy.MCP.AuditPath); err != nil {
@@ -113,9 +173,15 @@ func validatePathOwnershipWithPolicyFile(policy model.Policy, policyFile string)
 type pathOwners struct {
 	inputs, writers, remote map[string]bool
 	repository              string
+	readOnlyRoots           []string
 }
 
 func (owners *pathOwners) addPolicyInputs(policy model.Policy) {
+	if policy.ConfigurationGuard != nil {
+		for _, path := range policy.ConfigurationGuard.Inputs {
+			owners.addInput(path)
+		}
+	}
 	owners.addInput(policy.Repository.AllowedSignersFile)
 	owners.addInput(policy.Repository.TokenFile)
 	for _, path := range operationalProtectedReferences(policy) {
@@ -190,7 +256,7 @@ func (owners *pathOwners) addWriter(path string) error {
 	if canonical == "" {
 		return nil
 	}
-	if owners.inputs[canonical] || owners.writers[canonical] || withinPath(owners.repository, canonical) {
+	if owners.inputs[canonical] || owners.writers[canonical] || withinPath(owners.repository, canonical) || insideAnyRoot(owners.readOnlyRoots, canonical) {
 		return invalid("path_ownership")
 	}
 	owners.writers[canonical] = true

@@ -11,7 +11,6 @@ import (
 	"github.com/maldous/CircularQuay/internal/bootstrap"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/platform"
-	"github.com/maldous/CircularQuay/internal/policy"
 )
 
 const (
@@ -103,7 +102,7 @@ func (a application) flowRemote(ctx context.Context, options flowOptions, runner
 		return 0, err
 	}
 	config := filepath.Join(directory, temporaryFlowPolicy)
-	if _, err = policy.Parse(result.Bytes, config); err != nil {
+	if _, err = a.resolvePolicyBytes(ctx, result.Bytes, config); err != nil {
 		return 0, err
 	}
 	if err = platform.CreateProtectedExclusive(config, result.Bytes); err != nil {
@@ -135,7 +134,7 @@ func fetchFlowPolicy(ctx context.Context, source bootstrapOptions, fetch bootstr
 }
 
 func (a application) flowLocal(ctx context.Context, workload string, runner ciRunner, sourceKind, ref, digest string) (int, error) {
-	p, err := a.preflightOperationalPolicy()
+	p, err := a.preflightOperationalPolicy(ctx)
 	if err != nil {
 		return 0, err
 	}

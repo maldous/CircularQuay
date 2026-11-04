@@ -140,6 +140,46 @@ func TestConfigCommandsDoNotReadDeclaredSources(t *testing.T) {
 	}
 }
 
+func TestConfigReadOnlyCommandsExposeOnlyTheRootMaster(t *testing.T) {
+	directory := privateCLIDirectory(t)
+	config := filepath.Join(directory, "policy.json")
+	master := map[string]any{
+		"version": 1,
+		"sources": map[string]any{
+			"root": map[string]any{"type": "json", "path": "root.json"},
+		},
+		"workloads": map[string]any{
+			"demo": map[string]any{"mode": "offline", "bindings": []any{map[string]any{"name": "VALUE", "source": "root", "field": "VALUE", "allow_offline": true}}},
+		},
+		"composition": map[string]any{
+			"conflicts": "reject",
+			"includes": []any{map[string]any{
+				"id": "personal", "namespace": "personal", "sha256": strings.Repeat("a", 64),
+				"file": "missing-personal-fragment.json", "base_directory": directory, "visibility": "local",
+			}},
+		},
+	}
+	data, err := json.Marshal(master)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProtectedFixture(t, config, data)
+
+	listed := runConfig(t, config, nil, "config", "list", "--pointer", "/sources")
+	var response struct {
+		Entries []string `json:"entries"`
+	}
+	if err = json.Unmarshal(listed, &response); err != nil || strings.Join(response.Entries, ",") != "root" {
+		t.Fatalf("root source declarations = %s", listed)
+	}
+
+	original, digest := configSnapshot(t, config)
+	assertConfigFailure(t, config, nil, "config", "validate")
+	assertConfigSnapshotUnchanged(t, config, original, digest)
+	assertConfigFailure(t, config, nil, "config", "set", "--pointer", "/sources/root/path", "--value-json", `"changed.json"`)
+	assertConfigSnapshotUnchanged(t, config, original, digest)
+}
+
 func TestConfigRejectsDuplicateOrOversizedInput(t *testing.T) {
 	config := configFixture(t)
 	assertConfigFailure(t, config, nil, "config", "set", "--pointer", "/version", "--value-json", `1`+string(make([]byte, 1<<20)))

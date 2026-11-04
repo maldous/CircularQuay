@@ -13,6 +13,10 @@ type Policy struct {
 	Repository    Repository          `json:"repository,omitempty" yaml:"repository,omitempty"`
 	Observability *Observability      `json:"observability,omitempty" yaml:"observability,omitempty"`
 	Updates       *Updates            `json:"updates,omitempty" yaml:"updates,omitempty"`
+	Composition   *Composition        `json:"composition,omitempty" yaml:"composition,omitempty"`
+	// ConfigurationGuard is populated only by the trusted composition resolver.
+	// Serialized configuration cannot manufacture these resolved boundaries.
+	ConfigurationGuard *ConfigurationGuard `json:"-" yaml:"-"`
 }
 
 // Observability configures explicit, bounded OpenTelemetry Protocol export.

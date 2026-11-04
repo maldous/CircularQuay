@@ -70,6 +70,20 @@ func TestBootstrapRejectsUnsafeMaterializationBeforeWrite(t *testing.T) {
 	}
 }
 
+func TestBootstrapRejectsRootMinimumBeforeMaterialization(t *testing.T) {
+	directory := privateCLIDirectory(t)
+	output := filepath.Join(directory, "minimum.json")
+	app := application{config: filepath.Join(directory, "default.json"), runner: Runner{Out: &bytes.Buffer{}}}
+	policy := []byte(`{"version":1,"sources":{"fixture":{"type":"json","path":"values.json"}},"workloads":{"demo":{"mode":"offline","bindings":[{"name":"DEMO","source":"fixture","field":"value","allow_offline":true}]}},"updates":{"check":"never","minimum_version":"v999.0.0"}}`)
+	_, err := app.bootstrapWithFetcher(context.Background(), append(pinnedBootstrapArgs(), "--output", output), func(context.Context, bootstrap.Request) (bootstrap.Result, error) {
+		return bootstrap.Result{Bytes: policy}, nil
+	})
+	if !fault.Is(err, fault.Denied) {
+		t.Fatalf("root minimum bootstrap error = %v", err)
+	}
+	assertBootstrapAbsent(t, output)
+}
+
 type bootstrapRejectionCase struct {
 	name         string
 	args         []string

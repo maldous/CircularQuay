@@ -47,6 +47,31 @@ func Load(path string) (model.Policy, error) {
 // the supplied configuration directory, so callers can validate an atomic
 // replacement before exposing it at that path.
 func Parse(data []byte, configPath string) (model.Policy, error) {
+	result, err := DecodeDocument(data, configPath)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if result.Composition != nil {
+		return model.Policy{}, fault.New(fault.Unsupported, "policy_composition_requires_resolution")
+	}
+	path, err := filepath.Abs(configPath)
+	if err != nil {
+		return model.Policy{}, fault.New(fault.Invalid, "policy_location")
+	}
+	if err = validatePolicyFileOwnership(result, path); err != nil {
+		return model.Policy{}, err
+	}
+	if err = Validate(result); err != nil {
+		return model.Policy{}, err
+	}
+	return result, nil
+}
+
+// DecodeDocument strictly decodes one bounded declaration and binds its file
+// references. It performs no I/O or final semantic validation. A composition
+// resolver must validate the complete candidate before returning a usable
+// policy; callers must not execute this intermediate document.
+func DecodeDocument(data []byte, configPath string) (model.Policy, error) {
 	if len(data) > maximumPolicyBytes {
 		return model.Policy{}, fault.New(fault.Invalid, "policy_size")
 	}
@@ -59,13 +84,22 @@ func Parse(data []byte, configPath string) (model.Policy, error) {
 		return model.Policy{}, err
 	}
 	bindPaths(&result, filepath.Dir(path))
-	if err = validatePolicyFileOwnership(result, path); err != nil {
-		return model.Policy{}, err
-	}
-	if err = Validate(result); err != nil {
-		return model.Policy{}, err
-	}
 	return result, nil
+}
+
+// ValidateResolvedReferences checks the protected references and writer/input
+// ownership of an already compiled policy before a loader exposes it.
+func ValidateResolvedReferences(result model.Policy, configPath string) error {
+	if err := Validate(result); err != nil {
+		return err
+	}
+	if err := validatePolicyFileOwnership(result, configPath); err != nil {
+		return err
+	}
+	if err := ValidateLoadedTrustStores(result.MCP); err != nil {
+		return err
+	}
+	return ValidateLoadedOperationalReferences(result)
 }
 
 func readPolicy(path string) ([]byte, error) {
@@ -189,6 +223,7 @@ func safeYAML(node *yaml.Node, depth int) bool {
 }
 
 func bindPaths(policy *model.Policy, base string) {
+	bindCompositionPaths(policy.Composition, base)
 	bindRepositoryPaths(&policy.Repository, base)
 	for name, source := range policy.Sources {
 		bindSourcePaths(&source, base)
@@ -199,6 +234,20 @@ func bindPaths(policy *model.Policy, base string) {
 		policy.Workloads[name] = workload
 	}
 	policy.MCP.AuditPath = absolutePath(base, policy.MCP.AuditPath)
+}
+
+func bindCompositionPaths(composition *model.Composition, base string) {
+	if composition == nil {
+		return
+	}
+	for index := range composition.Includes {
+		include := &composition.Includes[index]
+		include.File = absolutePath(base, include.File)
+		include.BaseDirectory = absolutePath(base, include.BaseDirectory)
+		if include.Repository != nil {
+			bindRepositoryPaths(include.Repository, base)
+		}
+	}
 }
 
 func bindRepositoryPaths(repository *model.Repository, base string) {

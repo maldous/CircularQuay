@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/maldous/CircularQuay/internal/configuration"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/observability"
-	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/source"
 	"github.com/maldous/CircularQuay/internal/state"
@@ -140,10 +140,17 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 }
 
 func (a application) dispatchConfigured(ctx context.Context, args []string) (int, error) {
-	if args[0] == "init" || args[0] == "config" || args[0] == "doctor" || args[0] == "update" {
-		return a.dispatchConfiguredRuntime(ctx, args)
+	switch args[0] {
+	case "init":
+		return a.initialize(args[1:])
+	case "config":
+		return a.configCommand(ctx, args[1:])
+	case "doctor":
+		return a.doctor(ctx, args[1:])
+	case "update":
+		return a.updateCommand(ctx, args[1:])
 	}
-	p, err := a.preflightOperationalPolicy()
+	p, err := a.preflightOperationalPolicy(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -153,8 +160,8 @@ func (a application) dispatchConfigured(ctx context.Context, args []string) (int
 // preflightOperationalPolicy loads the selected policy and applies its local
 // runtime floor before any operational receipt, telemetry credential, provider
 // credential, repository, child-process, or workload effect.
-func (a application) preflightOperationalPolicy() (model.Policy, error) {
-	p, err := a.load()
+func (a application) preflightOperationalPolicy(ctx context.Context) (model.Policy, error) {
+	p, err := a.loadContext(ctx)
 	if err != nil {
 		return model.Policy{}, err
 	}
@@ -179,33 +186,29 @@ func (a application) dispatchLoadedOperationalPolicy(ctx context.Context, args [
 	if err := a.checkUpdates(ctx, args[0], p.Updates); err != nil {
 		return 0, err
 	}
-	return a.dispatchWithObservability(ctx, args)
+	return a.dispatchWithObservability(ctx, args, p)
 }
 
-func (a application) dispatchWithObservability(ctx context.Context, args []string) (code int, err error) {
+func (a application) dispatchWithObservability(ctx context.Context, args []string, p model.Policy) (code int, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseCLI, ProviderKind: "none"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
-	return a.dispatchConfiguredRuntime(ctx, args)
+	return a.dispatchLoadedRuntime(ctx, args, p)
 }
 
-func (a application) dispatchConfiguredRuntime(ctx context.Context, args []string) (int, error) {
+func (a application) dispatchLoadedRuntime(ctx context.Context, args []string, p model.Policy) (int, error) {
 	switch args[0] {
-	case "init":
-		return a.initialize(args[1:])
 	case "doctor":
-		return a.doctor(args[1:])
-	case "config":
-		return a.configCommand(args[1:])
+		return a.doctor(ctx, args[1:], p)
 	case "plan":
-		return a.plan()
+		return a.plan(p)
 	case "update":
-		return a.updateCommand(ctx, args[1:])
+		return a.updateCommand(ctx, args[1:], p)
 	case "status":
-		return a.status(args[1:])
+		return a.status(args[1:], p)
 	case "run", "sync", "snapshot", "apply":
-		return a.workloadCommand(ctx, args)
+		return a.workloadCommand(ctx, args, p)
 	case "mcp":
-		return a.serveMCP(ctx, args[1:])
+		return a.serveMCP(ctx, args[1:], p)
 	default:
 		return 0, fault.New(fault.Invalid, "command")
 	}
@@ -230,12 +233,82 @@ func (a application) print(value any) (int, error) {
 	return 0, nil
 }
 
+// load retains the context-free MCP callback contract. Operational commands
+// call loadContext with their caller's cancellation instead.
 func (a application) load() (model.Policy, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return a.loadContext(ctx)
+}
+
+func (a application) loadContext(ctx context.Context) (model.Policy, error) {
 	p, err := filepath.Abs(a.config)
 	if err != nil {
 		return model.Policy{}, fault.New(fault.Invalid, "policy path")
 	}
-	return policy.Load(p)
+	return a.loadPolicy(ctx, p)
+}
+
+// loadPolicy admits the protected root declaration before it permits the
+// resolver to access an explicitly enrolled repository. The root and final
+// resolved policy each carry a minimum-version floor: both must hold.
+func (a application) loadPolicy(ctx context.Context, path string) (model.Policy, error) {
+	data, absolute, root, err := a.readRootPolicy(ctx, path)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err = enforceMinimumVersion(root, a.version()); err != nil {
+		return model.Policy{}, err
+	}
+	return a.resolveParsedPolicy(ctx, data, absolute)
+}
+
+func (a application) resolvePolicyBytes(ctx context.Context, data []byte, path string) (model.Policy, error) {
+	if err := ctx.Err(); err != nil {
+		return model.Policy{}, fault.New(fault.Unavailable, "configuration cancelled")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return model.Policy{}, fault.New(fault.Invalid, "policy path")
+	}
+	root, err := configuration.ReadRoot(data, absolute)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err = enforceMinimumVersion(root, a.version()); err != nil {
+		return model.Policy{}, err
+	}
+	return a.resolveParsedPolicy(ctx, data, absolute)
+}
+
+func (a application) readRootPolicy(ctx context.Context, path string) ([]byte, string, model.Policy, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, "", model.Policy{}, fault.New(fault.Unavailable, "configuration cancelled")
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, "", model.Policy{}, fault.New(fault.Invalid, "policy path")
+	}
+	data, err := platform.ReadProtected(absolute, false)
+	if err != nil || len(data) > maximumConfigInput {
+		return nil, "", model.Policy{}, fault.New(fault.Trust, "policy file")
+	}
+	root, err := configuration.ReadRoot(data, absolute)
+	if err != nil {
+		return nil, "", model.Policy{}, err
+	}
+	return data, absolute, root, nil
+}
+
+func (a application) resolveParsedPolicy(ctx context.Context, data []byte, path string) (model.Policy, error) {
+	result, err := configuration.Parse(ctx, data, path)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err = enforceMinimumVersion(result.Policy, a.version()); err != nil {
+		return model.Policy{}, err
+	}
+	return result.Policy, nil
 }
 
 func (a application) store() (state.Store, error) {

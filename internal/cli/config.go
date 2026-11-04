@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,11 +12,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/maldous/CircularQuay/internal/configuration"
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/platform"
-	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
@@ -31,16 +33,21 @@ const (
 	errorConfigChanged = "config changed"
 )
 
-// configCommand edits declarations only. It never contacts a provider or reads
-// values from a configured source; validation is deliberately local and
-// transactional so an invalid edit cannot replace the active declaration.
-func (a application) configCommand(args []string) (int, error) {
+// configCommand edits root declarations only. It never contacts a provider or
+// reads configured values. Validation resolves only explicitly enrolled,
+// pinned configuration fragments before an atomic replacement is permitted.
+func (a application) configCommand(ctx context.Context, args []string) (int, error) {
 	if len(args) == 0 {
 		return 0, fault.New(fault.Invalid, "config command")
 	}
 	handlers := map[string]func([]string) (int, error){
-		"init": a.initialize, "validate": a.configValidate, "get": a.configGet,
-		"list": a.configList, "set": a.configSet, "delete": a.configDelete, "replace": a.configReplace,
+		"init":     a.initialize,
+		"validate": func(arguments []string) (int, error) { return a.configValidate(ctx, arguments) },
+		"get":      a.configGet,
+		"list":     a.configList,
+		"set":      func(arguments []string) (int, error) { return a.configSet(ctx, arguments) },
+		"delete":   func(arguments []string) (int, error) { return a.configDelete(ctx, arguments) },
+		"replace":  func(arguments []string) (int, error) { return a.configReplace(ctx, arguments) },
 	}
 	handler, found := handlers[args[0]]
 	if !found {
@@ -49,11 +56,11 @@ func (a application) configCommand(args []string) (int, error) {
 	return handler(args[1:])
 }
 
-func (a application) configValidate(args []string) (int, error) {
+func (a application) configValidate(ctx context.Context, args []string) (int, error) {
 	if len(args) != 0 {
 		return 0, fault.New(fault.Invalid, "config validate arguments")
 	}
-	if _, _, err := a.readConfigDocument(); err != nil {
+	if _, err := a.loadContext(ctx); err != nil {
 		return 0, err
 	}
 	return a.print(map[string]bool{"valid": true})
@@ -114,7 +121,7 @@ func (a application) configList(args []string) (int, error) {
 	return a.print(map[string]any{"entries": entries, "pointer": pointer, "sha256": digest})
 }
 
-func (a application) configSet(args []string) (int, error) {
+func (a application) configSet(ctx context.Context, args []string) (int, error) {
 	f, pointer, valueJSON, valueFile, expected, err := configFlags("config set", args)
 	if err != nil {
 		return 0, err
@@ -126,10 +133,10 @@ func (a application) configSet(args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return a.mutateConfig(expected, false, false, func(document *any) error { return jsonPointerSet(document, pointer, value) })
+	return a.mutateConfig(ctx, expected, false, false, func(document *any) error { return jsonPointerSet(document, pointer, value) })
 }
 
-func (a application) configDelete(args []string) (int, error) {
+func (a application) configDelete(ctx context.Context, args []string) (int, error) {
 	f, pointer, _, _, expected, err := configFlags("config delete", args)
 	if err != nil {
 		return 0, err
@@ -137,10 +144,10 @@ func (a application) configDelete(args []string) (int, error) {
 	if flagWasSet(f, flagValueJSON) || flagWasSet(f, flagValueFile) || !flagWasSet(f, flagPointer) {
 		return 0, fault.New(fault.Invalid, "config delete arguments")
 	}
-	return a.mutateConfig(expected, false, false, func(document *any) error { return jsonPointerDelete(document, pointer) })
+	return a.mutateConfig(ctx, expected, false, false, func(document *any) error { return jsonPointerDelete(document, pointer) })
 }
 
-func (a application) configReplace(args []string) (int, error) {
+func (a application) configReplace(ctx context.Context, args []string) (int, error) {
 	f := flag.NewFlagSet("config replace", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	file := f.String("file", "", "complete JSON policy file or - for stdin")
@@ -156,7 +163,7 @@ func (a application) configReplace(args []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return a.mutateConfig(*expected, true, true, func(document *any) error { *document = value; return nil })
+	return a.mutateConfig(ctx, *expected, true, true, func(document *any) error { *document = value; return nil })
 }
 
 func (a application) configValue(valueJSON, valueFile string, hasJSON, hasFile bool) (any, error) {
@@ -235,13 +242,13 @@ func (a application) readConfigDocument() (any, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if _, err = policy.Parse(data, path); err != nil {
+	if _, err = configuration.ReadRoot(data, path); err != nil {
 		return nil, "", err
 	}
 	return value, configDigest(data), nil
 }
 
-func (a application) mutateConfig(expected string, create, repair bool, mutate func(*any) error) (int, error) {
+func (a application) mutateConfig(ctx context.Context, expected string, create, repair bool, mutate func(*any) error) (int, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, errorConfigPath)
@@ -261,11 +268,14 @@ func (a application) mutateConfig(expected string, create, repair bool, mutate f
 	if err = mutate(&document); err != nil {
 		return 0, err
 	}
-	data, err := marshalConfigCandidate(document, path)
+	data, err := a.marshalConfigCandidate(ctx, document, path)
 	if err != nil {
 		return 0, err
 	}
 	if err = a.ensureConfigUnchanged(path, digest, repair); err != nil {
+		return 0, err
+	}
+	if err = configurationWriteContext(ctx); err != nil {
 		return 0, err
 	}
 	if err = platform.WriteProtected(path, data); err != nil {
@@ -316,13 +326,13 @@ func validateExpectedDigest(expected, digest string) error {
 	return nil
 }
 
-func marshalConfigCandidate(document any, path string) ([]byte, error) {
+func (a application) marshalConfigCandidate(ctx context.Context, document any, path string) ([]byte, error) {
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil || len(data) > maximumConfigInput {
 		return nil, fault.New(fault.Invalid, "config document")
 	}
 	data = append(data, '\n')
-	if _, err = policy.Parse(data, path); err != nil {
+	if _, err = a.resolvePolicyBytes(ctx, data, path); err != nil {
 		return nil, err
 	}
 	return data, nil
@@ -566,6 +576,12 @@ func canonicalPointerIndex(value string) bool {
 // formatConfig atomically rewrites an already-valid JSON declaration in the
 // canonical representation. It refuses YAML, missing, unsafe, and invalid files.
 func (a application) formatConfig() (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return a.formatConfigContext(ctx)
+}
+
+func (a application) formatConfigContext(ctx context.Context) (bool, error) {
 	path, err := filepath.Abs(a.config)
 	if err != nil {
 		return false, fault.New(fault.Invalid, errorConfigPath)
@@ -579,7 +595,7 @@ func (a application) formatConfig() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	data, err := marshalConfigCandidate(document, path)
+	data, err := a.marshalConfigCandidate(ctx, document, path)
 	if err != nil {
 		return false, err
 	}
@@ -590,8 +606,18 @@ func (a application) formatConfig() (bool, error) {
 	if bytes.Equal(current, data) {
 		return false, nil
 	}
+	if err = configurationWriteContext(ctx); err != nil {
+		return false, err
+	}
 	if err = platform.WriteProtected(path, data); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func configurationWriteContext(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return fault.New(fault.Unavailable, "configuration cancelled")
+	}
+	return nil
 }

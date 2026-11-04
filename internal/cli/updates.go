@@ -62,25 +62,45 @@ func minimumVersion(policy model.Policy) string {
 	return policy.Updates.MinimumVersion
 }
 
-func (a application) updateCommand(ctx context.Context, args []string) (int, error) {
+func (a application) updateCommand(ctx context.Context, args []string, loaded ...model.Policy) (int, error) {
 	if len(args) == 0 || args[0] != "check" {
 		return 0, fault.New(fault.Invalid, "update command")
 	}
-	return a.updateCheckCommand(ctx, args[1:])
+	policy, err := a.updatePolicy(ctx, loaded)
+	if err != nil {
+		return 0, err
+	}
+	return a.updateCheckCommand(ctx, args[1:], policy)
+}
+
+func (a application) updatePolicy(ctx context.Context, loaded []model.Policy) (model.Policy, error) {
+	if len(loaded) == 1 {
+		return loaded[0], nil
+	}
+	if len(loaded) != 0 {
+		return model.Policy{}, fault.New(fault.Invalid, "policy snapshot")
+	}
+	data, path, root, err := a.readRootPolicy(ctx, a.config)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err = enforceMinimumVersion(root, a.version()); err != nil {
+		// Update check is the recovery path for a below-floor executable. It
+		// deliberately uses root-owned update fields only and never resolves
+		// includes, so it cannot contact repository credentials first.
+		return root, nil
+	}
+	return a.resolveParsedPolicy(ctx, data, path)
 }
 
 // updateCheckCommand exposes the same bounded check as structured JSON. It
 // deliberately does not prompt, download, install, or execute software.
-func (a application) updateCheckCommand(ctx context.Context, args []string) (int, error) {
+func (a application) updateCheckCommand(ctx context.Context, args []string, policy model.Policy) (int, error) {
 	flags := flag.NewFlagSet("update check", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	jsonOutput := flags.Bool("json", true, "write structured JSON")
 	if flags.Parse(args) != nil || flags.NArg() != 0 || !*jsonOutput {
 		return 0, fault.New(fault.Invalid, "update check arguments")
-	}
-	policy, err := a.load()
-	if err != nil {
-		return 0, err
 	}
 	store, err := a.store()
 	if err != nil {

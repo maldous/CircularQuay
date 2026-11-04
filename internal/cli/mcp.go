@@ -21,12 +21,12 @@ import (
 	"github.com/maldous/CircularQuay/internal/resolve"
 )
 
-func (a application) serveMCP(ctx context.Context, args []string) (int, error) {
+func (a application) serveMCP(ctx context.Context, args []string, loaded ...model.Policy) (int, error) {
 	options, err := parseMCPServeOptions(args)
 	if err != nil {
 		return 0, err
 	}
-	p, err := a.load()
+	p, err := a.commandPolicy(ctx, loaded)
 	if err != nil {
 		return 0, err
 	}
@@ -181,7 +181,7 @@ func (b backend) authorized(ctx context.Context, id, op, key string) (model.Poli
 	if ctx.Err() != nil {
 		return model.Policy{}, fault.New(fault.Denied, "MCP request cancelled")
 	}
-	p, err := b.app.load()
+	p, err := b.app.loadContext(ctx)
 	if err != nil {
 		return model.Policy{}, err
 	}
