@@ -22,7 +22,54 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
-## Current test follow-up and retained failure
+## Completed 018fea hosted receipt
+
+Checkpoint `018fea744d8dfb959072e1e95047c966b80ea011` has tree
+`ebf49136ab6f5b248214e0353a7dae53a307a14d`; public readback verified
+all four changed files and all 273 working files. Source run `41742555776`
+passed native Linux/macOS/Windows, normal/race tests, vet, bounded fuzzing,
+both complexity checks, all 26 cross-builds and the stable aggregate. Synthetic
+merge `d6129d9648a41b37126016544d73f4d8c4bf2e89` has the same tree.
+The prior Azure-fixture compilation failure is closed by actual execution.
+
+The source auditor's unit tests, vet, probes, helper integrity and source fences
+passed. Coverage is its only required source-profile failure: 6,076/7,129
+statements (85.22934%), below 100%. Security run `41742555781` passed
+Staticcheck with all checks, govulncheck and CodeQL with zero annotations.
+Gosec `-nosec` still failed eight findings (G204 ×6, G103 ×2), zero
+suppressions. Retain `.local/qualification/ci-018fea7-native-cross.json`.
+No exact018 Sonar or managed security diff review is claimed. This is a
+bounded development receipt and does not qualify a release or production.
+
+## Cloud response identity follow-up
+
+The next source candidate binds returned provider identity before field
+selection or value release. AWS Secrets Manager and Parameter Store require
+the exact declared canonical ARN. Azure requires a non-nil response ID with
+the configured HTTPS origin, exact secret path and a nonempty version; DNS
+case and default port 443 are equivalent, while distinct IPv6 addresses and
+ports remain distinct. Ambiguous paths, encoded components, empty query or
+fragment delimiters and scoped hostnames fail closed. Azure source-origin
+validation also precedes credential selection and SDK construction.
+
+GCP now binds the returned project/secret base even without a pinned version,
+requires concrete version evidence and retains CRC and exact pinned-version
+checks. Partial ARN, project-ID/number or secret-name aliases are not inferred.
+This is response-integrity hardening of an authenticated provider boundary,
+not a demonstrated hostile-provider exploit or a claim that a provider cannot
+lie about its data. Canonicalization needs live-provider qualification before
+any broader alias support is claimed.
+
+Synthetic SDK/protobuf cases include positive neighbors, missing and substituted
+identities, URI ambiguity, both IPv6 address and port mismatch, GCP unpinned
+substitution and a pre-credential Azure rejection route. Existing version/CRC
+fixtures retain correct identity evidence so they still reach their intended
+boundaries. Pinned formatter parsing, root review and an independent source-only
+review are separate from execution. Exact-candidate hosted tests/static/native
+checks remain required; no local heavy test or scan is claimed. Retain
+`checkpoint28-transfer.json` and `checkpoint28-cloud-review.md`.
+
+## Retained dec332 test failure
 
 Published test-only checkpoint `dec332ad1e60cde1f1400e9eb87c08a49aaccd1e`
 has tree `d5f7546f14f42c39e4b65b11214f391993b33b06`; all four changed
@@ -334,7 +381,7 @@ qualification is claimed for this slice. GitHub-hosted CI can independently
 qualify a published candidate without consuming Foo build storage; Sonar and
 other Foo-heavy qualification remain subject to the capacity hold.
 
-The following test-only candidate guardedly imports two synthetic provider
+The earlier test-only candidate guardedly imports two synthetic provider
 contract suites from `/home/user/src/2026-11-04/circularquay-provider-contracts`.
 It exercises real AWS/Azure generated SDKs over memory transports and GCP
 response evidence after the identity boundary. Positive adjacent cases prove

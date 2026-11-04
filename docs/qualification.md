@@ -36,6 +36,24 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 018fea development receipt
+
+At `018fea744d8dfb959072e1e95047c966b80ea011` (tree
+`ebf49136ab6f5b248214e0353a7dae53a307a14d`),
+[source workflow 41742555776](https://github.com/maldous/CircularQuay/actions/runs/41742555776)
+passed native Linux/macOS/Windows, normal/race tests, vet, bounded fuzzing,
+both complexity checks, all 26 cross-builds and the aggregate check. Actual
+execution closes the preceding Azure-fixture compilation failure. The source
+auditor's unit tests, vet, helper/probe integrity and source identity passed;
+its only required failure is 6,076/7,129 statements (85.22934%) versus 100%.
+
+[Security workflow 41742555781](https://github.com/maldous/CircularQuay/actions/runs/41742555781)
+passed Staticcheck with all checks, govulncheck and CodeQL with zero
+annotations. Gosec `-nosec` failed eight findings (G204 ×6, G103 ×2), with
+zero suppressions. Synthetic merge `d6129d9648a41b37126016544d73f4d8c4bf2e89`
+has the same tree. Retain `.local/qualification/ci-018fea7-native-cross.json`.
+No exact018 Sonar, managed diff audit or production qualification is claimed.
+
 ## Exact dec332 development failure
 
 At `dec332ad1e60cde1f1400e9eb87c08a49aaccd1e` (tree

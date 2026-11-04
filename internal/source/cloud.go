@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -135,6 +137,9 @@ func awsSecretValue(ctx context.Context, client *secretsmanager.Client, s model.
 	if result.SecretString == nil {
 		return model.Value{}, fault.New(fault.Unsupported, "binary_secret")
 	}
+	if err := validateAWSReturnedARN(b, result.ARN); err != nil {
+		return model.Value{}, err
+	}
 	if err := validateAWSSecretVersion(b, result); err != nil {
 		return model.Value{}, err
 	}
@@ -143,6 +148,13 @@ func awsSecretValue(ctx context.Context, client *secretsmanager.Client, s model.
 		return model.Value{}, err
 	}
 	return model.Value{Data: data, Version: aws.ToString(result.VersionId), AuditVerified: s.AuditVerified}, nil
+}
+
+func validateAWSReturnedARN(b model.Binding, actual *string) error {
+	if actual == nil || *actual != b.Resource {
+		return fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	return nil
 }
 
 func validateAWSSecretVersion(b model.Binding, result *secretsmanager.GetSecretValueOutput) error {
@@ -185,6 +197,9 @@ func awsParameterValue(ctx context.Context, client *ssm.Client, s model.Source, 
 	}
 	if result.Parameter == nil || result.Parameter.Value == nil {
 		return model.Value{}, fault.New(fault.Missing, "source_value")
+	}
+	if err := validateAWSReturnedARN(b, result.Parameter.ARN); err != nil {
+		return model.Value{}, err
 	}
 	if err := validateAWSParameterVersion(b, result.Parameter); err != nil {
 		return model.Value{}, err
@@ -307,12 +322,8 @@ func (c tenantCredential) GetToken(ctx context.Context, opts azpolicy.TokenReque
 }
 
 func readAzure(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
-	u, err := transport.Endpoint(s.Endpoint)
-	if err != nil {
+	if _, err := azureOrigin(s.Endpoint); err != nil {
 		return model.Value{}, err
-	}
-	if u.Path != "" && u.Path != "/" {
-		return model.Value{}, fault.New(fault.Invalid, "azure_vault")
 	}
 	if strings.Contains(b.Resource, "/") {
 		return model.Value{}, fault.New(fault.Invalid, "azure_secret_name")
@@ -336,21 +347,74 @@ func azureSecretValue(ctx context.Context, client *azsecrets.Client, s model.Sou
 	if result.Value == nil {
 		return model.Value{}, fault.New(fault.Missing, "source_value")
 	}
+	version, err := validateAzureSecretIdentity(s, b, result.ID)
+	if err != nil {
+		return model.Value{}, err
+	}
+	if err = validateReturnedVersion(b, version); err != nil {
+		return model.Value{}, err
+	}
 	data, err := selectValue(*result.Value, b.Field)
 	if err != nil {
 		return model.Value{}, err
 	}
-	v := model.Value{Data: data, AuditVerified: s.AuditVerified}
-	if result.ID != nil {
-		v.Version = result.ID.Version()
-	}
-	if err = validateReturnedVersion(b, v.Version); err != nil {
-		return model.Value{}, err
-	}
+	v := model.Value{Data: data, Version: version, AuditVerified: s.AuditVerified}
 	if result.Attributes != nil && result.Attributes.Expires != nil {
 		v.ExpiresAt = *result.Attributes.Expires
 	}
 	return v, nil
+}
+
+func validateAzureSecretIdentity(s model.Source, b model.Binding, id *azsecrets.ID) (string, error) {
+	if id == nil {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	configured, err := azureOrigin(s.Endpoint)
+	if err != nil {
+		return "", err
+	}
+	returned, err := azureSecretURL(string(*id))
+	if err != nil || configured != azureURLOrigin(returned) {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	return azureSecretVersion(returned.Path, b.Resource)
+}
+
+func azureOrigin(raw string) (string, error) {
+	u, err := azureSecretURL(raw)
+	if err != nil || (u.Path != "" && u.Path != "/") {
+		return "", fault.New(fault.Trust, "provider_endpoint")
+	}
+	return azureURLOrigin(u), nil
+}
+
+func azureSecretURL(raw string) (*url.URL, error) {
+	u, err := transport.Endpoint(raw)
+	if err != nil || u.ForceQuery || strings.Contains(raw, "#") || u.RawPath != "" || u.EscapedPath() != u.Path || u.Hostname() == "" || strings.Contains(u.Hostname(), "%") {
+		return nil, fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	return u, nil
+}
+
+func azureURLOrigin(u *url.URL) string {
+	host := strings.ToLower(u.Hostname())
+	port := u.Port()
+	if port == "" {
+		port = "443"
+	}
+	return "https://" + net.JoinHostPort(host, port)
+}
+
+func azureSecretVersion(path, resource string) (string, error) {
+	prefix := "/secrets/" + resource + "/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	version := strings.TrimPrefix(path, prefix)
+	if version == "" || version == "." || version == ".." || strings.ContainsAny(version, "/\\\x00\r\n?#") {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	return version, nil
 }
 
 func gcpResource(s model.Source, b model.Binding) (string, error) {
@@ -405,17 +469,33 @@ func gcpSecretValue(result *secretmanagerpb.AccessSecretVersionResponse, s model
 	if !validCRC(result.Payload.Data, result.Payload.DataCrc32C) {
 		return model.Value{}, fault.New(fault.Trust, "gcp_payload_integrity")
 	}
+	version, err := validateGCPReturnedResource(s, b, result.Name)
+	if err != nil {
+		return model.Value{}, err
+	}
 	data, err := selectValue(string(result.Payload.Data), b.Field)
 	if err != nil {
 		return model.Value{}, err
 	}
-	if b.Version != "" {
-		expected, expectedErr := gcpResource(s, b)
-		if expectedErr != nil || result.Name != expected {
-			return model.Value{}, fault.New(fault.Trust, "source_version_mismatch")
-		}
+	return model.Value{Data: data, Version: b.Resource + "/versions/" + version, AuditVerified: s.AuditVerified}, nil
+}
+
+func validateGCPReturnedResource(s model.Source, b model.Binding, actual string) (string, error) {
+	if _, err := gcpResource(s, b); err != nil {
+		return "", err
 	}
-	return model.Value{Data: data, Version: result.Name, AuditVerified: s.AuditVerified}, nil
+	prefix := b.Resource + "/versions/"
+	if !strings.HasPrefix(actual, prefix) {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	version := strings.TrimPrefix(actual, prefix)
+	if version == "" || version == "latest" || strings.ContainsAny(version, "/\x00?#") {
+		return "", fault.New(fault.Trust, "source_resource_mismatch")
+	}
+	if b.Version != "" && version != b.Version {
+		return "", fault.New(fault.Trust, "source_version_mismatch")
+	}
+	return version, nil
 }
 
 func cloudError(err error) error {

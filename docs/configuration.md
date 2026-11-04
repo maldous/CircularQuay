@@ -158,6 +158,21 @@ the source path. `env` reads an exact declared variable or dotenv name but does
 not expand shell syntax. An explicit binding `version` is accepted only for
 `openbao`, `vault`, `infisical`, `aws-sm`, `aws-ssm`, `azure`, and `gcp`.
 
+Cloud resource selectors identify the exact secret, independently of its
+version. AWS bindings use the complete canonical Secrets Manager or Parameter
+Store ARN, and the returned ARN must match it. Azure responses must identify
+the configured HTTPS vault origin and exact secret name. GCP responses must
+identify the declared project and secret, including when a binding does not
+pin a version. Missing or mismatched identity evidence fails before a value
+is selected or delivered. A checksum alone does not identify the secret.
+
+Use canonical provider identifiers in both the source scope and binding.
+Partial ARNs and inferred project-ID/project-number or secret-name aliases are
+not accepted as substitutes for the declared identity. If a provider returns a canonical
+identifier different from an alias used in a request, configure that canonical
+identifier explicitly. An omitted version allows the provider to select a
+version of the declared secret; it does not permit a different secret.
+
 ## `workloads.<id>` and bindings
 
 | Field | Type and required state | Meaning and constraints |

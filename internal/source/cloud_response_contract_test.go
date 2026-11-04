@@ -24,13 +24,13 @@ import (
 // syntactically successful provider response is not enough to disclose data:
 // the returned stage must match the policy selector.
 func TestAWSSecretStageEvidenceCannotReleaseAnotherValue(t *testing.T) {
-	client, calls := awsSecretClient(t, `{"VersionId":"opaque","VersionStages":["stable"],"SecretString":"SYNTHETIC_AWS_VALUE"}`)
-	value, err := awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "stage:stable"})
+	client, calls := awsSecretClient(t, `{"ARN":"`+syntheticAWSSecretARN+`","VersionId":"opaque","VersionStages":["stable"],"SecretString":"SYNTHETIC_AWS_VALUE"}`)
+	value, err := awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSecretARN, Version: "stage:stable"})
 	if err != nil || value.Data != "SYNTHETIC_AWS_VALUE" || value.Version != "opaque" || *calls != 1 {
 		t.Fatalf("verified stage result = %#v, %v, calls=%d", value, err, *calls)
 	}
-	client, calls = awsSecretClient(t, `{"VersionId":"opaque","VersionStages":["other"],"SecretString":"SYNTHETIC_AWS_VALUE"}`)
-	value, err = awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "stage:stable"})
+	client, calls = awsSecretClient(t, `{"ARN":"`+syntheticAWSSecretARN+`","VersionId":"opaque","VersionStages":["other"],"SecretString":"SYNTHETIC_AWS_VALUE"}`)
+	value, err = awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSecretARN, Version: "stage:stable"})
 	assertRejectedProviderValue(t, value, err, fault.Trust, "SYNTHETIC_AWS_VALUE")
 	if *calls != 1 {
 		t.Fatalf("stage mismatch requests = %d, want 1", *calls)
@@ -40,13 +40,13 @@ func TestAWSSecretStageEvidenceCannotReleaseAnotherValue(t *testing.T) {
 // TestAWSParameterSelectorEvidenceCannotReleaseAnotherValue verifies that an
 // SSM response selector may satisfy a version policy only when it matches it.
 func TestAWSParameterSelectorEvidenceCannotReleaseAnotherValue(t *testing.T) {
-	client, calls := awsParameterClient(t, `{"Parameter":{"Value":"SYNTHETIC_PARAMETER_VALUE","Version":3,"Selector":":stable"}}`)
-	value, err := awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "stable"})
+	client, calls := awsParameterClient(t, `{"Parameter":{"ARN":"`+syntheticAWSSSMARN+`","Value":"SYNTHETIC_PARAMETER_VALUE","Version":3,"Selector":":stable"}}`)
+	value, err := awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSSMARN, Version: "stable"})
 	if err != nil || value.Data != "SYNTHETIC_PARAMETER_VALUE" || value.Version != "3" || *calls != 1 {
 		t.Fatalf("verified selector result = %#v, %v, calls=%d", value, err, *calls)
 	}
-	client, calls = awsParameterClient(t, `{"Parameter":{"Value":"SYNTHETIC_PARAMETER_VALUE","Version":3,"Selector":":other"}}`)
-	value, err = awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "stable"})
+	client, calls = awsParameterClient(t, `{"Parameter":{"ARN":"`+syntheticAWSSSMARN+`","Value":"SYNTHETIC_PARAMETER_VALUE","Version":3,"Selector":":other"}}`)
+	value, err = awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSSMARN, Version: "stable"})
 	assertRejectedProviderValue(t, value, err, fault.Trust, "SYNTHETIC_PARAMETER_VALUE")
 	if *calls != 1 {
 		t.Fatalf("selector mismatch requests = %d, want 1", *calls)
@@ -83,12 +83,12 @@ func responseAWSConfig(t *testing.T, target, body string) (aws.Config, *int) {
 // decoding and request path are part of the boundary.
 func TestAzureResponseVersionEvidenceCannotReleaseAnotherValue(t *testing.T) {
 	client, calls := azureSecretClient(t, `{"value":"SYNTHETIC_AZURE_VALUE","id":"https://vault.synthetic/secrets/fixture/expected"}`)
-	value, err := azureSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "expected"})
+	value, err := azureSecretValue(context.Background(), client, model.Source{Endpoint: syntheticAzureEndpoint}, model.Binding{Resource: "fixture", Version: "expected"})
 	if err != nil || value.Data != "SYNTHETIC_AZURE_VALUE" || value.Version != "expected" || *calls != 1 {
 		t.Fatalf("verified Azure result = %#v, %v, calls=%d", value, err, *calls)
 	}
 	client, calls = azureSecretClient(t, `{"value":"SYNTHETIC_AZURE_VALUE","id":"https://vault.synthetic/secrets/fixture/other"}`)
-	value, err = azureSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: "fixture", Version: "expected"})
+	value, err = azureSecretValue(context.Background(), client, model.Source{Endpoint: syntheticAzureEndpoint}, model.Binding{Resource: "fixture", Version: "expected"})
 	assertRejectedProviderValue(t, value, err, fault.Trust, "SYNTHETIC_AZURE_VALUE")
 	if *calls != 1 {
 		t.Fatalf("Azure version mismatch requests = %d, want 1", *calls)
@@ -98,7 +98,7 @@ func TestAzureResponseVersionEvidenceCannotReleaseAnotherValue(t *testing.T) {
 func azureSecretClient(t *testing.T, body string) (*azsecrets.Client, *int) {
 	t.Helper()
 	calls := new(int)
-	client, err := azsecrets.NewClient("https://vault.synthetic", syntheticSDKAccessToken{}, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: &http.Client{Timeout: time.Second, Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
+	client, err := azsecrets.NewClient(syntheticAzureEndpoint, syntheticSDKAccessToken{}, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: &http.Client{Timeout: time.Second, Transport: cloudRoundTripper(func(request *http.Request) (*http.Response, error) {
 		(*calls)++
 		if request.Method != http.MethodGet || request.URL.Path != "/secrets/fixture/expected" {
 			t.Fatalf("unexpected Azure request %s", request.URL)

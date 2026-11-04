@@ -21,15 +21,15 @@ import (
 // well-formed provider response cannot substitute a secret or parameter version.
 func TestCloudProviderClientsRejectMismatchedEvidence(t *testing.T) {
 	t.Run("secrets manager version", func(t *testing.T) {
-		client := secretsmanager.NewFromConfig(syntheticAWSConfig(t, "secretsmanager.GetSecretValue", `{"VersionId":"other","SecretString":"SYNTHETIC_VALUE"}`))
-		value, err := awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: "synthetic", Version: "expected"})
+		client := secretsmanager.NewFromConfig(syntheticAWSConfig(t, "secretsmanager.GetSecretValue", `{"ARN":"`+syntheticAWSSecretARN+`","VersionId":"other","SecretString":"SYNTHETIC_VALUE"}`))
+		value, err := awsSecretValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSecretARN, Version: "expected"})
 		if !fault.Is(err, fault.Trust) || value.Data != "" || strings.Contains(err.Error(), "SYNTHETIC_VALUE") {
 			t.Fatalf("mismatched secret version result = %#v, %v", value, err)
 		}
 	})
 	t.Run("parameter version", func(t *testing.T) {
-		client := ssm.NewFromConfig(syntheticAWSConfig(t, "AmazonSSM.GetParameter", `{"Parameter":{"Value":"SYNTHETIC_VALUE","Version":3}}`))
-		value, err := awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: "synthetic", Version: "2"})
+		client := ssm.NewFromConfig(syntheticAWSConfig(t, "AmazonSSM.GetParameter", `{"Parameter":{"ARN":"`+syntheticAWSSSMARN+`","Value":"SYNTHETIC_VALUE","Version":3}}`))
+		value, err := awsParameterValue(context.Background(), client, model.Source{}, model.Binding{Resource: syntheticAWSSSMARN, Version: "2"})
 		if !fault.Is(err, fault.Trust) || value.Data != "" || strings.Contains(err.Error(), "SYNTHETIC_VALUE") {
 			t.Fatalf("mismatched parameter version result = %#v, %v", value, err)
 		}
