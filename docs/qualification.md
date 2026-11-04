@@ -53,6 +53,73 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact e103a52 integration and security boundary
+
+Published source `e103a52b8c0884d45f3ca853008f915cd52dcbe9`, tree
+`56d13b056c71659f8223240c57247f7e502f6784`, integrates the synthetic
+client/account/operator interfaces, reviewed browser boundaries, native pinned
+command correction and SDK test-oracle repairs. Public Git readback verifies
+41 selected files and all 450 working files, with a clean checkout at publication.
+The original frontend checkout, commits and historical evidence remain intact.
+
+[Browser run 41913450832](https://github.com/maldous/CircularQuay/actions/runs/41913450832)
+discovers all five test files. The observed Linux, Windows and macOS jobs pass
+syntax and 25 of 28 tests. Three guided regression fixtures hit schema
+min-properties/identifier errors before their intended reference errors. The
+runtime rejects those edits; the intended reference oracles still need corrected
+fixtures and fresh evidence. These failures are not silently accepted or removed.
+
+[Sonar run 41913450567](https://github.com/maldous/CircularQuay/actions/runs/41913450567)
+completes CE/current-analysis fencing for merge `ff00a323`, whose tree matches
+the candidate. Coverage is **62.7%**, with seven first-party issues, zero
+hotspots, zero duplication groups/density and zero CE warnings. The scanner
+still warns about Python 3.15 and exits 3; required new-coverage and
+new-duplication metrics are absent. Only Go coverage is imported. The web
+regression files were classified as production sources because the published
+test patterns omitted them; no browser/JavaScript coverage is established.
+`checkpoint53/sonar-e103-readback.json` retains the exact artifact and findings.
+Correct test classification does not waive coverage for any production source.
+
+The later bounded readback of
+[Source run 41913450484](https://github.com/maldous/CircularQuay/actions/runs/41913450484)
+finds the source-assurance job stopped at `source_identity_before_checks` with
+`source_identity_invalid`; its 0/0 output is not a coverage measurement. The
+original 1,499,917-byte PNG exceeds the source fingerprint's 1 MiB file budget.
+The following correction requires a separate finite asset/capture allowance
+with full immutable-blob and checked-out-byte binding. Independent review
+rejects a second pathname hash as insufficient: it does not bind that read to
+the recorded SHA-256. No source exclusion, digest bypass or global tool-output
+increase establishes a valid correction.
+
+[SDK run 41913450576](https://github.com/maldous/CircularQuay/actions/runs/41913450576)
+has 30 jobs on the connector's observed first page, with four successes and 26
+failures; that page is not the whole matrix. One retained Python coverage
+artifact reports client 86%, local 79% and types 92%, below the unchanged
+100% requirements. A Windows Python 3.11 job accepts a negative generic
+temporary-root case, and the Python audit reports six vulnerabilities in
+cryptography 48.0.1 locks. The fixed-version Intel build closure remains
+unqualified. Source complexity and all eight gosec findings also remain open.
+`checkpoint54/e103-provider-evidence-reconciliation.json` binds the exact
+candidate/merge fence, job IDs, artifact and observed limitations. These are
+historical e103 results, not results for the later source corrections.
+
+The subsequent source correction introduces shared command-identity preflight
+before CLI workload state, repository-backed secret materialization and value
+resolution, and repeats validation before child environment/process creation.
+MCP requires its enrolled pin and uses the same protected, bounded validator.
+Hashing consumes at most the 128 MiB limit plus one overrun-detection byte,
+then rechecks file/path identity, size, regular type and native protections.
+Independent review rejected the initial stat-only bound; its immutable rejection
+and the finite-read correction remain separate evidence. Configuration/policy
+acquisition may precede this boundary, and pathname execution is not atomic.
+Source tests and readability corrections require exact-candidate hosted evidence;
+none establishes the unified strict-profile engine or closes a gosec finding.
+
+The complete v1 security and coverage contract remains unchanged. Correcting
+fixtures, source/test classification or complexity cannot substitute for full
+native/provider/SDK/browser coverage, signed-context enforcement, durable
+administration/audit and independent whole-product qualification.
+
 ## Exact 364fba9 hosted observation
 
 Source/design commit `364fba9355905497634daebfd48797c5ff987e00`, tree

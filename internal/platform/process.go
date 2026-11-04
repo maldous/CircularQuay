@@ -16,7 +16,10 @@ import (
 	"github.com/maldous/CircularQuay/internal/model"
 )
 
-const pipeDrainWaitDelay = 250 * time.Millisecond
+const (
+	pipeDrainWaitDelay         = 250 * time.Millisecond
+	maxVerifiedExecutableBytes = 128 << 20
+)
 
 // Run executes a workload with a clean environment. It never passes bootstrap
 // credentials to the workload. Override is for an explicitly local CLI caller;
@@ -64,25 +67,9 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 }
 
 func launchInputs(work model.Workload, gen model.Generation, override []string) ([]string, []string, string, error) {
-	if work.CommandSHA256 != "" && len(override) != 0 && !sameArgumentVector(work.Command, override) {
-		// A digest authorizes one executable identity and one argument vector.
-		// Reject before preparing any generation-derived environment.
-		return nil, nil, "", fault.New(fault.Trust, "registered command override denied")
-	}
-	args := work.Command
-	if len(override) != 0 {
-		args = override
-	}
-	if !validExecutable(args) {
-		return nil, nil, "", fault.New(fault.Invalid, "absolute executable required")
-	}
-	if err := ValidateExecutable(args[0]); err != nil {
+	args, err := ValidateCommandIdentity(work, override)
+	if err != nil {
 		return nil, nil, "", err
-	}
-	if work.CommandSHA256 != "" {
-		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
-			return nil, nil, "", err
-		}
 	}
 	env, err := Environment(work.Environment, gen)
 	if err != nil {
@@ -96,6 +83,34 @@ func launchInputs(work model.Workload, gen model.Generation, override []string) 
 		return nil, nil, "", err
 	}
 	return args, env, directory, nil
+}
+
+// ValidateCommandIdentity selects and verifies the command admitted for a
+// workload. A pinned command admits only its exact configured argument vector,
+// including a local override. Callers use this before resolution effects, and
+// launchInputs repeats it immediately before environment construction to narrow
+// the time-of-check/time-of-use window. It does not authorize the command or
+// prevent policy loading performed before this boundary.
+func ValidateCommandIdentity(work model.Workload, override []string) ([]string, error) {
+	if work.CommandSHA256 != "" && len(override) != 0 && !sameArgumentVector(work.Command, override) {
+		return nil, fault.New(fault.Trust, "registered command override denied")
+	}
+	args := work.Command
+	if len(override) != 0 {
+		args = override
+	}
+	if !validExecutable(args) {
+		return nil, fault.New(fault.Invalid, "absolute executable required")
+	}
+	if err := ValidateExecutable(args[0]); err != nil {
+		return nil, err
+	}
+	if work.CommandSHA256 != "" {
+		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
+			return nil, err
+		}
+	}
+	return append([]string(nil), args...), nil
 }
 
 func sameArgumentVector(left, right []string) bool {
@@ -123,41 +138,99 @@ func generationCurrent(gen model.Generation) bool {
 // VerifyExecutable binds a registered action to reviewed bytes. Pinning the
 // executable does not by itself make editable scripts or arbitrary code safe.
 func VerifyExecutable(path, expected string) error {
-	decoded, err := hex.DecodeString(expected)
-	if err != nil || len(decoded) != sha256.Size || !filepath.IsAbs(path) {
-		return fault.New(fault.Trust, "invalid executable identity")
+	decoded, err := expectedExecutableDigest(path, expected)
+	if err != nil {
+		return err
 	}
-	f, err := openVerifiedExecutable(path)
+	f, resolved, before, err := openVerifiedExecutable(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, f); err != nil || !bytesEqual(hash.Sum(nil), decoded) {
+	if !withinExecutableReadBound(before.Size()) {
+		return fault.New(fault.Trust, "registered executable size")
+	}
+	digest, exceeded, err := boundedExecutableDigest(f, maxVerifiedExecutableBytes)
+	if err != nil {
+		return fault.New(fault.Trust, "registered executable size")
+	}
+	if exceeded {
+		return fault.New(fault.Trust, "registered executable size")
+	}
+	if !stableVerifiedExecutable(f, resolved, before) {
+		return fault.New(fault.Trust, "registered executable changed")
+	}
+	if !bytesEqual(digest, decoded) {
 		return fault.New(fault.Trust, "registered executable changed")
 	}
 	return nil
 }
 
-func openVerifiedExecutable(path string) (*os.File, error) {
+func expectedExecutableDigest(path, expected string) ([]byte, error) {
+	decoded, err := hex.DecodeString(expected)
+	if err != nil {
+		return nil, fault.New(fault.Trust, "invalid executable identity")
+	}
+	if len(decoded) != sha256.Size {
+		return nil, fault.New(fault.Trust, "invalid executable identity")
+	}
+	if !filepath.IsAbs(path) {
+		return nil, fault.New(fault.Trust, "invalid executable identity")
+	}
+	return decoded, nil
+}
+
+func withinExecutableReadBound(size int64) bool {
+	return size >= 0 && size <= maxVerifiedExecutableBytes
+}
+
+func boundedExecutableDigest(reader io.Reader, maximum int64) ([]byte, bool, error) {
+	hash := sha256.New()
+	read, err := io.Copy(hash, io.LimitReader(reader, maximum+1))
+	if err != nil {
+		return nil, false, err
+	}
+	return hash.Sum(nil), read > maximum, nil
+}
+
+func stableVerifiedExecutable(file *os.File, resolved string, before os.FileInfo) bool {
+	afterFile, err := file.Stat()
+	afterName, nameErr := os.Stat(resolved)
+	if err != nil || nameErr != nil || !checkNativeSecurity(resolved, false) {
+		return false
+	}
+	return unchangedVerifiedFile(before, afterFile) && unchangedVerifiedFile(before, afterName)
+}
+
+func unchangedVerifiedFile(before, after os.FileInfo) bool {
+	return os.SameFile(before, after) &&
+		before.Size() == after.Size() &&
+		secureRegularFile(after)
+}
+
+func secureRegularFile(info os.FileInfo) bool {
+	return info.Mode().IsRegular() && secureMode(info.Mode(), false)
+}
+
+func openVerifiedExecutable(path string) (*os.File, string, os.FileInfo, error) {
 	if err := ValidateExecutable(path); err != nil {
-		return nil, err
+		return nil, "", nil, err
 	}
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return nil, fault.New(fault.Trust, "registered executable unavailable")
+		return nil, "", nil, fault.New(fault.Trust, "registered executable unavailable")
 	}
 	f, err := openInParent(resolved, os.O_RDONLY, 0)
 	if err != nil {
-		return nil, fault.New(fault.Trust, "registered executable unavailable")
+		return nil, "", nil, fault.New(fault.Trust, "registered executable unavailable")
 	}
 	info, err := f.Stat()
 	named, namedErr := os.Stat(resolved)
 	if err != nil || namedErr != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !os.SameFile(info, named) {
 		_ = f.Close()
-		return nil, fault.New(fault.Trust, "registered executable permissions")
+		return nil, "", nil, fault.New(fault.Trust, "registered executable permissions")
 	}
-	return f, nil
+	return f, resolved, info, nil
 }
 
 // ValidateExecutable rejects mutable helper binaries before supplying bootstrap

@@ -57,26 +57,88 @@ The dedicated project now has 18 product/handover issues, independently read
 back in Backlog with no assignee or dispatch. The provider responses and
 relations are retained in `checkpoint52/linear-created-issues-readback.json`.
 
-| Delivery scope | CircularQuay issue |
-| --- | --- |
-| Native policy, signed repositories and configuration | [UIF-162](https://linear.app/maldous/issue/UIF-162) |
-| Offline state and availability | [UIF-163](https://linear.app/maldous/issue/UIF-163) |
-| Providers and local contract environments | [UIF-164](https://linear.app/maldous/issue/UIF-164) |
-| Native delivery, synchronization and recovery | [UIF-165](https://linear.app/maldous/issue/UIF-165) |
-| Identity and enterprise credential lifecycle | [UIF-166](https://linear.app/maldous/issue/UIF-166) |
-| Managed software KMS and age service | [UIF-167](https://linear.app/maldous/issue/UIF-167) |
-| Signed administration, hierarchy and strict enforcement | [UIF-168](https://linear.app/maldous/issue/UIF-168) |
-| Local-to-managed custody migration | [UIF-169](https://linear.app/maldous/issue/UIF-169) |
-| Client, account and operator interfaces | [UIF-170](https://linear.app/maldous/issue/UIF-170) |
-| Official SDK qualification | [UIF-171](https://linear.app/maldous/issue/UIF-171) |
-| Observability, telemetry and release awareness | [UIF-172](https://linear.app/maldous/issue/UIF-172) |
-| Native, SDK, OCI and client distribution | [UIF-173](https://linear.app/maldous/issue/UIF-173) |
-| Whole-product security and independent qualification | [UIF-174](https://linear.app/maldous/issue/UIF-174) |
-| Public support, release documentation and repository controls | [UIF-175](https://linear.app/maldous/issue/UIF-175) |
-| Managed hosting and operational readiness | [UIF-176](https://linear.app/maldous/issue/UIF-176) |
-| Controlled general-UIF adoption | [UIF-177](https://linear.app/maldous/issue/UIF-177) |
-| Project isolation and read-only executor readiness | [UIF-178](https://linear.app/maldous/issue/UIF-178) |
-| First read-only Sonar analyzer-version assessment | [UIF-179](https://linear.app/maldous/issue/UIF-179) |
+| Delivery scope | CircularQuay issue | Actual owner and source/evidence stage | Remaining gate and next owner |
+| --- | --- | --- | --- |
+| Native policy, signed repositories and configuration | [UIF-162](https://linear.app/maldous/issue/UIF-162) | Source owner; three configuration readability corrections independently reviewed | Complete hierarchy/profile and exact source/repository/CRUD qualification; root retains integration before per-unit transfer |
+| Offline state and availability | [UIF-163](https://linear.app/maldous/issue/UIF-163) | Source owner; age-only snapshot implementation and prior synthetic evidence | Strict parsing, scope/expiry/replay/clock/revocation and native custody/provider evidence remain open |
+| Providers and local contract environments | [UIF-164](https://linear.app/maldous/issue/UIF-164) | Source owner; e103 WireMock succeeds only in its synthetic scope | Complete declared capability/local profiles and exact live-provider qualification under actual authority |
+| Native delivery, synchronization and recovery | [UIF-165](https://linear.app/maldous/issue/UIF-165) | Source owner; shared CLI/MCP preflight, finite hashing and regressions independently source-reviewed | Qualify exact native behavior; cold boot/service/custody/recovery and pathname limits remain |
+| Identity and enterprise credential lifecycle | [UIF-166](https://linear.app/maldous/issue/UIF-166) | Source owner; selected identity/DPoP/MCP source and complete optional-integration contracts | Complete dynamic issuer/resource/action/lifetime and declared enterprise/native integration profiles |
+| Managed software KMS and age service | [UIF-167](https://linear.app/maldous/issue/UIF-167) | Source owner; internal JWE/Transit core and reviewed Transit refactor | Real authorized service/storage/provisioning/audit/API integration remains unimplemented or unqualified |
+| Signed administration, hierarchy and strict enforcement | [UIF-168](https://linear.app/maldous/issue/UIF-168) | Source owner; published final contract and independent design review | Unified strict engine, signed-context/hierarchy and administrative lifecycle implementation/qualification remain blockers |
+| Local-to-managed custody migration | [UIF-169](https://linear.app/maldous/issue/UIF-169) | Source owner; complete migration contract | Implement full synthetic workflow; no operational inventory, key inspection/upload or migration authority inferred |
+| Client, account and operator interfaces | [UIF-170](https://linear.app/maldous/issue/UIF-170) | Existing frontend owner active in isolated e103 copy; root `web/` frozen; four-file correction blocked by independent error-path review | Fix actual Load example failure, visible logo 13/labels/layout; return exact combined patch/browser evidence for root review/integration |
+| Official SDK qualification | [UIF-171](https://linear.app/maldous/issue/UIF-171) | Source owner; reviewed TS boundary tests; e103 Node24 Windows 27/27 tests, failed coverage | Full matrix/100%/native/install gates; fixed cryptography Intel source-build proposal needs qualified toolchain/build closure |
+| Observability, telemetry and release awareness | [UIF-172](https://linear.app/maldous/issue/UIF-172) | Source owner; native source and synthetic presentation | Complete safe diagnostics/export/fault/shutdown/audit/release evidence; material OTel coverage remains |
+| Native, SDK, OCI and client distribution | [UIF-173](https://linear.app/maldous/issue/UIF-173) | Source owner; release/build/install/registry configuration and instructions | Exact RC/stable artifacts, provenance/signatures/SBOM, clean consumer installs and registry/account readiness remain gated |
+| Whole-product security and independent qualification | [UIF-174](https://linear.app/maldous/issue/UIF-174) | Source owner and independent reviewers; e103 Sonar 62.7%/seven findings, eight gosec findings remain open | Root integrates accepted corrections then obtains all exact security/coverage/native/provider/artifact/audit evidence |
+| Public support, release documentation and repository controls | [UIF-175](https://linear.app/maldous/issue/UIF-175) | Source owner; supporting docs/skill packet integrated; qualification/command/handoff changes independently reviewed | Qualify actual support/install/client/protection behavior and maintain exact evidence; retain permission gaps |
+| Managed hosting and operational readiness | [UIF-176](https://linear.app/maldous/issue/UIF-176) | Source owner; conditional software-custody hosting forecast only | Qualify selected plan/runtime/state/budgets and controlled lifecycle; no paid/account/production effect authorized |
+| Controlled general-UIF adoption | [UIF-177](https://linear.app/maldous/issue/UIF-177) | Existing CQ owner and UIF Root; no transferred CQ lease or admitted/executed/accepted unit | Actual normal autonomous useful-result and successor/recovery cycles without external manual dispatch; existing UIF Root owns shared changes |
+| Project isolation and read-only executor readiness | [UIF-178](https://linear.app/maldous/issue/UIF-178) | Existing UIF Root/122 owns shared qualification; CQ owner supplies immutable contract | Qualify exact project/source/read-only executor/output privacy/evidence return, not unrelated Go/publisher capability |
+| First read-only Sonar analyzer-version assessment | [UIF-179](https://linear.app/maldous/issue/UIF-179) | Prepared, unclaimed and unadmitted; immutable 74e17dd input/output contract retained | Existing platform admits only after relevant UIF-178 readiness; returns assessment to CQ owner without source/runtime/publisher effects |
+
+Initial individual Linear readbacks on 2026-11-04 UTC verify all 18 descriptions
+updated with complete scope, current owner/lease, evidence, dependency and next
+handoff. **18 reused, 18 updated, zero new or duplicate issues, zero identified
+outstanding requirements left without an existing issue.** Status remains Backlog and assignee
+remains empty in Linear; those fields do not erase the separately observed
+current source/frontend ownership. No status, parent, dependency, permission,
+lease or admission was changed. No whole issue is accepted and no CQ harness
+unit is admitted. `checkpoint53/linear-bau-reconciliation.json` retains the
+mutation envelopes, full individual readbacks and reviewable coverage rows;
+Linear and this existing canonical map remain authoritative. That initial
+18-update snapshot is historical. The procedures amendment and subsequent
+UIF-170 frontend extension bring the observed aggregate to **20 mutation calls
+across 18 unique existing issues, zero new or duplicate issues, zero changed
+leases or admissions**. The full UIF-170 readback is retained in
+`checkpoint54/linear-170-frontend-extension-readback.json`; the additional calls
+are same-issue clarification, not additional work claims or dispatch.
+
+UIF-175 also explicitly retains the reusable selected-project acceptance,
+exact-candidate CI/coverage evidence reconciliation and ordered frontend
+integration procedures, with shared-contract ownership in UIF-177/178 and
+qualification in UIF-170/171/174. Source packaging of `cquay` does not prove
+client catalog/install/invoke/update/remove support; UIF-173 retains those
+actual artifact/client gates. The previously updated user-supplied UIF diagram
+and its private structural/visual receipts are preserved without duplicate
+dispatch or a current-BAU claim. The additive
+`checkpoint53/linear-bau-reconciliation-procedures-amendment.json` binds that
+same-issue clarification and its actual readback; no new issue or lease was made.
+
+The current frontend reservation includes the actual selected logo 13 pixels
+from contact-sheet SHA-256 `b50b0e0db86d4d39f4295a5f06c2ba5651c314ad088410e88aa9991ea05cbba6`,
+served asset/hash/MIME verification, concise **Example**/**Load example** labels
+without changing the complete canonical Linux fixture or round-trip acceptance,
+and consistent desktop/mobile controls, spacing and refreshed evidence. The
+owner works in `/home/user/src/2026-11-05/circularquay-e103-frontend-validation`
+on a private e103 copy, with sole preview session 48239 on the same loopback
+ports. Original frontend commits/checkout and earlier receipts remain intact.
+The separately retained four-file patch and its 32-test producer receipt do not
+qualify the later visual/error-path delta or pass independent review. Root
+integrates only the final reviewed ordered patches, then qualifies the published
+candidate; no competing frontend writer or stale snapshot replaces that work.
+
+The subsequent user-directed Impeccable discovery/critique extends that same
+frontend owner's acceptance pass. Web-scoped design references or proposed
+root design-document changes require an explicit final manifest and source-owner
+handoff; they do not create a second writer. The native/documentation checkpoint
+can publish independently while root `web/` remains byte-identical to e103.
+This preserves the frontend's e103 patch base and complete interface acceptance;
+it neither integrates its evolving private copy nor marks UIF-170 complete.
+
+The exact e103 source-assurance job also stops before its checks:
+`source_identity_before_checks` reports `source_identity_invalid`. Its 0/0
+coverage is not a coverage measurement. Immutable tree inspection confirms that
+the original 1,499,917-byte contact-sheet PNG exceeds the 1 MiB file budget.
+The source correction must retain full immutable-blob/raw-byte comparison,
+finite capture/read bounds, native identity checks and aggregate limits. A
+separate pathname `hash-object` proposal was rejected because it could read
+unbounded input and pair the committed blob with a different recorded SHA-256.
+The retained rejection is not an accepted correction or a new passed gate.
+`checkpoint54/e103-provider-evidence-reconciliation.json` records the actual
+Source, SDK and Security observations, including Python audit/coverage and the
+Windows temporary-root failure. Existing owners retain those fixes.
 
 UIF-178 is a child of UIF-177; UIF-179 is a child of UIF-174 and is blocked
 only by the relevant UIF-178 readiness checks. Shared framework issues remain
@@ -114,7 +176,17 @@ not fabricate Ready/Done states or transfer existing leases.
 ### Worktrees, leases and briefing coverage
 
 The runtime checkout is `/home/user/src/2026-11-03/circularquay-dev` on
-`feature/initial-implementation`. Source/design checkpoint
+`feature/initial-implementation`. Published integration checkpoint
+`e103a52b8c0884d45f3ca853008f915cd52dcbe9`, tree
+`56d13b056c71659f8223240c57247f7e502f6784`, has exact public readback of
+41 selected files, all 450 working files preserved and a clean checkout at
+publication. It includes the reviewed frontend snapshot and security corrections.
+The [exact observation](qualification.md#exact-e103a52-integration-and-security-boundary)
+records browser fixture failures and failed Sonar coverage/findings/warning/new
+metrics. Later native preflight, configuration/Transit/test readability and SDK
+boundary corrections have separate source-only reviews and need hosted evidence.
+
+Earlier source/design checkpoint
 `364fba9355905497634daebfd48797c5ff987e00`, tree
 `9d29db23700316180452bcdf8372e692714ded6e`, is published with all 19 changed
 files independently read back, all 423 working files preserved and a clean
@@ -275,14 +347,69 @@ binding is retained under `checkpoint52/uif-179-source-input.json`; it is an
 assessment contract for the existing UIF owner, not an invented harness
 manifest, execution admission or transfer of a current lease.
 
+### Autonomous handover acceptance
+
+After BAU restoration and a verified controlled handover, the existing UIF
+platform owns normal intake, admission, allocation, execution, review,
+integration/publication, result readback, recovery and successor/refill for
+the accepted UIF, OffMenu and CircularQuay profiles. Independent ready work
+progresses in parallel within actual configured capacity, permissions and
+resource bounds. One project's completion is not a blanket prerequisite for
+another's ready work, and no unlimited concurrency or guaranteed worker
+occupancy is inferred.
+
+Handover acceptance requires observed normal-controller intake and admission,
+useful worker execution, independent review, authorized integration and result
+readback, followed by successor/refill cycles without an external manual
+dispatcher. Source, issue, project, executor, review, publication and privacy
+bindings must remain exact throughout, including denial, uncertain effects and
+recovery. Liveness, idle workers, queued issues, prepared configuration and
+manually launched examples do not prove this operating model. Use existing
+ready issues and their real dependencies; do not manufacture work or weaken
+grants to demonstrate activity.
+
+Morgan/Gateway becomes purely supervisory after accepted handover: read
+progress, report exceptions and escalate actual blockers. That role does not
+routinely dispatch jobs or modify scheduling, policy, publisher or state;
+such an intervention requires new authority. Its normal operator surface is
+user-directed start, stop and report. Those requests do not grant standing
+authority to start, stop or reconfigure a service at will. The harness owns
+delivery, modification, recovery, contract-impact handling and refill.
+Current authorized repairs,
+source integration and active leases continue under their existing owners
+until the relevant per-unit transition is verified. No abrupt takeover,
+competing coordinator or replacement tracker follows from this target model.
+
+CircularQuay has not completed that handover. Its first read-only assessment
+still requires the actual project/source/read-only executor/evidence-return
+qualification above. Normal autonomous intake, accepted output and successor
+cycles have not been observed for it. Complete Go execution or publisher
+capability is not a prerequisite for this no-publish unit; broader units need
+their own actual capabilities and authority. BAU resource priority, held
+operations, production and paused CIX execution remain unchanged.
+
+This CQ handoff does not yet bind a verified supported service lifecycle,
+status and recovery interface. The existing UIF owner supplies the selected
+release's actual schema, authority and routing; no shell start/stop command is
+invented here. A supervisory report reads actual service health, ready/blocked
+and in-flight work, last accepted progress and recovery/autonomy evidence. It
+does not mutate operations or infer those facts from a prepared configuration.
+
 ## Published candidate and qualification boundary
 
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
 Latest captured public development checkpoint is
-`364fba9355905497634daebfd48797c5ff987e00`, tree
-`9d29db23700316180452bcdf8372e692714ded6e`. Its
+`e103a52b8c0884d45f3ca853008f915cd52dcbe9`, tree
+`56d13b056c71659f8223240c57247f7e502f6784`. Its
+[exact observation](qualification.md#exact-e103a52-integration-and-security-boundary)
+records the integrated source and actual browser/Sonar failures. Current source
+corrections retain independent hash-bound reviews; a working patch is not a
+passing runtime or security gate.
+
+Prior published `364fba9355905497634daebfd48797c5ff987e00`, tree
+`9d29db23700316180452bcdf8372e692714ded6e`, has an
 [exact observation](qualification.md#exact-364fba9-hosted-observation) records
 successful scoped build/static analysis, eight gosec findings and failed Sonar
 coverage/warning/new-metric requirements. The subsequent terminal metadata

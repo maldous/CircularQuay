@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -152,23 +151,14 @@ func (a application) actionAllowed(id string) bool {
 }
 
 func actionIdentityAllowed(w model.Workload) bool {
-	if len(w.Command) == 0 || len(w.CommandSHA256) != 64 {
+	if len(w.CommandSHA256) != sha256.Size*2 {
 		return false
 	}
-	f, err := os.Open(w.Command[0])
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() > 128<<20 {
-		return false
-	}
-	h := sha256.New()
-	if _, err = io.Copy(h, f); err != nil {
-		return false
-	}
-	return hex.EncodeToString(h.Sum(nil)) == w.CommandSHA256
+	// Catalog admission and pre-/post-resolution authorization use the same
+	// bounded filesystem identity checks as launch. MCP never supplies a local
+	// command override and never admits an unpinned command.
+	_, err := platform.ValidateCommandIdentity(w, nil)
+	return err == nil
 }
 
 type backend struct {

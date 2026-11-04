@@ -188,6 +188,13 @@ func (a application) prepareWorkloadCommand(p model.Policy, request workloadRequ
 	if !ok {
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "workload")
 	}
+	if request.command == "run" {
+		// Reject command-identity changes before state, repository, or provider
+		// resolution. launchInputs repeats this immediately before child launch.
+		if _, err := platform.ValidateCommandIdentity(workload, request.override); err != nil {
+			return request, model.Workload{}, nil, err
+		}
+	}
 	if request.command == "apply" && request.target == "" {
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "explicit target required")
 	}

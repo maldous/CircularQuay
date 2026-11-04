@@ -138,45 +138,22 @@ func resolveSingle(ctx context.Context, data []byte, path string) (Result, error
 }
 
 func (r resolver) resolveMaster(ctx context.Context, master model.Policy, masterPath string, masterBytes int) (Result, error) {
-	if !validMaster(master.Composition) {
-		return Result{}, failure(fault.Invalid, "composition")
-	}
-	plan, err := newPlan(master.Composition.Includes)
+	plan, err := masterPlan(master.Composition, masterBytes)
 	if err != nil {
 		return Result{}, err
 	}
-	if masterBytes > maximumFragmentBytes {
-		return Result{}, failure(fault.Invalid, "master_size")
+	resolution := newMasterResolution(master, masterPath, masterBytes, plan)
+	if err = r.resolveIncludes(ctx, plan, &resolution); err != nil {
+		return Result{}, err
 	}
-	compiled := copyPolicy(withoutComposition(master))
-	guard := &model.ConfigurationGuard{Inputs: []string{masterPath}, SourceDomains: make(map[string]string), LocalRoots: make(map[string]string)}
-	for source := range compiled.Sources {
-		guard.SourceDomains[source] = "root"
-	}
-	provenance := make([]Provenance, 0, len(plan.includes))
-	total := masterBytes
-	for _, include := range plan.includes {
-		candidate, err := r.resolveInclude(ctx, include)
-		if err != nil {
-			return Result{}, err
-		}
-		total += len(candidate.data)
-		if total > maximumResolvedBytes {
-			return Result{}, failure(fault.Invalid, "composition_size")
-		}
-		if err = mergeFragment(&compiled, candidate.policy, include, plan); err != nil {
-			return Result{}, err
-		}
-		provenance = recordFragmentGuard(guard, provenance, include, candidate)
-	}
-	resolved, err := applyEdits(compiled, master.Composition, masterPath)
+	resolved, err := applyEdits(resolution.compiled, master.Composition, masterPath)
 	if err != nil {
 		return Result{}, err
 	}
 	if hasDuplicateSourceIdentity(resolved.Sources) {
 		return Result{}, failure(fault.Invalid, "composition_conflict")
 	}
-	resolved.ConfigurationGuard = guard
+	resolved.ConfigurationGuard = resolution.guard
 	if err = policy.ValidateResolvedReferences(resolved, masterPath); err != nil {
 		return Result{}, err
 	}
@@ -186,7 +163,60 @@ func (r resolver) resolveMaster(ctx context.Context, master model.Policy, master
 	if err = plan.cacheFresh(r.now); err != nil {
 		return Result{}, err
 	}
-	return Result{Policy: resolved, provenance: provenance}, nil
+	return Result{Policy: resolved, provenance: resolution.provenance}, nil
+}
+
+func masterPlan(composition *model.Composition, masterBytes int) (includePlan, error) {
+	if !validMaster(composition) {
+		return includePlan{}, failure(fault.Invalid, "composition")
+	}
+	plan, err := newPlan(composition.Includes)
+	if err != nil {
+		return includePlan{}, err
+	}
+	if masterBytes > maximumFragmentBytes {
+		return includePlan{}, failure(fault.Invalid, "master_size")
+	}
+	return plan, nil
+}
+
+type masterResolution struct {
+	compiled   model.Policy
+	guard      *model.ConfigurationGuard
+	provenance []Provenance
+	total      int
+}
+
+func newMasterResolution(master model.Policy, masterPath string, masterBytes int, plan includePlan) masterResolution {
+	compiled := copyPolicy(withoutComposition(master))
+	guard := &model.ConfigurationGuard{Inputs: []string{masterPath}, SourceDomains: make(map[string]string), LocalRoots: make(map[string]string)}
+	for source := range compiled.Sources {
+		guard.SourceDomains[source] = "root"
+	}
+	return masterResolution{
+		compiled:   compiled,
+		guard:      guard,
+		provenance: make([]Provenance, 0, len(plan.includes)),
+		total:      masterBytes,
+	}
+}
+
+func (r resolver) resolveIncludes(ctx context.Context, plan includePlan, resolution *masterResolution) error {
+	for _, include := range plan.includes {
+		candidate, err := r.resolveInclude(ctx, include)
+		if err != nil {
+			return err
+		}
+		resolution.total += len(candidate.data)
+		if resolution.total > maximumResolvedBytes {
+			return failure(fault.Invalid, "composition_size")
+		}
+		if err = mergeFragment(&resolution.compiled, candidate.policy, include, plan); err != nil {
+			return err
+		}
+		resolution.provenance = recordFragmentGuard(resolution.guard, resolution.provenance, include, candidate)
+	}
+	return nil
 }
 
 type includeCandidate struct {

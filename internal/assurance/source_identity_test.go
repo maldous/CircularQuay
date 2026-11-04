@@ -2,6 +2,8 @@ package assurance
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -162,13 +164,100 @@ func TestSourceIdentityRejectsOversizedRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fileSHA256(root, "source.go", info); err == nil {
+	if _, err = fileSHA256(root, "source.go", info, sourceFileByteLimit("source.go"), nil); err == nil {
 		t.Fatal("oversized source read accepted")
 	}
 }
 
+func TestSourceIdentityAllowsDeclaredRasterBeyondTextLimit(t *testing.T) {
+	root := fixtureRepository(t)
+	raster := rasterFixtureBytes(maxSourceFileBytes + 1)
+	commitFixtureFile(t, root, selectedIconContactSheet, raster)
+	output := privateAssuranceDirectory(t, "evidence")
+	identity, err := bindSource(context.Background(), runCommand, root, output, auditEnvironment(filepath.Join(output, "home")))
+	want := sha256.Sum256(raster)
+	file, found := sourceFileAt(identity.Files, selectedIconContactSheet)
+	if err != nil || !found || file.SHA256 != hex.EncodeToString(want[:]) {
+		t.Fatalf("declared raster identity = %#v, %v", identity, err)
+	}
+}
+
+func TestSourceIdentityRejectsDeclaredRasterOverBound(t *testing.T) {
+	root := fixtureRepository(t)
+	commitFixtureFile(t, root, selectedIconContactSheet, rasterFixtureBytes(maxSourceRasterBytes+1))
+	output := privateAssuranceDirectory(t, "evidence")
+	if _, err := bindSource(context.Background(), runCommand, root, output, auditEnvironment(filepath.Join(output, "home"))); err == nil {
+		t.Fatal("oversized declared raster accepted")
+	}
+}
+
+func TestSourceIdentityRejectsDeclaredRasterWithoutPNGSignature(t *testing.T) {
+	root := fixtureRepository(t)
+	commitFixtureFile(t, root, selectedIconContactSheet, make([]byte, maxSourceFileBytes+1))
+	output := privateAssuranceDirectory(t, "evidence")
+	if _, err := bindSource(context.Background(), runCommand, root, output, auditEnvironment(filepath.Join(output, "home"))); err == nil {
+		t.Fatal("declared raster without PNG signature accepted")
+	}
+}
+
+func TestSourceIdentityRejectsDeclaredRasterBlobMismatch(t *testing.T) {
+	root := fixtureRepository(t)
+	raster := rasterFixtureBytes(maxSourceFileBytes + 1)
+	commitFixtureFile(t, root, selectedIconContactSheet, raster)
+	raster[len(raster)-1] = 1
+	if err := os.WriteFile(filepath.Join(root, selectedIconContactSheet), raster, 0600); err != nil {
+		t.Fatal(err)
+	}
+	output := privateAssuranceDirectory(t, "evidence")
+	if _, err := bindSource(context.Background(), runCommand, root, output, auditEnvironment(filepath.Join(output, "home"))); err == nil {
+		t.Fatal("declared raster Git blob mismatch accepted")
+	}
+}
+
+func TestSourceIdentityRetainsTextFileLimit(t *testing.T) {
+	root := fixtureRepository(t)
+	commitFixtureFile(t, root, "large.go", make([]byte, maxSourceFileBytes+1))
+	output := privateAssuranceDirectory(t, "evidence")
+	if _, err := bindSource(context.Background(), runCommand, root, output, auditEnvironment(filepath.Join(output, "home"))); err == nil {
+		t.Fatal("oversized text source accepted")
+	}
+}
+
+func TestSourceIdentityRejectsDeclaredRasterReadGrowth(t *testing.T) {
+	path := filepath.Join(privateAssuranceDirectory(t, "raster-growth"), "raster.png")
+	if err := os.WriteFile(path, rasterFixtureBytes(maxSourceRasterBytes+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if _, err = boundedFileSHA256(file, maxSourceRasterBytes, maxSourceRasterBytes); err == nil {
+		t.Fatal("read growth past declared raster limit accepted")
+	}
+}
+
+func rasterFixtureBytes(size int64) []byte {
+	value := make([]byte, size)
+	copy(value, []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
+	return value
+}
+
+func sourceFileAt(files []SourceFile, path string) (SourceFile, bool) {
+	for _, file := range files {
+		if file.Path == path {
+			return file, true
+		}
+	}
+	return SourceFile{}, false
+}
+
 func commitFixtureFile(t *testing.T, root, name string, content []byte) {
 	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(root, name), content, 0600); err != nil {
 		t.Fatal(err)
 	}

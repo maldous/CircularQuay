@@ -40,7 +40,11 @@ type commandResult struct {
 }
 type commandFunc func(context.Context, string, []string, string, []string) commandResult
 
-const auditCommandWaitDelay = 250 * time.Millisecond
+const (
+	auditCommandWaitDelay      = 250 * time.Millisecond
+	defaultCommandCaptureBytes = 1 << 20
+	maxSourceBlobCaptureBytes  = 2 << 20
+)
 
 const expectedGoVersion = "go1.27.3"
 
@@ -587,12 +591,13 @@ func readToken(path string) (string, error) {
 
 type boundedBuffer struct {
 	buffer   bytes.Buffer
+	maximum  int
 	overflow bool
 }
 
 func (b *boundedBuffer) Write(p []byte) (int, error) {
 	n := len(p)
-	if b.buffer.Len()+n > 1<<20 {
+	if b.buffer.Len()+n > b.limit() {
 		b.overflow = true
 		return n, nil
 	}
@@ -604,6 +609,33 @@ func (b *boundedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
 func (b *boundedBuffer) String() string { return b.buffer.String() }
 
+func (b *boundedBuffer) limit() int {
+	if b.maximum > 0 {
+		return b.maximum
+	}
+	return defaultCommandCaptureBytes
+}
+
+type commandCaptureKey struct{}
+
+// sourceBlobCaptureContext is private to source identity. It permits only the
+// declared bounded raw Git blob comparison and cannot widen ordinary tool
+// output capture beyond the fixed source-asset ceiling.
+func sourceBlobCaptureContext(ctx context.Context, maximum int64) context.Context {
+	if maximum <= defaultCommandCaptureBytes || maximum > maxSourceBlobCaptureBytes {
+		return ctx
+	}
+	return context.WithValue(ctx, commandCaptureKey{}, int(maximum))
+}
+
+func commandCaptureLimit(ctx context.Context) int {
+	maximum, found := ctx.Value(commandCaptureKey{}).(int)
+	if !found || maximum <= defaultCommandCaptureBytes || maximum > maxSourceBlobCaptureBytes {
+		return defaultCommandCaptureBytes
+	}
+	return maximum
+}
+
 func runCommand(ctx context.Context, binary string, arguments []string, directory string, environment []string) commandResult {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
@@ -614,7 +646,7 @@ func runCommand(ctx context.Context, binary string, arguments []string, director
 	// WaitDelay bounds a finished process whose descendant retained an output
 	// pipe. Neither mechanism establishes descendant containment.
 	cmd.WaitDelay = auditCommandWaitDelay
-	var buffer boundedBuffer
+	buffer := boundedBuffer{maximum: commandCaptureLimit(ctx)}
 	cmd.Stdout = &buffer
 	cmd.Stderr = &buffer
 	err := cmd.Run()

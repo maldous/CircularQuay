@@ -135,15 +135,14 @@ func (t *Transit) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResu
 		return UnwrapResult{}, err
 	}
 	ciphertext := string(request.Ciphertext)
-	if _, err := transitCiphertextVersion(ciphertext); err != nil {
+	if !validTransitCiphertext(ciphertext) {
 		return UnwrapResult{}, fault.New(fault.Invalid, "transit_ciphertext")
 	}
 	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
 	if err != nil {
 		return UnwrapResult{}, err
 	}
-	version, err := transitCiphertextVersion(ciphertext)
-	if err != nil || version != request.Association.KeyVersion {
+	if !transitCiphertextMatchesVersion(ciphertext, request.Association.KeyVersion) {
 		return UnwrapResult{}, fault.New(fault.Trust, "transit_ciphertext_version")
 	}
 	endpoint, err := transitURL(configuration, "decrypt", request.Association.KeyID)
@@ -161,14 +160,29 @@ func (t *Transit) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResu
 	if err := transitContextError(ctx); err != nil {
 		return UnwrapResult{}, err
 	}
-	plaintext, err := base64.StdEncoding.DecodeString(response.Data.Plaintext)
-	if err != nil || !validTransitMaterial(plaintext) {
+	plaintext, ok := transitPlaintext(response.Data.Plaintext)
+	if !ok {
 		return UnwrapResult{}, fault.New(fault.Trust, "transit_decrypt_response")
 	}
 	return UnwrapResult{
 		Plaintext: plaintext,
 		Receipt:   transitReceipt(request.Association, request.Context),
 	}, nil
+}
+
+func validTransitCiphertext(value string) bool {
+	_, err := transitCiphertextVersion(value)
+	return err == nil
+}
+
+func transitCiphertextMatchesVersion(ciphertext, expectedVersion string) bool {
+	version, err := transitCiphertextVersion(ciphertext)
+	return err == nil && version == expectedVersion
+}
+
+func transitPlaintext(value string) ([]byte, bool) {
+	plaintext, err := base64.StdEncoding.DecodeString(value)
+	return plaintext, err == nil && validTransitMaterial(plaintext)
 }
 
 func transitReceipt(association KMSAssociation, context AssociationContext) KMSReceipt {
@@ -300,19 +314,38 @@ const (
 )
 
 func transitConfigMatches(association KMSAssociation, configuration TransitConfiguration, config transitKeyConfig, action transitAction) bool {
-	if config.name != association.KeyID ||
-		config.algorithm != association.Algorithm ||
-		config.minDecryptionVersion != configuration.MinDecryptionVersion ||
-		config.minEncryptionVersion != configuration.MinEncryptionVersion ||
-		!config.derived || config.convergent || config.exportable || config.allowPlaintextBackup ||
-		!config.hasVersion(association.KeyVersion) {
+	if !transitConfigKeyBindingMatches(association, configuration, config) {
+		return false
+	}
+	if !transitConfigSecurityMatches(config) || !config.hasVersion(association.KeyVersion) {
 		return false
 	}
 	if !transitVersionInRange(association.KeyVersion, config.minDecryptionVersion, config.latestVersion) {
 		return false
 	}
-	return action == transitActionUnwrap ||
-		(action == transitActionWrap && transitVersionInRange(association.KeyVersion, config.minEncryptionVersion, config.latestVersion))
+	return transitConfigActionMatches(association.KeyVersion, config, action)
+}
+
+func transitConfigKeyBindingMatches(association KMSAssociation, configuration TransitConfiguration, config transitKeyConfig) bool {
+	return config.name == association.KeyID &&
+		config.algorithm == association.Algorithm &&
+		config.minDecryptionVersion == configuration.MinDecryptionVersion &&
+		config.minEncryptionVersion == configuration.MinEncryptionVersion
+}
+
+func transitConfigSecurityMatches(config transitKeyConfig) bool {
+	return config.derived && !config.convergent && !config.exportable && !config.allowPlaintextBackup
+}
+
+func transitConfigActionMatches(version string, config transitKeyConfig, action transitAction) bool {
+	switch action {
+	case transitActionUnwrap:
+		return true
+	case transitActionWrap:
+		return transitVersionInRange(version, config.minEncryptionVersion, config.latestVersion)
+	default:
+		return false
+	}
 }
 
 func transitURL(configuration TransitConfiguration, operation, keyID string) (*url.URL, error) {
@@ -418,18 +451,33 @@ func transitDerivedContext(value AssociationContext) []byte {
 }
 
 func transitCiphertextVersion(value string) (string, error) {
-	if len(value) > maximumTransitMaterial*2 || !utf8.ValidString(value) || strings.ContainsAny(value, transitForbiddenControlCharacters) {
+	if !validTransitCiphertextText(value) {
 		return "", errors.New("invalid Transit ciphertext")
 	}
+	version, payload, ok := transitCiphertextParts(value)
+	if !ok || !validTransitCiphertextPayload(payload) {
+		return "", errors.New("invalid Transit ciphertext")
+	}
+	return version, nil
+}
+
+func validTransitCiphertextText(value string) bool {
+	return len(value) <= maximumTransitMaterial*2 &&
+		utf8.ValidString(value) &&
+		!strings.ContainsAny(value, transitForbiddenControlCharacters)
+}
+
+func transitCiphertextParts(value string) (string, string, bool) {
 	parts := strings.Split(value, ":")
 	if len(parts) != 3 || parts[0] != "vault" || len(parts[1]) < 2 || parts[1][0] != 'v' || !validTransitVersion(parts[1][1:]) || parts[2] == "" {
-		return "", errors.New("invalid Transit ciphertext")
+		return "", "", false
 	}
-	decoded, err := base64.StdEncoding.DecodeString(parts[2])
-	if err != nil || len(decoded) == 0 || len(decoded) > maximumTransitMaterial*2 {
-		return "", errors.New("invalid Transit ciphertext")
-	}
-	return parts[1][1:], nil
+	return parts[1][1:], parts[2], true
+}
+
+func validTransitCiphertextPayload(value string) bool {
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	return err == nil && len(decoded) > 0 && len(decoded) <= maximumTransitMaterial*2
 }
 
 func transitContextError(ctx context.Context) error {
@@ -600,40 +648,62 @@ func (response transitKeyResponse) config() (transitKeyConfig, error) {
 }
 
 func (data transitKeyData) config() (transitKeyConfig, error) {
-	version := data.LatestVersion.String()
-	minimumDecryption := data.MinDecryptionVersion.String()
-	minimumEncryption := data.MinEncryptionVersion.String()
-	if !validTransitOpaque(data.Name) ||
-		!validTransitOpaque(data.Type) ||
-		!validTransitVersion(version) ||
-		!validTransitMinimumVersion(minimumDecryption) ||
-		!validTransitMinimumVersion(minimumEncryption) ||
-		data.Derived == nil ||
-		data.ConvergentEncryption == nil ||
-		data.Exportable == nil ||
-		data.AllowPlaintextBackup == nil ||
-		len(data.Keys) == 0 {
+	config, ok := data.keyMetadata()
+	if !ok {
 		return transitKeyConfig{}, errors.New("invalid Transit key response")
 	}
-	versions := make(map[string]struct{}, len(data.Keys))
-	for keyVersion, createdAt := range data.Keys {
-		if !validTransitVersion(keyVersion) || !validTransitMinimumVersion(createdAt.String()) {
-			return transitKeyConfig{}, errors.New("invalid Transit key response")
-		}
-		versions[keyVersion] = struct{}{}
+	versions, ok := transitKeyVersions(data.Keys)
+	if !ok {
+		return transitKeyConfig{}, errors.New("invalid Transit key response")
+	}
+	config.versions = versions
+	return config, nil
+}
+
+func (data transitKeyData) keyMetadata() (transitKeyConfig, bool) {
+	if !data.hasRequiredMetadata() {
+		return transitKeyConfig{}, false
+	}
+	latestVersion := data.LatestVersion.String()
+	minimumDecryption := data.MinDecryptionVersion.String()
+	minimumEncryption := data.MinEncryptionVersion.String()
+	if !validTransitVersion(latestVersion) ||
+		!validTransitMinimumVersion(minimumDecryption) ||
+		!validTransitMinimumVersion(minimumEncryption) {
+		return transitKeyConfig{}, false
 	}
 	return transitKeyConfig{
 		name:                 data.Name,
 		algorithm:            data.Type,
-		latestVersion:        version,
+		latestVersion:        latestVersion,
 		minDecryptionVersion: minimumDecryption,
 		minEncryptionVersion: minimumEncryption,
 		derived:              *data.Derived,
 		convergent:           *data.ConvergentEncryption,
 		exportable:           *data.Exportable,
 		allowPlaintextBackup: *data.AllowPlaintextBackup,
-		versions:             versions,
-	}, nil
+	}, true
+}
+
+func (data transitKeyData) hasRequiredMetadata() bool {
+	return validTransitOpaque(data.Name) &&
+		validTransitOpaque(data.Type) &&
+		data.Derived != nil &&
+		data.ConvergentEncryption != nil &&
+		data.Exportable != nil &&
+		data.AllowPlaintextBackup != nil &&
+		len(data.Keys) > 0
+}
+
+func transitKeyVersions(keys map[string]json.Number) (map[string]struct{}, bool) {
+	versions := make(map[string]struct{}, len(keys))
+	for keyVersion, createdAt := range keys {
+		if !validTransitVersion(keyVersion) || !validTransitMinimumVersion(createdAt.String()) {
+			return nil, false
+		}
+		versions[keyVersion] = struct{}{}
+	}
+	return versions, true
 }
 
 func (config transitKeyConfig) hasVersion(version string) bool {

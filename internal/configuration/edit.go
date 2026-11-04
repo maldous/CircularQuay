@@ -12,33 +12,63 @@ import (
 )
 
 func applyEdits(compiled model.Policy, composition *model.Composition, path string) (model.Policy, error) {
+	if err := validateCompositionEdits(composition); err != nil {
+		return model.Policy{}, err
+	}
+	document, err := compositionDocument(compiled)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err = applyOverrides(document, composition.Overrides); err != nil {
+		return model.Policy{}, err
+	}
+	if err = enforceLocks(document, composition.Locks); err != nil {
+		return model.Policy{}, err
+	}
+	return editedPolicy(document, path)
+}
+
+func validateCompositionEdits(composition *model.Composition) error {
 	if err := validateEdits(composition.Overrides); err != nil {
-		return model.Policy{}, err
+		return err
 	}
-	if err := validateEdits(composition.Locks); err != nil {
-		return model.Policy{}, err
-	}
+	return validateEdits(composition.Locks)
+}
+
+func compositionDocument(compiled model.Policy) (map[string]any, error) {
 	data, err := json.Marshal(compiled)
 	if err != nil {
-		return model.Policy{}, failure(fault.Invalid, "composition_encode")
+		return nil, failure(fault.Invalid, "composition_encode")
 	}
 	var document map[string]any
 	if jsondocument.Decode(data, &document) != nil {
-		return model.Policy{}, failure(fault.Invalid, "composition_encode")
+		return nil, failure(fault.Invalid, "composition_encode")
 	}
-	for _, edit := range composition.Overrides {
+	return document, nil
+}
+
+func applyOverrides(document map[string]any, edits []model.PolicyEdit) error {
+	for _, edit := range edits {
 		value, err := editValue(edit.Value)
 		if err != nil || applyEdit(document, edit.Pointer, value) != nil {
-			return model.Policy{}, failure(fault.Invalid, "composition_override")
+			return failure(fault.Invalid, "composition_override")
 		}
 	}
-	for _, lock := range composition.Locks {
+	return nil
+}
+
+func enforceLocks(document map[string]any, locks []model.PolicyEdit) error {
+	for _, lock := range locks {
 		value, err := editValue(lock.Value)
 		if err != nil || !lockedValue(document, lock.Pointer, value) {
-			return model.Policy{}, failure(fault.Denied, "composition_lock")
+			return failure(fault.Denied, "composition_lock")
 		}
 	}
-	data, err = json.Marshal(document)
+	return nil
+}
+
+func editedPolicy(document map[string]any, path string) (model.Policy, error) {
+	data, err := json.Marshal(document)
 	if err != nil {
 		return model.Policy{}, failure(fault.Invalid, "composition_encode")
 	}

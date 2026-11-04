@@ -1,6 +1,7 @@
 package assurance
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,12 +16,16 @@ import (
 )
 
 const (
-	maxSourceFiles     = 10_000
-	maxSourceBytes     = 32 << 20
-	maxSourceFileBytes = 1 << 20
-	sourceBindTimeout  = 2 * time.Minute
-	gitRevParseCommand = "rev-parse"
+	maxSourceFiles           = 10_000
+	maxSourceBytes           = 32 << 20
+	maxSourceFileBytes       = 1 << 20
+	maxSourceRasterBytes     = 2 << 20
+	sourceBindTimeout        = 2 * time.Minute
+	gitRevParseCommand       = "rev-parse"
+	selectedIconContactSheet = "web/references/selected-icon-contact-sheet.png"
 )
+
+var pngSignature = []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
 
 var errSourceChangedDuringRead = errors.New("source file changed during read")
 
@@ -181,29 +186,47 @@ func bindTrackedFiles(ctx context.Context, command commandFunc, root string, env
 
 type sourceBudget struct{ bytes int64 }
 
-func (b *sourceBudget) add(size int64) error {
-	if size < 0 || size > maxSourceFileBytes || size > maxSourceBytes-b.bytes {
+func (b *sourceBudget) add(path string, size int64) error {
+	if size < 0 || size > sourceFileByteLimit(path) || size > maxSourceBytes-b.bytes {
 		return errors.New("source tree exceeds byte budget")
 	}
 	b.bytes += size
 	return nil
 }
 
+func sourceFileByteLimit(path string) int64 {
+	// The contact sheet is a declared, nonexecutable PNG reference asset. Its
+	// 2 MiB limit admits the committed 1.5 MiB asset while retaining aggregate
+	// limits and immutable blob comparison.
+	if path == selectedIconContactSheet {
+		return maxSourceRasterBytes
+	}
+	return maxSourceFileBytes
+}
+
+func sourceFileSignature(path string) []byte {
+	if path == selectedIconContactSheet {
+		return pngSignature
+	}
+	return nil
+}
+
 func bindTrackedFile(ctx context.Context, command commandFunc, root string, environment []string, entry treeEntry, budget *sourceBudget) (SourceFile, error) {
 	path := filepath.Join(root, filepath.FromSlash(entry.path))
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || !matchesTrackedMode(info.Mode(), entry.mode) || budget.add(info.Size()) != nil {
+	if err != nil || !info.Mode().IsRegular() || !matchesTrackedMode(info.Mode(), entry.mode) || budget.add(entry.path, info.Size()) != nil {
 		return SourceFile{}, errors.New("tracked source file differs from tree")
 	}
-	known, err := gitOutput(ctx, command, root, environment, "cat-file", "blob", entry.blob)
-	if err != nil {
-		return SourceFile{}, errors.New("source blob unavailable")
-	}
-	actual, err := fileSHA256(root, entry.path, info)
-	if err != nil || sha256.Sum256(known) != actual {
+	actual, err := fileSHA256(root, entry.path, info, sourceFileByteLimit(entry.path), sourceFileSignature(entry.path))
+	if err != nil || !trackedBlobMatches(ctx, command, root, environment, entry, actual) {
 		return SourceFile{}, errors.New("tracked source bytes differ from tree")
 	}
 	return SourceFile{Path: entry.path, Mode: entry.mode, Blob: entry.blob, SHA256: hex.EncodeToString(actual[:])}, nil
+}
+
+func trackedBlobMatches(ctx context.Context, command commandFunc, root string, environment []string, entry treeEntry, actual [sha256.Size]byte) bool {
+	known, err := gitOutput(sourceBlobCaptureContext(ctx, sourceFileByteLimit(entry.path)), command, root, environment, "cat-file", "blob", entry.blob)
+	return err == nil && sha256.Sum256(known) == actual
 }
 
 func matchesTrackedMode(mode fs.FileMode, gitMode string) bool {
@@ -319,8 +342,8 @@ func readRootFile(directory, name string, maximum int64) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(file, maximum+1))
 }
 
-func fileSHA256(root, name string, expected os.FileInfo) ([sha256.Size]byte, error) {
-	if expected.Size() < 0 || expected.Size() > maxSourceFileBytes {
+func fileSHA256(root, name string, expected os.FileInfo, maximum int64, signature []byte) ([sha256.Size]byte, error) {
+	if expected.Size() < 0 || maximum < 0 || expected.Size() > maximum {
 		return [sha256.Size]byte{}, errors.New("source file exceeds byte budget")
 	}
 	directory, file, err := openBoundSourceFile(root, name, expected)
@@ -329,11 +352,23 @@ func fileSHA256(root, name string, expected os.FileInfo) ([sha256.Size]byte, err
 	}
 	defer directory.Close()
 	defer file.Close()
-	sum, err := boundedFileSHA256(file, expected.Size())
+	if !matchesFileSignature(file, signature) {
+		return [sha256.Size]byte{}, errors.New("source file has an invalid signature")
+	}
+	sum, err := boundedFileSHA256(file, expected.Size(), maximum)
 	if err != nil || !fileStillMatches(file, expected) {
 		return [sha256.Size]byte{}, errSourceChangedDuringRead
 	}
 	return sum, nil
+}
+
+func matchesFileSignature(file *os.File, signature []byte) bool {
+	if len(signature) == 0 {
+		return true
+	}
+	actual := make([]byte, len(signature))
+	read, err := file.ReadAt(actual, 0)
+	return err == nil && read == len(signature) && bytes.Equal(actual, signature)
 }
 
 func openBoundSourceFile(root, name string, expected os.FileInfo) (*os.Root, *os.File, error) {
@@ -355,9 +390,9 @@ func openBoundSourceFile(root, name string, expected os.FileInfo) (*os.Root, *os
 	return directory, file, nil
 }
 
-func boundedFileSHA256(file *os.File, expectedSize int64) ([sha256.Size]byte, error) {
+func boundedFileSHA256(file *os.File, expectedSize, maximum int64) ([sha256.Size]byte, error) {
 	hash := sha256.New()
-	read, err := io.Copy(hash, io.LimitReader(file, maxSourceFileBytes+1))
+	read, err := io.Copy(hash, io.LimitReader(file, maximum+1))
 	if err != nil || read != expectedSize {
 		return [sha256.Size]byte{}, errSourceChangedDuringRead
 	}

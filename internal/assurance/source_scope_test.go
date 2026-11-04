@@ -114,7 +114,13 @@ func TestSourceGoScopeSeparatesVerifiedTaggedIntegration(t *testing.T) {
 			t.Fatalf("tagged integration file escaped formatting scope: %#v", scope.files)
 		}
 	}
-	if check, present := taggedIntegrationQualificationCheck(scope); !present || check.Name != taggedIntegrationCheckName || !check.Required || check.Status != "not_run" || check.Code != taggedIntegrationCheckCode {
+	check, present := taggedIntegrationQualificationCheck(scope)
+	assertRequiredTaggedIntegrationHold(t, check, present)
+}
+
+func assertRequiredTaggedIntegrationHold(t *testing.T, check Check, present bool) {
+	t.Helper()
+	if !present || check.Name != taggedIntegrationCheckName || !check.Required || check.Status != "not_run" || check.Code != taggedIntegrationCheckCode {
 		t.Fatalf("tagged integration qualification check = %#v, present=%t", check, present)
 	}
 }
@@ -180,9 +186,7 @@ func TestAuditReportsTaggedIntegrationLaneAsRequiredNotRun(t *testing.T) {
 	output := filepath.Join(root, "audit-results", "source")
 	fake := sourceAuditCommand(t, "synthetic")
 	command := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
-		if binary == "go" && len(args) > 0 && (args[0] == "test" || args[0] == "vet") && strings.Contains(strings.Join(args, " "), "./internal/integration") {
-			t.Fatal("untagged Go command received tagged integration package")
-		}
+		assertUntaggedAuditCommand(t, binary, args)
 		return fake(ctx, binary, args, directory, environment)
 	}
 	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
@@ -195,6 +199,13 @@ func TestAuditReportsTaggedIntegrationLaneAsRequiredNotRun(t *testing.T) {
 		}
 	}
 	t.Fatal("missing required tagged integration qualification check")
+}
+
+func assertUntaggedAuditCommand(t *testing.T, binary string, args []string) {
+	t.Helper()
+	if binary == "go" && len(args) > 0 && (args[0] == "test" || args[0] == "vet") && strings.Contains(strings.Join(args, " "), "./internal/integration") {
+		t.Fatal("untagged Go command received tagged integration package")
+	}
 }
 
 func writeTaggedIntegrationFixture(t *testing.T, root, name, data string) {

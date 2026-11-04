@@ -29,21 +29,32 @@ func (r resolver) readLocal(include model.Include) ([]byte, string, []string, er
 }
 
 func (r resolver) readRepository(ctx context.Context, include model.Include) ([]byte, string, []string, error) {
+	release, err := r.repositoryRelease(ctx, include)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	return r.readRepositoryContent(include, release)
+}
+
+func (r resolver) repositoryRelease(ctx context.Context, include model.Include) (string, error) {
 	if include.Refresh == "offline" && !r.now().Before(*include.CacheExpiresAt) {
-		return nil, "", nil, failure(fault.Expired, "include_cache")
+		return "", failure(fault.Expired, "include_cache")
 	}
-	var (
-		release string
-		err     error
-	)
-	if include.Refresh == "online" {
-		release, err = r.fetch(ctx, *include.Repository, include.Commit)
-	} else {
-		release, err = r.current(ctx, *include.Repository)
-	}
+	release, err := r.repositoryReleasePath(ctx, include)
 	if err != nil || !isAbsoluteClean(release) || filepath.Base(release) != include.Commit {
-		return nil, "", nil, failure(fault.Trust, "include_release")
+		return "", failure(fault.Trust, "include_release")
 	}
+	return release, nil
+}
+
+func (r resolver) repositoryReleasePath(ctx context.Context, include model.Include) (string, error) {
+	if include.Refresh == "online" {
+		return r.fetch(ctx, *include.Repository, include.Commit)
+	}
+	return r.current(ctx, *include.Repository)
+}
+
+func (r resolver) readRepositoryContent(include model.Include, release string) ([]byte, string, []string, error) {
 	file := filepath.Join(release, filepath.FromSlash(include.Path))
 	if !within(release, file) {
 		return nil, "", nil, failure(fault.Trust, "include_path")

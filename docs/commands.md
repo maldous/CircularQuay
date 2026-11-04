@@ -26,10 +26,15 @@ requirements; see [bootstrap prerequisites](configuration-repositories.md#bootst
 When a workload has `command_sha256`, `run` uses its declared command and
 arguments. An explicit local command after `--` must match that complete
 argument vector and still pass the executable digest check. A different
-program or changed arguments cannot bypass the pin. Unpinned workloads retain
-the explicitly local command-selection behavior; MCP always uses its enrolled
-command and requires a digest. Executable pinning does not freeze separate
-scripts, plugins or input files.
+program or changed arguments cannot bypass the pin. CLI `run` checks command
+identity before opening workload state or resolving repository-backed secret
+sources and values, then checks it again before child environment construction.
+Policy acquisition can precede that boundary. Unpinned workloads retain the
+explicitly local command-selection behavior; MCP always uses its enrolled
+command, requires a digest and shares the protected command-identity validator.
+Digest reads are capped and file identity, size and protections are rechecked.
+These checks do not make pathname execution atomic or freeze separate scripts,
+plugins or input files.
 
 Configuration operations are cooperative: each writer takes the private local
 configuration lock, validates a candidate, then re-reads the current digest

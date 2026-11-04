@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/maldous/CircularQuay/internal/fault"
@@ -41,44 +42,34 @@ func TestPinnedLaunchRejectsOverrideIdentityChangesBeforeLaunchInputs(t *testing
 
 func TestPinnedLaunchVerifiesMatchingOverrideAndMCPCommand(t *testing.T) {
 	work, generation := pinnedProcessIdentityFixture(t)
-	for _, test := range []struct {
-		name     string
-		digest   string
-		override []string
-	}{
-		{
-			name:     "matching local override",
-			digest:   work.CommandSHA256,
-			override: append([]string(nil), work.Command...),
-		},
-		{
-			name:   "nil MCP override",
-			digest: work.CommandSHA256,
-		},
-		{
-			name:     "matching override with mismatched digest",
-			digest:   "0000000000000000000000000000000000000000000000000000000000000000",
-			override: append([]string(nil), work.Command...),
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			candidate := work
-			candidate.CommandSHA256 = test.digest
-			args, environment, directory, err := launchInputs(candidate, generation, test.override)
-			if test.digest != work.CommandSHA256 {
-				if !fault.Is(err, fault.Trust) || args != nil || environment != nil || directory != "" {
-					t.Fatal("matching override bypassed executable verification")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("matching pinned command denied: %v", err)
-			}
-			if !reflect.DeepEqual(args, work.Command) || directory != work.Directory || len(environment) == 0 {
-				t.Fatal("matching pinned command inputs changed")
-			}
-		})
-	}
+	assertPinnedLaunchAccepted(t, "matching local override", work, generation, append([]string(nil), work.Command...))
+	assertPinnedLaunchAccepted(t, "nil MCP override", work, generation, nil)
+	assertPinnedLaunchRejectsDigest(t, work, generation, append([]string(nil), work.Command...))
+}
+
+func assertPinnedLaunchAccepted(t *testing.T, name string, work model.Workload, generation model.Generation, override []string) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		args, environment, directory, err := launchInputs(work, generation, override)
+		if err != nil {
+			t.Fatalf("matching pinned command denied: %v", err)
+		}
+		if !reflect.DeepEqual(args, work.Command) || directory != work.Directory || len(environment) == 0 {
+			t.Fatal("matching pinned command inputs changed")
+		}
+	})
+}
+
+func assertPinnedLaunchRejectsDigest(t *testing.T, work model.Workload, generation model.Generation, override []string) {
+	t.Helper()
+	t.Run("matching override with mismatched digest", func(t *testing.T) {
+		candidate := work
+		candidate.CommandSHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
+		args, environment, directory, err := launchInputs(candidate, generation, override)
+		if !fault.Is(err, fault.Trust) || args != nil || environment != nil || directory != "" {
+			t.Fatal("matching override bypassed executable verification")
+		}
+	})
 }
 
 func TestUnpinnedLocalOverrideRemainsPermitted(t *testing.T) {
@@ -102,6 +93,18 @@ func TestPinnedLaunchWithMissingConfiguredCommandFailsClosed(t *testing.T) {
 	}
 	if _, environment, directory, err := launchInputs(work, generation, []string{work.CommandSHA256}); !fault.Is(err, fault.Trust) || environment != nil || directory != "" {
 		t.Fatal("missing pinned command override was accepted")
+	}
+}
+
+func TestBoundedExecutableDigestRejectsReaderOverrun(t *testing.T) {
+	digest, exceeded, err := boundedExecutableDigest(strings.NewReader("four"), 3)
+	if err != nil || !exceeded || len(digest) != sha256.Size {
+		t.Fatal("bounded executable digest accepted an overrun")
+	}
+	expected := sha256.Sum256([]byte("four"))
+	digest, exceeded, err = boundedExecutableDigest(strings.NewReader("four"), 4)
+	if err != nil || exceeded || !bytesEqual(digest, expected[:]) {
+		t.Fatal("bounded executable digest changed an in-bound reader")
 	}
 }
 
