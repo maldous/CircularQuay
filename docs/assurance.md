@@ -109,6 +109,15 @@ Source evidence uses a complete Git checkout rooted at the selected source direc
 
 These manifests detect ordinary injection and drift. They do not form an atomic filesystem snapshot, authenticate the installed Git/analyzers, or isolate source tests from the auditor's host authority. Those execution and tool-qualification boundaries require separate evidence.
 
+Failed Go test and vet checks can include an optional v1 `failure` object.
+Its `state` is `observed`, `unknown` or `overflow`; an observed object contains
+only manifest-owned package names and tracked public Go `path`/`line` pairs.
+The parser retains at most 16 packages and 32 locations, with line numbers
+from 1 through 1,000,000. Unknown identities, malformed attribution and
+overflow do not expose partial raw diagnostics. Command arguments, diagnostic
+messages, endpoints and values remain absent. This metadata does not change
+the check's failure, exit code or qualification requirements.
+
 No operational credentials or raw MCP secret responses belong in public evidence. Synthetic assurance works without external secret-provider accounts. Live-provider qualification is opt-in and separate.
 
 ## Current status

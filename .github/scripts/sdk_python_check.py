@@ -31,6 +31,7 @@ HOOK_MAX_EVENTS = 1_024
 HOOK_MAX_TEST_ID_BYTES = 256
 MAX_TIMEOUT_SECONDS = 1_200
 SDK_PATH = "sdk/python/"
+WINDOWS_SDK_PATH = "sdk\\python\\"
 PYTHON_SDK_SOURCE = "sdk/python/src"
 # The fixed report may retain coverage only for tracked SDK modules, never a tool-supplied path.
 OWNED_COVERAGE_PATHS = frozenset(
@@ -161,7 +162,7 @@ class Capture:
             self.bandit_rule = None
             self.bandit_message = ""
             return
-        if self.check == "coverage" and line.startswith(SDK_PATH):
+        if self.check == "coverage" and _coverage_candidate(line):
             row = _coverage_row(line)
             if row is None or any(item.path == row.path for item in self.coverage_rows):
                 self.unparsed_sdk_lines += 1
@@ -281,8 +282,8 @@ def _coverage_row(line: str) -> CoverageRow | None:
     columns = line.split(maxsplit=6)
     if len(columns) not in {6, 7}:
         return None
-    path = columns[0]
-    if path not in OWNED_COVERAGE_PATHS:
+    path = _coverage_path(columns[0])
+    if path is None:
         return None
     numbers = _coverage_numbers(columns[1:6])
     if numbers is None:
@@ -302,6 +303,20 @@ def _coverage_row(line: str) -> CoverageRow | None:
         missing_lines=ranges,
         missing_branches=branches,
     )
+
+
+def _coverage_candidate(line: str) -> bool:
+    """Recognize only the two relative separator forms emitted by supported runners."""
+
+    return line.startswith(SDK_PATH) or line.startswith(WINDOWS_SDK_PATH)
+
+
+def _coverage_path(value: str) -> str | None:
+    """Normalize an expected relative Windows path before the manifest check."""
+
+    if value.startswith(WINDOWS_SDK_PATH):
+        value = value.replace("\\", "/")
+    return value if value in OWNED_COVERAGE_PATHS else None
 
 
 def _coverage_numbers(values: list[str]) -> tuple[int, int, int, int, int] | None:
@@ -629,8 +644,16 @@ def run_check(check: str, timeout_seconds: int, progress: Path | None) -> tuple[
                 timed_out = timed_out or report_timeout
             else:
                 timed_out = True
+            _require_coverage_manifest(capture)
             elapsed = int((time.monotonic() - started) * 1000)
         return code, capture, timed_out, elapsed
+
+
+def _require_coverage_manifest(capture: Capture) -> None:
+    """Fail closed unless coverage evidence covers exactly the declared SDK modules."""
+
+    if {item.path for item in capture.coverage_rows} != OWNED_COVERAGE_PATHS:
+        capture.malformed = True
 
 
 def _run_command(

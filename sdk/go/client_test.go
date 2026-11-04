@@ -176,12 +176,26 @@ func TestSecretProviderVersionIsOpaqueAndPortable(t *testing.T) {
 func TestSecretMetadataAndValueUTF8ByteBoundaries(t *testing.T) {
 	providerVersion := strings.Repeat("é", maxProviderVersionBytes/len("é"))
 	secretValue := strings.Repeat("é", maxSecretValueBytes/len("é"))
+	assertSecretMetadataByteBoundaries(t, providerVersion, secretValue)
+	assertProviderVersionControlHandling(t)
+	secret := readSecretBoundaryFixture(t, providerVersion, secretValue)
+	if len(secret.Value()) != maxSecretValueBytes || secret.Version != providerVersion {
+		t.Fatalf("bounded secret was not preserved: value bytes=%d version bytes=%d", len(secret.Value()), len(secret.Version))
+	}
+}
+
+func assertSecretMetadataByteBoundaries(t *testing.T, providerVersion, secretValue string) {
+	t.Helper()
 	if !validProviderVersion(providerVersion) || validProviderVersion(providerVersion+"é") {
 		t.Fatal("provider-version byte boundary not enforced")
 	}
 	if !validSecretValue(secretValue) || validSecretValue(secretValue+"é") || validSecretValue(string([]byte{0xff})) {
 		t.Fatal("secret-value UTF-8 byte boundary not enforced")
 	}
+}
+
+func assertProviderVersionControlHandling(t *testing.T) {
+	t.Helper()
 	if !validProviderVersion("C1\u0085-permitted") {
 		t.Fatal("provider version rejected a non-C0 Unicode control")
 	}
@@ -190,6 +204,10 @@ func TestSecretMetadataAndValueUTF8ByteBoundaries(t *testing.T) {
 			t.Fatalf("unsafe provider version accepted: %q", version)
 		}
 	}
+}
+
+func readSecretBoundaryFixture(t *testing.T, providerVersion, secretValue string) Secret {
+	t.Helper()
 	client, err := newClient(&fakeCaller{result: &mcp.CallToolResult{StructuredContent: map[string]any{
 		"alias": "TOKEN", "value": secretValue, "version": providerVersion,
 	}}})
@@ -197,9 +215,10 @@ func TestSecretMetadataAndValueUTF8ByteBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	secret, err := client.Disclosure(AllowPlaintext{}).ReadSecret(context.Background(), "alpha", "TOKEN")
-	if err != nil || len(secret.Value()) != maxSecretValueBytes || secret.Version != providerVersion {
-		t.Fatalf("bounded secret was not preserved: value bytes=%d version bytes=%d error=%v", len(secret.Value()), len(secret.Version), err)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return secret
 }
 
 func TestSecretExpiryCategoriesAreSafeAndStable(t *testing.T) {

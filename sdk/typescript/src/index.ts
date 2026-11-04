@@ -297,7 +297,7 @@ function structured(root: Record<string, unknown>): unknown {
   const value = root.structuredContent;
   if (!safeJSON(value)) throw new CquayError("protocol");
   const serialized = JSON.stringify(value);
-  if (serialized === undefined || encodedLength(serialized) > MAX_RESPONSE_BYTES) throw new CquayError("protocol");
+  if (encodedLength(serialized) > MAX_RESPONSE_BYTES) throw new CquayError("protocol");
   return value;
 }
 function parseTools(page: unknown): readonly ToolDescriptor[] {
@@ -369,7 +369,7 @@ function validatePointer(value: string): void {
   for (let index = 0; index < value.length; index += 1) if (value[index] === "~" && value[index + 1] !== "0" && value[index + 1] !== "1") throw new CquayError("invalid");
 }
 function validSecretValue(value: unknown): value is string { return typeof value === "string" && encodedLength(value) <= MAX_SECRET_VALUE_BYTES; }
-function validProviderVersion(value: unknown): boolean {
+function validProviderVersion(value: unknown): value is string | undefined {
   return value === undefined || (typeof value === "string" && encodedLength(value) <= MAX_PROVIDER_VERSION_BYTES && !hasControlCharacter(value));
 }
 function hasControlCharacter(value: string): boolean { return /[\u0000-\u001f\u007f]/u.test(value); }
@@ -382,7 +382,12 @@ function parseExpiry(value: unknown): "valid" | "expired" | "malformed" {
 }
 function isZeroExpiry(value: unknown): boolean { return value === "0001-01-01T00:00:00Z" || value === "0001-01-01T00:00:00.000Z"; }
 function sorted(values: readonly string[]): boolean {
-  return values.every((value, index) => index === 0 || values.at(index - 1) === undefined || values.at(index - 1) <= value);
+  for (let index = 1; index < values.length; index += 1) {
+    const previous = values[index - 1];
+    const current = values[index];
+    if (previous === undefined || current === undefined || previous > current) return false;
+  }
+  return true;
 }
 function isAbort(value: unknown): boolean { return typeof value === "object" && value !== null && (value as { name?: unknown }).name === "AbortError"; }
 function flags<T extends object>(input: T, names: Readonly<Partial<Record<keyof T, string>>>): string[] {
@@ -526,7 +531,7 @@ function strictJSON(value: unknown): string {
   const state: JSONValidationState = { seen: new WeakSet(), nodes: 0 };
   validateJSONValue(value, 0, state);
   const serialized = JSON.stringify(value);
-  if (serialized === undefined || encodedLength(serialized) > MAX_STDIO_BYTES) throw new CquayError("invalid");
+  if (encodedLength(serialized) > MAX_STDIO_BYTES) throw new CquayError("invalid");
   return serialized;
 }
 function validateJSONValue(value: unknown, depth: number, state: JSONValidationState): void {
@@ -621,7 +626,7 @@ function spawnOwned(executable: string, args: string[], environment: Readonly<Re
     if (child === undefined) { reject(new CquayError("process")); return; }
     const state = new ProcessState(options.signal, resolve, reject);
     bindProcessLifecycle(child, state, options);
-    writeInput(child, options.stdin, () => state.overflow(child));
+    writeInput(child, options.stdin, () => { state.overflow(child); });
   });
 }
 class ProcessState {
@@ -673,7 +678,7 @@ class ProcessState {
     if (this.#settled || this.#killTimer !== undefined) return;
     try { child.kill("SIGTERM"); } catch { /* wait for close */ }
     this.#killTimer = setTimeout(() => { killChild(child, "SIGKILL"); }, 5000);
-    this.#fallbackTimer = setTimeout(() => this.finish(this.terminalError() ?? new CquayError("process")), 6000);
+    this.#fallbackTimer = setTimeout(() => { this.finish(this.terminalError() ?? new CquayError("process")); }, 6000);
   }
   finish(error?: CquayError, result?: LocalResult): void {
     if (this.#settled) return;

@@ -537,7 +537,38 @@ func validConfigSource(value string) bool {
 		return false
 	}
 	parsed, err := url.Parse(value)
-	return err == nil && strings.EqualFold(parsed.Scheme, "https") && parsed.IsAbs() && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && !parsed.ForceQuery && parsed.Fragment == "" && !strings.Contains(value, "#") && parsed.Opaque == ""
+	if err != nil {
+		return false
+	}
+	return validConfigSourceURL(parsed, value)
+}
+
+func validConfigSourceURL(parsed *url.URL, original string) bool {
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return false
+	}
+	if !parsed.IsAbs() {
+		return false
+	}
+	if parsed.Host == "" {
+		return false
+	}
+	if parsed.User != nil {
+		return false
+	}
+	if parsed.RawQuery != "" {
+		return false
+	}
+	if parsed.ForceQuery {
+		return false
+	}
+	if parsed.Fragment != "" {
+		return false
+	}
+	if strings.Contains(original, "#") {
+		return false
+	}
+	return parsed.Opaque == ""
 }
 
 var now = func() time.Time { return time.Now() }

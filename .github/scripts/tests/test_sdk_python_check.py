@@ -108,6 +108,19 @@ class CaptureTest(unittest.TestCase):
             report["coverage"][0]["missing_branches"],
         )
 
+    def test_normalizes_windows_rows_and_requires_complete_manifest(self) -> None:
+        capture = CHECK.Capture("coverage")
+        capture.consume(b"sdk\\python\\src\\cquay\\client.py 12 0 0 0 100%\n")
+        self.assertEqual("sdk/python/src/cquay/client.py", capture.coverage_rows[0].path)
+        CHECK._require_coverage_manifest(capture)
+        self.assertTrue(capture.malformed)
+
+        complete = CHECK.Capture("coverage")
+        for path in sorted(CHECK.OWNED_COVERAGE_PATHS):
+            complete.consume(f"{path} 12 0 0 0 100%\n".encode("utf-8"))
+        CHECK._require_coverage_manifest(complete)
+        self.assertFalse(complete.malformed)
+
     def test_rejects_malformed_or_duplicate_coverage_rows(self) -> None:
         malformed = CHECK.Capture("coverage")
         malformed.consume(b"sdk/python/src/cquay/client.py 12 0 0 0 84% 4-5\n")

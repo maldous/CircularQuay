@@ -12,12 +12,28 @@ import (
 
 // Check records bounded metadata. Raw command output never becomes report content.
 type Check struct {
-	Name       string `json:"name"`
-	Status     string `json:"status"`
-	Required   bool   `json:"required"`
-	Code       string `json:"code,omitempty"`
-	ExitCode   int    `json:"exit_code,omitempty"`
-	DurationMS int64  `json:"duration_ms"`
+	Name       string             `json:"name"`
+	Status     string             `json:"status"`
+	Required   bool               `json:"required"`
+	Code       string             `json:"code,omitempty"`
+	ExitCode   int                `json:"exit_code,omitempty"`
+	DurationMS int64              `json:"duration_ms"`
+	Failure    *GoFailureMetadata `json:"failure,omitempty"`
+}
+
+// GoFailureMetadata contains only source-bound metadata from a failed Go test
+// or vet command. It never stores command arguments, endpoints, values, or
+// diagnostic text.
+type GoFailureMetadata struct {
+	State     string              `json:"state"`
+	Packages  []string            `json:"packages,omitempty"`
+	Locations []GoFailureLocation `json:"locations,omitempty"`
+}
+
+// GoFailureLocation identifies a tracked public Go source line.
+type GoFailureLocation struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
 }
 
 // Report ties honest results to a source revision and the selected platform.

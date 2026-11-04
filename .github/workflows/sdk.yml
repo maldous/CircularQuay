@@ -381,6 +381,7 @@ jobs:
           state="$root/state"
           mkdir -m 0700 "$state"
           "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
           identity=$("$binary" doctor --identity-only)
           subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
           SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
@@ -583,6 +584,7 @@ jobs:
           state="$root/state"
           mkdir -m 0700 "$state"
           "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
           identity=$("$binary" doctor --identity-only)
           subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
           SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -

@@ -33,9 +33,10 @@ type Options struct {
 }
 
 type commandResult struct {
-	output   []byte
-	exitCode int
-	missing  bool
+	output    []byte
+	exitCode  int
+	missing   bool
+	goFailure goFailureCapture
 }
 type commandFunc func(context.Context, string, []string, string, []string) commandResult
 
@@ -170,9 +171,9 @@ func (audit *auditRun) recordChecks(ctx context.Context, tools *qualifiedTools, 
 	audit.report.Checks = append(audit.report.Checks, format)
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
-	audit.report.Checks = append(audit.report.Checks, tools.commandFor("go").execute(ctx, "unit_tests", true, audit.options.GoBinary, testArguments, audit.root, audit.environment))
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), "unit_tests", audit.options.GoBinary, testArguments, audit.root, audit.environment, scope, audit.report.Source))
 	audit.report.Checks = append(audit.report.Checks, coverageCheck(coveragePath, &audit.report.Coverage))
-	audit.report.Checks = append(audit.report.Checks, tools.commandFor("go").execute(ctx, "go_vet", true, audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment))
+	audit.report.Checks = append(audit.report.Checks, executeGoSourceCheck(ctx, tools.commandFor("go"), "go_vet", audit.options.GoBinary, append([]string{"vet"}, scope.packages...), audit.root, audit.environment, scope, audit.report.Source))
 	addExternalChecks(ctx, tools, audit.root, audit.environment, audit.options.Profile == "enterprise", scope, &audit.report)
 	addSonarWithTools(audit.options, &audit.report)
 	audit.report.Checks = append(audit.report.Checks, Check{Name: "native_reboot_and_restore", Status: "not_run", Code: "requires_qualified_native_environment"}, Check{Name: "independent_review", Status: "not_run", Code: "requires_independent_reviewer"})
@@ -611,18 +612,19 @@ func runCommand(ctx context.Context, binary string, arguments []string, director
 	cmd.Stdout = &buffer
 	cmd.Stderr = &buffer
 	err := cmd.Run()
+	failure := parseGoFailureCapture(arguments, buffer.Bytes(), buffer.overflow)
 	if errors.Is(err, exec.ErrNotFound) {
 		return commandResult{exitCode: 127, missing: true}
 	}
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return commandResult{exitCode: exit.ExitCode()}
+			return commandResult{exitCode: exit.ExitCode(), goFailure: failure}
 		}
-		return commandResult{exitCode: 1}
+		return commandResult{exitCode: 1, goFailure: failure}
 	}
 	if buffer.overflow {
-		return commandResult{exitCode: 1}
+		return commandResult{exitCode: 1, goFailure: failure}
 	}
 	return commandResult{output: buffer.Bytes()}
 }

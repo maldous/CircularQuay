@@ -130,6 +130,14 @@ type Tool struct {
 func (c *Client) DiscoverTools(ctx context.Context) (tools []Tool, err error) {
 	started := time.Now()
 	defer func() { c.observe("discover_tools", outcome(err), time.Since(started)) }()
+	result, err := c.listTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parseToolCatalog(result)
+}
+
+func (c *Client) listTools(ctx context.Context) (*mcp.ListToolsResult, error) {
 	if err := validContext(ctx); err != nil {
 		return nil, err
 	}
@@ -140,22 +148,34 @@ func (c *Client) DiscoverTools(ctx context.Context) (tools []Tool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, normalize(err)
 	}
+	return result, nil
+}
+
+func parseToolCatalog(result *mcp.ListToolsResult) ([]Tool, error) {
 	if result == nil || result.NextCursor != "" || len(result.Tools) > 4 {
 		return nil, &Error{Category: CategoryProtocol}
 	}
-	tools = make([]Tool, 0, len(result.Tools))
+	tools := make([]Tool, 0, len(result.Tools))
 	seen := make(map[string]struct{}, len(result.Tools))
 	for _, tool := range result.Tools {
-		if tool == nil || !knownTool(tool.Name) || !validHandle(tool.Name) || !boundedText(tool.Description) {
-			return nil, &Error{Category: CategoryProtocol}
+		parsed, err := parseCatalogTool(tool, seen)
+		if err != nil {
+			return nil, err
 		}
-		if _, duplicate := seen[tool.Name]; duplicate {
-			return nil, &Error{Category: CategoryProtocol}
-		}
-		seen[tool.Name] = struct{}{}
-		tools = append(tools, Tool{Name: tool.Name, Description: tool.Description})
+		tools = append(tools, parsed)
 	}
 	return tools, nil
+}
+
+func parseCatalogTool(tool *mcp.Tool, seen map[string]struct{}) (Tool, error) {
+	if tool == nil || !knownTool(tool.Name) || !validHandle(tool.Name) || !boundedText(tool.Description) {
+		return Tool{}, &Error{Category: CategoryProtocol}
+	}
+	if _, duplicate := seen[tool.Name]; duplicate {
+		return Tool{}, &Error{Category: CategoryProtocol}
+	}
+	seen[tool.Name] = struct{}{}
+	return Tool{Name: tool.Name, Description: tool.Description}, nil
 }
 
 // ListWorkloads returns the exact workload IDs visible to the session.
@@ -283,15 +303,29 @@ func (d *DisclosureClient) ReadSecret(ctx context.Context, workload, key string)
 	if !validHandle(workload) || !validHandle(key) {
 		return Secret{}, &Error{Category: CategoryInvalid}
 	}
-	var response struct {
-		Alias     string          `json:"alias"`
-		Value     string          `json:"value"`
-		Version   string          `json:"version,omitempty"`
-		ExpiresAt json.RawMessage `json:"expires_at,omitempty"`
-	}
-	if err = d.client.call(ctx, "read_secret", map[string]any{"workload": workload, "key": key}, &response); err != nil {
+	response, err := d.requestSecret(ctx, workload, key)
+	if err != nil {
 		return Secret{}, err
 	}
+	return secretFromResponse(response, key)
+}
+
+type secretResponse struct {
+	Alias     string          `json:"alias"`
+	Value     string          `json:"value"`
+	Version   string          `json:"version,omitempty"`
+	ExpiresAt json.RawMessage `json:"expires_at,omitempty"`
+}
+
+func (d *DisclosureClient) requestSecret(ctx context.Context, workload, key string) (secretResponse, error) {
+	var response secretResponse
+	if err := d.client.call(ctx, "read_secret", map[string]any{"workload": workload, "key": key}, &response); err != nil {
+		return secretResponse{}, err
+	}
+	return response, nil
+}
+
+func secretFromResponse(response secretResponse, key string) (Secret, error) {
 	expiresAt, expiryErr := parseSecretExpiry(response.ExpiresAt)
 	if expiryErr != nil {
 		return Secret{}, &Error{Category: CategoryProtocol}

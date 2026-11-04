@@ -37,7 +37,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src --no-inline-config --max-warnings 0",
-    "coverage": "c8 --all --include 'src/**/*.ts' --extension .ts --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm test",
+    "coverage": "c8 --all --src src --include \"**/*.ts\" --extension .ts --exclude-after-remap --reports-dir coverage --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm test && node test/verify-coverage.mjs coverage/coverage-final.json",
     "test": "node --experimental-strip-types --test test/**/*.test.ts"
   },
   "engines": {

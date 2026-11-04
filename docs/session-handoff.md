@@ -11,62 +11,113 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
-Publication `a26e39e46930893259b8385c65953b0896e5bdab`, tree
-`ee50f613145dc21d1d6ea1db24452cd206b25a0f`, has public blob readback
-for all 24 changed files and preserves all 376 working files. Its six hosted
-runs are terminal: no pending or cancelled job. PR #1 remains draft against
-`develop`; use [the exact receipt](qualification.md#exact-a26e39e-hosted-receipt)
-for phase, platform and limitation distinctions.
+Publication `20703ec8c1bd66eab4899ec6ce27d4f0385adc1b`, tree
+`af4f26232a5dce50ecbc6e889defc7d75a7a1ea8`, has public blob readback
+for all 19 changed files and preserves all 378 working files. Its six hosted
+runs are terminal, with no pending, skipped or cancelled job. PR #1 remains
+draft against `develop`; use [the exact receipt](qualification.md#exact-20703ec8-hosted-receipt)
+for platform, phase and limitation distinctions. The following source changes
+have independent source review only and require their own hosted results.
 
-Source `41781361710`: 27 successful/four failed jobs; all 26 cross-builds and
-the cross-build aggregate pass. Linux normal/race/vet/fuzz pass before five
-complexity failures. Windows SDK fixtures use POSIX paths; macOS update
-fixtures encounter the symbolic temporary root. The source auditor executes
-and fails unit tests/vet with no individual diagnostic attribution, and
-independently fails coverage at 7,084/8,578 statements (82.583352763%).
+Source `41786298796`: 29 successful/two failed jobs. All 26 cross-builds,
+their aggregate and both Windows/macOS native suites pass. Linux normal/race
+tests, vet and bounded fuzzing pass before four Go SDK cyclomatic-complexity
+findings; the cognitive analyzer is not reached. The following SDK helpers
+preserve validation and observer behavior while addressing those four paths.
+The source auditor independently fails unit tests and vet without individual
+diagnostic attribution, and fails coverage at 7,168/8,592 statements
+(83.426443203%). The following optional v1 failure metadata retains only
+bounded manifest packages and tracked Go path/line references; raw diagnostics,
+arguments, endpoints and values remain absent. It does not change failed
+statuses or gate requirements.
 
-Security `41781361692`: CodeQL job succeeds; Staticcheck/govulncheck complete.
-Gosec fails six G204, two G103 and one G115. The following source fixes the
-metric overflow with saturation; the other eight remain unsuppressed. Never
-infer zero alerts from a successful scan/upload job alone.
+Correction to the earlier a26e39e summary: its Linux job had nine cyclomatic
+findings, not five. Five were outside the SDK; the same four SDK findings
+persisted because their source blobs were unchanged. Preserve the historical
+receipt and its explicit amendment rather than replacing prior evidence.
 
-SDK `41781361730`: three successful/29 failed jobs including the aggregate.
-Linux/macOS Go SDK and Go locks pass; Windows Go fixtures fail. All nine npm
-lanes produce identical patched candidate bytes and stop at the reviewed-lock
-gate. The following independently reviewed lock/provenance uses those exact
-bytes. It must be installed, audited and tested by a new candidate run.
-Python mypy/Bandit pass; Ruff/import, helper-parser, coverage capture and
-platform-consumer fixtures fail. Linux Python MCP stops before protocol
-interaction at an absent synthetic state directory; the following fixture
-creates that required private directory. All recorded tests complete, including
-the prior cancellation fixture. Five coverage table rows trigger malformed capture;
-no absent raw row is reconstructed. The following structural parser retains
-safe path/count/range evidence without weakening the actual 100% gate.
+Security `41786298795`: CodeQL build, analysis and upload succeed; no
+revision-bound zero-alert count is independently established. Staticcheck and
+govulncheck pass. Gosec no longer reports the saturated heap conversion, but
+six G204 process-boundary and two G103 native-ABI findings remain unresolved
+and unsuppressed. Do not hide required subprocess or FFI operations to obtain
+a cosmetic scanner pass.
+
+SDK `41786298659`: four successful/28 failed jobs, including the failed
+aggregate. Go SDK tests pass on all three native platforms; Go locks pass.
+All nine npm lanes install reviewed dependencies and observed audits report
+zero vulnerabilities. TypeScript exposes owned lint/type failures; its 12 tests
+pass, but the recorded Linux sample has only 52.91% line/statement coverage.
+Windows reports a zero denominator and exits successfully; this is not valid
+coverage. The following corrections repair the attributed type/style issues,
+explicit cross-platform source selection and bounded fail-closed coverage
+validation, with additional public-boundary tests. Only package scripts changed;
+the historical dependency-lock provenance has not been rebound to new inputs.
+Review the next actual hosted producer receipt before changing provenance.
+
+Python Ruff, mypy and Bandit pass on all three platforms. Linux coverage
+captures all five owned modules: client 79%, local 62%, types 92%, and
+initialization/errors 100%; the 100% gate correctly fails. Windows captures
+all 56 progress events but no accepted source rows; the following parser
+normalizes only the finite owned relative paths and requires all five rows.
+Additional synthetic tests exercise public validation boundaries; they have
+not run locally. Sampled installed-wheel, source-distribution, clean-environment
+and no-optional-MCP local consumers pass on Linux, Windows and macOS. These
+samples do not establish every platform/version combination.
+
+The sole selected official Python MCP lane (Ubuntu/Python 3.15,
+job `126429100521`) reaches the server and fails scoped `read_secret` as
+`denied`; other lanes intentionally skip that step. Source tracing shows the
+synthetic policy omitted the required disclosure auditor, so the service
+correctly fails closed before provider retrieval. The following workflow
+configures a relative audit path inside each existing protected synthetic root
+for both official MCP fixtures. Grants and disclosure controls are unchanged;
+there is no post-correction MCP result yet.
 
 Six Intel macOS Python locks contain vulnerable cryptography 48.0.1. Fixed
 releases lack compatible upstream wheels. Retain Intel, wheel-only, hash and
 audit requirements; do not suppress advisories, remove the lane or invent locks.
 This remains an external launch blocker, separate from source corrections.
 
-Sonar `41781361703` completes upload/CE/readbacks at analysis
-`3e7514ab-9a0d-400f-8ab7-d155ba725389`, tested merge
-`9248c1b37a4d67b8fd90d6a8373138822a6d3240` with the same tree.
-Gate failures: 63.7% coverage, 0.2% duplication, one Go test-complexity issue,
-absent new-code metrics and a Python 3.15 fallback warning. Hotspots and CE
-warnings are zero. The following test and Python lifecycle refactors address
-attributed source issues; they do not establish issue closure or a passed gate.
-This analysis imports only Go coverage; analyzed Python/TypeScript files have
-no language coverage input. Produce and explicitly ingest their actual
-revision-bound XML/LCOV evidence as well as closing Go coverage gaps. Do not
-represent project-wide 63.7% as solely untested Go branches.
+Sonar `41786298735` completes upload/CE/readbacks at analysis
+`4515e664-cfcf-4be6-8585-5cb923c4f9be`, tested merge
+`621596917d7c489a2a40a759756a0d02cfa17518` with the same tree.
+Open issues, hotspots, duplication and CE warnings are zero. The strict gate
+still fails at 63.9% coverage, absent required new-code metrics and the Python
+3.15-to-3.14 fallback warning. The missing duplication metric is not an observed
+nonzero duplication result. Only Go coverage is imported; analyzed Python and
+TypeScript have no language coverage input. The following scope correction
+classifies actual tests as tests, while retaining implementation and evidence
+validators as analyzed sources. It is not a coverage exemption. Revision-bound
+Python XML/TypeScript LCOV production and ingestion remain unimplemented;
+retain the reviewed same-run design rather than implying ingestion exists.
 
-WireMock `41781361699` passes all three native synthetic suites. Dependency
-Review `41781361782` passes. Retain `checkpoint39-run-state.json`,
-`checkpoint39-source-review.json`, `ci-a26e39e-sonar.json` and the exact SDK,
-helper, lock and source review receipts. Local builds/tests/scans/resolvers,
-installs and containers remain held for shared-resource coordination. The
-following source-only corrections and added synthetic coverage require fresh
-hosted evidence; no duplicate run, release, deployment or BAU change is implied.
+WireMock `41786298636` passes all three native synthetic suites. Dependency
+Review `41786298740` passes. Retain `checkpoint40-candidate-run-state.json`,
+`checkpoint40-source-security-review.json`, `ci-20703ec8-sonar.json` and the
+exact SDK, helper, workflow and independent review receipts. Local
+builds/tests/scans/resolvers, installs and containers remain held for
+shared-resource coordination. A source-only correction is not a new test pass;
+no duplicate run, release, deployment or BAU change is implied.
+
+### Preceding native-fixture checkpoint
+
+Publication `a26e39e46930893259b8385c65953b0896e5bdab`, tree
+`ee50f613145dc21d1d6ea1db24452cd206b25a0f`, has public readback of
+24 changed files and all 376 working files. Its six hosted runs are terminal;
+[the exact historical receipt](qualification.md#exact-a26e39e-hosted-receipt)
+retains their scope. Source has 27 successful/four failed jobs, including nine
+cyclomatic findings, Windows SDK path fixtures and macOS symbolic temporary-root
+fixtures. Source-profile unit/vet attribution is unavailable; coverage is
+7,084/8,578 (82.583352763%). Security has nine gosec findings. SDK has three
+successful/29 failed jobs; npm stops before installation at the reviewed-lock
+gate, and Python parser/consumer/MCP setup fixtures fail. Sonar completes
+analysis but fails at 63.7% coverage, 0.2% duplication, one test-complexity
+issue, missing new-code metrics and a Python-version fallback warning.
+WireMock and Dependency Review pass. Keep `checkpoint39-run-state.json`,
+`checkpoint39-source-review.json`, `ci-a26e39e-sonar.json` and the explicit
+cyclomatic-count amendment. The later 20703ec8 receipt, rather than these
+results, records qualification after those corrections.
 
 ### Preceding compile-correction checkpoint
 

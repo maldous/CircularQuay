@@ -36,6 +36,80 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 20703ec8 hosted receipt
+
+Publication `20703ec8c1bd66eab4899ec6ce27d4f0385adc1b` has tree
+`af4f26232a5dce50ecbc6e889defc7d75a7a1ea8`. Its tested PR merge is
+`621596917d7c489a2a40a759756a0d02cfa17518`, with the same tree. Full job
+readback records all six workflows terminal, with no pending, skipped or
+cancelled job. This receipt is distinct from the earlier `a26e39e` evidence.
+
+The [source workflow](https://github.com/maldous/CircularQuay/actions/runs/41786298796)
+has 29 successful and two failed jobs. Cross-builds, Windows native tests and
+macOS native tests pass. Linux stops at four remaining SDK `gocyclo` findings;
+`gocognit` is not reached because the shell exits after that failure. The source
+auditor also fails unit tests and vet, but its retained report has no individual
+package or diagnostic attribution for either. It reports 7,168/8,592 owned
+statements (83.426443203%), so this is neither a coverage-only failure nor a
+pass for unattributed checks.
+
+The [security workflow](https://github.com/maldous/CircularQuay/actions/runs/41786298795)
+completes CodeQL analysis and upload, which does not prove a zero alert count.
+Staticcheck and govulncheck pass; gosec retains eight unsuppressed findings
+(six G204 process boundaries and two G103 native quota ABI pointers). The
+former G115 heap-metric conversion is no longer reported after saturation, but
+the workflow remains failed until the eight findings are resolved.
+
+The [SDK workflow](https://github.com/maldous/CircularQuay/actions/runs/41786298659)
+has four successful and 28 failed jobs. The four successes are Go SDK contract
+tests on Linux, Windows and macOS plus Go dependency-lock reproducibility. Its
+TypeScript lanes show a reviewed lock and `npm audit` with zero vulnerabilities,
+but retain owned lint and type failures. The observed Linux Node 22 lane runs 12
+tests but has 52.91% line and statement coverage against the unchanged 100% gate.
+Windows reports a 0/0 denominator that exited successfully, a coverage-tool
+failure rather than evidence of coverage. The reviewed corrective source and
+coverage validator are source-only evidence and require a new hosted run.
+
+Python Ruff, mypy and Bandit pass on all three static lanes, while the reviewed
+lock audit remains blocked by `cryptography 48.0.1` advisories. Its static
+coverage gate fails with actual Linux coverage rows: `__init__.py` and
+`errors.py` are 100%, `types.py` is 92%, `client.py` is 79%, and
+`local.py` is 62%. Windows records a failed, zero-row report and macOS Intel
+also fails without a separate parsed artifact. Sampled installed consumer checks
+pass on Ubuntu, Windows and macOS Intel, but do not qualify the matrix. The only
+selected official MCP read (Ubuntu Python 3.15) fails before a test pass because
+its required audit configuration is absent; source tracing attributes that to
+the synthetic fixture. Other MCP lanes are skipped by design.
+
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41786298735)
+uploads and completes CE analysis `4515e664-cfcf-4be6-8585-5cb923c4f9be` with
+zero issues, hotspots and overall duplication. Its strict gate still fails at
+63.9% coverage, absent new-code metrics and the Python 3.15 fallback warning.
+The reviewed scope patch classifies actual test paths as tests and retains
+implementation and validator paths as analyzed source. It has not implemented
+Python XML/Cobertura or JavaScript/TypeScript LCOV generation or ingestion, so
+the scan imports only Go coverage and the project-wide result cannot be read as
+solely untested Go. Produce, bind and explicitly ingest revision-scoped reports
+for every language before treating Sonar coverage as qualified.
+
+[WireMock](https://github.com/maldous/CircularQuay/actions/runs/41786298636)
+passes its Linux, macOS and Windows synthetic suites, and
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41786298740)
+passes. These narrow successes do not carry forward source, security, SDK,
+Sonar, alert-count, release or production qualification.
+
+Retain `checkpoint40-candidate-run-state.json`,
+`checkpoint40-candidate-integration-dependency.json`,
+`checkpoint40-source-security-review.json`, `checkpoint40-sdk-go-gocyclo-repair.json`,
+`checkpoint40-python-sdk-qualification.json`,
+`checkpoint40-python-helper-review.json`,
+`checkpoint40-python-boundary-review-final.json`,
+`checkpoint40-typescript-review.json`,
+`checkpoint40-typescript-boundary-review.json`,
+`checkpoint40-sonar-scope-review.json` and `ci-20703ec8-sonar.json`. These
+receipts include source-only reviews and prior hosted results; none is a fresh
+release, deployment or production qualification.
+
 ## Exact a26e39e hosted receipt
 
 Publication `a26e39e46930893259b8385c65953b0896e5bdab` has tree
@@ -46,10 +120,13 @@ tree; this equivalence does not qualify a later source revision.
 
 The [source workflow](https://github.com/maldous/CircularQuay/actions/runs/41781361710)
 has 27 successful and four failed jobs. All 26 cross-builds and their aggregate
-pass. Linux normal/race tests, vet and bounded fuzzing pass before five
-cyclomatic-complexity failures. Windows native tests fail in Go SDK fixtures
-using POSIX-only paths; macOS native tests fail in update fixtures under the
-symbolic native temporary root. The source auditor separately executes and
+pass. Linux normal/race tests, vet and bounded fuzzing pass before nine
+cyclomatic-complexity findings. The original receipt reported only five
+non-SDK findings; four additional SDK findings were present in the same job.
+The five non-SDK findings were corrected before checkpoint 40, while the same
+four SDK findings persisted because their relevant blobs were unchanged. Windows
+native tests fail in Go SDK fixtures using POSIX-only paths; macOS native tests
+fail in update fixtures under the symbolic native temporary root. The source auditor separately executes and
 fails unit tests and vet, and fails statement coverage at 7,084/8,578
 (82.583352763%). Its retained report does not attribute the unit/vet failures
 to individual diagnostics; it is not a coverage-only failure.
