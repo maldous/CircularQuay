@@ -26,6 +26,8 @@ import (
 var Version = "1.0.0-dev"
 var Commit = "unknown"
 
+const policyPathDiagnostic = "policy path"
+
 // Runner explicitly owns command I/O; errors never include raw provider text.
 type Runner struct {
 	In       io.Reader
@@ -245,7 +247,7 @@ func (a application) load() (model.Policy, error) {
 func (a application) loadContext(ctx context.Context) (model.Policy, error) {
 	p, err := filepath.Abs(a.config)
 	if err != nil {
-		return model.Policy{}, fault.New(fault.Invalid, "policy path")
+		return model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
 	return a.loadPolicy(ctx, p)
 }
@@ -270,7 +272,7 @@ func (a application) resolvePolicyBytes(ctx context.Context, data []byte, path s
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
-		return model.Policy{}, fault.New(fault.Invalid, "policy path")
+		return model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
 	root, err := configuration.ReadRoot(data, absolute)
 	if err != nil {
@@ -288,7 +290,7 @@ func (a application) readRootPolicy(ctx context.Context, path string) ([]byte, s
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
-		return nil, "", model.Policy{}, fault.New(fault.Invalid, "policy path")
+		return nil, "", model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
 	data, err := platform.ReadProtected(absolute, false)
 	if err != nil || len(data) > maximumConfigInput {

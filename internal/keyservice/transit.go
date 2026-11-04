@@ -24,6 +24,8 @@ const (
 	maximumTransitMaterial = 64 << 10
 	maximumTransitToken    = 64 << 10
 	maximumTransitOpaque   = 4096
+
+	transitForbiddenControlCharacters = "\x00\r\n"
 )
 
 // CredentialReader resolves an adapter-owned opaque credential reference.
@@ -93,7 +95,7 @@ func (t *Transit) Wrap(ctx context.Context, request WrapRequest) (WrapResult, er
 	if err := transitWrapRequest(request); err != nil {
 		return WrapResult{}, err
 	}
-	configuration, token, config, err := t.authorize(ctx, request.Association, request.Context, transitActionWrap)
+	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionWrap)
 	if err != nil {
 		return WrapResult{}, err
 	}
@@ -136,7 +138,7 @@ func (t *Transit) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResu
 	if _, err := transitCiphertextVersion(ciphertext); err != nil {
 		return UnwrapResult{}, fault.New(fault.Invalid, "transit_ciphertext")
 	}
-	configuration, token, config, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
+	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
 	if err != nil {
 		return UnwrapResult{}, err
 	}
@@ -334,11 +336,11 @@ func validTransitMaterial(value []byte) bool {
 }
 
 func validTransitToken(value string) bool {
-	return value != "" && len(value) <= maximumTransitToken && utf8.ValidString(value) && !strings.ContainsAny(value, "\x00\r\n")
+	return value != "" && len(value) <= maximumTransitToken && utf8.ValidString(value) && !strings.ContainsAny(value, transitForbiddenControlCharacters)
 }
 
 func validTransitOpaque(value string) bool {
-	return value != "" && len(value) <= maximumTransitOpaque && utf8.ValidString(value) && !strings.ContainsAny(value, "\x00\r\n")
+	return value != "" && len(value) <= maximumTransitOpaque && utf8.ValidString(value) && !strings.ContainsAny(value, transitForbiddenControlCharacters)
 }
 
 func validTransitNamespace(value string) bool {
@@ -416,7 +418,7 @@ func transitDerivedContext(value AssociationContext) []byte {
 }
 
 func transitCiphertextVersion(value string) (string, error) {
-	if len(value) > maximumTransitMaterial*2 || !utf8.ValidString(value) || strings.ContainsAny(value, "\x00\r\n") {
+	if len(value) > maximumTransitMaterial*2 || !utf8.ValidString(value) || strings.ContainsAny(value, transitForbiddenControlCharacters) {
 		return "", errors.New("invalid Transit ciphertext")
 	}
 	parts := strings.Split(value, ":")

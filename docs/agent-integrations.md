@@ -24,6 +24,22 @@ optional. The CLI and official SDKs also operate independently.
 
 ## Components and identities
 
+The native runtime, internal key-service package and synthetic frontend are
+separate integration surfaces. Source `internal/keyservice` exposes Go core
+decisions and software/Transit primitives through explicit dependencies; its
+presence adds no CLI verb, public SDK method, MCP tool or hosted URL. Inspect
+the real dispatcher/catalog before invoking anything. Browser account/operator
+roles, payments, crypto and fleet actions are synthetic presentation, not grants.
+
+For a browser task, use the assigned frontend checkout's `web/README.md` and
+`web/coverage.md`, its pinned schema/example hashes and exact interaction
+receipts. Do not create a second preview process or copy local configuration
+exports into a review/upload bundle. Typed control reachability is distinct
+from individual edit round trips and native/provider validation. The phone
+route is user-confirmed development access, not a deployed backend or remote
+configuration endpoint. Changes to schema/fixtures require coordinated
+frontend reconciliation and renewed evidence, not an inferred compatibility pass.
+
 | Component | Owning source or contract | Responsibility |
 | --- | --- | --- |
 | Portable skill | [`integrations/skills/cquay/SKILL.md`](../integrations/skills/cquay/SKILL.md) and its contained references | Select safe operations, preserve task scope and keep values out of model-visible diagnostics. |
@@ -43,6 +59,38 @@ it is not inferred from a skills directory or an example provider policy.
 Release records identify the actual package, schema, supported clients and
 installation evidence. Do not invent a plugin/App ID, hosted MCP endpoint,
 OAuth client or public-listing approval when preparing a package.
+
+## General UIF project profiles
+
+The required shared UIF harness must distinguish the CircularQuay product from
+OffMenu and other project profiles. Multi-project capability remains planned/
+unqualified until actual accepted-source/job/isolation evidence covers both
+affected profiles. Do not inherit another project's credentials, state/data
+roots, toolchain, MCP permissions, reviewer or publication target. Profile names
+and skill instructions are not authorization or proof a selector is implemented.
+
+CQ migration and OffMenu configuration/data/BAU work continue in parallel, with
+only real per-unit dependencies. Use current authoritative coordination, the
+single canonical migration/impact record and existing task/lease handover. The
+source owner retains sole Linear writing for this assignment. Verified references
+are UIF `P-UIF-16`, OffMenu `P-UIF-14` and
+[CQ `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c).
+The source owner has populated the canonical [CQ handoff migration checklist](session-handoff.md#uif-migration-and-delivery-closure)
+with obligations, ownership and actual harness gaps. Dynamic view/filter
+creation/readback remains pending. Do not
+turn those gaps into a second issue tree, new planner/dispatcher or guessed
+selector. Review/publication and source/job/isolation evidence apply separately
+to each affected profile; independent work proceeds within its authority. A
+project record does not admit a task/lease, cut over runtime or expand production.
+
+Read the [canonical subproject map](product-guide.md#required-general-uif-harness-and-project-migration)
+before selecting any route: CQ secret/config/workload and crypto/age semantics,
+OffMenu household/product/food data and private profile semantics, and UIF's
+general infrastructure/orchestration/governance are distinct. Each product keeps
+its actual accepted repo/ref, toolchain, privacy/state roots, permissions,
+reviewers and publication evidence. Multi-project integration must demonstrate
+that separation; a product adapter or failed project job alone does not qualify
+or condemn the shared harness.
 
 ## Connection and management
 

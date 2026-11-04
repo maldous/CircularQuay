@@ -21,8 +21,8 @@ func TestSoftwareKMSRoundTripAndResolverOwnership(t *testing.T) {
 		t.Fatalf("wrap error=%v caller=%q keys_cleared=%t", err, caller, resolver.allCleared())
 	}
 	plain, err := adapter.Unwrap(context.Background(), UnwrapRequest{Association: association, Context: binding, Ciphertext: wrapped.Ciphertext})
-	if err != nil || string(plain) != string(softwareTestDEK()) || !resolver.allCleared() {
-		t.Fatalf("unwrap error=%v plaintext=%q keys_cleared=%t", err, plain, resolver.allCleared())
+	if err != nil || string(plain.Plaintext) != string(softwareTestDEK()) || !resolver.allCleared() {
+		t.Fatalf("unwrap error=%v plaintext=%q keys_cleared=%t", err, plain.Plaintext, resolver.allCleared())
 	}
 }
 

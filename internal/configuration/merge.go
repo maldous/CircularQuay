@@ -93,12 +93,22 @@ func validIdentifier(value string) bool {
 		return false
 	}
 	for index, c := range value {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-') || index == 0 && !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
+		if !validIdentifierCharacter(c) || index == 0 && !validIdentifierStart(c) {
 			return false
 		}
 	}
 	return true
 }
+
+func validIdentifierCharacter(value rune) bool {
+	return asciiLowercase(value) || asciiDigit(value) || value == '_' || value == '-'
+}
+
+func validIdentifierStart(value rune) bool { return asciiLowercase(value) || asciiDigit(value) }
+
+func asciiLowercase(value rune) bool { return value >= 'a' && value <= 'z' }
+
+func asciiDigit(value rune) bool { return value >= '0' && value <= '9' }
 
 func collision[T any](existing, additions map[string]T) bool {
 	for name := range additions {

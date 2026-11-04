@@ -86,6 +86,25 @@ old-version disposition separately; copied keys/plaintext cannot be recalled.
 
 ## Export and forward migration
 
+Shared UIF migration also preserves project identity and custody. Use the
+[existing project route](operations.md#shared-uif-project-profiles), accepted
+tree/toolchain and canonical impact/checklist bindings; CQ and OffMenu remain
+different products, not aliases for a default OffMenu job. Keep their private
+state, source rights, credentials, review/publication and evidence separate.
+Shared changes need actual evidence for both affected profiles. Continue their
+independent work in parallel while preserving current leases and controlled
+unit handover; a qualified candidate or Linear project record is not installed
+runtime, task admission or a completed migration. No duplicate tracker or
+abrupt cutover is authorized.
+
+Preview migration/enrollment/rotation forms model the intended lifecycle; they
+do not execute a provider ceremony or qualify recovery. The internal native
+key-service core also needs real authorization/storage/provisioning and public
+interface integration before it becomes callable service functionality. Retain
+separate source, synthetic interaction and actual backend/native receipts. A
+new schema or saved browser proposal requires renewed validation before active
+policy changes; a previous control inventory is not an all-path mutation pass.
+
 Export only approved operation/outcome/duration and bounded freshness/health
 signals through the canonical OTel policy. No scanner/provider bodies, values,
 value hashes, credential references or uncontrolled identity labels belong in

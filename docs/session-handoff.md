@@ -6,12 +6,224 @@ installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
+## UIF migration and delivery closure
+
+This is CircularQuay's canonical migration/impact checklist, within the existing
+handoff rather than a second tracker. The complete accepted scope remains in
+[the implementation plan](implementation-plan.md), its nineteen acceptance
+scenarios and the linked product, management, identity, security, integration
+and release contracts. Quiescence means delivered and verified agreed work,
+not idle workers, authored documents, a mock UI or a successful subset of checks.
+
+The current direction is to finish CircularQuay and prepare its controlled
+adoption of the general **UIF** harness in parallel with OffMenu configuration,
+data and BAU corrections. Neither project's completion gates the other's
+independent work. Preserve immediate BAU priority on actual resource contention.
+CIX execution, production, new paid resources and operational-key migration
+remain held. USF V3 is a separate governed route; a workspace name does not
+establish a selected USF manifest or permission to bypass its bindings.
+
+### Authority and stable project identity
+
+The verified native owner route is **CircularQuay — Fix code and CI**, chat
+`01a1a102-5d55-7593-96ea-0c9ef716faa7`, parent of the existing `/root` subtask
+tree. Runtime thread metadata establishes that identity, not a model SKU.
+This owner coordinates integration and is the sole CircularQuay Linear writer.
+Existing source, SDK, frontend and documentation ownership stays in place
+until a separately verified per-unit handover; no second planner or scheduler
+is introduced.
+
+[CircularQuay in Linear](https://linear.app/maldous/project/circularquay-656f1967b41c)
+is project `P-UIF-17`, UUID `98c8070a-2fb0-438c-9358-634064bf3cca`, under
+Universal Infrastructure Foundation (`UIF`), team UUID
+`53f584e7-70a1-4b1e-b982-b815210e47d4`, in workspace
+`af4f493a-b39f-4eaf-a9b4-ed11debdf98c`. It was created and independently
+read back in Backlog after active/archived project inventory and a fresh name
+check. `checkpoint52/linear-project-created-readback.json` retains the actual
+provider response. Project identity supports a dynamic view; it is not harness
+admission, execution or delivery acceptance. Do not classify this product under
+OffMenu or the paused CIX queue. Reuse existing shared UIF issues for shared
+harness defects; deduplicate product issues before creating them.
+
+The complete active/archived team inventory covered 161 issues before creation.
+The dedicated project now has 18 product/handover issues, independently read
+back in Backlog with no assignee or dispatch. The provider responses and
+relations are retained in `checkpoint52/linear-created-issues-readback.json`.
+
+| Delivery scope | CircularQuay issue |
+| --- | --- |
+| Native policy, signed repositories and configuration | [UIF-162](https://linear.app/maldous/issue/UIF-162) |
+| Offline state and availability | [UIF-163](https://linear.app/maldous/issue/UIF-163) |
+| Providers and local contract environments | [UIF-164](https://linear.app/maldous/issue/UIF-164) |
+| Native delivery, synchronization and recovery | [UIF-165](https://linear.app/maldous/issue/UIF-165) |
+| Identity and enterprise credential lifecycle | [UIF-166](https://linear.app/maldous/issue/UIF-166) |
+| Managed software KMS and age service | [UIF-167](https://linear.app/maldous/issue/UIF-167) |
+| Signed administration, hierarchy and strict enforcement | [UIF-168](https://linear.app/maldous/issue/UIF-168) |
+| Local-to-managed custody migration | [UIF-169](https://linear.app/maldous/issue/UIF-169) |
+| Client, account and operator interfaces | [UIF-170](https://linear.app/maldous/issue/UIF-170) |
+| Official SDK qualification | [UIF-171](https://linear.app/maldous/issue/UIF-171) |
+| Observability, telemetry and release awareness | [UIF-172](https://linear.app/maldous/issue/UIF-172) |
+| Native, SDK, OCI and client distribution | [UIF-173](https://linear.app/maldous/issue/UIF-173) |
+| Whole-product security and independent qualification | [UIF-174](https://linear.app/maldous/issue/UIF-174) |
+| Public support, release documentation and repository controls | [UIF-175](https://linear.app/maldous/issue/UIF-175) |
+| Managed hosting and operational readiness | [UIF-176](https://linear.app/maldous/issue/UIF-176) |
+| Controlled general-UIF adoption | [UIF-177](https://linear.app/maldous/issue/UIF-177) |
+| Project isolation and read-only executor readiness | [UIF-178](https://linear.app/maldous/issue/UIF-178) |
+| First read-only Sonar analyzer-version assessment | [UIF-179](https://linear.app/maldous/issue/UIF-179) |
+
+UIF-178 is a child of UIF-177; UIF-179 is a child of UIF-174 and is blocked
+only by the relevant UIF-178 readiness checks. Shared framework issues remain
+in the existing UIF project and are related rather than duplicated. Neither
+project creation nor these issue relations makes the harness ready.
+
+### Complete obligation and current-owner reconciliation
+
+Each row retains the full referenced acceptance scope. Passing static evidence
+does not close native, provider, installed-artifact or production obligations.
+Issue binding and status must follow actual Linear readback; this table does
+not fabricate Ready/Done states or transfer existing leases.
+
+| Obligation | Current owner and state | Next executable action and evidence needed | Exact remaining boundary |
+| --- | --- | --- | --- |
+| Foundation, policy, schema and complete generations | Source owner; native v1 model/schema and composition source exist | Integrate current corrections; exercise exact scopes, collisions, unknown/duplicate/null fields, graph composition, private ownership and complete-generation failure invariants | Current flat native schema does not implement the whole managed/strict contract; accepted fields must never be ignored |
+| Signed repositories and local configuration management | Source owner; pinned includes and native CRUD/doctor source exist | Qualify signed/pinned fetch, hierarchy edits, lock/identity races, offline cache/freshness, interrupted writes and automated CRUD/doctor behavior | Full authenticated hierarchy/profile engine and cross-interface parity remain incomplete |
+| Offline/SOPS and availability | Source owner; age-only snapshots and typed transport work exist | Execute strict recipient/snapshot validation, expiry/replay/clock and availability-only hybrid scenarios, including every denied downgrade | Cloud KMS/key groups remain rejected by current SOPS source; copied keys/plaintext cannot be recalled |
+| Actual software KMS plus age service | Source owner; dependency-injected key-service core and adapters only | Wire real scoped authorization, durable association/idempotency storage, provisioning, required audit and age custody; integrate opt-outs-before-network and supported CLI/API/SDK/MCP operations; test denial, cancellation, races and uncertain effects | No hosted service, deployed KEK store, entitlement or live endpoint is qualified; source development is distinct from deployment authority |
+| Local-to-managed migration | Source owner; complete contract, no implemented end-to-end workflow | Implement selected inventory and approved reference/import/rewrap/re-encryption, per-asset resume, staged verification, atomic activation and recovery; test interruption and cross-domain/old-version denial | No operational inventory, key inspection/upload or migration is authorized; non-exportable keys and retained old copies impose real limits |
+| Provider and platform integrations | Source owner; connector-specific source and synthetic tests | Complete the declared provider capability map and selected local emulators/contract suites, then qualify exact native identity/version/lifecycle/audit profiles | Mock WireMock/LocalStack/other emulator success is not live-provider permission or compatibility; actual test endpoints/entitlements remain required |
+| Identity, enterprise lifecycle and authorization | Source owner; selected identity/DPoP/MCP behavior and broader design contracts | Implement and test the agreed issuer/token/resource associations, lifecycle/revocation, SCIM, SPIFFE/SPIRE, posture/scanner/policy-engine and host-keychain/mobile/biometric profiles where declared | Login, software custody or a connector name cannot imply a different capability; each external profile requires its own actual authority and conformance evidence |
+| Administration, governance and default/strict profiles | Source owner; final design and control register, no unified strict engine | Deliver separate policy/enrollment/deployment schemas and typed operation map, signed intent, approvals, monotonic requirements, replay/revocation/audit/recovery and downgrade-negative tests | Current local CRUD and four workload MCP tools do not establish remote administration; unsupported strict requirements must deny |
+| Native delivery, activation and recovery | Source owner; per-target implementations/templates | Finish sync/application/activation semantics and qualify Linux, Windows, macOS, Termux, containers and declared service/workload targets, cold boot, restore and reconnect | Cross-builds and synthetic runner tests do not prove no-login recovery, host ACL/DPAPI/keychain/TPM or operational restart behavior; no Foo service changes |
+| Official Go, TypeScript and Python SDKs | Existing SDK owners; source/native subsets with failed overall qualification | Publish current lifecycle tests and Windows fixture correction, then obtain matching safe-error/cancellation/reaping/native/install/coverage receipts on the full matrix | Fixed cryptography releases inspected lack macOS Intel wheels; vulnerable locks cannot be accepted, handwritten hashes or silent platform removal cannot close this gate |
+| Frontend, branding and interaction completeness | Existing frontend owner in separate checkout; local `0ecbc69` then `6057e39`, further bounded fixes in progress | Review and integrate the latest frozen `web/` checkpoint, exact schema/example pins, selected icon provenance and all agreed local/account/operator/fleet/migration/image/integration interactions | Rendered controls are not every mutation or backend/native qualification; local browser state is not a secret vault, real server authority or shared device storage |
+| Observability, telemetry and release awareness | Source owner; native source plus synthetic UI | Verify safe metrics/traces/log vocabulary, bounded queues/export/shutdown and collector failure, required-audit independence, interactive/noninteractive update behavior, RC/stable/air-gap trust and minimum-version denial | Synthetic service charts and version notices do not establish production telemetry, audit durability or trusted installation |
+| Public CLI, MCP, plugin and portable skill lifecycle | Source owner plus six-path documentation handoff; actual catalog remains bounded | Complete the declared supported surfaces, then install/discover/invoke/deny/cancel/reload/update/remove the selected native/skill/plugin packages in each claimed client | Source metadata, archive globs, skill text and an invented manifest/App ID do not qualify a registry/client or grant raw-secret/administrative authority |
+| Packaging, releases and registries | Source owner; release configuration and instructions in RELEASE | Produce immutable native/Go/TypeScript/Python/OCI/MCP/MCPB artifacts, RC/stable manifests, signatures/provenance/SBOM and clean consumer installs; retain exact registry/download receipts | Main merge, tagging, registry publication and production deployment remain gated; actual account/channel authority and administrative permission gaps must be recorded |
+| Security, coverage and independent qualification | Source owner and independent reviewers; failed current source/security/SDK/Sonar workflows | Publish compile/complexity corrections; finish 100% owned/new/native coverage, tagged-lane provenance joining, zero warnings/findings, formal/fault/fuzz/race/conformance and independent audit | No gate is waived; native reboot/provider/installed-artifact trials need appropriate isolated executors and explicit operational authority |
+| Hosting, commercial and operational readiness | Source owner; conditional hosting-only forecast | Verify the selected existing plan/project/issuer/storage tariff and capacity, qualify bounded budgets, tenant/account/operator lifecycle and controlled local/preview/production delivery | Paid Netlify Pro label is not entitlement/capacity proof; Cloudflare billing readback and Netlify storage price remain unverified; no purchase/account/production authority inferred |
+| Documentation and community/enterprise support | Source owner integrating existing docs owner | Publish the six-path source/preview/onboarding/skill reconciliation, maintain honest qualification/release records, validate public support/security/release links and usable multi-platform instructions | Final product design is the North Star; reports and badges must reflect actual evidence rather than an intended working state |
+| UIF project adoption | Existing CQ owner with existing UIF Root/122/Gateway | Complete issue mapping, actual current-schema project profile, source/toolchain/privacy/review/publication routing, cross-project denial and recovery proof, then one controlled unclaimed unit | Current harness source restrictions and publisher remain OffMenu-bound; authored configuration is not validated, admitted, executed or accepted work |
+
+### Worktrees, leases and briefing coverage
+
+The runtime checkout is `/home/user/src/2026-11-03/circularquay-dev` on
+`feature/initial-implementation`; the selected published development checkpoint
+is `74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
+`b47d902663d55c400498d0eebe6fbc68096613be`. It is not a qualified release.
+Preserve all current dirty source/documentation and immutable review receipts.
+Frontend ownership remains exclusively `web/` in
+`/home/user/src/2026-11-04/circularquay-browser-dev`, branch
+`feature/browser-dashboards`; preserve its later source checkpoints and
+historical private evidence rather than overwriting or dispatching duplicate
+work. The six supporting documentation/skill paths remain with their existing
+handoff owner; root owns security, release, qualification and this handoff.
+
+At the shared-direction brief, four relevant active subtasks received the
+updated instruction through supported in-tree messaging: `/root/sdk_go`
+(TypeScript lifecycle tests), `/root/release_awareness` (Windows SDK fixture),
+`/root/sdk_python` (read-only Linear discovery) and
+`/root/sdk_cross_language_review` (independent source review). Delivery is
+recorded separately from acknowledgment and completed work. Their subsequent
+source/discovery receipts retain their concrete scope. Completed/errored
+workers were not resumed merely to acknowledge. Frontend and supporting-doc
+owners are separately coordinated; do not count another session's claimed
+briefing as this owner's observed send.
+
+### Project input contract and actual UIF gaps
+
+The fixed toolchain is Go `1.27.3` with explicitly pinned helpers/tool manifests.
+Node/TypeScript and Python SDK/native matrices are declared in
+`.github/workflows/sdk.yml`; source/native/cross-build, security, Sonar and
+synthetic provider lanes remain their own fixed workflows. Do not replace them
+with OffMenu's Python/Node checks. Local heavy builds/tests/scans/resolvers,
+installers and containers remain held; one existing small frontend Node process
+and bounded frontend checks do not authorize another SDK/runtime process.
+Use synthetic fixtures, no shell-profile credentials or operational secret
+values, no system/service installation, restarts or shared BAU changes.
+
+The client configuration/credential boundary stays local. Browser previews are
+loopback 5181 (client) and 5180 (account/operator); existing authenticated
+Termux SSH forwarding is now human-confirmed. That is not public deployment or
+automated physical-phone qualification. Source and evidence publication remain
+scoped to the existing feature branch/draft PR, with expected-parent protection,
+exact blob/tree readback and preservation of all in-flight bytes. No existing
+OffMenu publisher installation, credential, path or grant may be substituted.
+
+The existing UIF owner/122 packet is
+`/home/user/src/offmenu-worktrees/uif122-discovery-observation/.delivery/uif122-staging-dependencies/general-harness-gap-proposal.json`,
+SHA-256 `6decc43b5a60808eebc470efe9b601af2719071998eb73b482d2b78817beed95`,
+auditing harness source `5b8ca36e3a212d60db7b74bb8ccb37e3993bb01e`.
+It identifies three actual shared gaps: project/repository/source selection;
+fixed toolchain/private workspace/preflight profiles; and publication,
+metadata/refill/recovery routing. Its source/doc pins are inspection evidence,
+not current runtime admission. Existing shared issue fits include UIF-120,
+UIF-140/141/142/159/161; verify their actual records before updates or dependencies.
+
+The existing UIF Root/122 owns the current-schema profile and shared corrections.
+This handoff supplies actual CircularQuay identity and requirements; it does
+not invent a second profile schema or pretend the OffMenu-only policy accepts
+CircularQuay. Before admission, obtain the actual profile/schema/source
+revision and validate both project identities, disjoint paths, toolchains,
+authority, output privacy and review/publication routes. Wrong-project source,
+test, permission, publisher or result must deny before effects. Lost replies,
+recovery/refill and blocked-project isolation require separate observed proof.
+Classify application/fixture/toolchain defects separately from shared-contract
+defects; material shared changes require impact/regression evidence for both
+CircularQuay and OffMenu. No live queue migration or old-lease takeover occurs
+from project creation or authored documentation.
+
+### First controlled handover candidate
+
+The useful currently unassigned candidate is [UIF-179](https://linear.app/maldous/issue/UIF-179),
+UUID `9679255d-9c8c-4248-9a16-a283b2a7d3b6`: the **Sonar Python analyzer-version
+contract**: the exact current scanner warns that Python 3.15 is unsupported and
+uses 3.14. No active coding owner is changing that configuration. Reserve this
+bounded read-only investigation for the first UIF unit only after issue,
+authorization, routing, isolation and executor readiness are verified; it has
+not been claimed, dispatched or executed by UIF.
+
+Inputs are the immutable selected development checkpoint above,
+`.github/workflows/sonar.yml`, `sonar-project.properties`, Python SDK metadata
+and the declared SDK runtime matrix, plus the exact retained Sonar warning and
+primary released-analyzer documentation. Permitted output is a source-bound
+assessment/change proposal under the existing qualification evidence store,
+reviewed by the CQ owner; no product/source write is preauthorized for this
+first unit. The output must distinguish analyzer/source-language configuration
+from runtime compatibility, preserve the runtime matrix and every strict gate,
+and identify an evidence-backed correction or exact upstream limitation.
+It cannot suppress warnings, silently drop Python support or infer a pass.
+
+This candidate needs no credential, live provider, Go/Java/Node execution,
+container, installer or publisher effect. The actual harness read-only profile,
+fixed input/output checks and executor suitability still require qualification;
+do not replace missing capability with arbitrary command execution. Accepted
+output returns to the existing CQ owner for review, source integration and
+exact-candidate CI. Any source/project/rights mismatch or uncertain admission
+returns to the current owner without duplicate dispatch. This is independent
+of OffMenu completion while respecting real shared-resource holds.
+
+The readiness scope for this first unit is limited to project/source identity,
+read-only acquisition, isolation, bounded investigation and evidence return.
+Go validation and GitHub publisher support are separate capabilities, not
+prerequisites for a unit that has neither effect. The source-owner input
+binding is retained under `checkpoint52/uif-179-source-input.json`; it is an
+assessment contract for the existing UIF owner, not an invented harness
+manifest, execution admission or transfer of a current lease.
+
 ## Published candidate and qualification boundary
 
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
-Latest captured public runtime/design commit is
+Latest captured public development checkpoint is
+`74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
+`b47d902663d55c400498d0eebe6fbc68096613be`. Source, security, SDK and Sonar
+fail; WireMock and Dependency Review pass only their own scopes. The
+[exact observation](qualification.md#exact-74e17dd-hosted-observation) records
+the actual compile, coverage, scanner and dependency failures. Current
+source-only corrections require fresh hosted qualification after publication.
+
+The preceding captured public runtime/design commit is
 `c18be5a76bc82ed7479e8ddbb6b4d28828890fa4`, tree
 `e85408243741ccbf0483ca28e75fa87cf04bd973`. Its completed hosted metadata
 records source, security, SDK and SonarQube failure; synthetic WireMock and

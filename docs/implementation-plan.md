@@ -11,8 +11,10 @@ authorized now. Actual existing tiers/issuer metadata is unverified; conditional
 CF-first versus Netlify-included-Identity must be qualified, not invented. The
 current forecast is hosting-only, with product tiers distinct from provider plans,
 allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Custom UI stays
-deferred and real backend tests remain separate from static design evidence.
+no labor, CRM/payment fees or customer price/margin is embedded. Production
+custom UI remains outside deployment authorization; the separately authorized
+synthetic frontend work proceeds in its isolated checkout. Real backend tests
+remain separate from static design and preview evidence.
 
 This is the durable engineering contract, not a completion report. Implementation and qualification use explicitly selected, isolated development environments; verify the actual executor and checkout for each session. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
 

@@ -1,5 +1,84 @@
 # Agent orientation
 
+## Fast start for an assigned task
+
+1. Verify the assigned host, checkout, branch, HEAD and dirty tree using the
+   commands below. Read the current assignment, repository instructions,
+   handoff, contribution rules and security policy; agree paths with the active
+   owner before writes. Do not restart a completed workstream from an old chat.
+2. Read the [product guide](product-guide.md) for the complete v1 result, then
+   only the contracts and source relevant to the assigned boundary. The
+   [implementation plan](implementation-plan.md) is acceptance criteria, not
+   proof every operation is callable.
+3. Separate native source, internal key-service core, synthetic browser preview
+   and deployed service. Select the actual executable/SDK/MCP catalog or pinned
+   frontend schema before naming a command, field, capability or passed check.
+4. Use the existing owner's checkout/process/evidence. For frontend work read
+   that checkout's `web/README.md`, `web/coverage.md` and retained interaction
+   receipts; `web/` need not exist in the native checkout. Check snapshot hashes
+   against the authoritative schema/example before editing or claiming parity.
+5. Perform already-authorized bounded work, verify the changed boundary and
+   hand back exact paths/hashes, disposition and next action in the existing
+   handoff/qualification workflow. Source/static checks, rendered controls,
+   representative browser edits, real backend tests and production qualification
+   are different evidence. Shared Foo heavy-execution holds and BAU priority
+   still apply.
+
+### Shared harness classification and controlled transition
+
+Treat UIF as the general shared harness and CircularQuay as its own product/
+profile, not an OffMenu alias. Enhanced multi-project capability is required/
+planned until actual cross-project verification. Continue CQ migration in
+parallel with OffMenu config/data/BAU work; enforce only real affected-unit
+dependencies, not a global completion gate in either direction.
+
+Before using a shared route, recover the authoritative coordinator and accepted
+source/tree from the current assignment and single canonical migration/impact
+record. Checkout HEAD, a stale pointer, installed adapter or job admission alone
+does not establish accepted execution or pickup. Owner-confirmed shared references
+are UIF `P-UIF-16`, OffMenu `P-UIF-14` and [CQ `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c).
+The existing [CQ handoff migration checklist](session-handoff.md#uif-migration-and-delivery-closure)
+now records obligations, ownership and actual harness gaps. Dynamic view/filter
+IDs are still unverified. Project records do not create execution selectors, admission or
+implemented support. The source owner is this assignment's sole Linear writer. Do not
+create a substitute tracker or guess a project association.
+
+For scope, read the [explicit subproject descriptions](product-guide.md#required-general-uif-harness-and-project-migration):
+CQ is the secret/configuration/workload and crypto/age product; OffMenu is the
+household product/food/stock/meal/consumption/planning loop with source-data and
+private household/profile constraints. UIF supplies general harness governance,
+not either product's business semantics. Follow each canonical repository and
+selected accepted tree, toolchain, permissions, data/privacy, reviewer and
+publication route. CQ migration is active as an authorized workstream, not a
+claim that a multi-project runtime profile is installed; OffMenu BAU/data fixes
+continue independently.
+
+For each selected project, verify repository/tree, checkout, toolchain/dependency
+pins, allowed operations, privacy/data/credential/state roots, cross-project
+isolation, review owner, publication destination and evidence requirements.
+Inspect actual supported profile selectors rather than inventing a command or
+field. Assess a shared change against both affected profiles with source and
+actual job/isolation evidence; diagnose project-specific failures separately.
+Preserve current tasks/leases and controlled unit handover. Reconcile ambiguous
+ownership through the existing coordinator before admitting a competing writer;
+no abrupt cutover, production expansion or independent-work pause is implied.
+
+The current source includes `internal/keyservice` with distinct enrollment,
+wrap/unwrap and age retrieval, a fixed software JWE adapter using maintained Go
+JOSE, and constrained native Transit operations. It requires caller-supplied
+authorization, storage and provisioning. It is **not** a hosted endpoint or
+integrated public CLI/SDK/MCP enrollment route; do not invent one. The browser
+workbench/account/operator surfaces simulate those workflows separately.
+
+Phone access has been user-confirmed through the existing frontend route. Reuse
+that owner's process and authenticated forwarding; this does not authorize a
+new public tunnel, firewall change or competing server. Device/origin browser
+storage is separate, so phone reachability does not transfer desktop drafts.
+An original icon contact sheet and its exact provenance are not a finished
+vector/logo deliverable. Use the selected reference, not a guessed replacement.
+
+## Launch and evidence boundaries
+
 The user explicitly authorized initial hosted SOFTWARE crypto + age using only
 existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
 DB, independently random profile DEKs and scoped auth/tenant isolation/required
@@ -65,6 +144,7 @@ controller, status database or qualification ledger.
 | [`internal/policy/`](../internal/policy/), [`internal/model/`](../internal/model/), [`internal/jsondocument/`](../internal/jsondocument/) | Policy loading/schema, typed declarations and conditional JSON editing. |
 | [`internal/bootstrap/`](../internal/bootstrap/), [`internal/repository/`](../internal/repository/) | Pinned GitHub configuration retrieval and repository trust. |
 | [`internal/source/`](../internal/source/), [`internal/resolve/`](../internal/resolve/) | Provider adapters and complete workload resolution. |
+| [`internal/keyservice/`](../internal/keyservice/) | Profile-bound core and software/Transit primitives; separate authorization/storage/provisioning dependencies, not a hosted service or public command surface. |
 | [`internal/deliver/`](../internal/deliver/), [`internal/platform/`](../internal/platform/), [`internal/state/`](../internal/state/) | Native projection, host protection, durable state and recovery boundaries. |
 | [`internal/identity/`](../internal/identity/), [`internal/mcp/`](../internal/mcp/), [`internal/dpop/`](../internal/dpop/), [`internal/transport/`](../internal/transport/) | Identity verification, filtered MCP operations, sender constraints and client trust. |
 | [`internal/observability/`](../internal/observability/), [`internal/update/`](../internal/update/) | Bounded telemetry and advisory release checks, separate from required audit and installation. |

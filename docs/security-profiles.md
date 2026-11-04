@@ -271,6 +271,34 @@ implementation cannot be represented by accepting the profile name and
 skipping the missing checks. Exact implementation status belongs in
 [qualification](qualification.md#managed-service-design-status).
 
+### Configuration and capability integrity
+
+The runtime policy references its enrolled security context; the reference
+does not confer authority. The separately verified context supplies the
+required profile and control bounds. Enrollment, service deployment and
+runtime policy have separate schemas and trust inputs. A downloaded policy,
+local JSON field or client request cannot sign its own requirements, enroll
+its own issuer or assert that a capability is qualified. Unsupported context
+versions, missing references and unreadable protected state deny the affected
+operation. Invalid strict selection never falls back to default.
+
+Per-workload preferences cannot lower the effective context. In particular,
+an `audit_required: false` preference cannot disable strict durable audit;
+an advisory update setting cannot disable an enforced minimum version; and
+an offline preference cannot create signed offline permission. Required
+controls apply equally to enrollment, key release, configuration changes,
+administration and recovery, including operations that have no workload field.
+Capability evidence binds the actual implementation, module/provider profile,
+platform, key version and artifact. A hardware, revocation or audit capability
+name without that evidence does not satisfy the requirement.
+
+Profile inspection returns safe effective-control identifiers, accepted
+revisions and precise compatibility failures. Unattended clients can use
+those results to distinguish required authentication, approval, configuration
+and unavailable capability without receiving a secret or bypass instruction.
+There is no automatic repair that grants authority, replaces trust, resets
+anti-rollback state or weakens a required control.
+
 ## Enforcement and downgrade resistance
 
 Profile selection is part of validated, versioned policy. The effective
@@ -391,6 +419,15 @@ certification belongs to a separately assessed organisational scope. FIPS or
 hardware assurance requires the actual validated module, version, operating
 environment and evidence. A strict profile, encrypted file, signed artifact or
 passing scanner cannot establish either certification.
+
+The assurance claim always states its adversary and custody assumptions.
+Signatures establish authenticity and integrity of accepted inputs; they do
+not force a modified client on an attacker-controlled host to execute a check.
+A server independently enforces future server operations. Offline enforcement
+depends on the qualified host, protected state, clock and key custody named
+by its profile. A compromised administrator/kernel or copied plaintext/key
+cannot be neutralized by a local profile flag. Such deployments cannot claim
+properties that their actual trust boundary cannot enforce.
 
 See [administration security](administration-security.md),
 [enterprise integration](enterprise-integration.md), [threat model](threat-model.md),

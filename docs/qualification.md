@@ -28,6 +28,18 @@ This matrix distinguishes implementation from independent or live qualification.
 
 ## Source workflow scope
 
+The whole-product default/strict design has an independent source review of
+the policy schema and profile/administration contracts. It identifies the
+missing authenticated context input and unified enforcement engine as release
+blockers. It also requires strict audit to override a local false preference,
+independent hosted authorization, signed offline exceptions, capability-bound
+custody and durable anti-downgrade/recovery state. These are tracked by
+[UIF-168](https://linear.app/maldous/issue/UIF-168), with exact-candidate
+whole-product evidence in [UIF-174](https://linear.app/maldous/issue/UIF-174).
+The review is design/source evidence, not a completed security audit or a
+strict-profile implementation pass. Default mode retains the mandatory
+baseline and the same engineering/release gates.
+
 The committed workflow defines Linux formatting, module-integrity, unit, race, vet, bounded Go-fuzz and both complexity ceilings. The cognitive check uses the pinned
 type-aware analyzer and rejects warnings or fallback diagnostics. It also defines synthetic native test jobs for the GitHub-hosted `macos-15-intel` and `windows-2025` runners, plus Linux cross-compilation for the release build matrix. Workflow definition alone is not a result; the revision-scoped receipts below, rather than this definition, record actual runner, tool, and platform outcomes.
 
@@ -40,6 +52,71 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact 74e17dd hosted observation
+
+Development commit `74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
+`b47d902663d55c400498d0eebe6fbc68096613be`, has retained workflow readback in
+`checkpoint50-security-design/74e17dd-current-workflow-observation-20261105.json`.
+
+| Pull-request workflow | Recorded outcome |
+| --- | --- |
+| [Source checks 41833116936](https://github.com/maldous/CircularQuay/actions/runs/41833116936) | Failure |
+| [Security analysis 41833116876](https://github.com/maldous/CircularQuay/actions/runs/41833116876) | Failure |
+| [SDK qualification 41833116959](https://github.com/maldous/CircularQuay/actions/runs/41833116959) | Failure |
+| [SonarQube 41833116707](https://github.com/maldous/CircularQuay/actions/runs/41833116707) | Failure |
+| [Synthetic WireMock 41833116760](https://github.com/maldous/CircularQuay/actions/runs/41833116760) | Success in its synthetic scope |
+| [Dependency Review 41833116621](https://github.com/maldous/CircularQuay/actions/runs/41833116621) | Success in its dependency scope |
+
+Bounded logs and the redacted Sonar artifact identify three build errors:
+two unused authorization results in the Transit adapter and a test converting
+`UnwrapResult` instead of its plaintext field. Staticcheck and CodeQL stopped
+at compilation; that is not a clean security scan. The following source
+corrections retain authorization evaluation and the plaintext/clearing oracle.
+Their independent source review and formatting do not establish compilation.
+
+Sonar CE succeeded for synthetic merge
+`cb0d5ec5bb41ae3df15212191bb98f74e55800ad`, whose tested tree matches the
+candidate. Task `7566e5fa-2ee8-4176-ba89-c17559d03415` and analysis
+`168ddde4-65e0-49f5-bcd6-5ba563f6ffaa` pass the revision fence. The quality
+gate fails: coverage is 0.0, violations are eight, duplication is 0.0 and
+reported hotspots are zero. The coverage file contains only its mode header
+because the Go build failed; it is not a meaningful uncovered-line inventory.
+Required new-coverage and new-duplication metrics are unavailable and remain
+failures. Empty duplication groups do not imply a nonzero-duplication defect.
+CE reports no warnings, while the scanner reports one Python 3.15 support
+warning and analyzes it as 3.14. A completed upload does not satisfy the gate.
+
+`checkpoint52/sonar-root-cause.json` binds the exact artifact digest, metrics,
+warning and eight first-party findings. The following source refactors address
+the listed complexity and duplicate-literal findings in assurance, CLI,
+configuration and Transit code/tests, with independent source review. Actual
+zero findings, complexity, warning-free analysis and full coverage still need
+an exact-candidate hosted result; no threshold or runtime target is removed.
+
+SDK qualification has separate failures. Node 24/Linux records 72.14% line and
+statement coverage, 69.34% function coverage and 82.55% branch coverage against
+the unchanged 100% requirements. The following lifecycle test covers native
+child handling through the public client using stable built-in export
+synchronization; it has not run locally. Windows installed/minimal Python
+consumer fixtures encounter the native directory-trust denial. The fixture
+correction selects an existing application-data candidate and retains the
+generic temporary-root negative test; it does not relax native trust or ACLs.
+Only hosted Windows execution can qualify that candidate.
+
+The Python static lane also reports six advisories in pinned cryptography
+48.0.1. Inspected fixed upstream releases lack macOS Intel binary wheels.
+`checkpoint52/python-wheel-security-assessment.json` records primary metadata
+and the closure gap. No vulnerable lock, invented hash, suppressed advisory,
+silent platform removal or unqualified source build satisfies this gate.
+The three native Go SDK jobs pass their own scope, not the failed overall SDK
+or installed CLI qualification. Detailed source/security and SDK receipts are
+`checkpoint52/source-security-root-cause.json` and
+`checkpoint52/sdk-root-cause.json`.
+
+No local heavy execution, manual workflow rerun or cancellation occurred for
+these corrections. Native reboot, live-provider, tagged-lane provenance/coverage
+joining, artifact installation and independent audit remain required.
 
 ## Exact c18be5a hosted observation
 
@@ -118,13 +195,38 @@ and Linux fixture SHA-256
 match their source-owner snapshots. Recheck them before integration.
 The producer reports one Node process on loopback ports 5180 (account/operator)
 and 5181 (local client); development directions are in that checkout's
-`web/README.md`. An external preview route and the selected icon 13 asset
-remain unresolved. Native protected files, signed policy/include resolution,
+`web/README.md`. At this historical checkpoint, an external preview route and
+the selected icon 13 asset remained unresolved. Native protected files,
+signed policy/include resolution,
 actual authentication/authorization, custody, providers, lifecycle, durable
 audit, backend tenant isolation, distribution and production qualification
 remain separate requirements. No UI control or reported browser success grants
 real backend authority. Integration/publication requires coordinated review
 against the current runtime branch and the unchanged release gates.
+
+### Frontend continuation and phone access
+
+Local continuation `6057e39dfa310f9c8ec7e8877ad1105256b45031`, tree
+`8dc47a8e82ea704d28534ab8aac8cac557ed6d57`, contains a saved-proposal discard
+persistence fix, updated evidence and the original selected icon contact sheet
+with provenance. It does not contain an isolated finished vector/logo.
+The producer's continuation receipt binds 21 tracked files, seven focused
+tests and synthetic discard/navigation/reload, invalid-draft, selected-device
+and interrupted-migration journeys. Source/evidence hash readback is distinct
+from independently rerunning those journeys. Further frontend corrections
+remain with that owner until their own frozen checkpoint and review.
+
+The user subsequently confirmed phone access through existing authenticated
+Termux SSH forwarding to loopback 5180/5181. The earlier receipt's false
+phone-open field is historical and is preserved. This is human confirmation,
+not an automated physical-device test, public tunnel or shared browser store.
+The original contact-sheet SHA-256 is
+`b50b0e0db86d4d39f4295a5f06c2ba5651c314ad088410e88aa9991ea05cbba6`;
+icon 13 is the selected reference. The private synthetic evidence ZIP remains
+private and unchanged; no saved configuration, credentials or user export is
+included. These observations do not qualify a real managed backend or strict
+profile. Current owner/issue routing is in the
+[canonical closure checklist](session-handoff.md#uif-migration-and-delivery-closure).
 
 ## Exact 10dde6d hosted observation
 

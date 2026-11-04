@@ -13,55 +13,97 @@ import (
 )
 
 func TestTransitWrapAndUnwrapVerifyNativeConfigurationAndStableContext(t *testing.T) {
-	association := transitTestAssociation()
-	requestContext := transitTestContext()
-	plaintext := []byte("synthetic-data-key")
-	ciphertext := "vault:v1:" + base64.StdEncoding.EncodeToString([]byte("synthetic-ciphertext"))
-	var contexts []string
-	server := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("X-Vault-Token") != "synthetic-token" || request.Header.Get("X-Vault-Namespace") != "synthetic-namespace" {
-			t.Fatal("missing protected Transit request headers")
-		}
-		switch request.URL.Path {
-		case "/v1/transit/keys/workload-key":
-			writeTransitJSON(t, response, transitKeyDocument(true, false, false, false))
-		case "/v1/transit/encrypt/workload-key":
-			var body transitEncryptRequest
-			decodeTransitJSON(t, request, &body)
-			if body.Plaintext != base64.StdEncoding.EncodeToString(plaintext) || body.KeyVersion != 1 || body.Context == "" {
-				t.Fatal("unexpected Transit encryption body")
-			}
-			contexts = append(contexts, body.Context)
-			writeTransitJSON(t, response, map[string]any{"data": map[string]any{"ciphertext": ciphertext, "key_version": 1}})
-		case "/v1/transit/decrypt/workload-key":
-			var body transitDecryptRequest
-			decodeTransitJSON(t, request, &body)
-			if body.Ciphertext != ciphertext || body.Context == "" {
-				t.Fatal("unexpected Transit decryption body")
-			}
-			contexts = append(contexts, body.Context)
-			writeTransitJSON(t, response, map[string]any{"data": map[string]any{"plaintext": base64.StdEncoding.EncodeToString(plaintext)}})
-		default:
-			t.Fatalf("unexpected Transit path %q", request.URL.Path)
-		}
-	}))
+	fixture := newTransitWrapUnwrapFixture(t)
+	server := httptest.NewTLSServer(fixture)
 	defer server.Close()
 
+	association := transitTestAssociation()
+	requestContext := transitTestContext()
 	transit := transitTestAdapter(t, server, transitTestConfiguration(server.URL))
-	wrapped, err := transit.Wrap(context.Background(), WrapRequest{Association: association, Context: requestContext, Plaintext: plaintext})
-	if err != nil || string(wrapped.Ciphertext) != ciphertext || wrapped.Receipt != transitReceipt(association, requestContext) {
-		t.Fatalf("wrap result=%+v error=%v", wrapped.Receipt, err)
-	}
+	wrapped, err := transit.Wrap(context.Background(), WrapRequest{Association: association, Context: requestContext, Plaintext: fixture.plaintext})
+	assertTransitWrapResult(t, wrapped, association, requestContext, fixture.ciphertext, err)
 	unwrapped, err := transit.Unwrap(context.Background(), UnwrapRequest{Association: association, Context: requestContext, Ciphertext: wrapped.Ciphertext})
-	if err != nil || string(unwrapped.Plaintext) != string(plaintext) || unwrapped.Receipt != transitReceipt(association, requestContext) {
-		t.Fatalf("unwrap receipt=%+v error=%v", unwrapped.Receipt, err)
+	assertTransitUnwrapResult(t, unwrapped, association, requestContext, fixture.plaintext, err)
+	fixture.assertStableContext(requestContext)
+}
+
+type transitWrapUnwrapFixture struct {
+	t          *testing.T
+	plaintext  []byte
+	ciphertext string
+	contexts   []string
+}
+
+func newTransitWrapUnwrapFixture(t *testing.T) *transitWrapUnwrapFixture {
+	return &transitWrapUnwrapFixture{
+		t:          t,
+		plaintext:  []byte("synthetic-data-key"),
+		ciphertext: "vault:v1:" + base64.StdEncoding.EncodeToString([]byte("synthetic-ciphertext")),
 	}
-	if len(contexts) != 2 || contexts[0] != contexts[1] {
-		t.Fatalf("Transit context was not stable across wrap and unwrap")
+}
+
+func (fixture *transitWrapUnwrapFixture) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	if !fixture.validHeaders(request) {
+		fixture.t.Fatal("missing protected Transit request headers")
 	}
-	decoded, err := base64.StdEncoding.DecodeString(contexts[0])
-	if err != nil || string(decoded) != string(transitDerivedContext(requestContext)) {
-		t.Fatal("Transit request did not bind the service-built stable context")
+	switch request.URL.Path {
+	case "/v1/transit/keys/workload-key":
+		writeTransitJSON(fixture.t, response, transitKeyDocument(true, false, false, false))
+	case "/v1/transit/encrypt/workload-key":
+		fixture.encrypt(response, request)
+	case "/v1/transit/decrypt/workload-key":
+		fixture.decrypt(response, request)
+	default:
+		fixture.t.Fatalf("unexpected Transit path %q", request.URL.Path)
+	}
+}
+
+func (fixture *transitWrapUnwrapFixture) validHeaders(request *http.Request) bool {
+	return request.Header.Get("X-Vault-Token") == "synthetic-token" &&
+		request.Header.Get("X-Vault-Namespace") == "synthetic-namespace"
+}
+
+func (fixture *transitWrapUnwrapFixture) encrypt(response http.ResponseWriter, request *http.Request) {
+	var body transitEncryptRequest
+	decodeTransitJSON(fixture.t, request, &body)
+	if body.Plaintext != base64.StdEncoding.EncodeToString(fixture.plaintext) || body.KeyVersion != 1 || body.Context == "" {
+		fixture.t.Fatal("unexpected Transit encryption body")
+	}
+	fixture.contexts = append(fixture.contexts, body.Context)
+	writeTransitJSON(fixture.t, response, map[string]any{"data": map[string]any{"ciphertext": fixture.ciphertext, "key_version": 1}})
+}
+
+func (fixture *transitWrapUnwrapFixture) decrypt(response http.ResponseWriter, request *http.Request) {
+	var body transitDecryptRequest
+	decodeTransitJSON(fixture.t, request, &body)
+	if body.Ciphertext != fixture.ciphertext || body.Context == "" {
+		fixture.t.Fatal("unexpected Transit decryption body")
+	}
+	fixture.contexts = append(fixture.contexts, body.Context)
+	writeTransitJSON(fixture.t, response, map[string]any{"data": map[string]any{"plaintext": base64.StdEncoding.EncodeToString(fixture.plaintext)}})
+}
+
+func assertTransitWrapResult(t *testing.T, result WrapResult, association KMSAssociation, request AssociationContext, ciphertext string, err error) {
+	t.Helper()
+	if err != nil || string(result.Ciphertext) != ciphertext || result.Receipt != transitReceipt(association, request) {
+		t.Fatalf("wrap result=%+v error=%v", result.Receipt, err)
+	}
+}
+
+func assertTransitUnwrapResult(t *testing.T, result UnwrapResult, association KMSAssociation, request AssociationContext, plaintext []byte, err error) {
+	t.Helper()
+	if err != nil || string(result.Plaintext) != string(plaintext) || result.Receipt != transitReceipt(association, request) {
+		t.Fatalf("unwrap receipt=%+v error=%v", result.Receipt, err)
+	}
+}
+
+func (fixture *transitWrapUnwrapFixture) assertStableContext(request AssociationContext) {
+	if len(fixture.contexts) != 2 || fixture.contexts[0] != fixture.contexts[1] {
+		fixture.t.Fatalf("Transit context was not stable across wrap and unwrap")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(fixture.contexts[0])
+	if err != nil || string(decoded) != string(transitDerivedContext(request)) {
+		fixture.t.Fatal("Transit request did not bind the service-built stable context")
 	}
 }
 
@@ -210,36 +252,63 @@ func TestTransitCancellationAfterPrivateCollaboratorPreventsProviderEffect(t *te
 		{name: "credential"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			calls := 0
-			server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-				calls++
-			}))
-			defer server.Close()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			configuration := transitTestConfiguration(server.URL)
-			resolver := transitConfigurationFunc(func(_ context.Context, _ KMSAssociation) (TransitConfiguration, error) {
-				if test.configuration {
-					cancel()
-				}
-				return configuration, nil
-			})
-			credentials := transitTokenFunc(func(_ context.Context, _ string) (string, error) {
-				if !test.configuration {
-					cancel()
-				}
-				return "synthetic-token", nil
-			})
-			adapter, err := NewTransit(transport.Client{HTTP: server.Client()}, resolver, credentials)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = adapter.Wrap(ctx, WrapRequest{Association: transitTestAssociation(), Context: transitTestContext(), Plaintext: []byte("synthetic")})
-			if !fault.Is(err, fault.Denied) || calls != 0 {
-				t.Fatalf("cancelled %s error=%v requests=%d", test.name, err, calls)
-			}
+			runTransitCancelledCollaboratorCase(t, test.name, test.configuration)
 		})
 	}
+}
+
+func runTransitCancelledCollaboratorCase(t *testing.T, name string, cancelAfterConfiguration bool) {
+	t.Helper()
+	calls := 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		calls++
+	}))
+	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	adapter := transitCancellationAdapter(t, server, transitTestConfiguration(server.URL), cancel, cancelAfterConfiguration)
+	_, err := adapter.Wrap(ctx, WrapRequest{Association: transitTestAssociation(), Context: transitTestContext(), Plaintext: []byte("synthetic")})
+	if !fault.Is(err, fault.Denied) || calls != 0 {
+		t.Fatalf("cancelled %s error=%v requests=%d", name, err, calls)
+	}
+}
+
+type cancellingTransitConfigurationResolver struct {
+	configuration TransitConfiguration
+	cancel        context.CancelFunc
+	enabled       bool
+}
+
+func (resolver cancellingTransitConfigurationResolver) TransitConfiguration(context.Context, KMSAssociation) (TransitConfiguration, error) {
+	if resolver.enabled {
+		resolver.cancel()
+	}
+	return resolver.configuration, nil
+}
+
+type cancellingTransitCredentialReader struct {
+	cancel  context.CancelFunc
+	enabled bool
+}
+
+func (reader cancellingTransitCredentialReader) Token(context.Context, string) (string, error) {
+	if reader.enabled {
+		reader.cancel()
+	}
+	return "synthetic-token", nil
+}
+
+func transitCancellationAdapter(t *testing.T, server *httptest.Server, configuration TransitConfiguration, cancel context.CancelFunc, cancelAfterConfiguration bool) *Transit {
+	t.Helper()
+	adapter, err := NewTransit(
+		transport.Client{HTTP: server.Client()},
+		cancellingTransitConfigurationResolver{configuration: configuration, cancel: cancel, enabled: cancelAfterConfiguration},
+		cancellingTransitCredentialReader{cancel: cancel, enabled: !cancelAfterConfiguration},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return adapter
 }
 
 func TestTransitPreservesOnlyTypedTransportAvailability(t *testing.T) {

@@ -138,6 +138,64 @@ or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or prod
 is authorized by design documentation. Synthetic/mock previews retain the
 separate no-backend/no-provider/no-key boundary.
 
+## Shared UIF project profiles
+
+UIF is general infrastructure/orchestration/governance for distinct product
+profiles. CQ connects secret providers/client-owned configuration to authorized
+workloads and crypto/age/account/client operations. OffMenu's canonical product
+docs describe the household product-to-pantry-to-plate loop, with separate food/
+source-data rights, private household/profile information, runtime/toolchains
+and publication authority. Do not copy its mutable requirements or corpus into
+CQ work. Follow the owners' canonical repository/docs and accepted source pins.
+
+General multi-project capability is required/planned, not proven by a profile
+name, skill, project record or qualified-but-not-installed candidate. Recover
+the existing authoritative coordinators, canonical migration/impact checklist
+and verified project/issue/view bindings. The source owner retains sole Linear
+writing for this assignment. Missing record sections, IDs, selectors or views
+are explicit missing bindings, never permission to invent a CLI/JSON field,
+issue tree, scheduler, planner or dispatcher.
+
+Before an affected shared operation, verify the project repo/accepted tree,
+checkout/toolchain/dependencies, allowed operations, credential/data/state roots,
+privacy/isolation, reviewer, publication destination and evidence requirements.
+Assess shared contract changes against both affected profiles using actual
+source/job/isolation evidence; diagnose project-specific failures separately.
+Preserve current tasks/leases and controlled per-unit handover through the same
+owner route. Reconcile ambiguous ownership before another writer or retry.
+
+CQ migration proceeds now in parallel with OffMenu config/data fixes and BAU;
+neither project's independent completion gates the other. An affected-unit
+blocker does not pause unrelated authorized work. No abrupt runtime cutover,
+new account/credential, permission expansion or production activation follows
+from the shared-harness requirement. Record exact admission, pickup/result,
+review and publication evidence rather than treating assignment as completion.
+
+## Synthetic browser development
+
+The assigned frontend checkout may provide interactive local-client, customer
+account and operator previews. Read its actual `web/README.md`, package scripts,
+coverage matrix and pinned schema/example evidence. That tree may be separate
+from the native source checkout; do not assume it is installed or integrated.
+Reuse the existing owner/process/phone forwarding, not a competing server,
+public tunnel or firewall change. User-confirmed phone access proves the
+existing route works, not public deployment or backend authentication.
+
+Use synthetic data only. Browser storage is per device/origin and is not a
+protected credential vault. Saved local config, variables, source credentials
+and exports must never reach account/operator transport, a hosted fetch proxy,
+logs, analytics or review uploads. Mock apply/run launches no process; a demo
+role selector, subscription confirmation, key release or fleet action has no
+real authority. Native/file/signature/include/provider checks remain separate.
+
+Record source/schema/example hashes, actual interactions and limitations.
+Finding a rendered control for every schema path does not exercise every edit,
+provider branch or lifecycle failure. Verify save/discard/navigation/re-import
+semantics and privacy at the changed boundary. Read current owner-reported
+failures before relying on an older screenshot or browser pass. Requalify after
+schema/source changes. Exact original brand references/provenance do not imply
+a finished vector or permit inventing a different selected asset.
+
 ## User-profile KMS and availability modes
 
 The user clarified KVM/PVM meant KMS configured in the user profile. Distinguish

@@ -144,21 +144,18 @@ func hasIntegrationBuildConstraint(source string) bool {
 	lines := strings.Split(source, "\n")
 	for index, line := range lines {
 		line = strings.TrimSuffix(line, "\r")
-		if index >= maxBuildConstraintLines || strings.HasPrefix(line, "package ") {
+		if index >= maxBuildConstraintLines || !validIntegrationHeaderLine(line) {
 			return false
 		}
-		if strings.HasPrefix(line, "// +build") {
-			return false
+		if strings.HasPrefix(line, "//go:build") {
+			return validIntegrationConstraint(lines, index, line)
 		}
-		if !strings.HasPrefix(line, "//go:build") {
-			if line != "" && !strings.HasPrefix(line, "//") {
-				return false
-			}
-			continue
-		}
-		return validIntegrationConstraint(lines, index, line)
 	}
 	return false
+}
+
+func validIntegrationHeaderLine(line string) bool {
+	return !strings.HasPrefix(line, "// +build") && (line == "" || strings.HasPrefix(line, "//"))
 }
 
 func validIntegrationConstraint(lines []string, index int, line string) bool {

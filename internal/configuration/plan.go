@@ -56,15 +56,7 @@ func validInclude(include model.Include) bool {
 func validNamespace(value string) bool { return validName(value) && !strings.Contains(value, "__") }
 
 func validName(value string) bool {
-	if value == "" || len(value) > maximumNamespaceBytes {
-		return false
-	}
-	for index, c := range value {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-') || index == 0 && !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
-			return false
-		}
-	}
-	return true
+	return len(value) <= maximumNamespaceBytes && validIdentifier(value)
 }
 
 func validLocation(include model.Include) bool {
@@ -102,21 +94,31 @@ func validRefresh(include model.Include) bool {
 
 func (plan includePlan) validateDependencies() error {
 	for index, include := range plan.includes {
-		seen := make(map[string]struct{}, len(include.DependsOn))
-		for _, dependency := range include.DependsOn {
-			if _, duplicate := seen[dependency]; duplicate || dependency == include.ID || plan.index[dependency] >= index {
-				return failure(fault.Invalid, "include_dependency")
-			}
-			if _, found := plan.byID[dependency]; !found {
-				return failure(fault.Invalid, "include_dependency")
-			}
-			seen[dependency] = struct{}{}
+		if err := plan.validateIncludeDependencies(index, include); err != nil {
+			return err
 		}
 		if plan.depth(include.ID) > maximumDepth {
 			return failure(fault.Invalid, "include_depth")
 		}
 	}
 	return nil
+}
+
+func (plan includePlan) validateIncludeDependencies(index int, include model.Include) error {
+	seen := make(map[string]struct{}, len(include.DependsOn))
+	for _, dependency := range include.DependsOn {
+		if plan.invalidDependency(index, include.ID, dependency, seen) {
+			return failure(fault.Invalid, "include_dependency")
+		}
+		seen[dependency] = struct{}{}
+	}
+	return nil
+}
+
+func (plan includePlan) invalidDependency(index int, includeID, dependency string, seen map[string]struct{}) bool {
+	_, duplicate := seen[dependency]
+	_, found := plan.byID[dependency]
+	return duplicate || dependency == includeID || !found || plan.index[dependency] >= index
 }
 
 func (plan includePlan) depth(id string) int {

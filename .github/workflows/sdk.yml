@@ -535,33 +535,67 @@ jobs:
           cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
           if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
           CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" CQUAY_DIAGNOSTIC_ROOT_FILE="$RUNNER_TEMP/cquay-python-diagnostic-root.txt" "$cquay_python" - <<'PY'
-          import asyncio, os, tempfile
+          import asyncio, os, tempfile, uuid
           from pathlib import Path
           from cquay import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
+          async def assert_generic_windows_temp_rejected():
+              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-negative-")).resolve()
+              client = LocalCLIClient(
+                  os.environ["CQUAY_EXECUTABLE"],
+                  os.environ["CQUAY_EXECUTABLE_SHA256"],
+                  root / "policy.json",
+                  root / "state",
+                  environment={},
+              )
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if error.category == ErrorCategory.TRUST:
+                      return
+                  raise RuntimeError("Windows generic temporary-root negative case returned unexpected category") from None
+              raise RuntimeError("Windows generic temporary-root negative case was accepted")
+
           async def main():
-              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-")).resolve()
-              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
+              policy, state = synthetic_paths("cquay-sdk-")
+              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], policy, state, environment={})
               try:
                   await client.config_init()
               except CircularQuayError as error:
                   if os.name == "nt" and error.category == ErrorCategory.TRUST:
                       try:
-                          Path(os.environ["CQUAY_DIAGNOSTIC_ROOT_FILE"]).write_text(str(root) + "\n", encoding="utf-8", newline="\n")
+                          Path(os.environ["CQUAY_DIAGNOSTIC_ROOT_FILE"]).write_text(str(policy.parent) + "\n", encoding="utf-8", newline="\n")
                       except OSError:
                           pass
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
                   raise
               await client.doctor()
               await client.plan()
+              if os.name == "nt":
+                  await assert_generic_windows_temp_rejected()
           asyncio.run(main())
           PY
-      - name: Diagnose native Windows configuration trust without retrying the consumer
+      - name: Diagnose native Windows user-config trust without retrying the consumer
         if: ${{ always() && runner.os == 'Windows' && steps.python_installed_client.outcome == 'failure' }}
         shell: bash
         run: |
           set -euo pipefail
           request="$RUNNER_TEMP/cquay-python-diagnostic-root.txt"
           if ! test -f "$request"; then
-            printf '%s\n' 'Native trust diagnostic not selected; the original consumer failure remains.'
+            printf '%s\n' 'Native user-config trust diagnostic not selected; the original consumer failure remains.'
             exit 0
           fi
           IFS= read -r diagnostic_root < "$request"
@@ -581,13 +615,32 @@ jobs:
           cquay_sha256=$(sha256sum --binary --zero "$cquay_binary" | cut -c 1-64)
           [[ "$cquay_sha256" =~ ^[a-f0-9]{64}$ ]]
           CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
-          import asyncio, os, tempfile
+          import asyncio, os, tempfile, uuid
           from pathlib import Path
-          from cquay import LocalCLIClient
+          from cquay import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
           async def main():
-              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-minimal-")).resolve()
-              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
-              await client.config_init()
+              policy, state = synthetic_paths("cquay-sdk-minimal-")
+              client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], policy, state, environment={})
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
+                  raise
               await client.doctor()
           asyncio.run(main())
           PY

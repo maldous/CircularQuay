@@ -15,6 +15,19 @@ available and tested artifact. A skill, plugin, SDK or agent name grants nothing
 
 ## Select the boundary
 
+Route the task before acting: native CLI/official SDK/MCP for actual runtime
+operations; the assigned frontend checkout for synthetic browser development;
+product contracts for capabilities not implemented by the selected interface.
+Reuse the existing owner/process and exact revision evidence. Browser role
+selectors and simulated success never grant provider, payment, fleet or key
+authority. All client configuration/variables/source credentials stay local.
+
+The current source's internal key-service core and software/Transit adapters do
+not create a hosted endpoint, public enrollment command or extra MCP method.
+Inspect actual help/catalog, then read only the contained workflow/security
+references relevant to the task. For browser work, see the preview boundaries in
+[operating workflows](references/operations.md#synthetic-browser-development).
+
 - Use the CLI for operator-selected local policy, bootstrap and workload actions.
 - Use an official Go, TypeScript or Python SDK when an application owns the
   integration. Keep its credentials, cancellation and process/session lifecycle
@@ -38,6 +51,20 @@ requires an explicit GitHub source, full commit and configuration digest; do
 not attempt automatic discovery or sign-in based solely on the product design.
 
 ## Inspect before acting
+
+### Shared UIF project routing
+
+UIF is the required general harness; CircularQuay is the secret/config/workload
+product, while OffMenu owns its separate household/product/food/stock/meal-data
+outcomes and rights/privacy. Do not default a CQ task to OffMenu or share its
+credentials, state/data roots or toolchain. Multi-project support remains
+required/planned until actual accepted-source/job/isolation evidence covers the
+affected profiles. Preserve existing coordinators, tasks, leases, reviewers,
+publication routes and controlled unit handover. CQ migration and OffMenu BAU/
+data work proceed in parallel, with no global gate between independent work.
+Recover verified canonical record/project/view bindings from the owners; no
+guessed IDs, new dispatcher or duplicate issue tree. See
+[shared project workflow](references/operations.md#shared-uif-project-profiles).
 
 Use `version`, `providers`, protected `config validate`, `doctor`, `plan` and
 scoped `status` as appropriate. These inspect declarations or metadata; do not
