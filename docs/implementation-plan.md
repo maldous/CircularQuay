@@ -23,11 +23,14 @@ dependencies and parallel ownership; they do not define reduced releases or
 defer a promised capability. Source checkpoints make changes reviewable. Fixes
 move the implementation forward against the same acceptance requirements.
 A full-v1 claim requires the whole declared contract and its revision-bound
-evidence. The separately requested near-term lean secure launch can defer
-optional enterprise functionality under an explicitly bounded release profile;
-it does not abandon the North Star or waive engineering/security gates for
-what is shipped. Record actual scope, limitations, cost and receipts in the
-existing release/qualification records.
+evidence. The acceptance target is the complete agreed end state. Optional
+integrations remain selectable per deployment; that selection does not remove
+an agreed product capability. Cost discipline, checkpoints and bounded tests
+support the same target. Fix forward against failures without reducing scope,
+retaining obsolete fallback implementations or weakening gates to accommodate
+stale records. Preserve required data protection, reconciliation and recovery.
+Record actual scope, limitations, cost and receipts in the existing
+release/qualification records.
 
 ## Accepted product decisions
 
@@ -208,25 +211,29 @@ This is design; production custom UI remains unapproved. Separately authorized
 synthetic/mock previews and loopback local-configuration simulations do not
 change the client-only or no-backend boundary.
 
-### Near-term lean launch and long-term production acceptance
+### Complete-product deployment and cost discipline
 
-Minimize near-term Cloudflare/Netlify spend using actual tiers/limits and a
-bounded secure service profile. Premium WAF/bot/SLA/multi-region/enterprise
-identity may be deferred where justified by the measured requirements and
-budget. Keep authentication, tenant isolation, provider plus application-level
+Minimize Cloudflare/Netlify spend using actual tiers/limits and qualified
+controls that satisfy the complete agreed deployment requirements. A paid
+product name is not a mandatory dependency when an equivalent qualified
+mechanism satisfies the policy. Cost limits cannot silently drop agreed
+capabilities, relax a strict requirement or redefine release acceptance.
+Keep authentication, tenant isolation, provider plus application-level
 key encryption/custody, durable event metering and sensible abuse controls.
 The current hosting-only forecast distinguishes product workloads from provider
 plans, already-paid incremental spend and measured allowance/DB-activity limits.
 Paid external KMS/IdP/monitor/helpdesk/upgrades are not launch prerequisites.
 Actual tier/project/qualified customer identity metadata is unverified, so choose
 CF first only if those existing facts qualify it; otherwise evaluate the existing
-Netlify included-Identity branch without purchasing or connecting accounts. UI stays deferred,
-all config stays client-side, and no lower-priced plan inherits a higher-tier
+Netlify included-Identity branch without purchasing or connecting accounts.
+Production custom UI remains outside deployment authorization; authorized
+isolated synthetic frontend development continues. All config stays client-side,
+and no lower-priced plan inherits a higher-tier
 entitlement or an unmeasured reliability claim.
 
-### Minimal service production acceptance
+### Managed key-service production acceptance
 
-The minimal service must satisfy [production protection and service objectives](managed-key-service.md#production-protection-and-service-objectives)
+The managed key service must satisfy [production protection and service objectives](managed-key-service.md#production-protection-and-service-objectives)
 without becoming a config/backend orchestration service. Qualify exact WAF/bot/
 DDoS and per-IP/client/profile/tenant limit entitlements, headless CLI/CI access,
 authoritative revocation/idempotency/usage consistency, encrypted durable key
@@ -268,8 +275,9 @@ usage and coarse geographic context, safe database/support/monitoring and
 maintenance. Strong operator auth, distinct privileges, bounded/audited reads
 and mutations, key redaction, privacy/retention and exact provider entitlements
 are required. No client config/source credentials or routine private-key display.
-Reuse hosting/payment/support/monitoring consoles; custom implementation remains
-deferred. ISO27001 alignment is an evidence goal, not certification. No live
+Reuse hosting/payment/support/monitoring consoles. Production custom UI remains
+outside deployment authorization; the isolated synthetic preview has its own
+explicit scope. ISO27001 alignment is an evidence goal, not certification. No live
 customer data or maintenance action is authorized by design.
 
 ### Account RBAC and profile-scoped enterprise operations
@@ -290,7 +298,8 @@ CORS/file access and explicit selected-agent capability. All config/source
 credentials stay client-side. If a central fleet broker or provider function
 requires hosted config/credential storage, report the conflict/options rather
 than relax the boundary. No fleet agent/control command is verified in this
-source checkpoint, and custom console implementation remains deferred. Price
+source checkpoint; production custom-console deployment remains unapproved.
+The agreed product scope and authorized synthetic preview remain intact. Price
 operator/SSO/audit/recovery and optional fleet/provider costs independently;
 no live accounts, grants, fleet actions or infrastructure changes are authorized.
 

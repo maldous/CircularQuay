@@ -53,6 +53,50 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 364fba9 hosted observation
+
+Source/design commit `364fba9355905497634daebfd48797c5ff987e00`, tree
+`9d29db23700316180452bcdf8372e692714ded6e`, has fresh hosted evidence.
+[Security run 41904519089](https://github.com/maldous/CircularQuay/actions/runs/41904519089)
+builds and analyzes successfully in its CodeQL job; this step result is not a
+readback of zero security alerts. Staticcheck and govulncheck succeed. Gosec
+fails with six G204 process-launch findings and two G103 unsafe-call findings;
+their trust/taint and native-primitive boundaries require explicit review.
+No exclusion, suppression or scanner-evasion rewrite closes those findings.
+
+Bounded source triage identifies a local workload override path that skips a
+configured executable digest. The following platform correction requires the
+exact declared argument vector for pinned workloads and verifies its digest
+even for an identical override. Unpinned explicitly local command selection
+and MCP's enrolled-command requirement remain separate. New regression source
+covers rejection before child-environment/process creation; it has not run.
+This late platform check does not establish early CLI/provider preflight or
+atomic native executable custody. All eight gosec findings and the broader
+qualification requirements remain open until their actual evidence permits
+closure. `checkpoint52/gosec-364-triage.json` retains the original assessment.
+
+[Sonar run 41904519375](https://github.com/maldous/CircularQuay/actions/runs/41904519375)
+completes CE and current-analysis fencing for synthetic merge `b322fa7`, with
+the same tested tree as the candidate. Retained receipt
+`checkpoint52/sonar-364-root-cause.json` binds the analysis and artifact.
+Reported first-party issues, hotspots, CE warnings and duplication groups are
+zero: the eight preceding Sonar findings are cleared for this analysis.
+The gate remains failed at **67.6% Sonar coverage** against 100%. The collapsed
+Go profile separately covers 8,392 of 10,108 statements (83.0233%); these are
+different recorded denominators. Only Go coverage is imported by the selected
+properties, and no unsupported attribution explains the difference.
+
+Required new-coverage and new-duplication metrics remain unavailable. The
+scanner still warns that Python 3.15 is analyzed as 3.14. Scanner exit 3 is a
+failed gate, not a failed CE upload or proof that the warning is harmless.
+The receipt identifies uncovered Go paths for substantive coverage work.
+No analyzer target, warning requirement or owned-code denominator is reduced.
+
+WireMock run 41904519066 and Dependency Review run 41904519043 succeed in
+their own scopes. Source run 41904519046 and SDK run 41904519129 are still
+in progress at this bounded capture. These results do not qualify later web
+integration or source changes. No workflow was manually rerun or cancelled.
+
 ## Exact 74e17dd hosted observation
 
 Development commit `74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
@@ -153,6 +197,43 @@ were read. These markers cannot establish a successful scan, actual issue
 counts or a passing gate.
 
 ## Isolated frontend candidate and evidence boundary
+
+The source integration uses the final frozen sequence `0ecbc69` → `6057e39`
+→ `45f51a21e1a311c355a7e53dae64573a17b23246`, whose final tree is
+`d21ef707dea609d860db81f9a5da1d482e0ea25b`. Independent Git-object/worktree
+readback binds 21 tracked files and seven retained synthetic artifacts to the
+producer's `verification-actions.json`, SHA-256
+`0456287864fe6610db59c2fb3d5e2c67eb6d93b06d068d615c9f2ea24318a07f`.
+The schema/example bytes match the canonical native files; the two retained
+Linux JSON downloads are semantically equal. No user configuration, credentials
+or personal export was copied or uploaded. The earlier private Library ZIP
+continues to represent its original historical checkpoint.
+
+The producer reports 12 focused tests and individual changes to 131 editable
+scalar controls, with six true constants, plus structural edits and selected
+browser journeys. The scalar exercise uses a deliberately invalid all-fields
+draft: it proves editing fidelity, not validity of every schema/provider branch
+or native execution. The canonical Linux download/re-import round trip is a
+separate valid synthetic case. Independent source/hash review does not rerun
+these tests or the browser.
+
+Integration review identified additional preview defects: symbolic static
+assets could escape the serving root; guided renames could strand references;
+unknown imported keys could inject markup into the sidebar; and inherited
+JavaScript properties could masquerade as map entries. CSP limits the markup
+case; no inline-script execution or global prototype pollution is established.
+The integration corrects these boundaries and adds regression source, with
+separate independent reviews. Malformed request targets, static asset sizes
+and live-reload admission are bounded. These source corrections have **not**
+run under the local execution hold. The original producer's 12-test/browser
+receipt cannot qualify the changed integration source.
+
+The new browser workflow runs dependency-free syntax and focused Node tests
+on pinned Node 22/24/26 across Linux, macOS and Windows. Its definition and
+source review are not nine passing jobs, full browser/accessibility coverage,
+native validation or a release. No web source exclusion, coverage threshold
+reduction or runtime target removal accompanies integration. The following
+historical observations retain their original scope.
 
 Local commit `0ecbc694f8454663fd9416d57a624f66314d75ee`, tree
 `12c07b465845de2ad8f8cc17e24b0a4dce0d5820`, is on

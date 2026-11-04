@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import { syncBuiltinESMExports } from "node:module";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 
 type SDK = typeof import("../src/index.ts");
@@ -109,7 +111,20 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       await assertLifecycleFailure(() => client.status("api"), harness, child => child.stdout.emit("data", "x".repeat(1024 * 1024 + 1)), sdk, "protocol");
       await assertLifecycleFailure(() => client.configValidate(), harness, child => child.stderr.emit("data", Buffer.alloc(1024 * 1024 + 1)), sdk, "protocol");
       const before = harness.children.length;
-      await assert.rejects(client.configReplace("x".repeat(1024 * 1024 + 1)), category(sdk, "invalid"));
+      assert.throws(() => client.configReplace("x".repeat(1024 * 1024 + 1)), category(sdk, "invalid"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("refuses missing or tampered executables before process start", async () => {
+      const before = harness.children.length;
+      const options = { expectedSHA256: "0".repeat(64), configPath: resolve("synthetic", "config.json"), stateDirectory: resolve("synthetic", "state") };
+      await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: process.execPath }), category(sdk, "integrity"));
+      const directory = await mkdtemp(join(tmpdir(), "cquay-sdk-missing-"));
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: join(directory, "missing") }), category(sdk, "integrity"));
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
       assert.equal(harness.children.length, before);
     });
 

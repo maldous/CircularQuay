@@ -19,10 +19,11 @@ engine and fail closed at protected boundaries. No profile is a claim of
 certification or immunity from compromise. Actual implementation and test
 evidence is recorded in [qualification](qualification.md).
 
-The North Star includes both profiles. A lean launch advertises only the
-implemented, qualified scope: deferring premium infrastructure or enterprise
-features does not make an unavailable strict profile available. The published
-artifact and release notes identify supported profiles and limits. Fundamental
+The North Star includes both profiles in the complete agreed v1 contract.
+Optional integration selection is a deployment choice; it does not reduce the
+product's acceptance scope. A development checkpoint with incomplete controls
+is not a qualified launch. The published artifact and release notes identify
+supported profiles and evidenced limits. Fundamental
 authentication, tenant isolation, key protection and bounded abuse controls
 remain mandatory; all shipped code retains the same engineering gates.
 

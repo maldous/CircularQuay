@@ -8,7 +8,7 @@ metadata:
 
 # cquay
 
-`cquay`, pronounced **“see-key”**, connects existing providers to approved apps.
+`cquay`, pronounced **“c-key”**, connects existing providers to approved apps.
 Use the installed release's help and capability contract. Product guides define
 the complete v1 end state; release/qualification records establish the exact
 available and tested artifact. A skill, plugin, SDK or agent name grants nothing.

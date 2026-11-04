@@ -15,6 +15,13 @@ scenarios and the linked product, management, identity, security, integration
 and release contracts. Quiescence means delivered and verified agreed work,
 not idle workers, authored documents, a mock UI or a successful subset of checks.
 
+The delivery mantra is to attempt the complete agreed end state and fix
+forward. Checkpoints and bounded tests are dependencies and evidence toward
+that same contract, never permission to substitute a reduced release, retain
+obsolete fallback implementations or retreat to stale contracts. Required
+recovery, data protection, authorization and real resource/production holds
+remain in force.
+
 The current direction is to finish CircularQuay and prepare its controlled
 adoption of the general **UIF** harness in parallel with OffMenu configuration,
 data and BAU corrections. Neither project's completion gates the other's
@@ -95,7 +102,7 @@ not fabricate Ready/Done states or transfer existing leases.
 | Administration, governance and default/strict profiles | Source owner; final design and control register, no unified strict engine | Deliver separate policy/enrollment/deployment schemas and typed operation map, signed intent, approvals, monotonic requirements, replay/revocation/audit/recovery and downgrade-negative tests | Current local CRUD and four workload MCP tools do not establish remote administration; unsupported strict requirements must deny |
 | Native delivery, activation and recovery | Source owner; per-target implementations/templates | Finish sync/application/activation semantics and qualify Linux, Windows, macOS, Termux, containers and declared service/workload targets, cold boot, restore and reconnect | Cross-builds and synthetic runner tests do not prove no-login recovery, host ACL/DPAPI/keychain/TPM or operational restart behavior; no Foo service changes |
 | Official Go, TypeScript and Python SDKs | Existing SDK owners; source/native subsets with failed overall qualification | Publish current lifecycle tests and Windows fixture correction, then obtain matching safe-error/cancellation/reaping/native/install/coverage receipts on the full matrix | Fixed cryptography releases inspected lack macOS Intel wheels; vulnerable locks cannot be accepted, handwritten hashes or silent platform removal cannot close this gate |
-| Frontend, branding and interaction completeness | Existing frontend owner in separate checkout; local `0ecbc69` then `6057e39`, further bounded fixes in progress | Review and integrate the latest frozen `web/` checkpoint, exact schema/example pins, selected icon provenance and all agreed local/account/operator/fleet/migration/image/integration interactions | Rendered controls are not every mutation or backend/native qualification; local browser state is not a secret vault, real server authority or shared device storage |
+| Frontend, branding and interaction completeness | Existing frontend owner froze `0ecbc69` → `6057e39` → `45f51a2`; source owner integrates the exact snapshot with separately reviewed security corrections | Qualify the integrated `web/` source, schema/example pins, selected icon provenance, guided reference integrity, imported-JSON safety and preview serving boundaries; obtain exact-candidate hosted/browser evidence | Producer tests cover the frozen synthetic source, not later fixes; local browser state is not a secret vault, real server authority or shared device storage |
 | Observability, telemetry and release awareness | Source owner; native source plus synthetic UI | Verify safe metrics/traces/log vocabulary, bounded queues/export/shutdown and collector failure, required-audit independence, interactive/noninteractive update behavior, RC/stable/air-gap trust and minimum-version denial | Synthetic service charts and version notices do not establish production telemetry, audit durability or trusted installation |
 | Public CLI, MCP, plugin and portable skill lifecycle | Source owner plus six-path documentation handoff; actual catalog remains bounded | Complete the declared supported surfaces, then install/discover/invoke/deny/cancel/reload/update/remove the selected native/skill/plugin packages in each claimed client | Source metadata, archive globs, skill text and an invented manifest/App ID do not qualify a registry/client or grant raw-secret/administrative authority |
 | Packaging, releases and registries | Source owner; release configuration and instructions in RELEASE | Produce immutable native/Go/TypeScript/Python/OCI/MCP/MCPB artifacts, RC/stable manifests, signatures/provenance/SBOM and clean consumer installs; retain exact registry/download receipts | Main merge, tagging, registry publication and production deployment remain gated; actual account/channel authority and administrative permission gaps must be recorded |
@@ -107,16 +114,38 @@ not fabricate Ready/Done states or transfer existing leases.
 ### Worktrees, leases and briefing coverage
 
 The runtime checkout is `/home/user/src/2026-11-03/circularquay-dev` on
-`feature/initial-implementation`; the selected published development checkpoint
-is `74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
-`b47d902663d55c400498d0eebe6fbc68096613be`. It is not a qualified release.
-Preserve all current dirty source/documentation and immutable review receipts.
+`feature/initial-implementation`. Source/design checkpoint
+`364fba9355905497634daebfd48797c5ff987e00`, tree
+`9d29db23700316180452bcdf8372e692714ded6e`, is published with all 19 changed
+files independently read back, all 423 working files preserved and a clean
+checkout at publication. It is not a qualified release. Fresh CodeQL
+build/analysis, Staticcheck and govulncheck succeed; gosec still reports eight
+findings. Sonar clears the eight prior issues but fails coverage, warning and
+new-metric requirements. Source and SDK subsequently complete with failure in
+the fresh hosted metadata readback; WireMock and Dependency Review succeed
+only in their own scopes. The first
+read-only UIF unit deliberately retains immutable source `74e17dd`, tree
+`b47d902`, rather than consuming a moving working tree.
+Preserve subsequent integration source and immutable review receipts.
 Frontend ownership remains exclusively `web/` in
 `/home/user/src/2026-11-04/circularquay-browser-dev`, branch
 `feature/browser-dashboards`; preserve its later source checkpoints and
 historical private evidence rather than overwriting or dispatching duplicate
-work. The six supporting documentation/skill paths remain with their existing
-handoff owner; root owns security, release, qualification and this handoff.
+work. The six supporting documentation/skill paths were independently accepted
+and integrated in `364fba9`, including the correction that runtime acceptance
+is conditional. Their original and amendment receipts remain immutable. Root
+owns integration, security, release, qualification and this handoff.
+
+The final frozen frontend source is local `45f51a21e1a311c355a7e53dae64573a17b23246`,
+tree `d21ef707dea609d860db81f9a5da1d482e0ea25b`, in the existing browser
+checkout. `checkpoint52/frontend-45f51a2-independent-readback.json` binds all
+21 tracked files, seven retained synthetic artifacts, exact schema/example
+bytes and JSON export equality. The source owner's integration preserves that
+checkout and applies separate corrections in the runtime checkout: symbolic
+asset refusal, bounded preview serving, atomic guided references and imported
+JSON markup/own-property safety. Their new regression cases and hosted browser
+matrix require actual execution. Old producer receipts do not qualify changed
+bytes, backend authorization or the complete valid schema/target matrix.
 
 At the shared-direction brief, four relevant active subtasks received the
 updated instruction through supported in-tree messaging: `/root/sdk_go`
@@ -128,6 +157,40 @@ source/discovery receipts retain their concrete scope. Completed/errored
 workers were not resumed merely to acknowledge. Frontend and supporting-doc
 owners are separately coordinated; do not count another session's claimed
 briefing as this owner's observed send.
+
+The subsequent end-state reminder was delivered to the three helpers actually
+active at that observation: `/root/sdk_typescript` (native pinned-command
+guard), `/root/sdk_python` (remote/local module-boundary correction) and
+`/root/sdk_cross_language_review` (independent integration review).
+`checkpoint52/end-state-mantra-brief.json` records the observed roster and
+delivery separately from explicit acknowledgments. No completed worker was
+woken solely for this reminder. Their current scopes and leases are preserved.
+
+At the subsequent mutual-awareness reconciliation, the source owner retains
+the entire uncommitted integration candidate above published `364fba9` in the
+runtime checkout. Its writable scope is the reviewed `web/` snapshot and
+corrections, browser workflow, native process guard/tests, TypeScript test
+corrections and accompanying product/security/qualification documentation.
+The original frontend three-commit checkout and completed six-path supporting
+documentation packet remain preserved; their owners have no newly dispatched
+overlapping write. Native and frontend correction authors have finished their
+source work. `/root/sdk_go` alone is resumed for a read-only review of the
+browser test-discovery script; root performs bounded static checks and the
+expected-parent feature-branch publication. No local runtime test, new UIF
+claim, Linear mutation, controller/policy/publisher/state write or unknown
+publication outcome is in flight at this observation. Actual hosted workflows
+remain separate GitHub executions and require their own revision-bound readback.
+
+The existing UIF Root `01a19399-d6b3-7a60-add3-f512f721988d` retains shared
+controller, policy, publisher and state authority. The CQ consumer
+`01a193e4-2feb-7252-99ea-59537e581db4` retains its separately assigned assessment
+consumer work; coordinator `01a130cd-91c1-73da-9978-889018a100dd` and documentation
+coordinator `01a1a452-d2d7-7472-90eb-ac8e49fa8025` retain their existing routing
+and readback roles. This is an ownership observation, not an execution lease or
+permission for concurrent shared writes. The exact first-job input/output and
+executor-readiness boundaries below remain unchanged. The private
+`checkpoint53/mutual-awareness-reconciliation.json` binds the observation,
+actual helper roster and supported message receipts separately from ACKs.
 
 ### Project input contract and actual UIF gaps
 
@@ -182,7 +245,9 @@ bounded read-only investigation for the first UIF unit only after issue,
 authorization, routing, isolation and executor readiness are verified; it has
 not been claimed, dispatched or executed by UIF.
 
-Inputs are the immutable selected development checkpoint above,
+Inputs are immutable development checkpoint
+`74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
+`b47d902663d55c400498d0eebe6fbc68096613be`,
 `.github/workflows/sonar.yml`, `sonar-project.properties`, Python SDK metadata
 and the declared SDK runtime matrix, plus the exact retained Sonar warning and
 primary released-analyzer documentation. Permitted output is a source-bound
@@ -216,12 +281,20 @@ Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
 Latest captured public development checkpoint is
-`74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
-`b47d902663d55c400498d0eebe6fbc68096613be`. Source, security, SDK and Sonar
-fail; WireMock and Dependency Review pass only their own scopes. The
-[exact observation](qualification.md#exact-74e17dd-hosted-observation) records
-the actual compile, coverage, scanner and dependency failures. Current
-source-only corrections require fresh hosted qualification after publication.
+`364fba9355905497634daebfd48797c5ff987e00`, tree
+`9d29db23700316180452bcdf8372e692714ded6e`. Its
+[exact observation](qualification.md#exact-364fba9-hosted-observation) records
+successful scoped build/static analysis, eight gosec findings and failed Sonar
+coverage/warning/new-metric requirements. The subsequent terminal metadata
+records Source, SDK, Security and Sonar failures, with WireMock and Dependency
+Review successful only in their own scopes. Later integration source needs its
+own hosted evidence.
+
+Earlier checkpoint `74e17dd62ac83d6504d6589e9d7a46b26ee77252`, tree
+`b47d902663d55c400498d0eebe6fbc68096613be`, fails source, security, SDK and
+Sonar; WireMock and Dependency Review pass only their own scopes. Its
+[exact observation](qualification.md#exact-74e17dd-hosted-observation) retains
+the compile, coverage, scanner and dependency failures.
 
 The preceding captured public runtime/design commit is
 `c18be5a76bc82ed7479e8ddbb6b4d28828890fa4`, tree
@@ -334,10 +407,11 @@ and remote KMS are distinct custody boundaries. Copied keys/plaintext cannot
 be recalled. Synthetic frontend development/previews and a loopback local
 client dashboard are authorized; real backend and production UI remain held.
 
-The long-term enterprise North Star remains. A lean secure release can defer
-optional premium infrastructure/features under its explicitly selected scope,
-without lowering authentication, tenant isolation, key protection, abuse
-controls or shipped-code quality gates. The existing managed-service forecast
+The complete agreed v1 North Star remains the launch acceptance contract.
+Operators select optional integrations and an approved custody profile without
+requiring premium infrastructure, but deployment selection cannot defer agreed
+product capabilities or lower authentication, tenant isolation, key protection,
+abuse controls or shipped-code quality gates. The existing managed-service forecast
 contains sourced provider rates and hypothetical costs/proposals, not approved
 tariffs, traction or purchased accounts. No verified deployed worker/site/
 database/endpoint for this service is recorded; prepared settings are not
@@ -1441,7 +1515,7 @@ qualification only.
 ## Start here
 
 - Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
-  binary, release-asset prefix, and skill are `cquay` ("see-key");
+  binary, release-asset prefix, and skill are `cquay` ("c-key");
   `cquay-audit` is separate.
 - Development branch: `feature/initial-implementation`. This continuation
   includes `4886fc8660706909376f3543ad7cab186d9256b9`; use `git rev-parse HEAD`

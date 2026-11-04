@@ -59,11 +59,15 @@ enforcement; a configuration field or capability advertisement cannot stand in
 for it. Missing, stale, skipped, cancelled, unreadable or failed required checks
 block promotion. Do not combine incompatible revisions' passing results.
 
-For a lean launch, record the explicitly selected secure baseline and deferred
-enterprise capabilities in the release scope/evidence. Do not advertise strict
+Release acceptance uses the complete agreed v1 contract. Source checkpoints
+and bounded checks support that end state; an incomplete candidate cannot be
+declared complete by reducing the promised scope. Fix forward against observed
+failures while preserving required data protection, reconciliation and recovery.
+Record actual deployment profiles and evidence. Do not advertise strict
 mode, premium WAF/bot services, contractual availability or geographic guarantees
 without their actual implementation, plan entitlement and qualification. Spend
-reductions can defer optional scope; they cannot waive authentication, tenant
+reductions use equivalent qualified deployment choices; they cannot waive
+agreed capabilities, authentication, tenant
 isolation, key protection, sensible abuse limits or the required engineering
 gates for shipped code. Use the existing managed-service forecast for cost and
 upgrade assumptions; no deployment, plan purchase or account connection follows

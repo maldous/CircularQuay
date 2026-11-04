@@ -64,6 +64,11 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 }
 
 func launchInputs(work model.Workload, gen model.Generation, override []string) ([]string, []string, string, error) {
+	if work.CommandSHA256 != "" && len(override) != 0 && !sameArgumentVector(work.Command, override) {
+		// A digest authorizes one executable identity and one argument vector.
+		// Reject before preparing any generation-derived environment.
+		return nil, nil, "", fault.New(fault.Trust, "registered command override denied")
+	}
 	args := work.Command
 	if len(override) != 0 {
 		args = override
@@ -74,7 +79,7 @@ func launchInputs(work model.Workload, gen model.Generation, override []string) 
 	if err := ValidateExecutable(args[0]); err != nil {
 		return nil, nil, "", err
 	}
-	if len(override) == 0 && work.CommandSHA256 != "" {
+	if work.CommandSHA256 != "" {
 		if err := VerifyExecutable(args[0], work.CommandSHA256); err != nil {
 			return nil, nil, "", err
 		}
@@ -91,6 +96,18 @@ func launchInputs(work model.Workload, gen model.Generation, override []string) 
 		return nil, nil, "", err
 	}
 	return args, env, directory, nil
+}
+
+func sameArgumentVector(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func generationCurrent(gen model.Generation) bool {

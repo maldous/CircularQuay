@@ -23,6 +23,14 @@ requirements; see [bootstrap prerequisites](configuration-repositories.md#bootst
 | Release awareness | `cquay update check --json` returns bounded, advisory release metadata using the selected policy. Startup notices are non-blocking; SDK, MCP and automation sessions never prompt. See [release awareness and minimum versions](operational-configuration.md#release-awareness). |
 | MCP | `cquay mcp serve [--transport stdio\|http] [--tls-cert PATH --tls-key PATH]`. HTTP uses the policy listener address (or loopback `127.0.0.1:8080`); a non-loopback listener requires both TLS paths. |
 
+When a workload has `command_sha256`, `run` uses its declared command and
+arguments. An explicit local command after `--` must match that complete
+argument vector and still pass the executable digest check. A different
+program or changed arguments cannot bypass the pin. Unpinned workloads retain
+the explicitly local command-selection behavior; MCP always uses its enrolled
+command and requires a digest. Executable pinning does not freeze separate
+scripts, plugins or input files.
+
 Configuration operations are cooperative: each writer takes the private local
 configuration lock, validates a candidate, then re-reads the current digest
 before atomically replacing the file. `--expect-sha256` adds an optimistic

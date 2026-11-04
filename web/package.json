@@ -1,0 +1,11 @@
+{
+  "name": "circularquay-browser-development",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "check": "node check.mjs",
+    "test": "node --test --test-concurrency=1"
+  },
+  "engines": { "node": ">=22" }
+}

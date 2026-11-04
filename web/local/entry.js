@@ -1,0 +1,10 @@
+import { start } from '/ui.js';
+import { model } from './model.js';
+import { workbench } from './workbench.js';
+import { configuration } from './configuration.js';
+import { replacePolicy, parseDocument } from './schema-tools.js';
+model.workbench = workbench;
+model.configuration = configuration;
+model.replacePolicy = replacePolicy;
+model.parseDocument = parseDocument;
+start(model);

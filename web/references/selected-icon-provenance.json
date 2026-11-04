@@ -1,0 +1,19 @@
+{
+  "source": "User-selected original design contact sheet",
+  "bytes": 1499917,
+  "sha256": "b50b0e0db86d4d39f4295a5f06c2ba5651c314ad088410e88aa9991ea05cbba6",
+  "mime": "image/png",
+  "raster": "original downloaded bytes, unmodified",
+  "selected_icon": {
+    "number": 13,
+    "sheet_row": 3,
+    "sheet_column": 1,
+    "visual_identity": "Dark navy open C surrounding a horizontal key: circular bow to left, shaft extending right, two downward teeth, on white.",
+    "inspection": "Original contact sheet visually inspected; printed number 13 confirmed.",
+    "isolated_or_vector_asset_created": false
+  },
+  "dimensions": [
+    1218,
+    1291
+  ]
+}

@@ -27,6 +27,7 @@ consult the [qualification matrix](qualification.md) for subsequent receipts.
 | --- | --- | --- |
 | Source review and syntax checks | The documented scope was inspected or parsed. | Successful builds, runtime behaviour or an unchanged later tree. |
 | Native SDK, installed-client and protocol tests | The recorded package, platform, dependency set and allowed/denied behaviour passed the named checks. | Every SDK language/platform, live-provider access, registry publication or complete coverage. |
+| Browser preview checks | The exact preview's syntax and focused Node tests on the named runtime and OS, once executed. | Exhaustive browser interactions, accessibility, protected native storage, real server authorization or complete owned-code coverage. |
 | Sonar and language coverage | Results for the recorded source inventory and imported coverage reports. | Coverage for an unimported language, absent new-code metrics or a later revision. Go, Python and TypeScript reports must be bound to the scanned candidate. |
 | CodeQL, dependency and secret scanning | The selected analysis, audit or scan phase completed with its recorded outcomes. | A zero-alert count from upload alone, closed secret incidents or a cleared finding without readback. |
 | Artifact and registry verification | Exact published package bytes and installation/provenance checks, once recorded. | A release merely because source, manifests or workflow definitions exist. |
@@ -38,6 +39,13 @@ Partial successes and unexecuted checks remain visible; failed gates are not
 waived by a later source correction or a green badge for a different workflow.
 
 Independent audit, live providers, reboot/recovery and release-artifact qualification have separate acceptance evidence. No release or production qualification is established.
+
+The [browser workflow](../.github/workflows/browser.yml) uses dependency-free
+checks across pinned Node 22/24/26 on Linux, macOS and Windows. The preview
+remains synthetic; historical producer browser evidence binds its own frozen
+source, not later integration fixes. Required Sonar and whole-product coverage
+gates still apply to shipped frontend code. The README workflow badge reports
+actual branch status and does not assert a security or release pass.
 
 See [integration testing](integration-testing.md) for disposable provider validation and [security reporting](../SECURITY.md) for private vulnerability handling.
 

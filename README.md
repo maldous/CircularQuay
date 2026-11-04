@@ -16,7 +16,7 @@ authorization is required and where an encrypted offline copy is appropriate.
 CircularQuay gets the right secrets to the right apps, wherever they run.
 Keep your existing secret stores, choose what each app can access, and manage
 it all from one configuration. The app and command are **`cquay`**, pronounced
-**“see-key.”**
+**“c-key.”**
 
 Use it on its own, or connect an **optional identity provider** to tie access
 to a person or service and a time limit. An **optional MCP connector** brings
@@ -34,6 +34,7 @@ the same controls to AI assistants and agents.
 [![WireMock integration](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml)
 [![SonarQube gate](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml)
 [![SDK conformance](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml)
+[![Browser preview checks](https://github.com/maldous/CircularQuay/actions/workflows/browser.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/browser.yml)
 
 These badges show branch workflow status. [Revision-scoped evidence](docs/verification.md)
 records what was tested; passing a workflow does not establish a qualified release.

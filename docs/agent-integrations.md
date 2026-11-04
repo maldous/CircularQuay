@@ -18,7 +18,7 @@ tests remain separate from static design evidence.
 
 CircularQuay's agent integration combines portable operating instructions with
 an explicitly enrolled runtime connection. The skill is named `cquay`, pronounced
-“see-key”; installing instructions does not install a service, authenticate a
+“c-key”; installing instructions does not install a service, authenticate a
 caller or grant access to values. Identity-provider and MCP integration are
 optional. The CLI and official SDKs also operate independently.
 

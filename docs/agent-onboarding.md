@@ -94,7 +94,7 @@ no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
 frontend previews may be developed separately; real backend tests remain
 separate from static design evidence.
 
-CircularQuay (`cquay`, pronounced “see-key”) connects existing secret providers
+CircularQuay (`cquay`, pronounced “c-key”) connects existing secret providers
 to approved workloads. Start at the [product guide](product-guide.md) for the
 North Star; the [implementation plan](implementation-plan.md) defines the full
 v1 acceptance contract. This guide routes development work to existing sources
