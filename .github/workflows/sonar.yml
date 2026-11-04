@@ -173,6 +173,18 @@ jobs:
           compose_start_attempted=1
           timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
           timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
+          timeout 20s "${compose[@]}" port sonarqube 9000 >"$evidence/sonarqube-port.txt" 2>&1 || fatal "sonarqube-port-readback-unavailable"
+          sonar_port_mapping="$(cat "$evidence/sonarqube-port.txt")"
+          test "$sonar_port_mapping" = "127.0.0.1:${sonar_port}" || fatal "sonarqube-port-not-requested-loopback"
+          sonar_container_id="$(timeout 10s "${compose[@]}" ps --all -q sonarqube 2>/dev/null)" || fatal "sonarqube-container-id-unavailable"
+          [[ "$sonar_container_id" =~ ^[0-9a-f]{12,64}$ ]] || fatal "sonarqube-container-id-invalid"
+          timeout 10s docker inspect --format '{{json .NetworkSettings.Ports}}' "$sonar_container_id" >"$evidence/sonarqube-port-inspect.json" 2>&1 || fatal "sonarqube-port-inspect-unavailable"
+          jq -e --arg port "$sonar_port" '
+            type == "object" and keys == ["9000/tcp"] and
+            .["9000/tcp"] as $bindings |
+            ($bindings | type == "array" and length == 1 and
+             .[0].HostIp == "127.0.0.1" and .[0].HostPort == $port)
+          ' "$evidence/sonarqube-port-inspect.json" >/dev/null || fatal "sonarqube-port-inspect-not-requested-loopback"
           timeout 20s "${compose[@]}" exec -T sonarqube cat /proc/1/limits >"$evidence/sonarqube-process-limits.txt" 2>&1 || fatal "sonarqube-process-limits-unavailable"
           read -r sonar_nofile_soft sonar_nofile_hard < <(awk '$1 == "Max" && $2 == "open" && $3 == "files" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
           test -n "${sonar_nofile_soft:-}" && test -n "${sonar_nofile_hard:-}" || fatal "sonarqube-nofile-limits-missing"
