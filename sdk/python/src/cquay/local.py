@@ -10,10 +10,10 @@ import os
 import re
 import stat
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, TypeGuard
+from typing import Any, TypeGuard, TypeVar
 from urllib.parse import urlsplit
 
 from .errors import CircularQuayError, ErrorCategory
@@ -32,6 +32,7 @@ _MAX_IJSON_COLLECTION = 1024
 _MAX_IJSON_NODES = 16_384
 _DENIED_ENV_PREFIXES = ("AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQUAY_CONFIG_")
 _RemotePinArguments = tuple[str, str, str, str, str, str, str, str]
+_T = TypeVar("_T")
 
 
 class RunStdio(StrEnum):
@@ -352,15 +353,30 @@ class LocalCLIClient:
         *,
         stdin: bytes | None = None,
     ) -> tuple[bytes, int, ErrorCategory | None]:
+        return await self._run_owned_process(
+            operation,
+            lambda: self._start_captured(arguments, stdin),
+            lambda process: _captured_result(process, operation),
+        )
+
+    async def _run_owned_process(
+        self,
+        operation: str,
+        start: Callable[[], Awaitable[asyncio.subprocess.Process]],
+        consume: Callable[
+            [asyncio.subprocess.Process], Awaitable[tuple[_T, str]]
+        ],
+    ) -> _T:
+        """Run one verified child while preserving its primary outcome."""
+
         started = time.monotonic()
         outcome = "success"
         process: asyncio.subprocess.Process | None = None
         try:
             self.verify_identity()
-            process = await self._start_captured(arguments, stdin)
-            output, code, failure = await _capture_process_output(process, operation)
-            outcome = failure or "success"
-            return output, code, failure
+            process = await start()
+            value, outcome = await consume(process)
+            return value
         except asyncio.CancelledError:
             outcome = "cancelled"
             if process is not None:
@@ -410,50 +426,27 @@ class LocalCLIClient:
         return process
 
     async def _inherit(self, operation: str, arguments: tuple[str, ...]) -> int:
-        started = time.monotonic()
-        outcome = "success"
-        process: asyncio.subprocess.Process | None = None
-        try:
-            self.verify_identity()
-            process = await asyncio.create_subprocess_exec(
-                str(self._executable),
-                "--config",
-                str(self._config),
-                "--state-dir",
-                str(self._state_dir),
-                *arguments,
-                stdin=None, stdout=None, stderr=None, env=dict(self._environment),
-            )
-            code = await process.wait()
-            if code != 0:
-                outcome = ErrorCategory.PROCESS
-            return code
-        except asyncio.CancelledError:
-            outcome = "cancelled"
-            if process is not None:
-                await _reap(process)
-            raise
-        except CircularQuayError as exc:
-            outcome = exc.category
-            raise
-        except TimeoutError:
-            outcome = ErrorCategory.UNAVAILABLE
-            raise CircularQuayError(ErrorCategory.UNAVAILABLE, operation) from None
-        except OSError:
-            outcome = ErrorCategory.PROCESS
-            raise CircularQuayError(ErrorCategory.PROCESS, operation) from None
-        except Exception:
-            outcome = ErrorCategory.PROCESS
-            raise CircularQuayError(ErrorCategory.PROCESS, operation) from None
-        finally:
-            if process is not None and process.returncode is None:
-                await _reap(process)
-            _observe(
-                self._observer,
-                operation,
-                str(outcome),
-                int((time.monotonic() - started) * 1000),
-            )
+        return await self._run_owned_process(
+            operation,
+            lambda: self._start_inherited(arguments),
+            _inherited_result,
+        )
+
+    async def _start_inherited(
+        self, arguments: tuple[str, ...]
+    ) -> asyncio.subprocess.Process:
+        return await asyncio.create_subprocess_exec(
+            str(self._executable),
+            "--config",
+            str(self._config),
+            "--state-dir",
+            str(self._state_dir),
+            *arguments,
+            stdin=None,
+            stdout=None,
+            stderr=None,
+            env=dict(self._environment),
+        )
 
 
 def _absolute_path(value: str | Path, operation: str) -> Path:
@@ -846,6 +839,21 @@ async def _capture_process_output(
         if process.returncode is None:
             await _reap(process)
         await _cleanup_reader_tasks(stdout_task, stderr_task)
+
+
+async def _captured_result(
+    process: asyncio.subprocess.Process, operation: str
+) -> tuple[tuple[bytes, int, ErrorCategory | None], str]:
+    output, code, failure = await _capture_process_output(process, operation)
+    return (output, code, failure), str(failure or "success")
+
+
+async def _inherited_result(
+    process: asyncio.subprocess.Process,
+) -> tuple[int, str]:
+    code = await process.wait()
+    outcome = ErrorCategory.PROCESS if code != 0 else "success"
+    return code, str(outcome)
 
 
 async def _collect_streams(

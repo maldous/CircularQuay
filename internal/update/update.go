@@ -137,8 +137,15 @@ func readFreshCache(config *model.Updates, options Options, now time.Time, ident
 	if err != nil || len(data) == 0 || len(data) > maximumFeedBytes {
 		return cache{}, false
 	}
+	return decodeFreshCache(data, config.Channel, identity, now, config.IntervalHours)
+}
+
+func decodeFreshCache(data []byte, channel, identity string, now time.Time, intervalHours int) (cache, bool) {
 	var entry cache
-	if jsondocument.Decode(data, &entry) != nil || entry.Channel != config.Channel || entry.Config != identity || !validCache(entry, now, config.IntervalHours) || !validCachedStatus(entry.Status) {
+	if jsondocument.Decode(data, &entry) != nil || entry.Channel != channel || entry.Config != identity {
+		return cache{}, false
+	}
+	if !validCache(entry, now, intervalHours) || !validCachedStatus(entry.Status) {
 		return cache{}, false
 	}
 	if entry.Available != "" && !validTag(entry.Available) {

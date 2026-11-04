@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"math"
 	"net/http"
 	"runtime"
 	"strings"
@@ -342,9 +343,16 @@ func (b *otelBackend) configureRuntimeMetrics(meter otelmetric.Meter) {
 		var memory runtime.MemStats
 		runtime.ReadMemStats(&memory)
 		observer.ObserveInt64(goroutines, int64(runtime.NumGoroutine()))
-		observer.ObserveInt64(heap, int64(memory.HeapAlloc))
+		observer.ObserveInt64(heap, saturatingInt64(memory.HeapAlloc))
 		return nil
 	}, goroutines, heap)
+}
+
+func saturatingInt64(value uint64) int64 {
+	if value > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(value)
 }
 
 func (b *otelBackend) configureLogs(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {

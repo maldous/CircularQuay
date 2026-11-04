@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -12,16 +13,18 @@ import (
 )
 
 func TestNewLocalRequiresExplicitAbsolutePaths(t *testing.T) {
-	if _, err := NewLocal(LocalOptions{ConfigPath: "cquay.json", StateDirectory: "/state"}); category(err) != CategoryInvalid {
+	options := localTestOptions(t)
+	if _, err := NewLocal(LocalOptions{ConfigPath: "cquay.json", StateDirectory: options.StateDirectory}); category(err) != CategoryInvalid {
 		t.Fatalf("relative config accepted: %v", err)
 	}
-	if _, err := NewLocal(LocalOptions{ConfigPath: "/config", StateDirectory: "state"}); category(err) != CategoryInvalid {
+	if _, err := NewLocal(LocalOptions{ConfigPath: options.ConfigPath, StateDirectory: "state"}); category(err) != CategoryInvalid {
 		t.Fatalf("relative state accepted: %v", err)
 	}
 }
 
 func TestLocalClientUsesBoundedOwnedIO(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	options := localTestOptions(t)
+	client, err := NewLocal(options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,13 +38,13 @@ func TestLocalClientUsesBoundedOwnedIO(t *testing.T) {
 	if err != nil || result.ExitCode != 0 || string(result.JSON) != `{"valid":true}` {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	if strings.Join(gotArgs[:6], " ") != "--config /policy/cquay.json --state-dir /state/cquay config validate" {
+	if strings.Join(gotArgs[:6], " ") != strings.Join([]string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory, "config", "validate"}, " ") {
 		t.Fatalf("unexpected args: %q", gotArgs)
 	}
 }
 
 func TestLocalRunDiscardsChildOutput(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +62,7 @@ func TestLocalRunDiscardsChildOutput(t *testing.T) {
 }
 
 func TestConfigSetRejectsOversizedOrInvalidInputBeforeRunner(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +99,7 @@ func TestPortableIJSONValidationBoundsStructureAndNumbers(t *testing.T) {
 }
 
 func TestConfigMethodsRejectMalformedJSONPointerBeforeRunner(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +116,7 @@ func TestConfigMethodsRejectMalformedJSONPointerBeforeRunner(t *testing.T) {
 }
 
 func TestBootstrapAndFlowRejectUnsafeConfigurationSources(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +155,7 @@ func TestBootstrapAndFlowRejectUnsafeConfigurationSources(t *testing.T) {
 }
 
 func TestConfigSetUsesBoundedNonTTYInputInsteadOfArguments(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +202,7 @@ func TestLocalFailureMapsSafeCLICategories(t *testing.T) {
 }
 
 func TestNonzeroJSONOutputDoesNotReturnSuccessResult(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +216,7 @@ func TestNonzeroJSONOutputDoesNotReturnSuccessResult(t *testing.T) {
 }
 
 func TestNonzeroCommandWithoutDiagnosticIsProcessFailure(t *testing.T) {
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +240,7 @@ func TestSDKBuildIdentityUsesOnlyOfficialEmbeddedModuleMetadata(t *testing.T) {
 	if identity.version != "1.0.0" || identity.commit != "abcdef0123456789" {
 		t.Fatalf("identity=%+v", identity)
 	}
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,6 +253,18 @@ func TestSDKBuildIdentityUsesOnlyOfficialEmbeddedModuleMetadata(t *testing.T) {
 	}
 	if _, err = client.ConfigValidate(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func localTestOptions(t *testing.T) LocalOptions {
+	t.Helper()
+	root, err := filepath.Abs(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return LocalOptions{
+		ConfigPath:     filepath.Join(root, "policy", "cquay.json"),
+		StateDirectory: filepath.Join(root, "state", "cquay"),
 	}
 }
 

@@ -88,6 +88,48 @@ class CaptureTest(unittest.TestCase):
         empty_message.consume(b"sdk/python/src/cquay/client.py:19: [arg-type]\n")
         self.assertTrue(empty_message.malformed)
 
+    def test_records_bounded_coverage_rows_without_raw_output(self) -> None:
+        capture = CHECK.Capture("coverage")
+        capture.consume(b"sdk/python/src/cquay/client.py 12 1 4 1 75% 4-6, 9->exit, 11->7\n")
+        self.assertFalse(capture.malformed)
+        self.assertEqual(0, capture.unparsed_sdk_lines)
+        self.assertEqual(1, len(capture.coverage_rows))
+        row = capture.coverage_rows[0]
+        self.assertEqual("sdk/python/src/cquay/client.py", row.path)
+        self.assertEqual(((4, 6),), row.missing_lines)
+        self.assertEqual(((9, None), (11, 7)), row.missing_branches)
+        report = CHECK.report("coverage", 2, capture, False, 1)
+        self.assertEqual(
+            [{"start": 4, "end": 6}],
+            report["coverage"][0]["missing_lines"],
+        )
+        self.assertEqual(
+            [{"from": 9, "to": "exit"}, {"from": 11, "to": 7}],
+            report["coverage"][0]["missing_branches"],
+        )
+
+    def test_rejects_malformed_or_duplicate_coverage_rows(self) -> None:
+        malformed = CHECK.Capture("coverage")
+        malformed.consume(b"sdk/python/src/cquay/client.py 12 0 0 0 84% 4-5\n")
+        self.assertTrue(malformed.malformed)
+
+        zero_range = CHECK.Capture("coverage")
+        zero_range.consume(b"sdk/python/src/cquay/client.py 12 1 0 0 91% 0\n")
+        self.assertTrue(zero_range.malformed)
+
+        overlapping_range = CHECK.Capture("coverage")
+        overlapping_range.consume(b"sdk/python/src/cquay/client.py 12 3 0 0 75% 3-4, 4\n")
+        self.assertTrue(overlapping_range.malformed)
+
+        duplicate = CHECK.Capture("coverage")
+        row = b"sdk/python/src/cquay/client.py 12 0 0 0 100%\n"
+        duplicate.consume(row + row)
+        self.assertTrue(duplicate.malformed)
+
+        untracked = CHECK.Capture("coverage")
+        untracked.consume(b"sdk/python/src/cquay/untracked.py 12 0 0 0 100%\n")
+        self.assertTrue(untracked.malformed)
+
 
 class ProtectedReportTest(unittest.TestCase):
     def test_writes_machine_readable_structured_report(self) -> None:

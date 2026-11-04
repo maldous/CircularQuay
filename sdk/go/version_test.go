@@ -9,12 +9,14 @@ import (
 	"github.com/maldous/CircularQuay/internal/cli"
 )
 
+type runtimeVersionCase struct {
+	name     string
+	version  string
+	category Category
+}
+
 func TestLocalVersionClassifiesStrictRuntimeVersionDTO(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		version  string
-		category Category
-	}{
+	for _, test := range []runtimeVersionCase{
 		{name: "valid prerelease and build", version: "1.0.0-alpha.1+build.7"},
 		{name: "valid v prefix", version: "v1.0.0"},
 		{name: "maximum UTF-8 bytes", version: "1.0.0-" + strings.Repeat("a", 250)},
@@ -29,18 +31,23 @@ func TestLocalVersionClassifiesStrictRuntimeVersionDTO(t *testing.T) {
 		{name: "incompatible major", version: "2.0.0", category: CategoryUnsupported},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			client := versionFixtureClient(t, `{"version":"`+test.version+`","commit":"synthetic","go":"go1.27","maturity":"development"}`)
-			version, err := client.Version(context.Background())
-			if test.category == "" {
-				if err != nil || version.Version != test.version {
-					t.Fatalf("version=%+v error=%v", version, err)
-				}
-				return
-			}
-			if category(err) != test.category {
-				t.Fatalf("category=%q error=%v", category(err), err)
-			}
+			assertRuntimeVersionCase(t, test)
 		})
+	}
+}
+
+func assertRuntimeVersionCase(t *testing.T, test runtimeVersionCase) {
+	t.Helper()
+	client := versionFixtureClient(t, `{"version":"`+test.version+`","commit":"synthetic","go":"go1.27","maturity":"development"}`)
+	version, err := client.Version(context.Background())
+	if test.category != "" {
+		if category(err) != test.category {
+			t.Fatalf("category=%q error=%v", category(err), err)
+		}
+		return
+	}
+	if err != nil || version.Version != test.version {
+		t.Fatalf("version=%+v error=%v", version, err)
 	}
 }
 
@@ -67,7 +74,7 @@ func TestAssertRuntimeCompatibilityUsesVersionContract(t *testing.T) {
 
 func versionFixtureClient(t *testing.T, output string) *LocalClient {
 	t.Helper()
-	client, err := NewLocal(LocalOptions{ConfigPath: "/policy/cquay.json", StateDirectory: "/state/cquay"})
+	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
 		t.Fatal(err)
 	}

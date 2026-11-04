@@ -491,6 +491,18 @@ hash/provenance policy. Language packages do not silently fetch or install a
 native executable. TypeScript/Python local adapters require a separately
 authenticated native `cquay` artifact and its exact digest.
 
+Treat optional SDK transports and their native dependency availability as
+separate platform qualification. The recorded Intel macOS Python locks select
+`cryptography 48.0.1`; the hosted audit reports PYSEC-2026-3552/3553/3554.
+The [upstream changelog](https://github.com/pyca/cryptography/blob/main/CHANGELOG.rst)
+records removal of Intel macOS wheels in 49.0.0, and the inspected fixed
+[PyPI releases](https://pypi.org/project/cryptography/) provide macOS ARM wheels.
+This is an unresolved wheel/security prerequisite. Retain Intel qualification,
+binary-only installs, reviewed hashes and the audit gate. Do not permit source
+archives, suppress an advisory, silently remove the platform or substitute an
+unverified wheel to manufacture a release pass. Recheck actual upstream
+artifacts and all affected locks before claiming that boundary resolved.
+
 Record each registry as published and independently verified only after its
 actual readback and clean-consumer test. A permission, namespace, entitlement
 or registry failure leaves that channel unqualified. Remove temporary

@@ -344,7 +344,8 @@ jobs:
           cquay_binary="$RUNNER_TEMP/cquay-sdk-conformance"
           if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
           go build -trimpath -o "$cquay_binary" ./cmd/cquay
-          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          cquay_sha256=$(sha256sum --binary --zero "$cquay_binary" | cut -c 1-64)
+          [[ "$cquay_sha256" =~ ^[a-f0-9]{64}$ ]]
           export CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256"
           consumer=$(mktemp -d)
           printf '{"name":"cquay-sdk-consumer","private":true,"type":"module"}\n' > "$consumer/package.json"
@@ -360,7 +361,7 @@ jobs:
           import { pathToFileURL } from "node:url";
           const require = createRequire(`${process.env.CQUAY_CONSUMER}/package.json`);
           const { LocalCLIClient } = await import(pathToFileURL(require.resolve("@maldous/cquay-sdk")).href);
-          const root = await mkdtemp(join(tmpdir(), "cquay-sdk-"));
+          const root = await realpath(await mkdtemp(join(tmpdir(), "cquay-sdk-")));
           const executablePath = await realpath(process.env.CQUAY_EXECUTABLE);
           const client = await LocalCLIClient.create({ executablePath, expectedSHA256: process.env.CQUAY_EXECUTABLE_SHA256, configPath: join(root, "policy.json"), stateDirectory: join(root, "state"), environment: {} });
           await client.configInit(join(root, "policy.json"));
@@ -378,6 +379,7 @@ jobs:
           go build -trimpath -o "$binary" ./cmd/cquay
           config="$root/policy.json"
           state="$root/state"
+          mkdir -m 0700 "$state"
           "$binary" --config "$config" --state-dir "$state" config init --output "$config"
           identity=$("$binary" doctor --identity-only)
           subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
@@ -527,7 +529,8 @@ jobs:
           cquay_binary="$RUNNER_TEMP/cquay-sdk-conformance"
           if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
           go build -trimpath -o "$cquay_binary" ./cmd/cquay
-          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          cquay_sha256=$(sha256sum --binary --zero "$cquay_binary" | cut -c 1-64)
+          [[ "$cquay_sha256" =~ ^[a-f0-9]{64}$ ]]
           cquay_python="$RUNNER_TEMP/cquay-python-venv/bin/python"
           if ! test -x "$cquay_python"; then cquay_python="$RUNNER_TEMP/cquay-python-venv/Scripts/python.exe"; fi
           CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
@@ -535,7 +538,7 @@ jobs:
           from pathlib import Path
           from cquay import LocalCLIClient
           async def main():
-              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-"))
+              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-")).resolve()
               client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
               await client.config_init()
               await client.doctor()
@@ -554,13 +557,14 @@ jobs:
           cquay_binary="$RUNNER_TEMP/cquay-sdk-minimal"
           if [ "$RUNNER_OS" = Windows ]; then cquay_binary="$cquay_binary.exe"; fi
           go build -trimpath -o "$cquay_binary" ./cmd/cquay
-          cquay_sha256=$(sha256sum "$cquay_binary" | awk '{print $1}')
+          cquay_sha256=$(sha256sum --binary --zero "$cquay_binary" | cut -c 1-64)
+          [[ "$cquay_sha256" =~ ^[a-f0-9]{64}$ ]]
           CQUAY_EXECUTABLE="$cquay_binary" CQUAY_EXECUTABLE_SHA256="$cquay_sha256" "$cquay_python" - <<'PY'
           import asyncio, os, tempfile
           from pathlib import Path
           from cquay import LocalCLIClient
           async def main():
-              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-minimal-"))
+              root = Path(tempfile.mkdtemp(prefix="cquay-sdk-minimal-")).resolve()
               client = LocalCLIClient(os.environ["CQUAY_EXECUTABLE"], os.environ["CQUAY_EXECUTABLE_SHA256"], root / "policy.json", root / "state", environment={})
               await client.config_init()
               await client.doctor()
@@ -577,6 +581,7 @@ jobs:
           go build -trimpath -o "$binary" ./cmd/cquay
           config="$root/policy.json"
           state="$root/state"
+          mkdir -m 0700 "$state"
           "$binary" --config "$config" --state-dir "$state" config init --output "$config"
           identity=$("$binary" doctor --identity-only)
           subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')

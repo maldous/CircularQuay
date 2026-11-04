@@ -10,8 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cquay import CircularQuayError, ErrorCategory, LocalCLIClient, RunStdio
-from cquay import local
+from cquay import CircularQuayError, ErrorCategory, LocalCLIClient, RunStdio, local
 
 
 class _OverflowReader:
@@ -59,6 +58,14 @@ class _HostileProcess:
     async def wait(self) -> int:
         await self.exited.wait()
         return self.returncode or -9
+
+
+class _FinishedProcess:
+    def __init__(self, code: int) -> None:
+        self.returncode = code
+
+    async def wait(self) -> int:
+        return self.returncode
 
 
 class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
@@ -201,6 +208,24 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(process.terminated)
         self.assertTrue(process.killed)
         self.assertTrue(process.stderr.cancelled)
+
+    async def test_inherited_run_returns_native_exit_code_with_native_streams(self) -> None:
+        process = _FinishedProcess(7)
+        calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+        async def create_process(*arguments: object, **options: object) -> _FinishedProcess:
+            calls.append((arguments, options))
+            return process
+
+        with mock.patch("cquay.local.asyncio.create_subprocess_exec", new=create_process):
+            code = await self.client._inherit("synthetic_inherit", ("run", "--workload", "alpha"))
+
+        self.assertEqual(7, code)
+        self.assertEqual(1, len(calls))
+        options = calls[0][1]
+        self.assertIsNone(options["stdin"])
+        self.assertIsNone(options["stdout"])
+        self.assertIsNone(options["stderr"])
 
     def test_rejects_malformed_json_pointer_escapes(self) -> None:
         with self.assertRaises(CircularQuayError) as captured:

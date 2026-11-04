@@ -5,27 +5,45 @@
   "source_path": "sdk/typescript/package-lock.json",
   "workflow": {
     "name": "SDK qualification",
-    "run_id": 41767625933,
-    "pull_request_head": "4c703c84fd9c1647b9a479c5525fdd3bfc653962",
-    "synthetic_merge": "45fe4e1d7c099d2be2022e910bd0666c9442ebc3",
-    "synthetic_merge_tree": "f098a84ef22731a2cf9556ab664199154f11fb20"
+    "run_id": 41781361730,
+    "pull_request_head": "a26e39e46930893259b8385c65953b0896e5bdab",
+    "synthetic_merge": "9248c1b37a4d67b8fd90d6a8373138822a6d3240",
+    "synthetic_merge_tree": "ee50f613145dc21d1d6ea1db24452cd206b25a0f"
   },
   "canonical_artifact": {
-    "id": 13294120337,
+    "id": 13299816417,
     "name": "typescript-lock-ubuntu-24.04-node-24.22.2",
-    "archive_sha256": "87e73108ef65e653509a52a80842beed2ab8aa5cb0403b7ba0f7815ab47c5d15",
-    "archive_bytes": 27066,
-    "entries": ["package-lock.json", "package-lock.sha256"]
+    "archive_sha256": "53d9469c8d854cebff225a16b9fca656bfc4e97cbc59c7f50ab95eb55d9d5f9a",
+    "archive_bytes": 54433,
+    "entries": [
+      "generated-package-lock.json",
+      "reviewed-package-lock.json",
+      "locks.sha256",
+      "receipt.txt"
+    ]
   },
   "inputs": {
-    "package_json_sha256": "23d2108e5f08f8d0e42decf34a993da083c417f674956f249af6e2fbf960cd7b",
-    "node": "24.22.2",
-    "npm": "11.19.1"
+    "package_json_sha256": "605ebfca9f2d5485a384654434d587b08b3046990698c72ff12d0383a352c41b",
+    "overrides": {
+      "glob": "14.0.3",
+      "minimatch": "11.0.4"
+    },
+    "node_matrix": [
+      "22.23.4",
+      "24.22.2",
+      "26.13.0"
+    ],
+    "npm": "10.9.9"
   },
   "lock": {
     "lockfile_version": 3,
-    "raw_sha256": "32fe7ff4704e824093c00761d570413239c2caa4a4810ca6dff8e5c67e79adf6",
-    "manifest_sha256": "32fe7ff4704e824093c00761d570413239c2caa4a4810ca6dff8e5c67e79adf6",
-    "artifact_matrix": "byte-identical across all nine Ubuntu/macOS/Windows and Node 22.23.4/24.22.2/26.13.0 artifacts"
+    "raw_sha256": "e601a7fdccd24a461d6508bb8b4f5ec9aba955b688600660d5e0b26e0260f7bf",
+    "registry": "https://registry.npmjs.org/",
+    "integrity": "all 234 resolved records use validated sha512 SRI",
+    "artifact_matrix": "byte-identical across all nine Ubuntu/macOS/Windows and Node 22.23.4/24.22.2/26.13.0 artifacts",
+    "resolved_overrides": {
+      "glob": "14.0.3",
+      "minimatch": "11.0.4"
+    }
   }
 }

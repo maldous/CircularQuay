@@ -52,10 +52,7 @@ type diagnosticError struct{}
 func (*diagnosticError) Error() string { return "protected diagnostic directory required" }
 
 func (d *diagnostic) record(ctx context.Context, record diagnosticRecord) {
-	if d == nil || d.level == "off" || ctx.Err() != nil {
-		return
-	}
-	if d.level == "error" && record.Outcome != OutcomeFailed && record.Outcome != OutcomeUnavailable && record.Outcome != OutcomeDenied && record.Outcome != OutcomeExpired && record.Outcome != OutcomeCancelled {
+	if !d.shouldRecord(ctx, record) {
 		return
 	}
 	data, err := json.Marshal(record)
@@ -66,6 +63,22 @@ func (d *diagnostic) record(ctx context.Context, record diagnosticRecord) {
 		d.mu.Lock()
 		d.writeErr++
 		d.mu.Unlock()
+	}
+}
+
+func (d *diagnostic) shouldRecord(ctx context.Context, record diagnosticRecord) bool {
+	if d == nil || d.level == "off" || ctx.Err() != nil {
+		return false
+	}
+	return d.level != "error" || diagnosticFailure(record.Outcome)
+}
+
+func diagnosticFailure(outcome Outcome) bool {
+	switch outcome {
+	case OutcomeFailed, OutcomeUnavailable, OutcomeDenied, OutcomeExpired, OutcomeCancelled:
+		return true
+	default:
+		return false
 	}
 }
 

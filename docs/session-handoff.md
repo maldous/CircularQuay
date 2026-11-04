@@ -11,6 +11,65 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
+Publication `a26e39e46930893259b8385c65953b0896e5bdab`, tree
+`ee50f613145dc21d1d6ea1db24452cd206b25a0f`, has public blob readback
+for all 24 changed files and preserves all 376 working files. Its six hosted
+runs are terminal: no pending or cancelled job. PR #1 remains draft against
+`develop`; use [the exact receipt](qualification.md#exact-a26e39e-hosted-receipt)
+for phase, platform and limitation distinctions.
+
+Source `41781361710`: 27 successful/four failed jobs; all 26 cross-builds and
+the cross-build aggregate pass. Linux normal/race/vet/fuzz pass before five
+complexity failures. Windows SDK fixtures use POSIX paths; macOS update
+fixtures encounter the symbolic temporary root. The source auditor executes
+and fails unit tests/vet with no individual diagnostic attribution, and
+independently fails coverage at 7,084/8,578 statements (82.583352763%).
+
+Security `41781361692`: CodeQL job succeeds; Staticcheck/govulncheck complete.
+Gosec fails six G204, two G103 and one G115. The following source fixes the
+metric overflow with saturation; the other eight remain unsuppressed. Never
+infer zero alerts from a successful scan/upload job alone.
+
+SDK `41781361730`: three successful/29 failed jobs including the aggregate.
+Linux/macOS Go SDK and Go locks pass; Windows Go fixtures fail. All nine npm
+lanes produce identical patched candidate bytes and stop at the reviewed-lock
+gate. The following independently reviewed lock/provenance uses those exact
+bytes. It must be installed, audited and tested by a new candidate run.
+Python mypy/Bandit pass; Ruff/import, helper-parser, coverage capture and
+platform-consumer fixtures fail. Linux Python MCP stops before protocol
+interaction at an absent synthetic state directory; the following fixture
+creates that required private directory. All recorded tests complete, including
+the prior cancellation fixture. Five coverage table rows trigger malformed capture;
+no absent raw row is reconstructed. The following structural parser retains
+safe path/count/range evidence without weakening the actual 100% gate.
+
+Six Intel macOS Python locks contain vulnerable cryptography 48.0.1. Fixed
+releases lack compatible upstream wheels. Retain Intel, wheel-only, hash and
+audit requirements; do not suppress advisories, remove the lane or invent locks.
+This remains an external launch blocker, separate from source corrections.
+
+Sonar `41781361703` completes upload/CE/readbacks at analysis
+`3e7514ab-9a0d-400f-8ab7-d155ba725389`, tested merge
+`9248c1b37a4d67b8fd90d6a8373138822a6d3240` with the same tree.
+Gate failures: 63.7% coverage, 0.2% duplication, one Go test-complexity issue,
+absent new-code metrics and a Python 3.15 fallback warning. Hotspots and CE
+warnings are zero. The following test and Python lifecycle refactors address
+attributed source issues; they do not establish issue closure or a passed gate.
+This analysis imports only Go coverage; analyzed Python/TypeScript files have
+no language coverage input. Produce and explicitly ingest their actual
+revision-bound XML/LCOV evidence as well as closing Go coverage gaps. Do not
+represent project-wide 63.7% as solely untested Go branches.
+
+WireMock `41781361699` passes all three native synthetic suites. Dependency
+Review `41781361782` passes. Retain `checkpoint39-run-state.json`,
+`checkpoint39-source-review.json`, `ci-a26e39e-sonar.json` and the exact SDK,
+helper, lock and source review receipts. Local builds/tests/scans/resolvers,
+installs and containers remain held for shared-resource coordination. The
+following source-only corrections and added synthetic coverage require fresh
+hosted evidence; no duplicate run, release, deployment or BAU change is implied.
+
+### Preceding compile-correction checkpoint
+
 Publication `9d12512b11b462908f69159a16144dd80a0d0764`, tree
 `bcfb89e4aa6974945163861f0f8bd3ce21ed0760`, has a complete public
 readback of 35 changed files and all 374 working files. The checkout was

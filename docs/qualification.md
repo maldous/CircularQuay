@@ -36,6 +36,84 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact a26e39e hosted receipt
+
+Publication `a26e39e46930893259b8385c65953b0896e5bdab` has tree
+`ee50f613145dc21d1d6ea1db24452cd206b25a0f`. Full job readback records
+all six workflows completed, with no pending or cancelled job. The PR's
+tested merge `9248c1b37a4d67b8fd90d6a8373138822a6d3240` has the same
+tree; this equivalence does not qualify a later source revision.
+
+The [source workflow](https://github.com/maldous/CircularQuay/actions/runs/41781361710)
+has 27 successful and four failed jobs. All 26 cross-builds and their aggregate
+pass. Linux normal/race tests, vet and bounded fuzzing pass before five
+cyclomatic-complexity failures. Windows native tests fail in Go SDK fixtures
+using POSIX-only paths; macOS native tests fail in update fixtures under the
+symbolic native temporary root. The source auditor separately executes and
+fails unit tests and vet, and fails statement coverage at 7,084/8,578
+(82.583352763%). Its retained report does not attribute the unit/vet failures
+to individual diagnostics; it is not a coverage-only failure.
+
+The [security workflow](https://github.com/maldous/CircularQuay/actions/runs/41781361692)
+completes its CodeQL job. Staticcheck and govulncheck complete before gosec
+fails nine unsuppressed findings: six G204 process boundaries, two G103 native
+quota ABI pointers, and one G115 heap-metric conversion. The following source
+saturates that conversion and refactors the reported complexity paths. The
+other eight findings remain unresolved. A job's successful analysis/upload
+does not independently establish zero outstanding security alerts.
+
+The [SDK workflow](https://github.com/maldous/CircularQuay/actions/runs/41781361730)
+has three successful and 29 failed jobs, including the failed aggregate. Go
+SDK tests pass on Linux/macOS; Go lock reproducibility passes. Windows Go SDK
+fixtures fail before runtime behavior. All nine TypeScript lanes produce the
+same patched lock and stop at the reviewed-lock comparison, before SDK tools
+or tests. The following lock is copied from those independently reviewed bytes,
+with updated input/artifact provenance; installation and audit need fresh
+qualification.
+
+Python's three static jobs pass mypy and Bandit but expose a helper parser
+fixture failure, Ruff I001 and the lock audit failure. Retained coverage progress
+shows every test completes, including cancellation. Five normal coverage-table
+rows are rejected by the old generic diagnostic parser; the artifact records
+`malformed_capture`, not missing-line attribution. Windows consumer fixtures
+supply an escaped executable hash; macOS consumer fixtures use a symbolic
+temporary path. The Linux Python MCP fixture also fails before protocol
+interaction because its required private state directory has not been created.
+The following source corrects the evidenced parser, import, process-lifecycle
+duplication and fixture causes. Safe structural coverage
+reporting preserves the actual nonzero result and the 100% threshold.
+
+Six macOS Intel Python locks contain `cryptography 48.0.1`, with
+PYSEC-2026-3552/3553/3554 reported by pip-audit. Fixed upstream releases no
+longer provide Intel macOS wheels. Keep that platform, binary-only installation,
+hash checking and vulnerability gates intact; this upstream-wheel limitation
+remains a launch blocker. No source distribution or ignored advisory supplies
+a passing result.
+
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41781361703)
+completes upload, CE analysis `3e7514ab-9a0d-400f-8ab7-d155ba725389`
+and revision-bound readbacks. CE warnings and hotspots are zero. The strict
+gate fails at 63.7% coverage, 0.2% duplication, one critical Go test-complexity
+issue, absent required new-code metrics and the Python 3.15 fallback warning.
+The duplication collector correctly attributes one block to
+`sdk/python/src/cquay/local.py` at lines 364 and 431. Scanner exit 3 follows
+successful analysis and expresses gate failure, not a scanner crash.
+
+This scan imports only the Go profile. Python and TypeScript are analyzed
+without their language coverage reports, so the zero-coverage sensor includes
+those files in the project-wide denominator. The 63.7% Sonar result is not
+solely a Go test gap. Qualification also requires actual revision-bound Python
+coverage XML and JavaScript/TypeScript LCOV production and explicit ingestion;
+a Go profile cannot establish their coverage.
+
+[WireMock](https://github.com/maldous/CircularQuay/actions/runs/41781361699)
+passes on Linux, macOS and Windows; [Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41781361782)
+passes. These results establish only their exact synthetic/dependency scope.
+Retain `checkpoint39-run-state.json`, `checkpoint39-source-review.json`,
+`ci-a26e39e-sonar.json` and the SDK/helper/lock review receipts. New source
+and tests have source-only review; no local heavy execution or production
+qualification is claimed.
+
 ## Exact 9d12512 SDK and telemetry receipt
 
 Publication `9d12512b11b462908f69159a16144dd80a0d0764` has tree

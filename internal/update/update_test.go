@@ -20,34 +20,50 @@ type roundTrip func(*http.Request) (*http.Response, error)
 
 func (fn roundTrip) RoundTrip(request *http.Request) (*http.Response, error) { return fn(request) }
 
+type countingReleaseFeedTransport struct {
+	t        *testing.T
+	requests *int
+}
+
+func (transport countingReleaseFeedTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	*transport.requests = *transport.requests + 1
+	if request.URL.String() != "https://updates.example.test/releases" {
+		transport.t.Fatalf("unexpected endpoint %q", request.URL)
+	}
+	return releaseResponse(`[{"tag_name":"v1.2.0","draft":false,"prerelease":false}]`), nil
+}
+
 func TestCheckUsesProtectedCacheAndCanonicalInstruction(t *testing.T) {
 	directory := updateStateDirectory(t)
 	now := time.Date(2026, time.November, 4, 0, 0, 0, 0, time.UTC)
 	requests := 0
-	client := &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
-		requests++
-		if request.URL.String() != "https://updates.example.test/releases" {
-			t.Fatalf("unexpected endpoint %q", request.URL)
-		}
-		return releaseResponse(`[{"tag_name":"v1.2.0","draft":false,"prerelease":false}]`), nil
-	})}
+	client := &http.Client{Transport: countingReleaseFeedTransport{t: t, requests: &requests}}
 	config := interactiveConfig()
 	options := Options{Version: "1.0.0", StateDirectory: directory, Now: func() time.Time { return now }, client: client}
 
 	first, err := Check(context.Background(), config, options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first.Status != "available" || first.Cached || first.InstructionURL != "https://github.com/maldous/CircularQuay/releases/tag/v1.2.0" {
-		t.Fatalf("unexpected first result: %#v", first)
-	}
+	assertAvailableRelease(t, first, err)
 	second, err := Check(context.Background(), config, options)
-	if err != nil {
-		t.Fatal(err)
+	assertCachedRelease(t, second, err, requests)
+	assertCachedDocumentIsSafe(t, directory)
+}
+
+func assertAvailableRelease(t *testing.T, result Result, err error) {
+	t.Helper()
+	if err != nil || result.Status != "available" || result.Cached || result.InstructionURL != "https://github.com/maldous/CircularQuay/releases/tag/v1.2.0" {
+		t.Fatalf("unexpected first result: %#v %v", result, err)
 	}
-	if !second.Cached || requests != 1 {
-		t.Fatalf("cache was not used: %#v requests=%d", second, requests)
+}
+
+func assertCachedRelease(t *testing.T, result Result, err error, requests int) {
+	t.Helper()
+	if err != nil || !result.Cached || requests != 1 {
+		t.Fatalf("cache was not used: %#v requests=%d err=%v", result, requests, err)
 	}
+}
+
+func assertCachedDocumentIsSafe(t *testing.T, directory string) {
+	t.Helper()
 	data, err := platform.ReadProtected(filepath.Join(directory, cacheName), true)
 	if err != nil {
 		t.Fatal(err)
@@ -175,12 +191,34 @@ func TestReleaseFeedTransportDoesNotInheritDefaultTransportTLS(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = original })
 
 	transport := releaseFeedTransport()
-	if transport == poisoned || transport.Proxy != nil || transport.DialContext == nil || transport.ResponseHeaderTimeout != 10*time.Second || transport.TLSHandshakeTimeout != 10*time.Second || transport.TLSClientConfig == nil || transport.TLSClientConfig.RootCAs != nil || transport.TLSClientConfig.ServerName != "" || len(transport.TLSClientConfig.Certificates) != 0 || transport.TLSClientConfig.MinVersion != tls.VersionTLS12 {
-		t.Fatalf("release feed transport inherited unsafe default transport state: %#v", transport.TLSClientConfig)
-	}
+	assertIndependentReleaseTransport(t, transport, poisoned)
 	client, err := configuredClient(*interactiveConfig(), nil)
 	if err != nil || client.Transport == poisoned {
 		t.Fatalf("configured client reused global default transport: %v", err)
+	}
+}
+
+func assertIndependentReleaseTransport(t *testing.T, transport, poisoned *http.Transport) {
+	t.Helper()
+	checks := []struct {
+		name string
+		ok   bool
+	}{
+		{"new transport", transport != poisoned},
+		{"no proxy", transport.Proxy == nil},
+		{"dialer", transport.DialContext != nil},
+		{"response timeout", transport.ResponseHeaderTimeout == 10*time.Second},
+		{"TLS timeout", transport.TLSHandshakeTimeout == 10*time.Second},
+		{"TLS config", transport.TLSClientConfig != nil},
+		{"system roots", transport.TLSClientConfig.RootCAs == nil},
+		{"no TLS server name", transport.TLSClientConfig.ServerName == ""},
+		{"no TLS client certificates", len(transport.TLSClientConfig.Certificates) == 0},
+		{"minimum TLS", transport.TLSClientConfig.MinVersion == tls.VersionTLS12},
+	}
+	for _, check := range checks {
+		if !check.ok {
+			t.Fatalf("release feed transport failed %s check: %#v", check.name, transport.TLSClientConfig)
+		}
 	}
 }
 
@@ -190,7 +228,11 @@ func interactiveConfig() *model.Updates {
 
 func updateStateDirectory(t *testing.T) string {
 	t.Helper()
-	directory := filepath.Join(t.TempDir(), "state")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(root, "state")
 	if err := platform.EnsurePrivateDirectory(directory); err != nil {
 		t.Fatal(err)
 	}

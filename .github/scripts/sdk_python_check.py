@@ -22,6 +22,8 @@ from typing import Any
 FORMAT = "cquay-sdk-python-check-v1"
 MAX_CAPTURE_BYTES = 1_048_576
 MAX_DIAGNOSTICS = 1_024
+MAX_COVERAGE_ROWS = 1_024
+MAX_COVERAGE_MISSING_ITEMS = 1_024
 MAX_MESSAGE_BYTES = 240
 MAX_LINE_BYTES = 16_384
 MAX_PROGRESS_EVENTS = 4_096
@@ -30,6 +32,16 @@ HOOK_MAX_TEST_ID_BYTES = 256
 MAX_TIMEOUT_SECONDS = 1_200
 SDK_PATH = "sdk/python/"
 PYTHON_SDK_SOURCE = "sdk/python/src"
+# The fixed report may retain coverage only for tracked SDK modules, never a tool-supplied path.
+OWNED_COVERAGE_PATHS = frozenset(
+    {
+        "sdk/python/src/cquay/__init__.py",
+        "sdk/python/src/cquay/client.py",
+        "sdk/python/src/cquay/errors.py",
+        "sdk/python/src/cquay/local.py",
+        "sdk/python/src/cquay/types.py",
+    }
+)
 DIAGNOSTIC = re.compile(
     r"^(?P<path>sdk/python/(?:src|tests)/[^:]+\.py):(?P<line>[1-9]\d{0,8})"
     r"(?::(?P<column>[1-9]\d{0,8}))?:\s*(?P<message>.+)$"
@@ -62,12 +74,27 @@ class Diagnostic:
     message: str
 
 
+@dataclass(frozen=True, slots=True)
+class CoverageRow:
+    """One validated coverage-table row with no captured tool text."""
+
+    path: str
+    statements: int
+    missed_statements: int
+    branches: int
+    partial_branches: int
+    percent: int
+    missing_lines: tuple[tuple[int, int], ...]
+    missing_branches: tuple[tuple[int, int | None], ...]
+
+
 @dataclass(slots=True)
 class Capture:
     """Streaming, bounded parser that never writes raw tool output."""
 
     check: str
     diagnostics: list[Diagnostic] = field(default_factory=list)
+    coverage_rows: list[CoverageRow] = field(default_factory=list)
     bytes_seen: int = 0
     malformed: bool = False
     unparsed_sdk_lines: int = 0
@@ -133,6 +160,17 @@ class Capture:
             )
             self.bandit_rule = None
             self.bandit_message = ""
+            return
+        if self.check == "coverage" and line.startswith(SDK_PATH):
+            row = _coverage_row(line)
+            if row is None or any(item.path == row.path for item in self.coverage_rows):
+                self.unparsed_sdk_lines += 1
+                self.malformed = True
+                return
+            if len(self.coverage_rows) >= MAX_COVERAGE_ROWS:
+                self.malformed = True
+                return
+            self.coverage_rows.append(row)
             return
         match = DIAGNOSTIC.fullmatch(line)
         if match is None:
@@ -201,6 +239,10 @@ def _mypy_diagnostic(text: str) -> tuple[str, str]:
     """Separate mypy's optional bracketed rule from its public diagnostic."""
 
     message = text.removeprefix("error: ")
+    if message.startswith("[") and message.endswith("]"):
+        # A rule alone has no public diagnostic message and is malformed.
+        # Return an empty message so _add applies the common safe-text gate.
+        return "mypy", ""
     if not message.endswith("]"):
         return "mypy", message
     opening = message.rfind("[")
@@ -231,6 +273,147 @@ def _safe_sdk_path(value: str) -> bool:
         and all(character.isascii() and (character.isalnum() or character in "_.-") for character in part)
         for part in parts
     )
+
+
+def _coverage_row(line: str) -> CoverageRow | None:
+    """Parse one fixed-format coverage row without retaining raw output."""
+
+    columns = line.split(maxsplit=6)
+    if len(columns) not in {6, 7}:
+        return None
+    path = columns[0]
+    if path not in OWNED_COVERAGE_PATHS:
+        return None
+    numbers = _coverage_numbers(columns[1:6])
+    if numbers is None:
+        return None
+    statement_count, missed_count, branch_count, partial_count, percentage = numbers
+    missing = _coverage_missing(columns[6] if len(columns) == 7 else "", missed_count)
+    if missing is None:
+        return None
+    ranges, branches = missing
+    return CoverageRow(
+        path=path,
+        statements=statement_count,
+        missed_statements=missed_count,
+        branches=branch_count,
+        partial_branches=partial_count,
+        percent=percentage,
+        missing_lines=ranges,
+        missing_branches=branches,
+    )
+
+
+def _coverage_numbers(values: list[str]) -> tuple[int, int, int, int, int] | None:
+    """Validate the four integer columns and the displayed percentage."""
+
+    if len(values) != 5 or not values[4].endswith("%"):
+        return None
+    counts = _coverage_counts(values[:4])
+    if counts is None:
+        return None
+    percentage = _bounded_count(values[4][:-1])
+    if percentage is None or percentage > 100:
+        return None
+    statements, missed, branches, partial = counts
+    if missed > statements or partial > branches:
+        return None
+    return statements, missed, branches, partial, percentage
+
+
+def _coverage_counts(values: list[str]) -> tuple[int, int, int, int] | None:
+    """Parse the four non-negative count columns with a fixed upper bound."""
+
+    if len(values) != 4:
+        return None
+    counts: list[int] = []
+    for value in values:
+        count = _bounded_count(value)
+        if count is None:
+            return None
+        counts.append(count)
+    return counts[0], counts[1], counts[2], counts[3]
+
+
+def _bounded_count(value: str) -> int | None:
+    if not value or len(value) > 9 or not value.isascii() or not value.isdecimal():
+        return None
+    if len(value) > 1 and value.startswith("0"):
+        return None
+    return int(value)
+
+
+def _coverage_missing(
+    value: str, missed_count: int
+) -> tuple[tuple[tuple[int, int], ...], tuple[tuple[int, int | None], ...]] | None:
+    if not value:
+        return ((), ())
+    parts = value.split(",")
+    if not parts or len(parts) > MAX_COVERAGE_MISSING_ITEMS:
+        return None
+    ranges: list[tuple[int, int]] = []
+    branches: list[tuple[int, int | None]] = []
+    for part in parts:
+        if not _append_missing_item(part.strip(), ranges, branches):
+            return None
+    if missed_count == 0 and ranges:
+        return None
+    return tuple(ranges), tuple(branches)
+
+
+def _append_missing_item(
+    value: str, ranges: list[tuple[int, int]], branches: list[tuple[int, int | None]]
+) -> bool:
+    """Append one unique branch arc or ordered statement range."""
+
+    branch = _branch_arc(value)
+    if branch is not None:
+        if branch in branches:
+            return False
+        branches.append(branch)
+        return True
+    return _append_statement_range(value, ranges)
+
+
+def _append_statement_range(value: str, ranges: list[tuple[int, int]]) -> bool:
+    """Append a statement range only when it preserves strict source ordering."""
+
+    line_range = _statement_range(value)
+    if line_range is None:
+        return False
+    if ranges and line_range[0] <= ranges[-1][1]:
+        return False
+    ranges.append(line_range)
+    return True
+
+
+def _branch_arc(value: str) -> tuple[int, int | None] | None:
+    """Parse one documented missing-branch arrow, including an exit target."""
+
+    source_text, arrow, destination_text = value.partition("->")
+    if not arrow:
+        return None
+    source = _positive_count(source_text)
+    destination = None if destination_text == "exit" else _positive_count(destination_text)
+    if source is None or (destination_text != "exit" and destination is None):
+        return None
+    return source, destination
+
+
+def _statement_range(value: str) -> tuple[int, int] | None:
+    """Parse one positive missing physical-line number or inclusive range."""
+
+    start_text, separator, end_text = value.partition("-")
+    start = _positive_count(start_text)
+    end = _positive_count(end_text) if separator else start
+    if start is None or end is None or start > end:
+        return None
+    return start, end
+
+
+def _positive_count(value: str) -> int | None:
+    count = _bounded_count(value)
+    return count if count is not None and count > 0 else None
 
 
 def fixed_command(check: str) -> tuple[str, ...]:
@@ -568,12 +751,29 @@ def report(check: str, code: int, capture: Capture, timed_out: bool, duration_ms
         "duration_ms": duration_ms,
         "counts": {
             "diagnostics": len(capture.diagnostics),
+            "coverage_rows": len(capture.coverage_rows),
             "unparsed_sdk_lines": capture.unparsed_sdk_lines,
             "captured_bytes": min(capture.bytes_seen, MAX_CAPTURE_BYTES),
         },
         "diagnostics": [
             {"rule": item.rule, "path": item.path, "line": item.line, "column": item.column, "message": item.message}
             for item in capture.diagnostics
+        ],
+        "coverage": [
+            {
+                "path": item.path,
+                "statements": item.statements,
+                "missed_statements": item.missed_statements,
+                "branches": item.branches,
+                "partial_branches": item.partial_branches,
+                "percent": item.percent,
+                "missing_lines": [{"start": start, "end": end} for start, end in item.missing_lines],
+                "missing_branches": [
+                    {"from": source, "to": destination if destination is not None else "exit"}
+                    for source, destination in item.missing_branches
+                ],
+            }
+            for item in capture.coverage_rows
         ],
     }
 

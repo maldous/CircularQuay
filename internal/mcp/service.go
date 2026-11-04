@@ -433,32 +433,8 @@ func (s *Service) mayReadAll(p Principal, id string, w model.Workload) bool {
 func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key string) (result SecretResult, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseMCP, ProviderKind: "mcp"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
-	if ctx.Err() != nil {
-		return SecretResult{}, fault.New(fault.Unavailable, mcpRequest)
-	}
-	if !validHandle(key) || !s.authorized(p, workload, "read", key) {
-		return SecretResult{}, fault.New(fault.Denied, mcpDisclosure)
-	}
-	if s.options.Audit == nil {
-		return SecretResult{}, fault.New(fault.Apply, "mcp disclosure audit")
-	}
-	value, err := s.backend.Read(withPrincipal(ctx, p), workload, key)
+	value, err := s.discloseSecret(ctx, p, workload, key)
 	if err != nil {
-		return SecretResult{}, safeError(err, mcpDisclosure)
-	}
-	if err := s.validateDisclosure(workload, value); err != nil {
-		return SecretResult{}, err
-	}
-	// The provider call may have blocked while an operator revoked the grant.
-	// Recheck current policy before recording authorization to release plaintext.
-	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
-		return SecretResult{}, err
-	}
-	// This receipt proves durable release authorization, not client delivery.
-	if err := s.record(ctx, p, workload, "read", key, "release_authorized", true); err != nil {
-		return SecretResult{}, err
-	}
-	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
 		return SecretResult{}, err
 	}
 	result = SecretResult{Alias: key, Value: value.Data, Version: value.Version}
@@ -467,6 +443,38 @@ func (s *Service) ReadSecret(ctx context.Context, p Principal, workload, key str
 		result.ExpiresAt = &expiresAt
 	}
 	return result, nil
+}
+
+func (s *Service) discloseSecret(ctx context.Context, p Principal, workload, key string) (model.Value, error) {
+	if ctx.Err() != nil {
+		return model.Value{}, fault.New(fault.Unavailable, mcpRequest)
+	}
+	if !validHandle(key) || !s.authorized(p, workload, "read", key) {
+		return model.Value{}, fault.New(fault.Denied, mcpDisclosure)
+	}
+	if s.options.Audit == nil {
+		return model.Value{}, fault.New(fault.Apply, "mcp disclosure audit")
+	}
+	value, err := s.backend.Read(withPrincipal(ctx, p), workload, key)
+	if err != nil {
+		return model.Value{}, safeError(err, mcpDisclosure)
+	}
+	if err := s.validateDisclosure(workload, value); err != nil {
+		return model.Value{}, err
+	}
+	// The provider call may have blocked while an operator revoked the grant.
+	// Recheck current policy before recording authorization to release plaintext.
+	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
+		return model.Value{}, err
+	}
+	// This receipt proves durable release authorization, not client delivery.
+	if err := s.record(ctx, p, workload, "read", key, "release_authorized", true); err != nil {
+		return model.Value{}, err
+	}
+	if err := s.recheck(ctx, p, workload, "read", key, "mcp disclosure revoked"); err != nil {
+		return model.Value{}, err
+	}
+	return value, nil
 }
 
 func (s *Service) recheck(ctx context.Context, p Principal, workload, operation, key, denied string) error {
