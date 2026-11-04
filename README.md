@@ -23,13 +23,22 @@ to a person or service and a time limit. An **optional MCP connector** brings
 the same controls to AI assistants and agents.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0f766e)](LICENSE)
+
+[Testing and audit results](docs/verification.md) · [Downloads](https://github.com/maldous/CircularQuay/releases) · [Documentation](docs/README.md)
+
+<details>
+<summary>Development workflow status</summary>
+
 [![Source checks](https://github.com/maldous/CircularQuay/actions/workflows/source.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/source.yml)
 [![Security analysis](https://github.com/maldous/CircularQuay/actions/workflows/security.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/security.yml)
 [![WireMock integration](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/integration.yml)
 [![SonarQube gate](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sonar.yml)
 [![SDK conformance](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml/badge.svg?branch=feature%2Finitial-implementation)](https://github.com/maldous/CircularQuay/actions/workflows/sdk.yml)
 
-[Testing and audit results](docs/verification.md) · [Downloads](https://github.com/maldous/CircularQuay/releases) · [Documentation](docs/README.md)
+These badges show branch workflow status. [Revision-scoped evidence](docs/verification.md)
+records what was tested; passing a workflow does not establish a qualified release.
+
+</details>
 
 ## Try it in a minute
 
@@ -99,6 +108,10 @@ The [enterprise contract](docs/enterprise-integration.md) brings together
 identity lifecycle, access reviews, audit export and retention, recovery,
 compatible extensions and controlled upgrades. These controls support your
 organisation's security programme without claiming ISO 27001 certification.
+Choose [straightforward default operation or an enforced strict security
+profile](docs/security-profiles.md). [Discovery and administration](docs/management-and-discovery.md)
+share explicit trust, scoped permissions and [signed-change safeguards](docs/administration-security.md)
+across the CLI, UI, SDKs and optional MCP.
 The guides describe the complete v1 end state; [qualification
 evidence](docs/qualification.md) records what each exact revision has proved.
 
@@ -127,9 +140,11 @@ key that an authorized application has already copied.
 | Run my first workload or choose an availability mode | [Getting started](docs/getting-started.md) |
 | Configure sources, permissions and delivery | [Configuration guide and schema](docs/configuration.md) · [Complete Linux example](examples/linux-deployment.json) |
 | Automate setup and policy changes | [Command reference with examples](docs/commands.md) · [Git and CI setup](docs/configuration-repositories.md) |
+| Connect an AI assistant or agent client | [Skill and plugin guide](docs/agent-integrations.md) · [MCP operations](docs/operators/mcp.md) |
 | Connect identity, providers or hosting platforms | [Integration guide](docs/integrations.md) · [Platform matrix](docs/platform-support.md) |
 | Integrate an application or enterprise monitoring | [Go, TypeScript and Python SDKs](docs/sdks.md) · [Enterprise integration](docs/enterprise-integration.md) |
 | Configure monitoring and release awareness | [Operational configuration](docs/operational-configuration.md) |
+| Enforce enterprise controls and administer remote policy | [Security profiles](docs/security-profiles.md) · [Discovery and management](docs/management-and-discovery.md) · [Administration security](docs/administration-security.md) |
 | Understand the security and test evidence | [Security model](docs/threat-model.md) · [Testing and verification](docs/verification.md) |
 | Contribute, ask for help or report a problem | [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Private security reporting](SECURITY.md) |
 

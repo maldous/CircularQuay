@@ -21,6 +21,9 @@ Launch requires the whole declared contract and its revision-bound evidence.
 - Standard asymmetric client authentication and sender constraints where qualified: private-key JWT, DPoP and mutual TLS. Offline identity authorization requires an issuer-authorized artifact binding and an explicit clock/revocation trust contract; an ordinary login token or OAuth refresh permission does not establish it.
 - No extra recurring paid provider dependency for the personal reference; free testing accounts authorized, no automatic paid conversion.
 - Strict first-party quality with transparent upstream advisory/mitigation reporting.
+- Product-wide [default and strict security profiles](security-profiles.md),
+  mandatory baseline safeguards in both, centrally enforced downgrade resistance
+  and exact control-to-schema/code/test/deployment evidence.
 - Official Go, TypeScript and Python SDKs share the supported CLI/MCP contract,
   explicit credentials, cancellation, safe errors and cross-language conformance.
 - Runtime OpenTelemetry metrics, traces and structured diagnostics are v1
@@ -88,6 +91,16 @@ records the actual managed-service implementation and qualification status.
 
 ## Non-negotiable boundaries
 
+The complete v1 [discovery and management contract](management-and-discovery.md)
+includes typed remote enrollment, tenant/principal/client/provider resources,
+configuration revisions, scoped grants, delegation, approvals, revocation,
+audit and recovery. Separate runtime-policy, client-enrollment and managed
+deployment schemas prevent local CRUD from becoming implicit remote authority.
+The API, official Go/TypeScript/Python SDKs, CLI/UI and optional management MCP
+share one operation map. [Administration security](administration-security.md)
+defines mandatory signed intent/publication, independent approval, trust/key
+lifecycle, freshness, replay/rollback, tenant isolation and durable mutation.
+
 Do not implement new cryptography, a vault, arbitrary expression evaluator, global credential broker, universal process supervisor or general lease-renewal daemon. Reuse upstream SOPS, native provider SDK/auth lifecycle and platform facilities.
 
 Do not access existing operational values to populate this repository. No live secret, private recipient, token, native credential blob or operational ciphertext belongs in tracked source, assets, fixture reports or public release metadata.
@@ -108,6 +121,7 @@ No automatic history rewrite, estate-wide rotation or production service restart
 | Official SDKs | Stable CLI/MCP contracts | Go, TypeScript and Python parity, typed safe errors, explicit disclosure, cancellation/reaping, native conformance, locked builds, registry install and provenance receipts. |
 | Observability and operations | Core/runtime boundaries | Safe correlated metrics/traces/logs, finite queues/export/shutdown, collector failure isolation, operational health, update awareness and local version policy. |
 | Managed hosted connections | Qualified MCP and explicit hosted scope | External IdP/resource-server separation; typed tenant/environment/principal/connection isolation; approved identity associations; client and operation grants; lifecycle/revocation bounds and administrative audit. Local/CI/preview/production use the controlled-delivery contract in [managed key service](managed-key-service.md); see [hosted identity](hosted-identity.md). |
+| Administration and assurance profiles | Core trust and managed-service contracts | Authoritative v1 API/resource/error/event and enrollment/deployment schemas; signed configuration/change integrity; complete typed CLI/UI/SDK/MCP lifecycle; monotonic profile enforcement; approval/revocation/audit/HA and downgrade-negative evidence under [management](management-and-discovery.md), [administration security](administration-security.md) and [security profiles](security-profiles.md). |
 | Assurance | Starts with foundation | Fresh independent Sonar route, scope/coverage validation, complementary checks, formal/conformance and negative tests. |
 | Distribution | Tested artifacts | Immutable native/Go/OCI/MCP/MCPB metadata, signatures, provenance, free account directions and clean install. |
 | Operator qualification | Relevant implementations | Real reboot/device/provider/client/restore receipts, not merely compilation. |
@@ -190,7 +204,27 @@ Model exact authorization, generation/fallback, expiry/rollback, bootstrap acycl
 17. Enterprise access reviews, lifecycle/revocation, audit retention/export,
     tenant isolation and recovery satisfy the [enterprise contract](enterprise-integration.md),
     with clear customer responsibilities and no certification claim.
+18. Signed administrative intent, exact candidate/target/revision and independent
+    approval survive retries/concurrency; signature confusion, wrong signers,
+    replay/rollback/freeze, tenant crossover and authority-change races deny.
+19. Default operation is quiet and deterministic without bypassing any baseline
+    control. Strict requirements propagate through every interface, descendant,
+    cache and recovery path; unsupported assurance and attempted downgrade deny.
 
 ## Evidence and remaining work
 
 Actual outcomes are machine-readable audit reports and [qualification receipts](qualification.md), not checkmarks added to this plan. Current live-account, native-host, client and publication status is recorded in `RELEASE.md`. Claims must stay narrower than the observed evidence.
+
+## Agent packaging and documentation acceptance
+
+The portable cquay skill, skill UI metadata and client-plugin instructions share
+one capability vocabulary with CLI, SDK and optional MCP. Package only contained,
+versioned references and verified runtime connections; no manifest or skill can
+create authority. [Agent integration](agent-integrations.md) defines installation,
+reload/removal, compatibility, disclosure and client qualification.
+
+Architecture, user/admin, provider/identity, CLI/CI/MCP, enterprise, telemetry,
+managed-service and release guides describe this same complete v1 end state.
+Schema-backed examples remain executable declarations; integration acceptance
+requirements cannot be inserted as unsupported fields. Revision-scoped status,
+open gates and publication receipts stay in qualification/handoff records.

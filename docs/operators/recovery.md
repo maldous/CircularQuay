@@ -27,6 +27,20 @@ Keep recovery authority off ordinary workload hosts. Recovery shares do not repl
 
 The default objective is daily backup plus restore qualification before operational enrollment and after material recovery changes. Actual capacity, retention and custody must be recorded by the operator.
 
+## Configuration, client and exporter recovery
+
+Retain versioned policy/schema, SDK and native runtime identities, reviewed
+migration inputs, collector trust references and required audit state with the
+selected backup profile. Reconstruct collector/update credentials through their
+owner; do not copy tokens into support or recovery reports. Required audit
+outage and best-effort telemetry outage have different failure policies.
+
+After restore, revalidate local minimum-version requirements and artifact
+compatibility before sensitive effects. Verify Go linked-core and
+Python/TypeScript native-digest selection, MCP resource/authority association
+and agent/plugin configuration. An update notice, stale metadata cache or
+removed registry listing cannot authorize a downgraded or unauthenticated binary.
+
 ## Replacement host
 
 1. Install authenticated native artifacts.

@@ -13,9 +13,29 @@ The badges below are retained **historical scoped receipts**, not current-head o
 [![TLC finite model](https://img.shields.io/badge/TLC%20finite%20model-bounded%20pass-2f855a)](qualification.md#bounded-receipts)
 
 
-The [060639 receipt](qualification.md#exact-060639-development-receipt) records native Linux/macOS/Windows, all 26 cross-builds, both complexity ceilings, Staticcheck, govulncheck and CodeQL passes. Coverage and gosec failed.
+## Read the evidence for the right revision
 
-The [19cdf83 Sonar run](https://github.com/maldous/CircularQuay/actions/runs/41762521270) completed scanner upload, Compute Engine analysis and revision-bound server readbacks. It reported zero scanner/analysis warnings and zero hotspots. Its quality gate failed: Sonar coverage was 79.4%, three code smells remained open, and the fresh project supplied neither required new-code metric. The separate Go profile covered 6,248 of 7,306 statements (85.52%); these measurements have different inventories and are not interchangeable. This receipt covers that published tree only. SDKs, observability and update-awareness source require their own exact-revision hosted results and reviewed dependency locks.
+The retained [20703ec8 hosted receipt](qualification.md#exact-20703ec8-hosted-receipt)
+records an earlier completed set of source, security, SDK, Sonar, WireMock and dependency-review
+runs for that exact tree. It includes native Go SDK and WireMock successes,
+installed-client results and the unresolved source, security, SDK, dependency
+and coverage failures. A successful test or analyzer is not a passing language
+matrix or release gate. Later corrections require their own hosted execution;
+consult the [qualification matrix](qualification.md) for subsequent receipts.
+
+| Evidence | What it establishes | What it does not establish |
+| --- | --- | --- |
+| Source review and syntax checks | The documented scope was inspected or parsed. | Successful builds, runtime behaviour or an unchanged later tree. |
+| Native SDK, installed-client and protocol tests | The recorded package, platform, dependency set and allowed/denied behaviour passed the named checks. | Every SDK language/platform, live-provider access, registry publication or complete coverage. |
+| Sonar and language coverage | Results for the recorded source inventory and imported coverage reports. | Coverage for an unimported language, absent new-code metrics or a later revision. Go, Python and TypeScript reports must be bound to the scanned candidate. |
+| CodeQL, dependency and secret scanning | The selected analysis, audit or scan phase completed with its recorded outcomes. | A zero-alert count from upload alone, closed secret incidents or a cleared finding without readback. |
+| Artifact and registry verification | Exact published package bytes and installation/provenance checks, once recorded. | A release merely because source, manifests or workflow definitions exist. |
+
+The [historical bounded receipts](qualification.md#bounded-receipts) remain
+available for their original scopes. Compare source revision, tree, tool/runtime
+versions, dependency locks and report inventories before combining evidence.
+Partial successes and unexecuted checks remain visible; failed gates are not
+waived by a later source correction or a green badge for a different workflow.
 
 Independent audit, live providers, reboot/recovery and release-artifact qualification have separate acceptance evidence. No release or production qualification is established.
 

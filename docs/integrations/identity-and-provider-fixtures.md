@@ -14,7 +14,7 @@ completion, and must not log a raw token, bootstrap token, or returned value.
 
 The profile is intentionally optional. Core CircularQuay does not require
 Keycloak, OpenBao, Docker, a Java runtime, or a container runtime. A developer
-runs it only through the future documented integration target after a suitable
+runs it only through its documented, digest-selected integration target with a suitable
 local container runtime is available. It must be a separate, opt-in CI job as
 well; normal unit, race, fuzzing, and cross-platform build jobs stay independent
 of it.
@@ -24,7 +24,7 @@ recorded in the harness or lock file. This repository deliberately does not put
 an unverified mutable Keycloak or OpenBao image tag in this fixture. The runner
 must reject an unpinned image reference.
 
-The profile exercises the executable's current resource-server and provider
+The profile exercises the selected resource-server and provider
 adapters. It does not demonstrate a hosted control plane, user login, dynamic
 client registration, SCIM, external authorization-server discovery, token
 issuance by CircularQuay, provider administration, renewal, or production
@@ -148,7 +148,7 @@ private temporary token file. The equivalent CircularQuay declaration is:
 ```
 
 The binding names the exact resource, selects one string field, and pins an
-explicit numeric KV version where the scenario requires it. The current reader
+explicit numeric KV version where the scenario requires it. The reader profile
 issues `GET /v1/<mount>/data/<resource>`, sends `X-Vault-Token`, sends
 `X-Vault-Namespace` only when the policy declares a namespace, and adds
 `version=<n>` only for an explicit binding version. It rejects destroyed or
@@ -177,17 +177,14 @@ administration, or a general credential broker.
 The Keycloak test uses a short synthetic access-token lifetime and records
 successful authorization before expiry and denial after expiry. Disabling the
 service account, logging it out, or revoking a refresh token does **not** make
-a locally verified self-contained access JWT invalid immediately. CircularQuay
-currently has no token-introspection or online revocation channel. It denies
-future decisions when its own named authority/grant/policy changes, but it
-cannot recall a disclosed value or a launched child process.
+a locally verified self-contained access JWT invalid immediately. CircularQuay's local JWT profile denies further decisions when its named
+authority/grant/policy changes, but cannot recall a disclosed value or launched
+child. Immediate issuer revocation requires a separately selected and qualified
+introspection or authenticated event channel, its client authentication,
+outage/failure policy and propagation bound. A logout test alone supplies none
+of that evidence.
 
-An online-revocation design would need a separately qualified introspection or
-revocation/event channel, its client authentication and outage/failure policy,
-and a documented propagation bound. It is not supplied by this fixture and must
-not be inferred from a Keycloak logout test.
-
-## Evidence and current gaps
+## Evidence and acceptance boundaries
 
 Each run records only fixture identity metadata: image digests, local endpoint
 origins, TLS leaf/CA fingerprints, issuer, audience, JWT header algorithm/type
@@ -196,10 +193,9 @@ hashes, expiry-relative timings, selected source/version metadata, request
 counts, and authorization outcomes. It omits raw JWTs, client secrets, OpenBao
 tokens, private keys, certificates, and secret values.
 
-The following prevents calling this a complete end-to-end CLI qualification
-today: the integration harness and digest lock have not yet been implemented;
-the core CLI has no supported process-local CA injection for a generated local
-CA; no live Keycloak/OpenBao run has occurred; no native reboot/recovery,
-provider lifecycle, multi-replica DPoP, managed-service UI/API, or independent
-audit evidence exists. Until those gaps close with retained exact-head evidence,
-this document is a v1 fixture contract, not a passed interoperability result.
+A complete fixture receipt binds harness/image digests, isolated TLS trust,
+client and server versions, exact source/tree, allowed/denied operations and
+cleanup. It does not qualify native reboot/recovery, live-provider lifecycle,
+multi-replica DPoP or managed UI/API. Record the actual harness, provider and
+platform outcomes in the [qualification matrix](../qualification.md). A design,
+fixture declaration or source review is never an executed interoperability pass.

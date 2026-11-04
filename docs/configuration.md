@@ -38,7 +38,7 @@ directory controlled by the operator. Bootstrap and identity files are checked
 by the protected-file helpers when read: use absolute paths, regular files,
 no symlinks/reparse points, owner-only Unix secret permissions, and protected
 Windows DACLs. See [credential and identity boundaries](credential-boundaries.md)
-for the current native-storage boundary.
+for the native-storage and identity-profile boundaries.
 
 Unless `--state-dir PATH` is supplied, cquay stores its private runtime
 metadata below the operating system's user configuration directory, in
@@ -98,6 +98,25 @@ returns the local kernel-derived grant subject without checking configuration.
 format; it is idempotent and does not repair policy meaning, providers,
 identities, services, or deployment state.
 
+## Runtime, client and management configuration
+
+`observability` and `updates` are versioned policy objects. Their exact fields,
+credential/CA references, finite budgets and examples are in
+[operational configuration](operational-configuration.md). Optional identity,
+MCP and managed-service administration retain separate grants; a telemetry
+endpoint, update feed or local JSON edit does not select a remote tenant.
+
+Bootstrap and CI source overrides select configuration provenance in the
+[repository/discovery contract](configuration-repositories.md). SDK convenience
+CRUD uses the [portable I-JSON profile](sdks.md#shared-contract); the CLI's raw
+file interface supports wider valid policy declarations. Schema validation,
+semantic validation, authentication and authorization are distinct checks.
+
+The schema below contains the runtime declarations accepted by the selected
+policy version. Broader integration and administration requirements are defined
+in [integrations](integrations.md) and [managed keys](managed-key-service.md);
+do not encode a design-only setting as an ignored JSON member.
+
 ## Root fields
 
 | Field | Type and required state | Meaning and constraints |
@@ -115,7 +134,7 @@ identities, services, or deployment state.
 
 `type` is required. Valid types are `sops`, `json`, `env`, `openbao`, `vault`,
 `aws-sm`, `aws-ssm`, `azure`, `gcp`, `doppler`, `infisical`, `bitwarden`,
-`akeyless`, and `onepassword`. Current adapter and identity limits are in
+`akeyless`, and `onepassword`. Adapter profiles and identity boundaries are in
 [provider interoperability](providers.md) and
 [credential boundaries](credential-boundaries.md).
 

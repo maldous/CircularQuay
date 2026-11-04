@@ -31,7 +31,9 @@ The [enterprise contract](enterprise-integration.md) defines identity lifecycle,
 access review, audit retention/export, version compatibility, recovery and
 extension governance for the complete v1 product. CLI and optional MCP
 administration share scoped policy checks and audited, time-bound delegation.
-The [managed key service](managed-key-service.md) has its own linked UI/API
+The [portable skill and client-plugin guide](agent-integrations.md) explains
+agent setup without adding implicit authority. The
+[managed key service](managed-key-service.md) has its own linked UI/API
 and custody contract. No client can recall plaintext or a copied age private
 key; encryption alone does not enforce an access deadline.
 

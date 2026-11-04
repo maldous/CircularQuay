@@ -1,5 +1,8 @@
 # Contributing
 
+New coding agents: read [repository instructions](AGENTS.md) and
+[agent orientation](docs/agent-onboarding.md) before selecting setup or checks.
+
 Use fabricated fixtures and the documented local audit route. Do not introduce live credentials or operational ciphertext into this public repository.
 
 1. Read the architecture, threat model, and relevant ADR.
@@ -24,11 +27,21 @@ Create `release/<version>` from `develop` to stabilize a release. After review a
 
 During initial bootstrap, an empty repository-initialization commit may establish `main` and `develop`. Initial implementation belongs on its feature branch until the same qualification requirements are met. Branch presence is not a passing quality gate.
 
-Avoid new production languages, embedded cryptography, SDK-wide implicit inheritance, unrestricted evaluators, and undeclared credential chains. Generated files must have one authoritative source and a reproducible check.
+Keep the native core in Go; the official TypeScript and Python SDKs are explicit client boundaries with their own strict compatibility and qualification contract. Avoid unapproved production languages, embedded cryptography, SDK-wide implicit inheritance, unrestricted evaluators, and undeclared credential chains. Generated files must have one authoritative source and a reproducible check.
 
 A passing test is not sufficient if the assertion merely restates the implementation. Security tests should prove denial before upstream retrieval, data minimization, complete activation, and meaningful failure behavior.
 
 Maintainer account setup, public-index publishing, and operator post-installation procedures belong in `RELEASE.md`, not the product README. Do not add release credentials to examples or logs.
+
+## Documentation and client integration
+
+Keep architecture, user/operator, CLI/CI/MCP, SDK, enterprise, telemetry,
+managed-service and distribution guides aligned to the complete v1 contract.
+Record actual implementation and qualification in evidence/status records;
+source review, a fixture, a schema field or a registry example is not a pass.
+Validate local links/anchors, examples, schema-backed fields, actual command/tool
+names and contained skill/plugin resources. Preserve the separate identities of
+native runtime, language SDK, agent skill/plugin and remote service.
 
 ## Community and release readiness
 

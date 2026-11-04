@@ -37,6 +37,23 @@ The trusted computing base includes the chosen OS, compiler/runtime, upstream cr
 | Local compromise | Dedicated identities and permissions limit blast radius. Root/Administrator defeats endpoint protection. |
 | Release compromise | Pinned verified artifacts, reproducible inputs, SBOM/provenance, immutable versions and independent install tests. |
 
+## Bootstrap, SDK, plugin and telemetry threats
+
+| Threat | Control and residual boundary |
+| --- | --- |
+| Spoofed discovery or CI context | Explicit enrollment, immutable source/digest trust and authenticated workload claims; DNS hints, environment markers and public URLs are never grants. |
+| SDK/native substitution or response confusion | Separately verified package and binary/module identity, strict bounded version/DTO parsing and shared error semantics. Version metadata alone is not publisher authentication. |
+| Cancel/retry causes duplicate effects | Caller cancellation propagates with bounded cleanup; do not automatically retry effectful calls after an ambiguous result. Status reconciliation cannot undo a completed release. |
+| Plugin or tool instruction expands authority | Contained versioned resources, fixed catalog and per-operation checks. Skill text, tool output and caller-selected actor/tenant labels are untrusted as grants. |
+| Telemetry exfiltration or exporter outage | Allowlisted bounded signals, protected collector/TLS/credential references and no value-bearing errors/hooks. Best-effort export cannot satisfy or bypass required durable audit. |
+| Malicious update feed or downgrade | Advisory notice/check separated from local minimum version and authenticated artifact installation. No automatic code download, execution, prompt or trust-store change. |
+| Confused administrative delegation | Exact grantor/recipient/client/tenant/workload/operation/window ceiling and durable metadata audit; grant management does not imply key retrieval. |
+
+The [enterprise contract](enterprise-integration.md), [SDK contract](sdks.md),
+[agent-client contract](agent-integrations.md) and
+[operational configuration](operational-configuration.md) supply the matching
+configuration, failure and acceptance boundaries.
+
 ## Disclosure limitations
 
 MCP raw values can enter client/model context, transcripts, or telemetry. No server response annotation can guarantee downstream retention. Invoking an arbitrary application also does not guarantee that application's logs remain secret-free.

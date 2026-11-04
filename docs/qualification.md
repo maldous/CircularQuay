@@ -20,6 +20,8 @@ This matrix distinguishes implementation from independent or live qualification.
 | Optional DPoP | Named-authority sender constraints with required persistent nonces and replay denial | Synthetic issuer-to-MCP read/denial tests; native, live issuer/client and cluster qualification are separate and remain incomplete. |
 | Sonar and full assurance | Harness in development | No independent completed gate claimed here. |
 | Public distribution | Source publication in progress | No release, module-index, OCI or MCP Registry publication claimed. |
+| Remote discovery and administration | [Complete v1 contract](management-and-discovery.md) and [security controls](administration-security.md) defined; no managed control-plane implementation | Runtime local CRUD/bootstrap and four-operation MCP do not establish remote administration, enrollment or generic service discovery. |
+| Product-wide assurance profiles | [Default/strict contract](security-profiles.md) defined; no profile field or unified enforcement in the current policy model/schema | No strict-mode, downgrade-resistance or enterprise-compliance qualification is claimed. Existing baseline controls require their own exact evidence. |
 
 ## Source workflow scope
 
@@ -35,6 +37,71 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact 208bfe0 hosted receipt
+
+Publication `208bfe016a8e00c55d9e2394b2a930eec64cd606` has tree
+`386b60dbdc59d95aee63c1ca7dfeee9e2a71368d`. Complete readback records the
+six pull-request workflows and three push workflows for that head as terminal;
+none was rerun or cancelled. This is revision-scoped evidence, not a release
+or production qualification.
+
+The [source workflow](https://github.com/maldous/CircularQuay/actions/runs/41790956273)
+has 29 successful and two failed jobs. All four previously recorded SDK
+cyclomatic findings are closed. The Linux synthetic job reaches three new
+assurance parser/test `gocyclo` failures; `gocognit` is therefore not reached.
+The source-audit format and source steps pass. Its unit failure is attributed
+only to `internal/integration`. Source inspection identifies that its tag-only
+tests are explicitly selected by an untagged audit invocation; the report does
+not retain an individual diagnostic. An empty untagged file must not conceal
+that scope gap. Vet fails without retained diagnostic attribution. The report records
+7,273/8,707 owned statements (83.530492707%). The current four-file repair is
+source-only evidence and needs a later hosted run.
+
+The [security workflow](https://github.com/maldous/CircularQuay/actions/runs/41790956279)
+completes Staticcheck, govulncheck and CodeQL upload. Upload success does not
+prove a zero alert count because no authoritative alert readback is retained.
+Gosec retains eight unsuppressed findings; the security workflow therefore
+fails.
+
+The [SDK workflow](https://github.com/maldous/CircularQuay/actions/runs/41790956319)
+has four successful and 28 failed jobs. The three native Go SDK jobs and Go
+lock reproducibility pass. All nine TypeScript lint/type/audit lanes pass;
+the observed 18-test run reports 15 passes and three fixture failures. Windows now records
+56.89% actual TypeScript coverage, below the required threshold. The package
+SIGPIPE repair, installed-ESM consumer correction and three fixture repairs are
+source-only and require a new hosted run. Selected TypeScript and Go MCP checks pass, but do not qualify the
+complete SDK matrix.
+
+Python tools pass on all static operating-system lanes. The 38-test report
+contains 76 events and a Windows AST match. All five owned module rows are
+captured, while total coverage remains below the required threshold. Linux and macOS complete all five runtime
+versions through installed/minimal checks. Windows Python 3.11 passes; Windows
+3.12--3.15 fail native trust/config-initialization and remain under
+investigation. The sole Python 3.15 MCP check passes. The existing Intel macOS
+wheel/advisory blocker remains unchanged.
+
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41790956278)
+uploads and completes CE analysis, but its strict gate fails: it records four
+issues, 66.5% coverage, zero duplication and zero hotspots, absent required
+new-code metrics, and the Python 3.15 fallback warning. The test-scope patch
+classifies the configured test paths correctly while keeping implementation and
+tooling validators as source. It does not create or ingest Python coverage XML
+or TypeScript LCOV, so that project-wide coverage result remains incomplete.
+
+[WireMock](https://github.com/maldous/CircularQuay/actions/runs/41790956340)
+passes all three synthetic jobs, and
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41790956284)
+passes. These isolated results do not qualify the failed source, security, SDK
+or Sonar gates. Historical GitGuardian incidents remain a current-readback
+gap: retained source provenance is not an authoritative current alert list and
+does not establish closure.
+
+Retain `checkpoint41-all-run-state.json` and
+`checkpoint41-sonar-208bfe0.json`, along with prior immutable receipts. The
+associated source-only fixes, README link/disclosure review, and publication
+readback are not substitutes for hosted execution, artifact verification or
+production qualification.
 
 ## Exact 20703ec8 hosted receipt
 
@@ -546,6 +613,29 @@ receipt. The hosting/capacity/revenue calculations are explicit assumptions,
 not benchmarks, customer traction, approved prices, or operating accounts.
 No service, paid plan, credential, or BAU infrastructure was created or changed.
 
+The [management/discovery](management-and-discovery.md),
+[administration security](administration-security.md) and
+[security profiles](security-profiles.md) documents specify the complete v1
+acceptance contract. Source inspection finds no remote management API/resource
+implementation, typed remote administration clients, enrollment/tenant/SCIM/
+delegation/online-revocation control plane, signed administrative-intent verifier
+or unified assurance-profile enforcement. The runtime policy model/schema has
+no profile field or managed resource definitions. The Go, TypeScript and Python
+MCP clients deliberately accept only the existing four-tool one-page workload
+profile; that profile must not be weakened to accommodate a management catalog.
+Local `config` CRUD/CAS and pinned/signed repository bootstrap are distinct
+implemented boundaries, not remote administrative capability.
+
+Required implementation includes authoritative v1 management API/resource/
+error/event contracts, separate protected enrollment/deployment schemas, exact
+signature/profile/key lifecycle, transactional approval/revocation/audit state,
+typed interface parity and product-wide monotonic profile enforcement. Schema
+fields cannot be advertised as enforcement before their runtime path exists.
+The design has bounded independent source review only; protocol vectors,
+downgrade/abuse testing, native/provider/host qualification and independent
+security audit of those implementations remain required. No security mode or
+ISO/FIPS certification is established by these documents.
+
 ## Integration implementation and qualification status
 
 The [integration inventory](integrations.md),
@@ -563,17 +653,20 @@ The tagged WireMock suite implements a real loopback HTTPS process harness for
 the OpenBao KV v2 adapter, with six synthetic scenarios, exact and unmatched
 request checks, private state, verified JAR copying and bounded process cleanup.
 Its Linux/macOS/Windows workflow and local instructions use the same suite.
-No Java/WireMock scenario has yet executed in this checkpoint. An agent's two
+The exact 208bfe0 receipt above records all three hosted synthetic suites
+passing; that does not qualify other providers or a later source revision.
+Historically, an agent's two
 compile-only/vet batches ran despite the local resource hold; they executed no
 test bodies, had no retained exact-source/environment fence, and are not an
 integration pass. The root stopped further local execution. Retain the private
 `wiremock-compile-only-execution-20261104.json` receipt.
 
-The ephemeral hosted Sonar workflow is a new producer with strict coverage,
+The ephemeral hosted Sonar workflow is a producer with strict coverage,
 warning, issue, hotspot and current-analysis checks. It uses a fresh isolated
 server and a finite project-scoped credential. Definition and source review do
 not establish a successful analysis or the independent auditor's complete
-runtime binding. Dependency review likewise needs its own real PR result.
+runtime binding. The exact 208bfe0 receipt above records completed analysis with
+a failed strict gate and a separate successful Dependency Review PR result.
 
 Keycloak realm export and OpenBao fixture contracts are provided; a real
 issuer/provider container suite has not run. LocalStack runtime profiles,

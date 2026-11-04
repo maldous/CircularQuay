@@ -1,0 +1,4 @@
+interface:
+  display_name: "CircularQuay"
+  short_description: "Operate scoped CircularQuay workloads and integrations"
+  default_prompt: "Use $cquay to inspect the selected configuration and perform the authorized workload or integration task."

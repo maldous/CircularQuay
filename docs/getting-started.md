@@ -13,7 +13,8 @@ qualification are recorded in [the qualification matrix](qualification.md).
 ```sh
 umask 077
 cd -P "$(mktemp -d)"
-git clone --branch feature/initial-implementation https://github.com/maldous/CircularQuay.git
+release_ref='<verified-release-tag>' # Select an existing authenticated release.
+git clone --branch "$release_ref" https://github.com/maldous/CircularQuay.git
 cd CircularQuay
 go version # requires Go 1.27.3
 go build -o ./cquay ./cmd/cquay
@@ -27,7 +28,8 @@ go build -o ./cquay ./cmd/cquay
 ## Windows PowerShell
 
 ```powershell
-git clone --branch feature/initial-implementation https://github.com/maldous/CircularQuay.git
+$ReleaseRef = '<verified-release-tag>' # Select an existing authenticated release.
+git clone --branch $ReleaseRef https://github.com/maldous/CircularQuay.git
 Set-Location CircularQuay
 go version # requires Go 1.27.3
 go build -o .\cquay.exe .\cmd\cquay
@@ -45,6 +47,21 @@ policy delivers to it.
 
 For policy editing, conditional updates, doctor behavior, and all command
 flags, see the [command reference](commands.md).
+
+## Connect your application or pipeline
+
+Use [bootstrap and discovery](configuration-repositories.md) to select trusted
+local or repository configuration, and `cquay flow run --workload ID
+--non-interactive` for an enrolled CI workload. Explicit overrides select the
+context; they cannot widen authorization. Discovery and job environment markers
+do not authenticate a source, user or provider identity on their own.
+
+Applications choose the [official SDK](sdks.md) local adapter or an optional MCP
+session. Start with synthetic values, validate the policy and check a denial
+before connecting an operational provider. Add [observability and release
+awareness](operational-configuration.md) through protected configuration, then
+verify safe output with your selected collector. A release notice continues
+without reading input; installation is a separate verified operator action.
 
 ## Choose an availability policy
 
@@ -95,6 +112,6 @@ The second command deliberately demonstrates the child's environment using **syn
 
 On Windows, use an absolute native executable rather than assuming Bash exists. The CLI does not implicitly evaluate a shell command string. A program named by a workload still has the authority to read values delivered to it.
 
-Native archives and verified offline bundles are the intended consumer installation route. Only enabled features need their dependencies. The normal CLI does not require an installed Go, Python, Node, Java, or Docker runtime. Source builds require the pinned Go toolchain; the independent audit environment has additional prerequisites.
+Native archives and verified offline bundles are the consumer installation route. Only enabled features need their dependencies. The normal CLI does not require an installed Go, Python, Node, Java, or Docker runtime. Source builds require the pinned Go toolchain; the independent audit environment has additional prerequisites.
 
 [Documentation](README.md) · [CircularQuay](../README.md)

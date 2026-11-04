@@ -10,11 +10,25 @@ SOPS can use cloud KMS or OpenBao Transit to protect a document key. That is dif
 | AWS SM/SSM, Azure Key Vault secrets, GCP Secret Manager | Native provider identities and explicit resource references. |
 | Doppler, Infisical, Bitwarden, Akeyless, optional 1Password | Connector-specific identity, lifecycle, audit, dependency, and platform limits. |
 | systemd / Windows / Termux / containers | Native startup and credential boundaries; actual devices require qualification. |
-| Windmill / Workers / Netlify / cloud applications | Native one-way delivery where implemented; no inherited source-audit guarantee. |
+| Windmill / Workers / Netlify / cloud applications | Explicit native one-way delivery profiles; no inherited source-audit guarantee. |
 
 Use `cquay providers` and the qualification matrix for the current executable's capabilities. Unsupported combinations must fail explicitly. Provider and platform support does not imply a free subscription, official Android support, or an upstream security endorsement.
 
 Termux startup occurs after Android permits access following the first unlock. Multiple Termux processes share an application UID. Windows DPAPI machine protection relies on ACLs for service separation. Root or Administrator compromise defeats endpoint protections.
+
+## SDK, discovery and operational boundaries
+
+CLI, CI and official SDK entry points share policy and complete-generation
+checks. Local Go uses its linked core; Python/TypeScript local uses a separately
+verified native executable; MCP uses the application's enrolled session.
+Package installation, discovery, version metadata and client names do not
+establish workload or administrative authority.
+
+Metrics, traces, SDK hooks and structured diagnostics carry only the approved
+operational vocabulary. Required audit is separately durable; best-effort
+telemetry cannot satisfy it. Advisory release checks cannot authorize code
+installation or bypass a minimum-version policy. See [SDKs](sdks.md),
+[agent clients](agent-integrations.md) and [operational configuration](operational-configuration.md).
 
 ## MCP and AI agents
 

@@ -7,18 +7,55 @@ Give `cquay` a repository, tree, or file URL and select the configuration:
 
 ```sh
 cquay bootstrap \
-  --config-source https://github.com/example-org/cquay-config/tree/main/github \
+  --config-source https://github.com/example-org/cquay-config/tree/FULL_COMMIT_SHA/github \
   --config-path cquay.json \
+  --config-ref FULL_COMMIT_SHA \
+  --config-sha256 CONFIGURATION_SHA256 \
   --output ./cquay.json
 ```
 
-Replace the example organization, repository, and path with your own. A tree URL
-selects a directory; `--config-path` selects the file within it. A file URL can
-select the file directly. `--config-ref FULL_COMMIT_SHA` pins an exact revision.
-When a branch or tag is supplied, `cquay` resolves and records its commit and
-configuration digest before use. Updates are revalidated against the enrolled
-repository and signing policy. Public readability does not grant permission to
-change local trust, retrieve secrets, execute a workload, or install a service.
+Replace the example organization, repository, path and pins with reviewed values.
+`FULL_COMMIT_SHA` is the full 40-character lowercase commit;
+`CONFIGURATION_SHA256` is the 64-character lowercase file digest obtained through
+a trusted maintainer channel. The URL revision must agree with the commit pin.
+A tree URL selects a directory; `--config-path` selects the file within it. A file URL can
+select the file directly. The current CLI requires both pins for every remote
+bootstrap, including interactive use; resolve a branch or tag through your
+trusted review process before invoking it. The v1 enrollment contract also
+requires repository/signature trust and revalidation of updates. Public
+readability does not grant permission to change local trust, retrieve secrets, execute a workload, or install a service.
+
+## Bootstrap command prerequisites
+
+Use the selected executable's supported commands and enrollment profile. The
+pinned retrieval command above materializes a new protected policy file; it
+does not establish provider login or start a service. With no remote source,
+bootstrap validates the selected local policy. `flow run` requires one supported
+CI runner and a local policy or pinned remote configuration; runner markers
+are context, not authentication. An unavailable discovery profile fails closed.
+
+The remaining guide defines the complete v1 enrollment and identity contract.
+Use [qualification](qualification.md) to confirm the selected artifact and its
+supported profiles before relying on a discovery or authentication flow.
+
+## One precedence and trust model
+
+Command options take precedence over `CQUAY_` configuration settings, local
+configuration and enrolled discovery. Report safe provenance for the winning
+source without printing credentials or downloaded secret values. Local config
+is used before discovery when no override selects another source. An override
+can narrow context or choose an enrolled profile; it cannot widen a signed grant.
+
+DNS/DHCP, device provisioning, cloud-init and cloud metadata supply bounded
+hints under the chosen enrollment. Authenticate the referenced service/artifact,
+verify its issuer/repository and digest policy, and reject a substituted tenant,
+resource or authority before retrieving a value. Interactive bootstrap may use
+browser or displayed-URL sign-in; unattended CI uses its explicit workload
+identity and never waits for a human prompt.
+
+The same provenance reaches CLI, official SDK and optional agent entry points.
+Only the enrolled user-service scope may be started. Service installation,
+provider login and CI later-step export remain separately authorized actions.
 
 ### Use the same configuration in GitHub Actions
 

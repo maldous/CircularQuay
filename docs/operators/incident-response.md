@@ -17,3 +17,16 @@ Git deletion, module retraction, registry deprecation and history rewriting do n
 Use local redacted scanner results by default. Optional GitGuardian scanning is explicit because scan content can be sent to its service. Do not use `--show-secrets`, public unredacted reports or command-line values. A provider finding's raw API response may contain the detected secret; reduce it to approved metadata before logging or feeding it to an agent.
 
 Do not broadly revoke unrelated credentials, alter production service state, rewrite history or publish an advisory without the relevant owner's authorization. Emergency-stop paths and audit preservation must remain available.
+
+## SDK, telemetry and distribution incidents
+
+Identify the exact package/native version, immutable artifact digest, safe fault
+category and affected collector/plugin/registry scope. Preserve required audit
+and redacted correlation records; exclude raw exception bodies, process streams,
+request headers and token files. Disable a compromised exporter or update feed
+under its explicit scope without waiving workload authorization or required audit.
+
+Revoke stolen service/client grants at their issuing authority. A plugin removal,
+package yank, feed correction or SDK-wrapper redaction does not erase delivered
+values. Publish a newly identified correction with its own qualification and
+registry readback, retaining the original incident and affected-version evidence.

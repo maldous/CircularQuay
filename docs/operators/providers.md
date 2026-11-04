@@ -42,6 +42,20 @@ Infisical imports/reference expansion, recursive SSM paths, broad SaaS configura
 
 Machine access must not depend on a user confirming a desktop unlock after each reboot. Existing provider sessions may expire; native service authentication and renewal need their own acceptance tests.
 
+## Runtime, CI and telemetry identities
+
+Bootstrap/discovery authenticates configuration provenance; the CI authority
+verifies its job claims; the provider identity authorizes the upstream read.
+None substitutes for the others. Map exact account/resource/version and grant
+scope before using `flow run` or a local/MCP SDK adapter. Provider token refresh
+and revocation remain within the selected provider lifecycle contract.
+
+Collector/update credentials are separately scoped operational material. Keep
+them in protected referenced files, never provider bindings delivered to an app.
+Synthetic tests confirm that SDK hooks, telemetry, errors, native process output
+and support receipts expose no bootstrap credential. Required provider auditing
+and CircularQuay's decision audit each retain their own configured guarantees.
+
 ## Publication
 
 Destination writes require a separate approved target mapping, identity and owner. Use only mapped names. Retain provider version metadata where possible, conditional writes where supported, and one managed writer per destination resource. Missing source data does not silently delete destinations. No bidirectional synchronization or cache write-back.

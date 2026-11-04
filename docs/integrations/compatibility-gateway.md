@@ -14,9 +14,10 @@ secrets, issues cloud tokens, forwards caller credentials upstream, or claims
 provider availability, HSM/KMS, retention, recovery or audit properties.
 
 Actual implementation and qualification status is recorded in
-[qualification.md](../qualification.md). This document defines the intended
-optional capability; it does not introduce a CLI command, schema field,
-endpoint, deployment recipe or a claim that a route is available.
+[qualification.md](../qualification.md). This document defines the optional v1
+read-compatibility contract. Runtime configuration and commands come only from
+the selected version's schema and CLI reference; the contract alone does not
+authorize a deployment or prove an endpoint is qualified.
 
 ## One gateway, two independent trust paths
 

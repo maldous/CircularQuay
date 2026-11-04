@@ -4,7 +4,7 @@ This is the maintainer/operator entry point. It covers public distribution, acco
 
 All commands use a chosen immutable version. `v1.0.0` below is an example until a release with that tag is published. Do not interpret a manifest, example URL, generated report, or successful build as evidence of publication or operational qualification.
 
-## 1. Identity, versions and current state
+## 1. Identity, versions and evidence
 
 | Item | Canonical identity |
 | --- | --- |
@@ -22,20 +22,35 @@ Record application/tag, policy schema, runtime MCP protocol, Registry descriptor
 
 CircularQuay is the project name. The app, executable, release asset prefix and operations skill are `cquay`, pronounced “see-key”; the separate audit executable is `cquay-audit`. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
 
-### Initial work ledger
+### Release and qualification records
 
-| Activity | Current recorded state | Remaining action |
-| --- | --- | --- |
-| GitHub repository | Source published on `feature/initial-implementation`; draft PR #1 targets `develop` | Keep implementation on feature branches until reviewed gates pass. |
-| Native release / Go tag / pkg.go.dev | Not published by this implementation task | Complete gates and publish a new immutable version. |
-| GHCR / MCP Registry / MCPB | Not published | Verify artifacts and metadata before publishing. |
-| Go / npm / PyPI SDKs | Source development; registry ownership and publication unverified | Complete cross-language qualification and the official SDK distribution procedure below. |
-| External test-provider accounts | Not attempted in this implementation task | Use the confirmed free routes below when running connected tests. |
-| Local source/audit execution | Consult generated evidence | A check not run is not a pass. |
-| Native reboot/device/provider qualification | Pending operator-owned infrastructure | Record exact versions, tests and sanitized receipts. |
-| Public plugin directory | Policy/eligibility-gated | Do not promise acceptance of the raw-secret product. |
+Record source revision/tree, platform, tool/runtime versions, tested scope,
+artifact digests, registry/client identity, outcomes and independent readback in
+[qualification](docs/qualification.md) and the release evidence bundle. The
+[session handoff](docs/session-handoff.md) retains in-progress engineering
+receipts. This operator guide defines the complete release process, not a live
+publication ledger. A command example or manifest is not a published package.
 
-Update this ledger from evidence, not intention. Record **not attempted**, **account required**, **validated locally**, **published**, **independently verified**, **awaiting external approval**, **unavailable**, or **experimental**. Do not invent a CAPTCHA, entitlement failure or policy approval that was never observed.
+Each channel has its own recorded state: not attempted, account required,
+validated locally, published, independently verified or awaiting external
+approval. Preserve failures and permission/entitlement limits without inventing
+an approval, namespace, CAPTCHA or unavailable feature.
+
+### Security-profile and administration handoff
+
+Record the selected [security profile](docs/security-profiles.md), immutable
+cryptographic-profile definitions, enrolled trust roots/issuers, approved
+signers and thresholds, native custody/provider capabilities, audit destinations,
+revocation/freshness bounds and recovery owners. Verify the effective profile
+and deny unsupported required capabilities before enrolling real workloads.
+The [administration controls](docs/administration-security.md) and
+[management lifecycle](docs/management-and-discovery.md) are part of the same
+release acceptance, including signed changes, independent approvals, monotonic
+state and downgrade-negative evidence across all interfaces. Operator changes
+use typed versioned contracts and protected references, not undocumented flags
+or model-visible bootstrap credentials. Retain the exact installed-byte,
+deployment, backup/restore and independent review receipts; no profile name
+establishes certification or replaces missing qualification.
 
 ### Version and branch policy
 
@@ -43,7 +58,7 @@ Use Semantic Versioning and Gitflow. `feature/<purpose>` and `hotfix/<purpose>` 
 
 Every release has an immutable tag and a GitHub Release. Use `v1.0.0-rc.1`, `v1.0.0-rc.2`, then `v1.0.0` as the naming pattern. Candidate tags belong to the reviewed `release/1.0.0` branch, are marked **Pre-release**, and never become **Latest**. Stable tags belong to the reviewed stable merge on `main`; mark the selected stable release **Latest** only after verification. Never move an RC tag to a corrected commit or rename an RC into a stable release. Build the stable version from its own exact tag and record the comparison with the candidate.
 
-An RC is a supported feedback stage for its explicitly listed test matrix, not a waiver of security or integrity gates. Complete the applicable source/security/artifact gates before any public tag, including an RC. Record wider native/provider acceptance still being collected. Stable promotion additionally requires the complete declared qualification matrix and independent review. The current development checkpoint qualifies for neither promotion.
+An RC is a supported feedback stage for its explicitly listed test matrix, not a waiver of security or integrity gates. Complete the applicable source/security/artifact gates before any public tag, including an RC. Record wider native/provider acceptance still being collected. Stable promotion additionally requires the complete declared qualification matrix and independent review. Only the selected candidate's complete evidence can authorize promotion.
 
 Use GitHub milestones for the candidate and final acceptance work. Link issues and reviewed PRs to the milestone; retain unresolved limitations in release notes. Close the milestone only when its stated acceptance is met, and use a new corrective version for post-release defects.
 
@@ -95,7 +110,7 @@ The initial packaging target is GoReleaser OSS **2.19.0** with Go **1.27.3**, dr
 
 Run `goreleaser check`, then `goreleaser release --snapshot --clean --parallelism 1` in an isolated checkout to inspect local development archives without creating a public tag or release. Do not use `--skip` to bypass a required qualification gate. For a qualified selected public tag, stage a draft, generate/verify required SBOMs and provenance, attach all evidence and install directions, test anonymous asset downloads in a clean environment, and only then publish the immutable release. RCs and stable releases use the same integrity requirements.
 
-Native archives are the first distribution channel. Homebrew, Winget, Scoop, Linux packages and app stores are optional subsequent channels, each requiring its own maintained manifest, ownership/trust route, install/upgrade/uninstall tests and publication receipt. OCI/MCP/Go procedures below remain separately gated. Do not create paid signing accounts or broad long-lived credentials merely to add a badge or unqualified distribution route.
+Native archives, Homebrew, Winget, Scoop, Linux packages and app stores are distinct distribution channels, each requiring its own maintained manifest, ownership/trust route, install/upgrade/uninstall tests and publication receipt. OCI/MCP/Go procedures below remain separately gated. Do not create paid signing accounts or broad long-lived credentials merely to add a badge or unqualified distribution route.
 
 ### Optional managed-key service enrollment
 
@@ -554,6 +569,14 @@ Do not promise automatic architecture selection by every client. Keep the first 
 The versioned Agent Skills package lives at `integrations/skills/cquay/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.
 
 Skill instructions cannot grant provider or MCP authority. Experimental `allowed-tools` metadata does not replace server authorization. No package should instruct an agent to solicit passwords, bypass scopes, dump environments or perform rotations by default.
+
+The [agent integration guide](docs/agent-integrations.md) separates portable
+skill source, UI metadata, client manifests, MCP transport and registry bundles.
+Package every referenced skill resource and preserve the same identity/version
+across client overlays. Verify native archive inclusion using the selected
+GoReleaser file inventory; do not equate an archive glob with an installed plugin.
+A client manifest declares only verified executable/resource paths and the
+selected transport; it contains no operational credentials or invented App ID.
 
 For any client plugin channel record its packaging schema, account/namespace requirements, supported interfaces, privacy disclosures, reviewer/sample-data route, positive/negative tests, update/removal flow and external eligibility.
 

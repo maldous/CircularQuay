@@ -1,6 +1,6 @@
 # ADR 0001: Go core and evidence-bound assurance
 
-Status: accepted design; implementation qualification pending.
+Status: accepted design. Actual implementation and qualification are recorded in [the qualification matrix](../qualification.md).
 
 ## Decision
 
@@ -10,7 +10,7 @@ Use a single Go module and a small pure policy core with separately testable pro
 
 Rust provides stronger ownership/data-race guarantees in safe code and Kani/Verus verification options. It now has official major-cloud SDKs; it is not rejected for lack of SDKs. Go fits the existing SOPS/OpenBao ecosystem, official MCP implementation and maintained SonarQube Community analysis with less integration ownership. Revisit this decision if code-level formal proof becomes the dominant requirement.
 
-C# NativeAOT, bundled Python/TypeScript and proof-oriented languages remain possible but enlarge this project's platform/runtime/integration qualification surface. Do not add another production language merely to claim verification.
+C# NativeAOT, bundled Python/TypeScript and proof-oriented languages remain possible but enlarge this project's platform/runtime/integration qualification surface. The official TypeScript and Python SDKs are explicit client boundaries alongside the Go core; they do not replace native distribution or justify another runtime language merely to claim verification.
 
 ## Boundaries
 

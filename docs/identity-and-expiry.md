@@ -59,6 +59,20 @@ Trust is established by that explicit configuration and verification of the
 authority's signatures. Teams choose the authority and policy that fit their
 environment; the same access model applies to hosted and self-hosted services.
 
+### Applications, automation and delegated agents
+
+The CLI, official SDK and optional MCP apply the same exact identity, client,
+workload and time-window checks. An SDK session, CI marker, skill/plugin
+installation or authenticated UI does not add a grant. A delegated operation
+identifies grantor and recipient and stays within the original authority ceiling;
+its audit records the scope and timing without the delivered value.
+
+[Managed administration](managed-key-service.md) manages associations and
+revocation through separately scoped UI/API/CLI/MCP operations. Required audit
+precedes release; telemetry and diagnostic hooks are redacted operational
+signals, not a substitute for that decision record. See [SDKs](sdks.md) and
+[agent integration](agent-integrations.md) for their execution boundaries.
+
 ### A cryptographic chain of trust
 
 The permission ticket binds the issuing authority, stable identity,

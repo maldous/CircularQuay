@@ -11,6 +11,131 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
+Publication `208bfe016a8e00c55d9e2394b2a930eec64cd606`, tree
+`386b60dbdc59d95aee63c1ca7dfeee9e2a71368d`, has public blob readback
+for all 20 changed files and preserves all 383 working files. Its six PR
+workflows and three push-triggered workflows are terminal. No manual rerun or
+cancellation occurred. PR #1 remains draft against `develop`. Use
+[the exact receipt](qualification.md#exact-208bfe0-hosted-receipt); later source
+and documentation changes require their own hosted evidence.
+
+Source PR `41790956273`: 29 successful/two failed jobs. All 26 cross-builds,
+their aggregate and macOS/Windows native suites pass. Linux normal/race tests,
+vet and bounded fuzzing pass; the four earlier Go SDK complexity findings are
+absent. Three new cyclomatic findings affect the bounded assurance parser and
+its tests. Cognitive analysis is not reached. The following independently
+reviewed extraction and command-spec object address those paths plus Sonar's
+high-arity diagnostic without changing report version, redaction or gates.
+
+The source auditor now attributes its failed unit command only to
+`internal/integration`; vet remains `unknown`. Coverage is 7,273/8,707
+(83.530492707%). Source review explains the mismatch: this package has only
+integration-tagged tests, while the normal audit explicitly selects it without
+that tag. The dedicated WireMock workflow runs the tagged suite separately.
+Do not add an empty untagged file to conceal the deliberately failed scope.
+A complete solution must represent and qualify the separate tagged scope.
+The actual report binds merge `d5268bb25786ae5a54e142a81746e5ed15bd7c69`
+and the publication tree; an earlier conversational reference to the previous
+merge was corrected against the report, not adopted as evidence.
+
+Security PR `41790956279`: CodeQL analysis/upload, Staticcheck and
+govulncheck pass, while six G204 and two G103 findings remain unsuppressed.
+No authoritative SHA-specific zero-alert readback exists. Three historical
+GitGuardian incidents also retain current-scan readback/triage gaps. The bounded
+public-source provenance review inspected no resolved operational values and
+made no incident disposition.
+
+SDK PR `41790956319`: four successful/28 failed jobs. Go SDK contracts pass
+on all three native platforms, and Go lock reproducibility passes. All nine
+TypeScript lanes pass lint, type checking and observed dependency audits.
+The 18-test run has 15 passes and three failures in the new recording fixture,
+which omitted the runtime prototype; the following fixture correction retains
+public validation and its no-process dispatch seam. Windows now reports a real
+coverage denominator (56.89% lines/statements), not the earlier zero-file pass.
+Intermittent tar/grep SIGPIPE and installed-ESM resolution errors are separately
+attributed fixture causes. The following workflow checks complete archive-member
+output and imports the installed ESM package from its actual consumer directory.
+Neither repair changes SDK exports or grants. The selected Ubuntu Node 24 MCP
+step passes both official TypeScript and Go conformance scripts.
+
+All nine new npm producer artifacts bind the current package input and the same
+reviewed lock bytes. The following provenance update uses those actual receipts;
+no dependency or integrity byte is invented. Retain the exact producer archive,
+input, reviewed-lock and revision/tree hashes.
+
+Python Ruff, mypy and Bandit pass on all three static platforms. The Windows
+coverage artifact has all five canonical modules and exactly 76 ordered events
+for all 38 source-defined tests, confirmed by AST comparison. An earlier
+conversational 56-event count was a truncation mistake and was corrected before
+recording this receipt. Coverage still fails the unchanged 100% threshold.
+All five Linux and all five macOS installed/minimal consumers pass. Windows
+3.11 consumers pass; 3.12–3.15 fail after native launch with `trust: config_init`.
+Existing safe diagnostics cannot attribute the exact native creation check;
+do not guess a permission relaxation. The selected Ubuntu Python 3.15 official
+MCP check now passes after its required audit destination was configured.
+The six vulnerable Intel macOS cryptography locks remain an upstream-wheel and
+advisory blocker, with platform, wheel-only, hash and audit requirements intact.
+
+Sonar PR `41790956278` completes CE/upload/readbacks at analysis
+`c00f81c1-6a28-4cee-b463-b0c5dc8fa356`, merge `d5268bb25786ae5a54e142a81746e5ed15bd7c69`
+and the same tree. Test/source classification takes effect. Four findings
+(high arity, two parser complexities and one test complexity), 66.5% coverage,
+absent new-code metrics and the Python 3.15 fallback warning still fail the gate.
+Duplication, hotspots and CE warnings are zero. Python XML and TypeScript LCOV
+production/ingestion remain absent; a classification correction is not coverage.
+
+WireMock PR `41790956340` passes all three native synthetic suites; Dependency
+Review `41790956284` passes. Push-triggered source/security/WireMock outcomes
+agree at their own scope. Retain `checkpoint41-all-run-state.json`,
+`checkpoint41-source-go-sdk-readonly.json`, `checkpoint41-security-208bfe0.json`,
+`checkpoint41-python-sdk-qualification.json`, `checkpoint41-sonar-208bfe0.json`
+and the exact source, fixture, workflow, lock and document-review receipts.
+
+The documentation refresh is coordinated with the existing documentation owner.
+Product and skill guides describe the complete v1 contract; this handoff and the
+qualification matrix retain actual state and gaps. Local heavy execution,
+resolvers, installs and containers remain held for shared-resource coordination.
+No release, deployment, registry publication or production qualification follows
+from a source correction or documentation update.
+
+### Following reviewed design and diagnostic changes
+
+The following Windows-only diagnostic runs only after an installed Python
+consumer's original `trust: config_init` failure and a private request marker.
+It preserves/re-raises the original failure, creates only fresh synthetic
+children, rejects reparse ancestors and emits finite case/stage/category JSON.
+It does not repair ACLs, retry the consumer to manufacture a pass or print
+raw errors/paths. Source/format/syntax review is complete; no diagnostic test
+body has run locally and no native creation-stage cause is yet established.
+Retain `checkpoint42-config-init-windows-diagnostic.json` and
+`checkpoint42-sdk-workflow-windows-diagnostic-review.json` with exact hashes.
+
+The documentation owner handed off the full README/product/operator/SDK/skill
+refresh in `replacement-documentation-20261104/assessment.json` and
+`scope-manifest.json`. Root then added the complete v1 discovery/management,
+administration-security and product-wide default/strict profile contracts,
+linked them from README/navigation/enterprise/managed/agent guides, and expanded
+the implementation plan and security review scope. Preserve original receipts
+and the root amendment fences rather than overwriting the owner's manifest.
+These are final-state requirements, not new executable command or tool names.
+
+Actual gaps are explicit in [managed-service qualification](qualification.md#managed-service-design-status):
+authoritative v1 management resource/error/event API contracts and distinct
+enrollment/deployment schemas; remote administration and typed SDKs; signed
+change/approval/revocation/HA/audit implementation; and unified profile selection
+and downgrade enforcement. Existing policy schemas have no assurance-profile
+field. Current four-tool/one-page workload MCP remains deliberately strict.
+Do not introduce ignored schema fields or translate a local write into remote
+authority. Review the new ADMIN controls and downgrade-negative matrix before
+implementing the relevant trust boundary.
+
+OffMenu/UIF restoration and useful parallel BAU work have immediate resource
+priority. This bounded documentation/source handoff uses no additional workers,
+local heavy execution, containers, installs or operational secret inspection.
+Hosted candidate qualification may continue without changing the release holds.
+
+### Preceding source-attribution checkpoint
+
 Publication `20703ec8c1bd66eab4899ec6ce27d4f0385adc1b`, tree
 `af4f26232a5dce50ecbc6e889defc7d75a7a1ea8`, has public blob readback
 for all 19 changed files and preserves all 378 working files. Its six hosted

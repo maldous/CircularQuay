@@ -1,6 +1,6 @@
 # Security policy
 
-CircularQuay handles sensitive configuration. The project is under development and has no production-security certification or support SLA.
+CircularQuay handles sensitive configuration. No product capability, analyzer result or deployment implies production-security certification or a support SLA; actual qualification is recorded separately.
 
 ## Report privately
 
@@ -13,6 +13,27 @@ Include a version/commit, affected capability, a minimal reproduction using fabr
 Review authorization before retrieval, per-user MCP disclosure, endpoint/identity binding, generation atomicity, lifecycle/expiry, permitted fallback, native privilege boundaries, file handling, logging, and release/update trust. No third-party backend, OS, compiler, or dependency is assumed infallible.
 
 An authorized `read_secret` response is an intentional plaintext disclosure. It is not a promise that the client or model will keep the value confidential. A report that bypasses the required grant, exposes bootstrap material, crosses users, or leaks into another output channel is in scope.
+
+## SDK, agent and operational surfaces
+
+Include official Go/TypeScript/Python adapters, native executable digest and
+version checks, strict response parsing, cancellation, child environment/output,
+plugin/skill configuration, bootstrap/discovery, and policy CRUD in the review.
+Inspect telemetry/hook redaction, bounded exporter failure and update-feed trust
+without exposing credentials or accepting release metadata as code authority.
+
+Management grants, tenant mappings and delegated access have the same
+server-side ceiling across CLI/UI/API/MCP. Required audit precedes protected
+release. A raw read or arbitrary authorized program can retain plaintext;
+private-key distribution, local custody and remote unlocking have distinct
+revocation limits. Reports should identify the actual boundary, not assume that
+an SDK, biometric prompt or model-response annotation guarantees recall.
+
+Include the complete [administration trust contract](docs/administration-security.md)
+and [security-profile enforcement](docs/security-profiles.md) in design and
+implementation review: signer/issuer substitution, ambiguous signed data,
+replay/rollback, approval and revocation races, profile downgrades, alternate
+ingress and recovery are in scope. Baseline protections apply in every profile.
 
 ## Dependency advisories
 

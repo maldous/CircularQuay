@@ -127,6 +127,20 @@ are rejected. No current-release claim is inferred from an unavailable feed
 or an expired cache. An isolated environment can omit `minimum_version` when
 its separately governed installation policy supplies the version boundary.
 
+## SDK, CI and managed administration
+
+The runtime's protected policy is authoritative for collector/export and local
+minimum-version settings. SDK observers expose only operation, safe outcome and
+duration metadata; applications own their OpenTelemetry provider. MCP clients
+and CI jobs remain noninteractive. A disabled exporter or release check does
+not disable required audit or permit a lower runtime than declared policy.
+
+CLI config CRUD and authorized management interfaces validate the same
+non-secret declarations, authority ceilings and revision preconditions. The
+managed UI presents those settings without becoming a prerequisite for runtime
+telemetry. Verify collector/feed credentials and trust separately from provider
+identity. No browser or model receives key material as a configuration field.
+
 ## Validate and automate changes
 
 Read the current object and its document hash:

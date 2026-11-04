@@ -20,7 +20,7 @@ HTTP remains disabled until issuer, audience, trusted key/discovery configuratio
 
 CircularQuay is a protected resource, not an authorization server. Configure a qualified OAuth issuer/resource audience, supported clients/scopes, short-lived credentials and revocation behavior. A Google ID token, OpenBao login or plain Cloudflare Access assertion is not automatically the complete MCP OAuth contract. Do not forward inbound MCP tokens to upstream providers.
 
-A zero-additional-cost identity-provider combination must still pass protocol qualification. Current Keycloak guidance marks parts of latest MCP support experimental; do not describe it as production-qualified without evidence and risk review.
+An identity-provider combination must pass the exact selected protocol/client profile, including any upstream experimental feature it requires. Price, availability of a login screen or a vendor's MCP label is not interoperability or production qualification.
 
 ### Optional DPoP authority profile
 
@@ -43,7 +43,7 @@ the next proof. Treat the access token, proof, and every nonce as sensitive:
 exclude them from proxy, server, tracing, audit, and client logs.
 
 The replay/nonce directory is protected persistent state under `--state-dir`.
-Do not delete or reset it as a recovery step. This implementation is for one
+Do not delete or reset it as a recovery step. This persistent-local-state profile is for one
 replica using local filesystem state; do not run multiple hosts against copied,
 shared, or independently reset state. Confirm denial of wrong scheme, absent or
 wrong `cnf.jkt`, invalid proof, missing/used nonce, replayed `jti`, stale or
@@ -51,6 +51,16 @@ future `iat`, changed path/query/method, wrong `ath`, changed policy, and
 restarted service before enabling the authority. DPoP limits bearer-token theft
 only while the client private key remains protected; it cannot retract secrets
 already disclosed or protect a compromised client key or OS administrator.
+
+## Current catalog and administration contract
+
+The current server registers `list_workloads`, `get_status`, `run_workload` and
+`read_secret`; authorization filters the catalog and each call. Configuration
+CRUD, managed-key mappings/grants, revocation administration and agent
+delegation are complete-v1 requirements, not additional tools in this catalog.
+CLI/SDK local policy editing does not grant remote policy mutation. See the
+[agent integration guide](../agent-integrations.md#connection-and-management)
+and the selected artifact's [qualification record](../qualification.md).
 
 ## Grants
 
@@ -80,6 +90,20 @@ model-visible administrative field. Audit changes and release decisions using
 metadata only. Revocation fences future fetches and actions; it cannot erase a
 key or plaintext already delivered. Reuse Netlify/Cloudflare identity and
 access-management surfaces, with a thin hosted grant UI only where needed.
+
+## SDK and agent clients
+
+Official SDK callers own their MCP session, authentication, transport and
+cancellation; the local SDK adapter is a distinct boundary. Inspect the actual
+catalog and negotiated profile, enforce bounded structured responses, and keep
+raw-value interfaces explicitly selected. Language-package, skill/plugin and
+server versions have separate compatibility and artifact records.
+
+Follow the [agent-client contract](../agent-integrations.md) for packaging,
+installation, configuration reload and removal. Neither a plugin manifest nor
+SDK version metadata authenticates a server or widens a grant. SDK observers,
+logs and traces carry only approved metadata; client shutdown and collector
+failure cannot authorize repeating an action that may have completed.
 
 ## Acceptance and removal
 

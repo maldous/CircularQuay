@@ -1,7 +1,7 @@
 # Credential and identity boundaries
 
-This document describes the current executable, not a platform qualification
-or a promise of provider compatibility. CircularQuay maps an already-authorized
+This document defines credential, identity and custody boundaries for the v1
+product. Artifact and platform qualification are recorded separately. CircularQuay maps an already-authorized
 identity to exact reads and deliveries. It does not become the identity
 provider, credential broker, vault, mobile application, or hosted connection
 manager.
@@ -16,21 +16,24 @@ trust assumptions. Hardware/private-key protection does not recall plaintext
 or released data keys. Every recipient and recovery path participates in the
 bundle's real authorization boundary.
 
-## Current local protection surface
+## Protected storage and native delivery profiles
 
-| Surface | Current behavior | Boundary |
+| Surface | Profile contract | Boundary |
 | --- | --- | --- |
-| Policy loading | The loader rejects a writable or symlinked policy leaf, bounds its input, and checks that the opened file is the inspected inode. | It does not apply the protected-file helper's complete ownership and trusted-ancestor checks. |
+| Policy loading | The loader rejects a writable or symlinked policy leaf, bounds its input, and checks that the opened file is the inspected inode. | Leaf validation alone does not establish complete ownership and trusted-ancestor custody; operator-controlled paths and protected bootstrap/state checks remain separate requirements. |
 | Bootstrap files, state, and audit receipts | Protected-file helpers require absolute regular paths, reject symlinks/reparse points, bound reads, and use staged replacement for writes. Unix secret files use owner-only permissions; Windows checks protected DACLs. | This is protected filesystem storage, not a host keychain or credential-manager integration. Operators still provision each bootstrap value outside policy. |
 | Linux native projection | A `systemd` target invokes the fixed `/usr/bin/systemd-creds encrypt` command with a constrained credential name, then writes the encrypted output through the protected-file helper. | It is a systemd credential projection, not SOPS ciphertext, a desktop keyring, or evidence of a qualified reboot/recovery path. |
 | Windows native projection | A `windows` target uses DPAPI LocalMachine with UI forbidden, then applies a protected DACL. A declared service SID may receive read access. | DPAPI LocalMachine is machine-bound convenience; ACLs provide the service separation. It is not Windows Credential Manager, Windows Hello, a user keychain, or portable recovery material. |
 | Process delivery | `run` starts an absolute executable with a clean constructed environment. Provider bootstrap names are denied from the delivered environment. | A launched program can still read and disclose values delivered to it. No process environment is a durable secret store. |
 | Local MCP identity | Stdio identifies the local caller from kernel identity. HTTP mode verifies configured issuer, audience, signing algorithm, access-token type, subject, client, scopes, and current grants. | It is a resource-server check, not user login, SSO, dynamic client registration, SCIM, or an authorization server. |
 
-CircularQuay has no implementation for macOS Keychain, iCloud Keychain, Windows
-Credential Manager, Linux Secret Service/keyrings, Android Keystore, iOS
-Keychain, FIDO/WebAuthn, TPM, Secure Enclave, fingerprint readers, Face ID, or
-Touch ID. Those are not aliases for the protected-file or DPAPI paths above.
+macOS/iCloud Keychain, Windows Credential Manager/Hello, Linux Secret Service,
+Android Keystore, iOS Keychain, FIDO/WebAuthn, TPM, Secure Enclave and biometric
+presence are distinct custody/identity profiles, not aliases for protected files
+or DPAPI. Select an explicitly documented adapter with its own enrollment,
+authorization, unattended-use and recovery contract; do not infer that any of
+these facilities is enabled by a file path or platform name. Actual adapter and
+device support belongs in the [qualification matrix](qualification.md).
 
 User-presence protection and unattended workloads have different purposes.
 Apple Keychain can require Face ID or Touch ID before a read, and Secure Enclave
@@ -41,14 +44,14 @@ Apple's [Keychain services](https://developer.apple.com/documentation/security/k
 [user-presence example](https://developer.apple.com/documentation/localauthentication/accessing-keychain-items-with-face-id-or-touch-id),
 and [Secure Enclave constraints](https://developer.apple.com/documentation/Security/protecting-keys-with-the-secure-enclave).
 
-## Current provider and workload identity surface
+## Provider and workload identity profiles
 
 Each source declaration binds account/project/environment/namespace, resource,
 identity method, and any version selector before a reader receives a request.
 The executable does not silently select a human CLI session or a broad default
 profile when the declared machine identity is unavailable.
 
-| Integration | Current executable identity path | Explicitly not implemented by this adapter |
+| Integration | Explicit identity profile | Excluded from this profile |
 | --- | --- | --- |
 | AWS Secrets Manager and SSM | EC2 instance metadata role or ECS task credentials, followed by STS account confirmation. | AWS web identity, IRSA, arbitrary profiles, ambient access keys, and external credential-process chains. |
 | Azure Key Vault secrets | Managed identity or workload identity with declared tenant/client/token-file constraints. | Interactive Azure CLI fallback and arbitrary authority/metadata overrides. |
@@ -60,7 +63,7 @@ profile when the declared machine identity is unavailable.
 | 1Password | Fixed `op read op://vault/item/field --no-newline` invocation with `OP_SERVICE_ACCOUNT_TOKEN` from a protected file. The declared project is the vault name. | 1Password Environments, `op run`, `op inject`, desktop approval/unlock, Connect, and interactive account sessions. |
 | Akeyless | Exact named item through the documented API path using a protected bootstrap token. | Identity-token exchange, dynamic-secret lifecycle management, and provider administration. |
 
-The current 1Password behavior matches the narrow service-account CLI form in
+The 1Password profile selects the narrow service-account CLI form in
 [1Password's scripting guidance](https://developer.1password.com/docs/cli/secrets-scripts/).
 It does **not** support 1Password Environments even though that product can be
 used by `op run` outside CircularQuay.
@@ -70,11 +73,11 @@ projects/secrets and have provider event logs; their access token remains
 bootstrap material that the operator must protect. See [Bitwarden machine
 accounts](https://bitwarden.com/help/machine-accounts/). Doppler distinguishes
 config-scoped service tokens from service-account and short-lived identity
-tokens; the current adapter uses only the supplied bootstrap token and does not
+tokens; the protected-token profile uses only its supplied bootstrap token and does not
 perform the identity-token flow. See [Doppler service tokens](https://docs.doppler.com/docs/service-tokens)
 and its [API authentication types](https://docs.doppler.com/reference/api).
-Infisical Machine Identity Universal Auth and OIDC are provider features, not
-current CircularQuay adapter behavior.
+Infisical Machine Identity Universal Auth and OIDC require separately declared
+identity-exchange profiles; a protected API token does not imply either flow.
 
 ## Architectural boundary for hosted and managed connections
 
@@ -95,11 +98,12 @@ issuer, audience, subject, repository, branch/tag or environment as
 appropriate. GitHub documents the narrow permission and need for claim
 constraints in its [OIDC guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers)
 and [OIDC claim reference](https://docs.github.com/en/actions/reference/security/oidc).
-CircularQuay has no hosted control plane that creates those associations or
-holds their long-lived credentials.
+Hosted administration manages authorized associations through the
+[managed-service contract](managed-key-service.md); local reader profiles do not
+create those associations or inherit its provider credentials.
 
-For Kubernetes, this executable has no operator, admission controller, or
-Kubernetes target. Use a provider-supported external-secret integration or the
+Kubernetes operator, admission-controller and target profiles are separate
+integrations, not consequences of the local reader. Use a provider-supported external-secret integration or the
 upstream Secrets Store CSI Driver for an authorized Pod, then qualify it as a
 separate deployment path. Kubernetes describes the CSI driver as a DaemonSet
 that retrieves external-store secrets and mounts them into specifically
@@ -115,11 +119,12 @@ credentials, rotate a provider secret, revoke a provider identity, or run a
 universal background renewal service. Those activities remain the chosen
 provider's lifecycle responsibility.
 
-The built-in audit path is a protected local JSONL receipt for approved MCP
-operations. It is not a centralized immutable audit system, SIEM export,
-provider-audit replacement, or proof that a destination keeps provider read
-audit semantics. Required provider auditing must be configured and qualified
-by the operator.
+The local MCP audit profile writes a protected JSONL receipt before approved
+release. Central durable audit, retention, SIEM export and administration use
+the [enterprise audit contract](enterprise-integration.md#audit-contract), with
+explicit storage, export and outage semantics. Neither a local receipt nor
+best-effort telemetry replaces provider audit or proves that a native copy
+retains upstream read semantics. Qualify each selected boundary separately.
 
 These limits follow the project's core design: one authority per value, no new
 cryptography or vault, no global credential broker, no general process

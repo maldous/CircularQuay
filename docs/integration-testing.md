@@ -1,4 +1,20 @@
-# Synthetic WireMock integration testing
+# Integration testing
+
+The complete v1 contract is tested at distinct boundaries: deterministic core
+and adapter cases, disposable process/emulator fixtures, installed SDK/client
+conformance, and separately authorized native/provider/recovery acceptance.
+Each receipt binds its exact source, runtime, dependency locks, artifact and
+scope. A passing fixture does not qualify a live account or a release.
+
+The [SDK guide](sdks.md) defines cross-language connection/error/disclosure
+contracts; [operational configuration](operational-configuration.md) requires
+synthetic collector/feed, outage, cancellation and redaction cases. The
+[agent-client contract](agent-integrations.md) adds client installation, catalog,
+permission, reload and removal checks. [Enterprise acceptance](enterprise-integration.md#acceptance-gates)
+keeps administration, durable audit and tenant isolation in that same release
+gate. Use the [qualification records](qualification.md) for actual execution.
+
+## Synthetic WireMock process profile
 
 This opt-in suite starts a real WireMock 3.13.2 process and exercises the
 production OpenBao KV v2 adapter over loopback HTTPS. It uses fabricated data

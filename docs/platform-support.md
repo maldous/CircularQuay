@@ -18,7 +18,7 @@ specific release commit has passed its retained build lane. They are portable
 build channels until their native and protected-feature qualification records
 are published.
 
-| Channel | Architectures | Native CI configured | Release status |
+| Channel | Architectures | Native CI configured | Qualification boundary |
 | --- | --- | --- | --- |
 | Linux | 386, ARMv7, arm64, amd64, loong64, ppc64le, riscv64, s390x | Linux amd64 | Portable build channel; no universal Linux production claim. |
 | macOS | amd64, arm64 | macOS amd64 | Portable build channel; arm64 needs native evidence. |

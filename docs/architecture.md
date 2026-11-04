@@ -16,6 +16,29 @@ flowchart LR
   R --> O[Scoped status, action or explicit disclosure]
 ```
 
+## Entry points and operational planes
+
+The CLI, official Go/TypeScript/Python SDKs, enrolled CI jobs and optional MCP
+clients enter the same policy and complete-generation boundary. Bootstrap selects
+local configuration or an authenticated, enrolled discovery reference; explicit
+overrides select context without widening a grant. Discovery hints, runner
+markers and downloaded configuration cannot establish authority by themselves.
+
+The management plane edits versioned non-secret declarations, mappings and
+bounded grants. It is separately authorized from workload execution and raw
+value disclosure. The optional managed service applies that same model to its
+UI/API and tenant storage. SDK transport choice, a plugin installation or a
+platform dashboard role cannot bypass it.
+
+Required audit records precede protected release. Operational metrics, traces
+and diagnostics flow separately to a configured collector, with bounded queues,
+redaction and shutdown. Collector failure cannot turn a denial into success or
+a completed effect into a retry. Update feeds provide advisory release metadata;
+local minimum-version policy and authenticated artifact installation remain
+separate controls. See [SDKs](sdks.md), [bootstrap/CI](configuration-repositories.md),
+[enterprise operations](enterprise-integration.md) and
+[operational configuration](operational-configuration.md).
+
 ## Distinct authorities
 
 Human administration, repository download, age decryption, provider authentication, destination publication, and recovery custody are distinct. A Git read key does not decrypt a document. A Google/passkey login does not automatically authenticate a service. A publisher does not need every runtime grant.

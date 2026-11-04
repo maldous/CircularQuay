@@ -8,7 +8,7 @@ offers two deliberately separate adapters:
   enrolled actions.
 - `LocalCLIClient` invokes the installed native `cquay` program with an
   operator-provided absolute executable, expected SHA-256, absolute policy and
-  absolute state directory.  It exposes the complete current native command
+  absolute state directory.  It exposes the complete native command
   surface: init, configuration CRUD, doctor, plan, status, run, snapshot,
   apply, sync, bootstrap, flow, version and providers.
 
@@ -34,7 +34,7 @@ logs.
 
 Create and initialize the official session yourself.  The adapter neither
 starts a process nor takes ownership of credentials, retries, caches, profiles
-or session shutdown.  This stdio form is the current official Python MCP SDK
+or session shutdown.  This stdio form is the selected official Python MCP SDK
 shape:
 
 ```python
@@ -151,7 +151,7 @@ native release signing, protected policy/state ownership, IdP configuration,
 provider qualification, or endpoint security.  Consult the repository's
 operator and release guidance before enabling a real provider or hosted MCP.
 
-The local adapter's methods map one-for-one to current CLI operations:
+The local adapter's methods map one-for-one to documented CLI operations:
 `version`, `providers`, `update_check`, `init`, `config_init`, `config_validate`, `config_get`,
 `config_list`, `config_set`, `config_delete`, `config_replace`, `doctor`,
 `plan`, `status`, `run`, `snapshot`, `apply`, `sync`, `bootstrap`, and `flow`.
@@ -159,3 +159,12 @@ The local adapter's methods map one-for-one to current CLI operations:
 runtime before an operator relies on it. `update_check()` is an explicit,
 structured update-awareness check; it never schedules checks, prompts,
 downloads, installs, or activates software.
+
+## Versioned distribution
+
+Use [the common SDK guide](../../docs/sdks.md) for connection selection, portable
+configuration limits and shared fault categories. [Release distribution](../../RELEASE.md#official-sdk-distribution)
+defines registry enrollment, immutable versions, provenance and clean-consumer
+verification. Actual package availability and compatibility results are in
+[qualification](../../docs/qualification.md); source examples do not establish
+registry publication or permission to retrieve a value.

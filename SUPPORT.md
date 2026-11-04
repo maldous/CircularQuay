@@ -2,7 +2,11 @@
 
 CircularQuay is the project; `cquay` (pronounced “see-key”) is its app, executable and operations skill.
 
-The project is under development. There is no production certification, paid support contract, guaranteed response time or supported stable release yet. Published versions must state their qualified platform and provider matrix explicitly.
+Use the selected version's qualified platform/provider/client matrix and
+release notes to determine support. Certification, response-time commitments
+and paid support terms require an explicit separate agreement; installation or
+a passing analyzer does not create one. Actual release/channel availability is
+recorded in [qualification](docs/qualification.md), not inferred from examples.
 
 - Ask usage and design questions in [Discussions](https://github.com/maldous/CircularQuay/discussions).
 - Report reproducible bugs and propose features through [Issues](https://github.com/maldous/CircularQuay/issues/new/choose). Use synthetic fixtures and include the exact version, OS/architecture and safe error category.

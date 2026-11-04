@@ -1,6 +1,6 @@
 # Supply-chain integration contract
 
-This document defines the v1 contract for dependency review and future release
+This document defines the v1 contract for dependency review and immutable release
 evidence. It does not say that a release has been produced, signed, attested,
 or qualified. Actual results belong in a release's evidence bundle and the
 [qualification matrix](../qualification.md).
@@ -61,7 +61,7 @@ is published, the release owner must record the exact tag, commit, workflow
 run, archive digests, SBOM digest, provenance/attestation identity, qualified
 platform matrix, and any remaining qualification limits.
 
-For a future candidate or stable release, a verifier must obtain the selected
+For each candidate or stable release, a verifier must obtain the selected
 asset and its checksum manifest through an authenticated release route, verify
 the named asset's SHA-256, inspect archive paths before extraction, and verify
 the expected repository and release-artifact attestation identity. For example,
@@ -95,11 +95,11 @@ all native/provider/recovery/independent-review evidence required by
 missing stable artifact attestation, SBOM, archive inspection, or native
 qualification.
 
-## Future attestation producer
+## Release attestation producer
 
-No attestation producer is implemented by this integration. A future trusted
-release workflow may generate a build-provenance attestation and an SBOM
-attestation only after it has built the selected immutable tag's release assets.
+A trusted release workflow generates build-provenance and SBOM attestations
+only for the selected immutable tag's actual release assets. Actual producer
+execution and publication are recorded separately in qualification evidence.
 GitHub documents `contents: read`, `id-token: write`, and `attestations: write`
 as the minimum permissions for that producer. Those permissions belong only to
 the protected release job; they must not be present in fork pull-request jobs

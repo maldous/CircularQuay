@@ -64,6 +64,22 @@ Use BuildKit mounts for build-time credentials and scoped native secret/runtime 
 
 Compose file secret delivery is not Swarm's encrypted secret store. Changed environment/configuration needs targeted recreation; a plain restart and single-file atomic replacement are not assumed to refresh a running bind mount.
 
+## SDK, agent and operational enrollment
+
+Applications select [Go, TypeScript or Python](../sdks.md) and the local or MCP
+adapter explicitly. Verify package provenance, dependency locks and the linked
+core/native runtime version independently; Python/TypeScript local packages do
+not silently install a trusted binary. Agent clients install the versioned
+[skill or client plugin](../agent-integrations.md) and retain their configured
+OS/service identity and per-operation grants.
+
+Configure remote telemetry only through protected `observability` settings,
+collector trust and credential references. Confirm synthetic redaction, exporter
+outage and bounded shutdown; configure required audit separately. Select release
+channel/check interval and an optional local minimum version in `updates`.
+Startup notices continue without consuming workload input; upgrades follow the
+verified artifact/migration procedure, never a feed-triggered installation.
+
 ## Post-installation acceptance
 
 Run policy validation, a synthetic workload, denial tests, scheduler checks, offline/cold-boot recovery, issuer rotation and restore. Record the installed artifact digest and platform versions. Enable optional live providers and MCP only after their separate qualification. Review backup retention, update ownership and revocation before declaring the host enrolled.

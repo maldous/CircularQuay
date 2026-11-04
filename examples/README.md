@@ -13,6 +13,13 @@ when enabling actions. Read [policy configuration](../docs/configuration.md)
 before adapting it. Enroll the real signer and immutable initial commit before
 using the repository; the fabricated commit is an explicit replacement value.
 
+The Linux reference also declares `observability` and `updates`: a synthetic
+collector origin, bounded signals and a local minimum version with network
+release checks disabled. Referenced credentials/CA files and the collector are
+external prerequisites, not supplied secrets or proof of successful export.
+The minimum version is enforced by the selected runtime; it is not satisfied
+merely because the JSON validates. See [operational configuration](../docs/operational-configuration.md).
+
 These values are deliberately fabricated. No example grants access to an actual provider or stores an operational key.
 
 From the repository root:

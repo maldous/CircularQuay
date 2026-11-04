@@ -4,7 +4,12 @@ CircularQuay brings provider access, session setup, CI automation, native
 delivery, and agent permissions into one workload policy. The rows below show
 the capabilities together, including where existing tools already overlap.
 
-**✓** = available in the described scope; **❌** = a documented gap, explained
+For CircularQuay, the column describes the complete intended v1 contract.
+A mark does not assert current source availability, a hosted deployment or a
+qualified release. Use [revision-bound qualification](qualification.md) to
+confirm the selected artifact before relying on a capability.
+
+**✓** = included in that described scope; **❌** = a documented gap, explained
 in its footnote; **—** = unknown, not established as equivalent, or outside the
 compared product's scope. A dash is not a claim that a feature is absent.
 Vendor features may require a particular edition, integration, or subscription.

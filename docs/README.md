@@ -26,6 +26,9 @@ verify it.
 - [Integration guide](integrations.md)
 - [Official Go, TypeScript and Python SDKs](sdks.md)
 - [Enterprise identity, audit, observability, lifecycle and extension governance](enterprise-integration.md)
+- [Default and strict security profiles](security-profiles.md)
+- [Trusted discovery and complete administration lifecycle](management-and-discovery.md)
+- [Administration signatures, approvals, trust and recovery](administration-security.md)
 - [AWS, Azure, Google Cloud and emulator validation](integrations/cloud-provider-validation.md)
 - [Keycloak and OpenBao fixture contracts](integrations/identity-and-provider-fixtures.md)
 - [Compatibility gateway and independent local composition](integrations/compatibility-gateway.md)
@@ -33,10 +36,13 @@ verify it.
 - [Hosted identity and application connections](hosted-identity.md)
 - [Optional managed key service](managed-key-service.md)
 - [Provider, native platform and AI boundaries](runtime-boundaries.md)
+- [Agent skills and client-plugin contract](agent-integrations.md)
 - [MCP operator guide](operators/mcp.md)
 - [Credential stores, hardware and native protection](credential-boundaries.md)
 
 ## Develop, verify and release
+
+- [Fast AI-agent orientation](agent-onboarding.md) and [repository instructions](../AGENTS.md)
 
 - [Integration testing locally and in CI](integration-testing.md)
 - [Testing and audit results](verification.md)

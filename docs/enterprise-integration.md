@@ -233,6 +233,28 @@ technical capabilities and evidence, while the organization defines scope,
 risk appetite, people/process controls, operating evidence and any independent
 certification.
 
+## Agent and client administration
+
+The [management contract](management-and-discovery.md) defines the same typed
+enrollment, configuration, identity/grant, delegation and audit lifecycle across
+UI/API/CLI/SDK and optional management MCP. [Administration security](administration-security.md)
+defines mandatory signature, approval, tenant, replay and recovery controls.
+The product-wide [default and strict profiles](security-profiles.md) enforce
+additional enterprise requirements without weakening the universal baseline.
+
+The [portable skill and client-plugin contract](agent-integrations.md) uses the
+same exact workload/operation boundaries as CLI, SDK and optional MCP. Client
+installation and catalog discovery do not establish a grant. Versioned plugin
+metadata identifies resources, runtime prerequisites, supported transports and
+privacy/disclosure behavior; no synthetic server address or broad credential
+is supplied to make installation appear complete.
+
+Review grantor and recipient associations, administrative changes, refresh and
+revocation through the same configured tenant/authority ceiling. Updates use
+revision preconditions and redacted audit. Required operational evidence spans
+package installation, native executable trust, client/server compatibility and
+positive/negative authorization; one component's pass cannot qualify the others.
+
 ## Acceptance gates
 
 An enterprise integration is accepted only when it has a typed configuration,

@@ -21,7 +21,7 @@ client, err := cquay.New(session)
 status, err := client.GetStatus(ctx, "payments")
 ```
 
-The four typed operations mirror the current MCP catalog:
+The four typed operations mirror the MCP catalog:
 
 ```go
 tools, err := client.DiscoverTools(ctx)

@@ -11,6 +11,11 @@ modify, expire, and revoke access. Existing Netlify or Cloudflare services suppl
 identity and access-management interfaces wherever they fit. Any remaining
 key-specific UI is a thin application hosted within those environments.
 
+This is the complete intended v1 service and custody contract. It is not a
+claim of a deployed endpoint, customer enrollment or a qualified release.
+[Delivery requirements](implementation-plan.md#managed-service-development-and-delivery-contract)
+and [revision-bound qualification](qualification.md) establish those separately.
+
 ## Identity and authorization
 
 The identity key is the exact trusted issuer plus stable subject, not a username,
@@ -386,6 +391,35 @@ not headline ARR. A $10 monthly price requires **83,334 payers** to reach at
 least $10M annualized revenue. That is an arithmetic scale target, not demand or
 traction evidence. Pricing and retention sensitivity, security operating cost,
 and customer acquisition determine whether this becomes a viable business.
+
+## Runtime, SDK and agent integration
+
+The service's UI/API, CLI and optional MCP administration apply the same
+verified tenant, subject/client, scoped operation and time-window checks.
+Official [SDKs](sdks.md) explicitly select a local, workload-MCP or typed
+remote-management boundary. A local config write never becomes an implicit
+server mutation. Agent/plugin administration is metadata-only and follows the
+[client integration contract](agent-integrations.md).
+
+The typed [discovery and management contract](management-and-discovery.md)
+provides explicit remote-management API/SDK operations and a distinct optional
+management MCP profile. [Administration security](administration-security.md)
+requires signed change integrity, scoped authority, independent approval,
+anti-replay/rollback and durable audit. [Security profiles](security-profiles.md)
+apply these requirements to every deployment and cannot be lowered by a client.
+
+Protected runtime policy supplies [observability and release awareness](operational-configuration.md).
+Required administrative/release audit remains durable independently of
+best-effort metrics, traces and diagnostics. Managed UI controls present these
+same declarations and effective provenance; runtime telemetry does not depend
+on a deployed UI. Collector credentials, bootstrap keys and retained age
+identities never enter browser bundles or model-visible fields.
+
+Configuration/schema, service/API, SDK and artifact versions are explicit in
+migration and compatibility records. Signed or authenticated update metadata
+cannot replace artifact provenance, per-environment promotion or local minimum
+versions. Incident recovery restores deny/revocation state before admitting
+release and does not promise to erase exported keys, data keys or plaintext.
 
 ## Operational contract
 

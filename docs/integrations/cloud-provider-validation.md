@@ -47,8 +47,8 @@ errors and payload integrity; see `internal/source/cloud_*_test.go`.
 
 | Provider and service | Local or synthetic route | Free/tool boundary | Remote developer and live acceptance | Identity and minimum privilege |
 | --- | --- | --- | --- | --- |
-| AWS Secrets Manager (`aws-sm`) | SDK transport fixtures are mandatory. A future opt-in LocalStack harness may exercise `GetSecretValue` with synthetic secrets and explicit static fixture credentials. | [LocalStack's current plan table](https://docs.localstack.cloud/aws/licensing/) lists Secrets Manager, SSM, STS, KMS and IAM for the non-commercial Hobby plan, while Base, Ultimate and Enterprise are commercial subscriptions. The table is service availability, not API parity; the [Secrets Manager page](https://docs.localstack.cloud/aws/services/secretsmanager/) publishes operation coverage separately. Recheck both pages when pinning a harness image or plan. | Use a distinct AWS account and roles with synthetic secrets. Record exact artifact digest, region, declared ARN, caller-account confirmation, expected allow and deny cases, redacted CloudTrail/audit evidence and cleanup. A LocalStack pass cannot qualify STS federation, EC2/ECS metadata behaviour, IAM evaluation, KMS custody or CloudTrail. | Grant `secretsmanager:GetSecretValue` and only required metadata actions on exact declared ARNs. Bind the role trust policy to the real workload identity and exact account/conditions. Do not grant `*`, use developer profiles, or accept long-lived access keys for the runtime. |
-| AWS Systems Manager Parameter Store (`aws-ssm`) | Same transport fixture contract. A future LocalStack harness may cover `GetParameter` and exact version/ARN handling using synthetic SecureString values. | LocalStack lists SSM Parameter Store on Hobby and its plan table warns that service listing does not establish feature parity. KMS use in a SecureString path is an additional service interaction, not proof of AWS KMS properties. | Use an isolated account/role and synthetic parameters. Verify both a permitted exact parameter and denied sibling/path, version handling, STS caller account and redacted audit receipt. | Grant `ssm:GetParameter` only for exact parameter ARNs and the minimal KMS decrypt permission when the selected parameter requires it. Keep role trust conditions separate from resource permissions. |
+| AWS Secrets Manager (`aws-sm`) | SDK transport fixtures are mandatory. The opt-in LocalStack test profile exercises `GetSecretValue` with synthetic secrets and explicit static fixture credentials. | [LocalStack's current plan table](https://docs.localstack.cloud/aws/licensing/) lists Secrets Manager, SSM, STS, KMS and IAM for the non-commercial Hobby plan, while Base, Ultimate and Enterprise are commercial subscriptions. The table is service availability, not API parity; the [Secrets Manager page](https://docs.localstack.cloud/aws/services/secretsmanager/) publishes operation coverage separately. Recheck both pages when pinning a harness image or plan. | Use a distinct AWS account and roles with synthetic secrets. Record exact artifact digest, region, declared ARN, caller-account confirmation, expected allow and deny cases, redacted CloudTrail/audit evidence and cleanup. A LocalStack pass cannot qualify STS federation, EC2/ECS metadata behaviour, IAM evaluation, KMS custody or CloudTrail. | Grant `secretsmanager:GetSecretValue` and only required metadata actions on exact declared ARNs. Bind the role trust policy to the real workload identity and exact account/conditions. Do not grant `*`, use developer profiles, or accept long-lived access keys for the runtime. |
+| AWS Systems Manager Parameter Store (`aws-ssm`) | Same transport fixture contract. The LocalStack test profile covers `GetParameter` and exact version/ARN handling using synthetic SecureString values. | LocalStack lists SSM Parameter Store on Hobby and its plan table warns that service listing does not establish feature parity. KMS use in a SecureString path is an additional service interaction, not proof of AWS KMS properties. | Use an isolated account/role and synthetic parameters. Verify both a permitted exact parameter and denied sibling/path, version handling, STS caller account and redacted audit receipt. | Grant `ssm:GetParameter` only for exact parameter ARNs and the minimal KMS decrypt permission when the selected parameter requires it. Keep role trust conditions separate from resource permissions. |
 | AWS STS, KMS, IAM and metadata | These are support dependencies of the AWS read path, not CircularQuay secret sources. Synthetic SDK fixtures cover request/error wiring only. | LocalStack currently lists STS, KMS and IAM on Hobby, but its documentation expressly separates service availability from API coverage. No LocalStack result establishes EC2 IMDSv2, ECS task metadata, IAM policy semantics, federation, KMS custody or audit parity. | Live acceptance must use the selected EC2 role, ECS task role, OIDC federation or other real workload form and demonstrate expiry/revocation with provider audit evidence. | Preserve the current explicit credential-provider model. Metadata traffic must stay link-local, proxy-free and redirect-denying. Never let a container, proxy or environment variable redirect metadata traffic. |
 | Azure Key Vault secrets (`azure`) | Generated-client transport fixtures and a WireMock-compatible HTTPS fake are suitable for request shape, response identity, version and error contracts. | [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) is free and emulates **only** Azure Blob, Queue and Table storage. It is not an Azure Key Vault emulator and cannot qualify this adapter. No Key Vault emulator is assumed. | Use an isolated Azure subscription/resource group/vault with synthetic secrets and a dedicated tenant/client or managed identity. A free Azure account may provide introductory credit, but is not a permanent free Key Vault qualification entitlement; budget and account approval are operator concerns. Validate RBAC/access policy, workload federation or managed identity, expiry, disable/delete/recover behaviour and redacted Activity Log/audit evidence on the real vault. | Give the workload only Key Vault data-plane secret read permission on the named vault and declared secret scope where the selected authorization model permits it. The explicit tenant, client ID and vault origin remain pinned; no `DefaultAzureCredential`, Azure CLI cache, authority-host override or metadata override may become a runtime fallback. |
 | Google Secret Manager (`gcp`) | Synthetic protobuf/client tests and a fake gRPC service cover resource, version, CRC32C and error paths. | Google Cloud SDK emulators are service-specific (for example Bigtable, Datastore and Firestore), and the [Firebase Local Emulator Suite](https://firebase.google.com/docs/emulator-suite) covers listed Firebase services. Neither is a Secret Manager emulator. The [Secret Manager documentation](https://cloud.google.com/secret-manager/docs) does not publish an official local emulator route; treat that absence as no emulator support, never as generic GCP emulator coverage. | Use a separate GCP project with synthetic secrets and a dedicated workload principal. Record artifact digest, exact project/secret/version, expected allow/deny and redacted Cloud Audit Logs. Real-provider acceptance is required for IAM, metadata server, federation, short-token expiry and revocation. | Prefer [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) for external workloads over service-account keys. Bind a workload pool provider's attribute mapping and condition to the exact external workload, then grant the narrow Secret Manager accessor role on the exact secret/resource. Do not rely on Application Default Credentials or user login as a runtime authority. |
@@ -61,16 +61,13 @@ SDK support, authentication and trust settings before adoption. The
 [compatibility-gateway contract](compatibility-gateway.md) explains independent
 local composition without global trust-store changes or cloud-parity claims.
 
-## LocalStack: required implementation before use
+## LocalStack test-profile acceptance
 
-CircularQuay currently rejects `Source.Endpoint` for both AWS source types,
-which prevents an accidental endpoint override from changing an EC2/ECS
-workload's authority. LocalStack is therefore **not** a current runtime path.
-The existing AWS SDK v2 test configuration's `BaseEndpoint` is test-only
-fixture code, not a policy feature.
-
-An implementation may add a separately typed, explicitly enabled **test
-profile** only after all of the following are delivered and qualified:
+Normal AWS source profiles reject arbitrary `Source.Endpoint` overrides so a
+workload's authority cannot be redirected. SDK test-only `BaseEndpoint` is not
+a policy feature. LocalStack uses a separately typed, explicitly enabled test
+profile with all of the following schema, enforcement and qualification gates;
+its actual artifact availability is recorded in [qualification](../qualification.md).
 
 1. A new schema field/profile that is unavailable to normal production AWS
    workloads and cannot be activated through `AWS_*` endpoint or credential
@@ -118,8 +115,8 @@ The harness must use a separate workload pool/provider per environment, bind
 stable repository/workload attributes, use short-lived tokens and record only
 redacted token-exchange and Cloud Audit evidence.
 
-The current `gcp` adapter intentionally supports only Compute metadata
-identity. Supporting external Workload Identity Federation requires a new,
+The Compute-metadata profile and external Workload Identity Federation are
+separate identity paths. External federation requires a
 typed identity profile that accepts a protected, validated external-account
 credential configuration and assertion source, pins the expected audience and
 provider/resource name, rejects ambient Application Default Credentials, and
@@ -128,15 +125,15 @@ existing exact project/secret/version and CRC32C checks. A profile is not
 accepted into the configuration schema until this enforcement and its live
 federation qualification exist.
 
-The current Azure adapter intentionally supports explicit workload and managed
+The Azure source profile selects explicit workload and managed
 identities, not `DefaultAzureCredential` or the Azure Developer CLI cache.
 `az`, `azd`, ARM and Bicep may provision a disposable test environment under
 operator control; they must not become a hidden credential source for the
 CircularQuay process.
 
-## Harness plan and evidence
+## Harness acceptance and evidence
 
-| Priority | Deliverable | Acceptance evidence |
+| Boundary | Deliverable | Acceptance evidence |
 | --- | --- | --- |
 | 1 | Keep SDK-level synthetic contracts for every adapter: positive read, malformed response, wrong resource, wrong version, missing value, denied, unavailable and no-secret diagnostic. | Deterministic test receipt; fixtures contain only synthetic values. |
 | 2 | Add an AWS-only LocalStack test profile after the fail-closed design above is implemented. Pin image and plan/version in the harness. | LocalStack service/API coverage reference, test receipt, endpoint/credential/CA isolation and cleanup receipt. |

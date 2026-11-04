@@ -98,3 +98,12 @@ file input when an operator needs a wider JSON number representation.
 Use the package's build, typecheck, and test commands in a controlled
 development environment. Release qualification and published package evidence
 are recorded in the repository's qualification documentation.
+
+## Versioned distribution
+
+Use [the common SDK guide](../../docs/sdks.md) for connection selection, portable
+configuration limits and shared fault categories. [Release distribution](../../RELEASE.md#official-sdk-distribution)
+defines registry enrollment, immutable versions, provenance and clean-consumer
+verification. Actual package availability and compatibility results are in
+[qualification](../../docs/qualification.md); source examples do not establish
+registry publication or permission to retrieve a value.

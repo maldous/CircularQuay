@@ -22,6 +22,20 @@ belong in [RELEASE.md](../RELEASE.md). See the primary
 [Entra API permission reference](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-expose-scopes),
 and [Okta authorization-server reference](https://developer.okta.com/docs/concepts/auth-servers/).
 
+## Application and administration entry points
+
+CLI, official SDK, agent/plugin and optional MCP callers retain their own
+selected transport and runtime identity. All protected operations intersect
+verified identity with the same tenant, client, operation and active-window
+policy. Administrative permission and key retrieval are distinct; a local
+configuration editor is not a remote management API.
+
+Delegated requests record grantor, recipient, workload and timing within the
+original authority ceiling. Required audit stores metadata before release;
+SDK observers and remote metrics/traces remain redacted, bounded operational
+signals rather than an authorization source. See [SDKs](sdks.md),
+[agent clients](agent-integrations.md) and [enterprise integration](enterprise-integration.md).
+
 ## Resource and identity contract
 
 | Capability | Authorization boundary |

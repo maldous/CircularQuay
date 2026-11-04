@@ -1,6 +1,6 @@
 # Provider interoperability
 
-The provider registry resolves exact source declarations. Existing managers stay authoritative. CircularQuay does not need to copy all values into OpenBao. See [credential and identity boundaries](credential-boundaries.md) for the current native-storage, workload-identity, hosted-connection, and unsupported-feature surface.
+The provider registry resolves exact source declarations. Existing managers stay authoritative. CircularQuay does not need to copy all values into OpenBao. See [credential and identity boundaries](credential-boundaries.md) for native-storage, explicit workload-identity, hosted-connection and excluded-profile boundaries.
 
 ## Separate capabilities
 
@@ -23,10 +23,10 @@ Authentication, KMS/Transit key release, value retrieval and publication are dis
 
 `cquay providers` reports what this executable implements. A source whose dependency, authentication or lifecycle combination is unsupported must fail explicitly. No table entry alone qualifies a live provider.
 
-## Current adapter constraints
+## Explicit adapter profiles
 
 The provider table describes selector shape, not every upstream authentication
-method. Current cloud readers accept only AWS EC2/ECS credentials, Azure
+method. The native cloud-reader profiles select AWS EC2/ECS credentials, Azure
 managed/workload identity, and a GCE metadata service account; they do not
 fall back to a developer profile, interactive login, service-account key file,
 or arbitrary metadata endpoint. The hosted-manager adapters consume an
@@ -38,7 +38,7 @@ machine-account access token, and 1Password is a fixed service-account `op
 read` invocation. CircularQuay does not use desktop approval, a user vault
 session, `op run`, `op inject`, or 1Password Environments. Infisical reads an
 exact value with imports and reference expansion disabled; its Universal Auth
-and OIDC flows are not implemented by this adapter. These boundaries are
+and OIDC exchanges are separate identity profiles, not implicit behavior of this adapter. These boundaries are
 intentional and are detailed in [credential and identity boundaries](credential-boundaries.md).
 
 ## Composition

@@ -6,13 +6,14 @@ are recorded in the [qualification evidence](qualification.md).
 
 All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
 PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
-need no policy. `bootstrap` and `flow run` can resolve configuration before a
-local policy exists. `version` reports the executable version.
+need no policy. `bootstrap` and `flow run` can retrieve explicitly pinned GitHub configuration
+before a local policy exists. Enrolled discovery and automatic sign-in are v1
+requirements; see [bootstrap prerequisites](configuration-repositories.md#bootstrap-command-prerequisites). `version` reports the executable version.
 
 | Command | Usage and behavior |
 | --- | --- |
-| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--config-sha256 SHA256] [--output PATH] [--non-interactive]` selects local or enrolled configuration, verifies remote references, and configures the authorized session. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH`, and `CQUAY_CONFIG_SHA256`. Unattended first enrollment pins the full commit and a configuration digest obtained through a trusted maintainer channel. |
-| CI flow | `cquay flow run --workload ID [--non-interactive]` detects the supported runner, resolves configuration and workload identity, then executes the approved workload. Explicit configuration-source options override discovery. |
+| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--config-sha256 SHA256] [--output PATH] [--non-interactive]` validates local configuration or materializes a pinned GitHub policy into a new protected file. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH`, and `CQUAY_CONFIG_SHA256`. Every remote retrieval requires the full commit and configuration digest obtained through a trusted maintainer channel; interactive use does not waive either pin. |
+| CI flow | `cquay flow run --workload ID [--non-interactive]` detects the supported runner, selects local or pinned GitHub configuration, then executes the approved workload under its configured identity policy. Runner markers do not authenticate a workload. Explicit configuration-source options override discovery. |
 | Create | `cquay init [--output PATH]` or `cquay config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
 | Inspect configuration | `cquay config validate`; `cquay config get --pointer RFC6901`; `cquay config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |
 | Edit configuration | `cquay config set --pointer RFC6901 (--value-json JSON\|--value-file PATH\|-) [--expect-sha256 HEX]`; `cquay config delete --pointer RFC6901 [--expect-sha256 HEX]`; `cquay config replace --file PATH\|- [--expect-sha256 HEX]`. Values are JSON; `-` reads standard input; inputs are capped at 1 MiB. |
@@ -36,6 +37,31 @@ delivery: `cquay-audit run --profile source|enterprise --tool-manifest PATH --ou
 optional `--source`, `--go`, `--sonar-url`, `--sonar-token-file`, and
 `--sonar-project-key`. Its enterprise inputs and evidence handling are
 documented in [RELEASE.md](../RELEASE.md).
+
+## Administration and client parity
+
+CLI config CRUD edits non-secret declarations under the local operator boundary.
+Use JSON pointers and the returned document digest to inspect and conditionally
+update workload, source, identity/grant, `/observability` and `/updates` objects.
+Validate the complete candidate before use; a local edit does not grant a remote
+caller access or publish a changed policy to an enrolled server.
+
+Optional UI/API/MCP administration and official SDK entry points share the same
+scope and audit contract, with operation-specific authority. Discover the
+selected interface's documented capabilities instead of deriving a remote tool
+name from a CLI subcommand. Delegation records grantor, recipient, workload,
+operations and active window without exporting bootstrap material. See
+[agent integration](agent-integrations.md), [SDKs](sdks.md) and
+[managed-key administration](managed-key-service.md).
+
+## Operational inspection
+
+Use `cquay --config PATH update check --json` for advisory release metadata.
+`config get --pointer /observability` and `config get --pointer /updates`
+inspect their declarations; `doctor` validates protected settings without
+contacting a collector/feed to prove delivery. Configuration output may contain
+operator metadata and literal declarations; keep it within the authorized review.
+No SDK/MCP/CI invocation starts an interactive update prompt or installer.
 
 ### Configuration CRUD
 

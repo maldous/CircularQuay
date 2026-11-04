@@ -16,6 +16,18 @@ ownership, trusted publishing and provenance verification are covered in
 
 ## Choose a connection
 
+| Connection | Execution boundary | Your application supplies |
+| --- | --- | --- |
+| Go local | The linked CircularQuay core runs in-process. | Explicit policy/state locations and caller cancellation; verify the containing module and linked-core version. |
+| TypeScript or Python local | A separate, explicitly selected native `cquay` process. | Absolute executable location, expected SHA-256, policy/state locations and an explicit child environment. |
+| MCP, in any SDK | An application-owned official MCP session to the selected CircularQuay server. | Transport, authentication when required, resource-specific authorization and session lifecycle. |
+
+Local adapters do not require an MCP server. Language-package installation does
+not install or authenticate a native executable; select and verify it separately
+when using the TypeScript or Python local adapter. MCP access does not inherit
+permission to edit the server's local configuration. Choose the boundary that
+matches the operation, then use the same configuration and disclosure rules below.
+
 The **local adapter** uses an explicit policy and state directory. Go calls
 the core in-process; TypeScript and Python call an explicitly selected native
 executable whose SHA-256 is checked before each launch. Configuration JSON goes
@@ -105,3 +117,12 @@ executable versions, and provenance are identified in each release's
 qualification matrix. See
 [verification](verification.md) for measured results and
 [the enterprise contract](enterprise-integration.md) for operational controls.
+
+## Agent integration and distribution
+
+Applications own SDK lifecycle and transport. Agent clients additionally use the
+[portable skill or client plugin](agent-integrations.md); neither layer adds an
+implicit grant or exports provider bootstrap material. Runtime, SDK and plugin
+identities remain independently versioned and verified. Publisher procedures
+stay in [RELEASE.md](../RELEASE.md#official-sdk-distribution), while actual
+execution and publication outcomes stay in [qualification](qualification.md).

@@ -129,6 +129,21 @@ authorization. Platform adapters are tested at three levels: local synthetic
 emulation, isolated preview with synthetic identities/data, and separately
 approved production qualification.
 
+## Application SDKs and agent clients
+
+[Official Go, TypeScript and Python SDKs](sdks.md) retain explicit local or MCP
+boundaries, strict response/error contracts, cancellation and separately verified
+package/native versions. [Portable skills and client plugins](agent-integrations.md)
+package the same scoped operating contract, not new permissions or an implicit
+hosted service. UI/API/CLI/MCP management intersects the same tenant, actor,
+operation and active-window ceiling; raw disclosure has its own grant.
+
+Use [operational configuration](operational-configuration.md) for runtime
+collector and release-awareness declarations. An SDK observer, client manifest,
+CI environment or discovery hint cannot select a new credential source or widen
+an enrolled trust relationship. Registry/package identities and client tests
+are independently recorded in the release evidence.
+
 ## Observability, audit and enterprise operations
 
 | Integration | V1 contract | Boundary |
