@@ -11,7 +11,15 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
-Latest captured public commit is `10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`,
+Latest captured public runtime/design commit is
+`c18be5a76bc82ed7479e8ddbb6b4d28828890fa4`, tree
+`e85408243741ccbf0483ca28e75fa87cf04bd973`. Its completed hosted metadata
+records source, security, SDK and SonarQube failure; synthetic WireMock and
+Dependency Review success applies only to their respective scopes. The
+[exact observation](qualification.md#exact-c18be5a-hosted-observation) retains
+the run links and bounded evidence. No production qualification follows.
+
+Preceding public commit `10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`,
 tree `9174f780b61636b6f6e9820264bebe0b446910c6`. Its bounded hosted readback
 records source/security/Sonar failure, SDK queued and three WireMock jobs plus
 Dependency Review passing. Source Linux and CodeQL share a missing `platform`
@@ -19,7 +27,7 @@ import in `internal/cli/cli.go`; the following amendment restores it. Linux
 also reports protected-path/trust-store and composition fixture mismatches.
 Use the [exact observation](qualification.md#exact-10dde6d-hosted-observation)
 and separate source receipts; no dirty source or new KMS/profile code is
-qualified by these failed runs. Prior d9ff832 source/SDK cancellations remain
+qualified by those failed runs. Prior d9ff832 source/SDK cancellations remain
 historical. No manual rerun or cancellation occurred during this readback.
 
 The preceding complete historical analysis for
@@ -65,7 +73,8 @@ Do not run local builds, resolvers, tests, analyzers, installers or containers
 without release of that resource hold. No production qualification follows.
 
 The security-design review makes the required signed effective profile,
-accepted generations, pre-effect reauthorization, approvals, durable audit,+downgrade-negative tests and cross-product control mapping explicit. Actual
+accepted generations, pre-effect reauthorization, approvals, durable audit,
+downgrade-negative tests and cross-product control mapping explicit. Actual
 source still lacks the signed strict-profile/hierarchy engine. Default/strict
 are product contracts, not accepted runtime flags or certification claims.
 Never advertise strict enforcement from this composition implementation alone.
@@ -125,9 +134,10 @@ covers synthetic/mock user/account and operator/admin previews, local client
 forms/validation/configuration editing and simulation. It supersedes the prior
 frontend deferral, not backend integration or production deployment. Work in a
 separate frontend checkout/branch, own only `web/`, keep client configuration
-loopback/local and preserve the runtime publication snapshot. No current UI
-writer existed in this checkout; ports 5180/5181 were unbound at readback, not
-reserved services. Keep frontend checks bounded and retain the native heavy
+loopback/local and preserve the runtime publication snapshot. The separate
+frontend candidate and its exact evidence are recorded below. The earlier
+unbound-port readback is historical, not a reservation or current listener
+check. Keep frontend checks bounded and retain the native heavy
 execution hold. Reuse qualified hosting,
 identity, payment and support services where appropriate; never expose their
 operator credentials or treat hosting invoices as customer subscription billing.
@@ -151,10 +161,42 @@ from total allocated hosting. Exclude labor, external KMS, CRM and payment fees
 from that subtotal. Earlier age-only/partial-KMS and labor-loaded proposals are
 superseded, not valid current hosting prices or tariffs. Preserve historical
 receipts and the latest supporting amendment without overwriting them.
+
 Local-to-managed migration covers actual provider import/
 export and non-exportable limits, rewrap versus re-encryption, idempotent
 interruption recovery, destination activation and retained copies. No actual
 inventory, key inspection/upload or migration was performed.
+
+### Isolated frontend handoff
+
+Local-only commit `0ecbc694f8454663fd9416d57a624f66314d75ee`, tree
+`12c07b465845de2ad8f8cc17e24b0a4dce0d5820`, adds 19 files under `web/`
+on `feature/browser-dashboards` in
+`/home/user/src/2026-11-04/circularquay-browser-dev`, based on `10dde6d`.
+It is not pushed or integrated into this runtime branch. The producer reports
+one Node process on loopback 5180/5181, seven focused Node tests and synthetic
+browser journeys. The workbench includes a masked grid/guided inspector,
+local `.env` import, per-variable source/key/window/timezone/provenance controls,
+typed configuration editing and simulated apply/run. Account/operator consoles
+are separate synthetic presentation surfaces; configuration remains local.
+
+Use the [scoped qualification record](qualification.md#isolated-frontend-candidate-and-evidence-boundary)
+for exact commit, schema/fixture, report, coverage and independent-receipt
+hashes. Independent readback verifies 19 source hashes and retained JSON
+equalities; it does not rerun the producer's Node/browser tests. All 187
+schema-path controls are reported rendered, with representative mutation
+coverage only. No native/provider/backend/production claim follows. The
+external preview route and selected icon 13 asset are unresolved.
+
+Disposition: retain the local candidate and owner-held `web/coverage.md` and
+`web/output/playwright/` evidence. Before integration, coordinate the exact
+commit and current runtime base, recheck schema/Linux fixture hashes, review
+the source/security and supported-command boundaries, and qualify the merged
+candidate through the required gates. Do not infer remote authority from UI
+role selectors, use operational values in browser demo storage, reuse BAU
+routes, cherry-pick automatically, or expand the native heavy-execution hold.
+
+### Evidence ownership
 
 Supporting documentation is coordinated with the existing owner and retains
 its exact composition/first-run/forecast and subsequent account-design receipts.

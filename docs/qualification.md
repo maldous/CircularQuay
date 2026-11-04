@@ -41,6 +41,91 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact c18be5a hosted observation
+
+Published runtime/design commit
+`c18be5a76bc82ed7479e8ddbb6b4d28828890fa4`, tree
+`e85408243741ccbf0483ca28e75fa87cf04bd973`, has completed workflow metadata
+readback at `2026-11-04T12:47:34Z`. The retained owner-held record is
+`checkpoint50-security-design/c18-hosted-frontend-handoff-metadata.json`.
+
+| Pull-request workflow | Recorded outcome |
+| --- | --- |
+| [Source checks 41825521377](https://github.com/maldous/CircularQuay/actions/runs/41825521377) | Failure |
+| [Security analysis 41825521340](https://github.com/maldous/CircularQuay/actions/runs/41825521340) | Failure |
+| [SonarQube 41825521327](https://github.com/maldous/CircularQuay/actions/runs/41825521327) | Failure |
+| [SDK qualification 41825521301](https://github.com/maldous/CircularQuay/actions/runs/41825521301) | Failure |
+| [Synthetic WireMock 41825521324](https://github.com/maldous/CircularQuay/actions/runs/41825521324) | Success in its synthetic scope |
+| [Dependency Review 41825521332](https://github.com/maldous/CircularQuay/actions/runs/41825521332) | Success in its dependency scope |
+
+Push-triggered source/security also fail; push WireMock succeeds. This bounded
+observation reads metadata only and does not determine individual failure
+causes, full test coverage or scanner findings. The preceding independent
+source/design reviews, 249-file gofmt result and 650-link documentation check
+do not override these failures. No workflow was manually rerun or cancelled.
+The release remains unqualified. These runtime results do not execute the
+separate local frontend candidate below.
+
+A separate one-job Sonar log readback identifies failure at **Produce fresh
+isolated Sonar evidence**. It records a coverage-test failure, below-100%
+coverage and scanner-warning markers, plus strict quality-gate, duplication
+and issue-readback failure markers. Redacted artifact upload succeeds. Receipt
+`checkpoint50-security-design/c18-sonar-bounded-diagnostic.json` binds that
+observation; no artifact contents, CE task, numeric metrics or issue details
+were read. These markers cannot establish a successful scan, actual issue
+counts or a passing gate.
+
+## Isolated frontend candidate and evidence boundary
+
+Local commit `0ecbc694f8454663fd9416d57a624f66314d75ee`, tree
+`12c07b465845de2ad8f8cc17e24b0a4dce0d5820`, is on
+`feature/browser-dashboards` in
+`/home/user/src/2026-11-04/circularquay-browser-dev`. Its parent is
+`10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`; it adds 19 files exclusively
+under `web/`. It is a separate local candidate, without a public commit or
+verified remote preview URL. Its bytes are not integrated into this runtime
+branch.
+
+The candidate contains a synthetic masked environment workbench, guided
+inspector, local `.env` import, typed configuration editor and separate
+account/operator presentation surfaces. Provider, key, grant, identity,
+billing, fleet and apply/run actions remain simulations. Browser persistence
+is a demo store for synthetic values, not protected native secret storage.
+
+The producer reports seven passing focused Node tests, browser journeys,
+187 rendered schema-path entries, a valid Linux no-op round trip, seven exact
+representative edits, re-import equality, unknown-value preservation, a
+390-pixel viewport without page overflow and a clean browser console. The
+coverage matrix distinguishes rendered controls from individually mutated
+fields; it does not claim every field/provider combination was exercised.
+
+Owner-held evidence in that checkout is `web/coverage.md` (SHA-256
+`2e5dd8ed2315bd756ca9e895781de59d0a0c5714ba1b61c043f21d16b30ca612`)
+and `web/output/playwright/verification.json` (SHA-256
+`3095443acbaffad8def020d1a135c51c7d22abd9356546d9cbccb0aac699b714`).
+Independent readback receipt
+`checkpoint50-security-design/frontend-handoff-independent-readback.json`
+(SHA-256 `e682ee5332d24186fed4c817a6c8ee9bcf77590cd957391c7cfd7e7311847454`)
+verifies all 19 committed/worktree source hashes, the presence of all 16
+listed nonempty artifacts, 187 inventory entries and the retained JSON
+semantic equalities. It does not rerun Node, browser or native checks, or
+independently establish that every control executed in a browser.
+
+Bundled policy schema SHA-256
+`1d34bfc0d3c93e6078390fe4318e957e49178aac580cf8aaf11a70b25d50dffd`
+and Linux fixture SHA-256
+`1d3b73c654f5371729e6005434c5cd15ca1c87d65cfecf1603ba6991c6429276`
+match their source-owner snapshots. Recheck them before integration.
+The producer reports one Node process on loopback ports 5180 (account/operator)
+and 5181 (local client); development directions are in that checkout's
+`web/README.md`. An external preview route and the selected icon 13 asset
+remain unresolved. Native protected files, signed policy/include resolution,
+actual authentication/authorization, custody, providers, lifecycle, durable
+audit, backend tenant isolation, distribution and production qualification
+remain separate requirements. No UI control or reported browser success grants
+real backend authority. Integration/publication requires coordinated review
+against the current runtime branch and the unchanged release gates.
+
 ## Exact 10dde6d hosted observation
 
 Public commit `10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`, tree
@@ -843,8 +928,9 @@ Synthetic user/account and operator/admin frontend development/previews and a
 loopback local client dashboard are now explicitly authorized. This supersedes
 the earlier frontend deferral only. Real backend integration, operational
 key/provider access and production deployment remain outside that authorization.
-No frontend implementation, browser acceptance or preview deployment is
-qualified by this runtime candidate. No verified hosted worker/site/database/project identity
+The [isolated local frontend candidate](#isolated-frontend-candidate-and-evidence-boundary)
+has retained synthetic browser evidence; it is not integrated or qualified by
+this runtime candidate. No verified hosted worker/site/database/project identity
 for this service is recorded; repository research alone cannot establish the
 state of unrelated provider accounts.
 
