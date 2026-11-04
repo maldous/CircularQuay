@@ -2,15 +2,29 @@ package mcp
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/identity"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/policy"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 )
@@ -49,6 +63,93 @@ func TestNamedTokenAudienceIsIndependentOfResourceURL(t *testing.T) {
 	if _, err = verify(context.Background(), issuer.token(t, map[string]any{"scope": "session:approved secret:use", "roles": []string{"Operator", "SecretReader"}}), nil); err != auth.ErrInvalidToken {
 		t.Fatal("public resource URL incorrectly substituted for registered token audience")
 	}
+}
+
+func TestProductionNamedVerifierUsesAuthorityReplacementRoots(t *testing.T) {
+	issuer, rootPEM := newPrivateCAIssuer(t)
+	config := configuredNamedIssuer(issuer)
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "authority-roots.pem")
+	if err := platform.WriteProtected(path, rootPEM); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(rootPEM)
+	authority := config.Authorities["workforce"]
+	authority.TrustStoreFile = path
+	authority.TrustStoreSHA256 = hex.EncodeToString(digest[:])
+	config.Authorities["workforce"] = authority
+
+	if _, err := newAccessTokenVerifier(context.Background(), config, issuer.server.Client()); err == nil {
+		t.Fatal("injected client silently bypassed authority replacement roots")
+	}
+	verify, err := NewAccessTokenVerifier(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := issuer.token(t, map[string]any{"aud": "registered-api", "scope": "session:approved secret:use", "roles": []string{"Operator", "SecretReader"}})
+	if token, err := verify(context.Background(), raw, nil); err != nil || token.Extra["authority"] != "workforce" {
+		t.Fatalf("private-CA named token = %#v, %v", token, err)
+	}
+}
+
+func newPrivateCAIssuer(t *testing.T) (*issuerFixture, []byte) {
+	t.Helper()
+	issuerKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	rootTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "cquay test replacement root"},
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), IsCA: true,
+		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+	}
+	rootDER, err := x509.CreateCertificate(rand.Reader, rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := x509.ParseCertificate(rootDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "127.0.0.1"},
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour),
+		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverTemplate, root, &serverKey.PublicKey, rootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := &issuerFixture{key: issuerKey}
+	fixture.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/keys" {
+			http.NotFound(w, request)
+			return
+		}
+		jwk := map[string]any{"kty": "EC", "crv": "P-256", "alg": "ES256", "use": "sig", "kid": "fixture",
+			"x": base64.RawURLEncoding.EncodeToString(issuerKey.X.FillBytes(make([]byte, 32))),
+			"y": base64.RawURLEncoding.EncodeToString(issuerKey.Y.FillBytes(make([]byte, 32)))}
+		if err := json.NewEncoder(w).Encode(map[string]any{"keys": []any{jwk}}); err != nil {
+			t.Error(err)
+		}
+	}))
+	fixture.server.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{serverDER, rootDER}, PrivateKey: serverKey}}}
+	fixture.server.StartTLS()
+	t.Cleanup(fixture.server.Close)
+	return fixture, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER})
 }
 
 func TestNamedMetadataPublishesOnlyConfiguredScopesAndIssuers(t *testing.T) {

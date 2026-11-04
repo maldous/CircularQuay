@@ -320,6 +320,7 @@ Each `mcp.authorities.<name>` declares:
 | Field | Meaning |
 | --- | --- |
 | `issuer`, `jwks_url` | Exact HTTPS issuer and same-origin public signing-key endpoint; no token-provided key locations or redirect discovery. |
+| `trust_store_file`, `trust_store_sha256` | Optional pair for a private-CA issuer: canonical absolute protected PEM bundle and its 64-lowercase-hex SHA-256. When present, the bundle is the authority's complete replacement root store for JWKS retrieval; it does not append to system roots or affect another authority, provider, or CLI. Both fields are required together. |
 | `audience` | Exact registered API identifier. It may differ from the public `resource` URL, including an Entra application GUID. |
 | `profile` | `rfc9068` for signed `at+jwt` access tokens, or `microsoft-entra-v2` for the explicit Entra v2 API-token profile. Both verify RS256/ES256 signatures, issuer, audience and time claims. |
 | `clients`, `subjects` | Optional exact allowlists. A principal must match one entry in each configured list. Empty lists leave that dimension to exact local grants. |

@@ -21,7 +21,25 @@ func validatePolicyFileOwnership(policy model.Policy, policyFile string) error {
 	if err := validateReservedPolicyPaths(policy, policyFile); err != nil {
 		return err
 	}
+	if err := validateTrustStoreLocations(policy, policyFile); err != nil {
+		return err
+	}
 	return validatePathOwnershipWithPolicyFile(policy, policyFile)
+}
+
+// validateTrustStoreLocations keeps authority trust separate from policy and
+// repository content. A signed repository must not be able to replace a root
+// bundle after the local policy has selected it.
+func validateTrustStoreLocations(policy model.Policy, policyFile string) error {
+	policyPath := canonicalPath(policyFile)
+	repository := canonicalPath(policy.Repository.Directory)
+	for _, authority := range policy.MCP.Authorities {
+		trustStore := canonicalPath(authority.TrustStoreFile)
+		if trustStore == policyPath || withinPath(repository, trustStore) {
+			return invalid("identity_trust_store_path")
+		}
+	}
+	return nil
 }
 
 func validateReservedPolicyPaths(policy model.Policy, policyFile string) error {
@@ -40,6 +58,9 @@ func rejectReservedMetadataPaths(paths []string, reserved string) error {
 
 func policyLocalPaths(policy model.Policy) []string {
 	paths := []string{policy.Repository.Directory, policy.Repository.AllowedSignersFile, policy.Repository.TokenFile, policy.MCP.AuditPath}
+	for _, authority := range policy.MCP.Authorities {
+		paths = append(paths, authority.TrustStoreFile)
+	}
 	for _, source := range policy.Sources {
 		paths = append(paths, source.Path, source.TokenFile, source.AgeIdentityFile, source.SOPS)
 	}
@@ -76,6 +97,9 @@ type pathOwners struct {
 func (owners *pathOwners) addPolicyInputs(policy model.Policy) {
 	owners.addInput(policy.Repository.AllowedSignersFile)
 	owners.addInput(policy.Repository.TokenFile)
+	for _, authority := range policy.MCP.Authorities {
+		owners.addInput(authority.TrustStoreFile)
+	}
 	for _, source := range policy.Sources {
 		owners.addSourceInputs(source)
 	}

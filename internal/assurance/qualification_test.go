@@ -161,7 +161,7 @@ func TestSonarAuditTokenDoesNotPersistMalformedCredential(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
-	err := createSonarAuditToken(context.Background(), newSonarClient(server.URL, "admin", "synthetic"), directory, "fixture")
+	err := createSonarAuditToken(context.Background(), newSonarClient(server.URL, "admin", "synthetic"), directory, "fixture", defaultSonarTokenValidityDays)
 	if err == nil {
 		t.Fatal("empty scanner credential accepted")
 	}

@@ -22,17 +22,20 @@ const (
 // A Microsoft Entra v2 Authority requires a GUID API audience and a GUID tenant
 // in its issuer path. Clients and Subjects are optional any-exact allowlists;
 // RequiredScopes and RequiredRoles are optional all-of requirements. An empty
-// list leaves that dimension to policy.
+// list leaves that dimension to policy. TrustStoreFile and TrustStoreSHA256
+// form an optional paired declaration of canonical protected replacement roots.
 type Authority struct {
-	Name           string
-	Issuer         string
-	JWKSURL        string
-	Audience       string
-	Profile        Profile
-	Clients        []string
-	Subjects       []string
-	RequiredScopes []string
-	RequiredRoles  []string
+	Name             string
+	Issuer           string
+	JWKSURL          string
+	TrustStoreFile   string
+	TrustStoreSHA256 string
+	Audience         string
+	Profile          Profile
+	Clients          []string
+	Subjects         []string
+	RequiredScopes   []string
+	RequiredRoles    []string
 	// RequireDPoP permits only an RFC 9449 cnf.jkt confirmation claim.
 	RequireDPoP bool
 }
@@ -60,7 +63,8 @@ var ErrInvalidToken = errors.New("invalid access token")
 
 // NewVerifier builds a strict verifier for one named Authority. The supplied
 // HTTP client is used only to obtain public keys and is wrapped to bound bodies
-// and deny redirects.
+// and deny redirects. An Authority with replacement roots requires a nil
+// client so that its trust path cannot silently inherit another transport.
 func NewVerifier(ctx context.Context, authority Authority, client *http.Client) (Verifier, error) {
 	return newVerifier(ctx, authority, client, time.Now)
 }

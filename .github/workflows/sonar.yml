@@ -1,0 +1,259 @@
+name: Ephemeral SonarQube gate
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sonar:
+    # Keep this distinct and initially non-required: a real PR run must exist
+    # before branch protection can require its check name.
+    name: Hosted ephemeral SonarQube gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+      GOFLAGS: -p=1 -mod=readonly
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Produce fresh isolated Sonar evidence
+        shell: bash
+        run: |
+          # SonarQube's Linux prerequisite reference for the pinned server:
+          # https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/
+          set -uo pipefail
+          umask 077
+
+          root="$RUNNER_TEMP/cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          state="$root/state"
+          evidence="$root/evidence"
+          mkdir -p "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+          chmod 700 "$root" "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+          printf 'CQUAY_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
+          printf 'CQUAY_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
+          export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
+
+          compose_project="cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
+          cleanup() {
+            status=$?
+            trap - EXIT INT TERM
+            set +e
+            timeout 60s "${compose[@]}" down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
+            cleanup_status=$?
+            if (( cleanup_status != 0 )); then
+              printf 'cleanup_status=%s\n' "$cleanup_status" >"$evidence/cleanup-status.txt"
+              exit 1
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT INT TERM
+
+          result=0
+          fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; result=1; }
+          fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; exit 2; }
+          for command in docker curl jq sha256sum unzip timeout go; do
+            command -v "$command" >>"$evidence/tools.txt" 2>&1 || fatal "missing-tool:$command"
+          done
+          docker compose version >>"$evidence/tools.txt" 2>&1 || fatal "missing-compose-plugin"
+          git rev-parse --show-toplevel >"$evidence/source-root.txt" 2>&1 || fatal "source-root-unavailable"
+          test "$(cat "$evidence/source-root.txt")" = "$GITHUB_WORKSPACE" || fatal "source-root-not-workspace"
+          git rev-parse HEAD >"$evidence/head.txt" 2>&1 || fatal "head-unavailable"
+          git rev-parse 'HEAD^{tree}' >"$evidence/tree.txt" 2>&1 || fatal "tree-unavailable"
+          git diff --quiet && git diff --cached --quiet || fatal "checkout-not-clean"
+          test "$(cat "$evidence/head.txt")" = "$GITHUB_SHA" || fatal "head-not-triggering-sha"
+          printf '%s\n' "https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/" >"$evidence/sonar-linux-prerequisite-reference.txt"
+          vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable"
+          printf 'before=%s\n' "$vm_max_map_count" >"$evidence/vm.max_map_count.txt"
+          [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] || fatal "vm-max-map-count-invalid"
+          if (( vm_max_map_count < 524288 )); then
+            command -v sudo >>"$evidence/tools.txt" 2>&1 || fatal "vm-max-map-count-sudo-unavailable"
+            sudo -n sysctl -w vm.max_map_count=524288 >>"$evidence/vm.max_map_count.txt" 2>&1 || fatal "vm-max-map-count-set-failed"
+          fi
+          vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable-after-set"
+          printf 'after=%s\n' "$vm_max_map_count" >>"$evidence/vm.max_map_count.txt"
+          [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] && (( vm_max_map_count >= 524288 )) || fatal "vm-max-map-count-too-low"
+          ulimit -n >"$evidence/ulimit-n.txt" 2>&1 || fatal "ulimit-n-unavailable"
+          test "$(cat "$evidence/ulimit-n.txt")" -ge 131072 || fatal "ulimit-n-too-low"
+          ulimit -u >"$evidence/ulimit-u.txt" 2>&1 || fatal "ulimit-u-unavailable"
+          test "$(cat "$evidence/ulimit-u.txt")" -ge 8192 || fatal "ulimit-u-too-low"
+          cat /proc/sys/fs/file-max >"$evidence/fs.file-max.txt" 2>&1 || fatal "fs-file-max-unavailable"
+          test "$(cat "$evidence/fs.file-max.txt")" -ge 131072 || fatal "fs-file-max-too-low"
+          awk '/MemAvailable:|MemTotal:/{print}' /proc/meminfo >"$evidence/memory.txt" 2>&1 || fatal "memory-unavailable"
+          if test -r /sys/fs/cgroup/memory.max; then cat /sys/fs/cgroup/memory.max >>"$evidence/memory.txt"; fi
+          if test -r /sys/fs/cgroup/memory/memory.limit_in_bytes; then cat /sys/fs/cgroup/memory/memory.limit_in_bytes >>"$evidence/memory.txt"; fi
+
+          # The port is allocated only for this runner-local, loopback service.
+          sonar_port="$(python3 - <<'PY'
+          import socket
+          with socket.socket() as s:
+              s.bind(('127.0.0.1', 0))
+              print(s.getsockname()[1])
+          PY
+          )" || fatal "loopback-port-allocation-failed"
+          export SONAR_PORT="$sonar_port"
+
+          go build -p 1 -trimpath -o "$root/cquay-audit" ./cmd/cquay-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
+          "$root/cquay-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+          timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
+          timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
+
+          ready=0
+          for _ in $(seq 1 90); do
+            if curl --connect-timeout 5 --max-time 10 --fail --silent --show-error "http://127.0.0.1:${sonar_port}/api/system/status" >"$evidence/system-status.json" 2>>"$evidence/bootstrap.log"; then
+              if jq -e '.status == "UP"' "$evidence/system-status.json" >/dev/null; then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          (( ready == 1 )) || fatal "sonar-not-ready"
+          "$root/cquay-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project circularquay --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
+
+          # The lock's archive digest was read from the official SonarSource
+          # .sha256 sidecar; the executable digest is an independent receipt.
+          lock=tools/sonar-scanner.json
+          archive_url="$(jq -er '.archive_url | select(startswith("https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/"))' "$lock")" || fatal "scanner-lock-url-invalid"
+          archive_sha="$(jq -er '.archive_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-digest-invalid"
+          archive_sha_source="$(jq -er '.archive_sha256_source | select(. == "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.3.1.16491-linux-x64.zip.sha256")' "$lock")" || fatal "scanner-lock-source-invalid"
+          executable_path="$(jq -er '.executable_path | select(test("^sonar-scanner-[0-9.]+-linux-x64/bin/sonar-scanner$"))' "$lock")" || fatal "scanner-lock-path-invalid"
+          executable_sha="$(jq -er '.executable_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-executable-digest-invalid"
+          cp "$lock" "$evidence/sonar-scanner-lock.json"
+          curl --connect-timeout 15 --max-time 30 --max-filesize 4096 --fail --silent --show-error --location "$archive_sha_source" --output "$evidence/scanner-archive.sha256" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-sidecar-download-failed"
+          sidecar_sha="$(awk 'NR == 1 { print $1 } NR > 1 { invalid = 1 } END { if (NR != 1 || invalid) exit 1 }' "$evidence/scanner-archive.sha256")" || fatal "scanner-sidecar-format-invalid"
+          [[ "$sidecar_sha" =~ ^[0-9a-f]{64}$ ]] || fatal "scanner-sidecar-digest-invalid"
+          test "$sidecar_sha" = "$archive_sha" || fatal "scanner-sidecar-lock-mismatch"
+          curl --connect-timeout 15 --max-time 300 --max-filesize 200000000 --fail --silent --show-error --location "$archive_url" --output "$root/scanner.zip" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-download-failed"
+          printf '%s  %s\n' "$archive_sha" "$root/scanner.zip" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-archive-digest-mismatch"
+          unzip -q "$root/scanner.zip" -d "$root/scanner" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-extraction-failed"
+          scanner="$root/scanner/$executable_path"
+          printf '%s  %s\n' "$executable_sha" "$scanner" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-executable-digest-mismatch"
+          "$scanner" --version >"$evidence/scanner-version.txt" 2>&1 || fatal "scanner-version-failed"
+          grep -F '8.3.1.16491' "$evidence/scanner-version.txt" >/dev/null || fatal "scanner-version-mismatch"
+
+          mapfile -t packages < <(go list -f '{{.ImportPath}}' ./... 2>"$evidence/go-list.log")
+          (( ${#packages[@]} > 0 )) || fail "no-module-packages"
+          coverage="$evidence/coverage.raw.out"
+          coverpkg="$(IFS=,; printf '%s' "${packages[*]}")"
+          set +e
+          go test -count=1 -p 1 -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$coverage" ./... >"$evidence/go-test.log" 2>&1
+          coverage_test_status=$?
+          (( coverage_test_status == 0 )) || fail "coverage-test-failed:$coverage_test_status"
+          if test -s "$coverage"; then
+            awk '
+              NR == 1 { print; next }
+              { key=$1; statements=$2; count=$3; if (key in seen && seen[key] != statements) { bad=1; next }; seen[key]=statements; if (!(key in maximum) || count > maximum[key]) maximum[key]=count }
+              END { if (bad) exit 2; for (key in seen) print key " " seen[key] " " maximum[key] }
+            ' "$coverage" >"$evidence/coverage.out"
+            coverage_union_status=$?
+            (( coverage_union_status == 0 )) || fail "coverage-union-invalid"
+            awk 'NR > 1 { total += $2; if ($3 > 0) covered += $2 } END { if (total == 0) exit 2; printf "covered_statements=%d\ntotal_statements=%d\ncoverage_percent=%.9f\n", covered, total, 100*covered/total; if (covered != total) exit 1 }' "$evidence/coverage.out" >"$evidence/coverage-summary.txt"
+            coverage_status=$?
+            (( coverage_status == 0 )) || fail "coverage-not-100:$coverage_status"
+          else
+            fail "coverage-profile-missing"
+          fi
+
+          # Scanner and server readback deliberately run even after coverage
+          # has failed, so one report retains both strict gate outcomes.
+          scanner_status=127
+          if test -r "$state/scanner.token" && test -x "$scanner"; then
+            sonar_token="$(<"$state/scanner.token")"
+            # Community Build has no branch or PR analysis. Scanner CLI can
+            # auto-detect GitHub PR parameters, so run it with a deliberately
+            # minimal environment while retaining the explicit revision fence.
+            env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_TOKEN="$sonar_token" "$scanner" \
+              -Dsonar.host.url="http://127.0.0.1:${sonar_port}" \
+              -Dsonar.projectKey=circularquay \
+              -Dsonar.scm.revision="$GITHUB_SHA" \
+              -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
+              -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
+              -Dsonar.working.directory="$root/scanner-work" \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.qualitygate.ignoreSmallChanges=false >"$evidence/scanner.log" 2>&1
+            scanner_status=$?
+            unset sonar_token
+          else
+            fail "scanner-prerequisite-missing"
+          fi
+          printf 'scanner_exit=%s\n' "$scanner_status" >"$evidence/scanner-status.txt"
+          scanner_warnings="$(grep -Eic '(^|[^[:alpha:]])WARN([^[:alpha:]]|$)' "$evidence/scanner.log" 2>/dev/null || true)"
+          printf 'scanner_warning_lines=%s\n' "$scanner_warnings" >"$evidence/scanner-warnings.txt"
+          (( scanner_warnings == 0 )) || fail "scanner-warnings:$scanner_warnings"
+
+          readback_ok=1
+          warning_count_is_zero() {
+            jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' "$1" >/dev/null 2>&1
+          }
+          for fixture in '{"task":{}}' '{"task":{"warningCount":"0"}}' '{"task":{"warningCount":1}}'; do
+            if printf '%s\n' "$fixture" | jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' >/dev/null 2>&1; then
+              fatal "ce-warning-contract-fixture-accepted"
+            fi
+          done
+          request() {
+            name=$1
+            route=$2
+            status="$(curl --connect-timeout 5 --max-time 30 --silent --show-error --output "$evidence/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
+            printf '%s\n' "$status" >"$evidence/${name}.status"
+            test "$status" = 200 || readback_ok=0
+          }
+          if test -r "$state/scanner.token" && test -s "$evidence/report-task.raw.txt"; then
+            sonar_token="$(<"$state/scanner.token")"
+            printf 'user = "%s:"\n' "$sonar_token" >"$state/curl.config"
+            chmod 600 "$state/curl.config"
+            unset sonar_token
+            awk -F= '$1 == "ceTaskId" || $1 == "projectKey" || $1 == "projectName" {print}' "$evidence/report-task.raw.txt" >"$evidence/report-task.txt"
+            ce_task="$(awk -F= '$1 == "ceTaskId" {print $2}' "$evidence/report-task.raw.txt")"
+            test -n "$ce_task" || readback_ok=0
+            request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
+            analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_ok=0
+            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "circularquay")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_ok=0
+            request current-analysis '/api/project_analyses/search?project=circularquay&ps=100'
+            jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_ok=0
+            request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
+            request metrics '/api/measures/component?component=circularquay&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
+            # Match the strict inspector contract. Accepted and false-positive
+            # dispositions must block, never waive, this gate.
+            request all-issues '/api/issues/search?componentKeys=circularquay&issueStatuses=OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX&ps=500&p=1'
+            request hotspots '/api/hotspots/search?project=circularquay&ps=500&p=1'
+          else
+            readback_ok=0
+          fi
+          (( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
+          jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
+          jq -e '[.component.measures[] | select(.metric == "coverage" or .metric == "new_coverage") | .value | tonumber] | length == 2 and all(.[]; . == 100)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-coverage-not-100"
+          jq -e '[.component.measures[] | select(.metric == "duplicated_lines_density" or .metric == "new_duplicated_lines_density") | .value | tonumber] | length == 2 and all(.[]; . == 0)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-duplication-not-zero"
+          jq -e '.paging.total == 0 and (.issues | length) == 0' "$evidence/all-issues.json" >/dev/null 2>&1 || fail "issues-not-zero-or-unpaged"
+          jq -e '.paging.total == 0 and (.hotspots | length) == 0' "$evidence/hotspots.json" >/dev/null 2>&1 || fail "hotspots-not-zero-or-unpaged"
+          warning_count_is_zero "$evidence/ce-task.json" || fail "ce-warnings-not-zero"
+          if (( scanner_status != 0 )); then
+            if (( scanner_status == 3 )) && jq -e '.task.status == "SUCCESS"' "$evidence/ce-task.json" >/dev/null 2>&1; then
+              fail "scanner-quality-gate-failed"
+            else
+              fail "scanner-upload-or-analysis-failed:$scanner_status"
+            fi
+          fi
+
+          sha256sum "$evidence"/* >"$evidence/SHA256SUMS" 2>/dev/null || true
+          (( result == 0 )) || exit 1
+      - name: Upload redacted Sonar evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sonar-ephemeral-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.CQUAY_SONAR_EVIDENCE }}
+          if-no-files-found: error
+          retention-days: 14

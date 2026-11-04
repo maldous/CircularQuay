@@ -1,0 +1,68 @@
+name: Synthetic WireMock integration
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'feature/**', 'release/**']
+
+jobs:
+  wiremock:
+    name: WireMock (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    permissions:
+      contents: read
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+      - name: Download and verify pinned WireMock standalone JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, urllib.request
+          tool = json.loads(pathlib.Path("tools/integration-tools.json").read_text())["wiremock"]
+          temporary = pathlib.Path(os.environ["RUNNER_TEMP"])
+          destination = temporary / "wiremock-standalone.jar"
+          published = urllib.request.urlopen(tool["source"], timeout=30).read(256).decode().split()[0]
+          if published != tool["sha256"]:
+              raise SystemExit("WireMock published SHA-256 does not match manifest")
+          digest, total = hashlib.sha256(), 0
+          with urllib.request.urlopen(tool["jar"], timeout=30) as response, destination.open("xb") as output:
+              while chunk := response.read(65536):
+                  total += len(chunk)
+                  if total > 268435456:
+                      raise SystemExit("WireMock JAR exceeds 256 MiB limit")
+                  output.write(chunk)
+                  digest.update(chunk)
+          actual = digest.hexdigest()
+          if actual != tool["sha256"]:
+              raise SystemExit("WireMock JAR SHA-256 mismatch")
+          (temporary / "wiremock-path").write_text(str(destination))
+          PY
+      - name: Run tagged synthetic provider suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export CQUAY_WIREMOCK_JAR="$(cat "$RUNNER_TEMP/wiremock-path")"
+          go vet -tags=integration ./internal/integration
+          go test -p 1 -tags=integration ./internal/integration

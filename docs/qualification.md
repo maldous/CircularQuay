@@ -264,3 +264,41 @@ and hosting documentation is research evidence, not a CircularQuay integration
 receipt. The hosting/capacity/revenue calculations are explicit assumptions,
 not benchmarks, customer traction, approved prices, or operating accounts.
 No service, paid plan, credential, or BAU infrastructure was created or changed.
+
+## Integration implementation and qualification status
+
+The [integration inventory](integrations.md),
+[cloud-provider validation matrix](integrations/cloud-provider-validation.md),
+and [compatibility gateway](integrations/compatibility-gateway.md) describe v1
+contracts. They are not receipts for every listed integration.
+
+The per-authority private-CA candidate adds paired protected PEM/digest fields,
+strict certificate parsing, authority-only replacement roots, load/verifier
+integrity checks, fingerprint binding and writer/replay-state isolation.
+Source review and formatter/JSON checks are separate from actual test execution;
+the exact candidate still needs hosted normal/race/native/security results.
+
+The tagged WireMock suite implements a real loopback HTTPS process harness for
+the OpenBao KV v2 adapter, with six synthetic scenarios, exact and unmatched
+request checks, private state, verified JAR copying and bounded process cleanup.
+Its Linux/macOS/Windows workflow and local instructions use the same suite.
+No Java/WireMock scenario has yet executed in this checkpoint. An agent's two
+compile-only/vet batches ran despite the local resource hold; they executed no
+test bodies, had no retained exact-source/environment fence, and are not an
+integration pass. The root stopped further local execution. Retain the private
+`wiremock-compile-only-execution-20261104.json` receipt.
+
+The ephemeral hosted Sonar workflow is a new producer with strict coverage,
+warning, issue, hotspot and current-analysis checks. It uses a fresh isolated
+server and a finite project-scoped credential. Definition and source review do
+not establish a successful analysis or the independent auditor's complete
+runtime binding. Dependency review likewise needs its own real PR result.
+
+Keycloak realm export and OpenBao fixture contracts are provided; a real
+issuer/provider container suite has not run. LocalStack runtime profiles,
+external GCP federation, SPIFFE/SPIRE adapters, compatibility gateway endpoints,
+managed UI/API/local service, online introspection/revocation, hardware/keychain
+adapters and hosting integrations remain unimplemented or unqualified as
+described in their respective contracts. No new schema field advertises those
+unimplemented capabilities. No production deployment or release follows from
+these design documents or development candidates.

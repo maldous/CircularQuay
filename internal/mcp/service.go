@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -197,6 +198,9 @@ func New(p model.Policy, backend Backend, options Options) (*Service, error) {
 	}
 	var replay dpop.Store
 	if policyRequiresDPoP(p) {
+		if trustStoreWithinDPoPState(p.MCP, options.DPoPStateDirectory) {
+			return nil, fault.New(fault.Invalid, "dpop trust store")
+		}
 		store, err := dpop.NewPersistentStore(options.DPoPStateDirectory)
 		if err != nil {
 			return nil, fault.New(fault.Trust, "dpop replay store")
@@ -209,6 +213,24 @@ func New(p model.Policy, backend Backend, options Options) (*Service, error) {
 func policyRequiresDPoP(p model.Policy) bool {
 	for _, authority := range p.MCP.Authorities {
 		if authority.SenderConstraint != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// trustStoreWithinDPoPState prevents the replay-store writer from sharing a
+// directory with authority trust. Policy validation has already established
+// absolute, cleaned trust-store paths before this runtime-only comparison.
+func trustStoreWithinDPoPState(config model.MCP, stateDirectory string) bool {
+	if !filepath.IsAbs(stateDirectory) {
+		return false
+	}
+	stateDirectory = filepath.Clean(stateDirectory)
+	for _, authority := range config.Authorities {
+		trustStore := authority.TrustStoreFile
+		relative, err := filepath.Rel(stateDirectory, trustStore)
+		if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 			return true
 		}
 	}

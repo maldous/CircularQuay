@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,6 +31,17 @@ func newVerifier(ctx context.Context, authority Authority, client *http.Client, 
 	config, err := validatedAuthority(authority)
 	if err != nil {
 		return nil, err
+	}
+	if authority.TrustStoreFile != "" {
+		if client != nil {
+			return nil, fault.New(fault.Invalid, "identity trust client")
+		}
+		client, err = transport.TrustStoreHTTPClient(authority.TrustStoreFile, authority.TrustStoreSHA256)
+		if err != nil {
+			return nil, fault.New(fault.Trust, "identity trust store")
+		}
+		// Match the public MCP verifier's established key-retrieval deadline.
+		client.Timeout = 10 * time.Second
 	}
 	keyClient := keyClient(client)
 	keyContext := oidc.ClientContext(ctx, keyClient)
@@ -69,7 +81,26 @@ func validatedAuthority(authority Authority) (authorityConfig, error) {
 }
 
 func validAuthorityFields(authority Authority) bool {
-	return validName(authority.Name) && validText(authority.Audience) && validProfile(authority.Profile) && validFilters(authority)
+	return validName(authority.Name) && validText(authority.Audience) && validProfile(authority.Profile) && validFilters(authority) && validTrustStore(authority)
+}
+
+func validTrustStore(authority Authority) bool {
+	if authority.TrustStoreFile == "" && authority.TrustStoreSHA256 == "" {
+		return true
+	}
+	return filepath.IsAbs(authority.TrustStoreFile) && filepath.Clean(authority.TrustStoreFile) == authority.TrustStoreFile && validTrustStoreDigest(authority.TrustStoreSHA256)
+}
+
+func validTrustStoreDigest(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, character := range value {
+		if !(character >= '0' && character <= '9' || character >= 'a' && character <= 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func authorityURLs(authority Authority) (*url.URL, *url.URL, error) {
@@ -175,7 +206,11 @@ func keyClient(client *http.Client) *http.Client {
 	if client == nil {
 		return transport.NewHTTPClient(nil)
 	}
-	return transport.NewHTTPClient(client.Transport)
+	bounded := transport.NewHTTPClient(client.Transport)
+	if client.Timeout > 0 && client.Timeout < bounded.Timeout {
+		bounded.Timeout = client.Timeout
+	}
+	return bounded
 }
 
 func verify(ctx context.Context, raw string, authority Authority, config authorityConfig, verifier *oidc.IDTokenVerifier, now func() time.Time) (Principal, error) {

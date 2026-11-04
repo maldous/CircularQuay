@@ -15,6 +15,6 @@ The badges below are retained **historical scoped receipts**, not current-head o
 
 The [060639 receipt](qualification.md#exact-060639-development-receipt) records native Linux/macOS/Windows, all 26 cross-builds, both complexity ceilings, Staticcheck, govulncheck and CodeQL passes. Coverage and gosec failed. The latest historical Sonar receipt also fails coverage; it is not a current-source Sonar result. Independent audit, live providers, reboot/recovery and release-artifact qualification have separate acceptance evidence.
 
-See [the assurance contract](assurance.md) for validation requirements and [security reporting](../SECURITY.md) for private vulnerability handling.
+See [integration testing](integration-testing.md) for disposable provider validation and [security reporting](../SECURITY.md) for private vulnerability handling.
 
 [Documentation](README.md) · [CircularQuay](../README.md)

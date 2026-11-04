@@ -139,6 +139,8 @@ type MCP struct {
 type IdentityAuthority struct {
 	Issuer           string                     `json:"issuer" yaml:"issuer"`
 	JWKSURL          string                     `json:"jwks_url" yaml:"jwks_url"`
+	TrustStoreFile   string                     `json:"trust_store_file,omitempty" yaml:"trust_store_file,omitempty"`
+	TrustStoreSHA256 string                     `json:"trust_store_sha256,omitempty" yaml:"trust_store_sha256,omitempty"`
 	Audience         string                     `json:"audience" yaml:"audience"`
 	Profile          string                     `json:"profile" yaml:"profile"`
 	Clients          []string                   `json:"clients,omitempty" yaml:"clients,omitempty"`

@@ -115,6 +115,32 @@ keys or old ciphertext. Capacity, hosting costs, paid plans, release gates, and
 native/hardware acceptance require their own actual receipts; no purchase or
 production deployment follows from documentation.
 
+### Managed-service validation and promotion
+
+Use the [managed-service development contract](docs/managed-key-service.md#local-development-integration-and-controlled-delivery)
+for local, CI, preview and production instances. Record the service artifact
+digest, configuration schema, migration sequence and fixture versions together.
+The developer instance uses loopback listeners, private disposable state,
+synthetic tenants and keys, and real verified authentication. Trust its test CA
+only in the selected clients; never alter the host trust store or disable TLS
+verification. Local commands and CI execute the same integration suite in
+[integration testing](docs/integration-testing.md).
+
+Qualify the selected release candidate with authentication and tenant-isolation
+tests, scope/window/expiry and revocation tests, concurrent-update conflicts,
+migration and rollback rehearsals, independently restorable encrypted backups,
+health checks and durable redacted audit. Keep emulator, live-provider and
+hosting-preview receipts separate. Preview identities and storage cannot access
+production keys or mappings. Verify each platform's actual entitlement before
+using its managed services; local emulation does not establish that entitlement.
+
+Promote only the exact qualified artifact digest through the approved release
+environment. Changed build inputs, version bytes, migrations or packaging create
+a new candidate and repeat the applicable gates. Retain deployment, migration,
+rollback and post-promotion health receipts. A staged workflow or design document
+is not a running service or a production acceptance result; consult the
+[managed-service qualification record](docs/qualification.md#managed-service-design-status).
+
 ## 2. Prerequisites and accounts
 
 ### Separate four environments
@@ -211,6 +237,27 @@ Select the root of a clean, complete Git checkout. The v1 report binds its commi
 The source profile is not the enterprise profile. Enterprise requirements that are missing or not run must produce a non-pass result, not a green qualification. Raw tool stdout/stderr is not automatically public evidence.
 
 The local Sonar route uses the versioned environment under `audit/`; follow its actual pinned bootstrap instructions and loopback-only bindings. Provision temporary audit credentials into private local state. Import the exact profile/gate, run tests/coverage first, wait for asynchronous analysis/gate completion, verify source inventory and coverage scope, and export sanitized receipts. Do not assume an A rating equals zero issues.
+
+`cquay-audit sonar-init --directory ABSOLUTE_PRIVATE_DIRECTORY` creates new
+protected bootstrap state and refuses existing state. Start only the selected
+isolated Compose project using `audit/compose.yaml` and that directory's
+`compose.env`; choose an unused loopback port and satisfy the pinned server's
+kernel/memory prerequisites on the audit machine. After the server is ready,
+`cquay-audit sonar-bootstrap --directory ABSOLUTE_PRIVATE_DIRECTORY --url http://127.0.0.1:PORT --project circularquay`
+creates the project, gate, profile and dedicated Browse/Execute Analysis
+principal. Its token stays in a protected file; no credential value is printed.
+Bootstrap accepts `--token-validity-days 7..30`, default `7`, for the newly
+created finite-lifetime token. It does not rotate an existing operator token.
+
+The [hosted ephemeral Sonar workflow](.github/workflows/sonar.yml) creates a
+fresh isolated runner-local instance, selects `30` days, verifies the scanner
+archive against [its pinned lock](tools/sonar-scanner.json), and destroys the
+instance after evidence collection. Prerequisite or integrity failures stop
+execution; coverage failures still permit scanner/readback evidence, and any
+actual warning, failed readback or failed quality gate fails the job. This
+diagnostic producer does not replace the independent auditor's transitive
+runtime binding. Retain redacted evidence separately from bootstrap state;
+cleanup removes only the explicitly owned Compose project and its volumes.
 
 See [assurance contract](docs/assurance.md), the audit environment's own instructions, and generated report schema. Publish commit/tool versions, real results, hotspot review, upstream advisories and untested platforms. Do not include raw MCP responses or operational values in the report.
 

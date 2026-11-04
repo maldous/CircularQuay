@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/identity"
 	"github.com/maldous/CircularQuay/internal/model"
+	"github.com/maldous/CircularQuay/internal/transport"
 )
 
 func validateNamedAuthorities(config model.MCP) error {
@@ -49,6 +51,9 @@ func validateIdentityAuthority(name string, authority model.IdentityAuthority) e
 	if !secureEndpoint(authority.Issuer, false) || !secureEndpoint(authority.JWKSURL, false) || !sameIdentityOrigin(authority) || !validAudience(authority.Audience) {
 		return invalid("identity_trust")
 	}
+	if !validTrustStoreDeclaration(authority) {
+		return invalid("identity_trust_store")
+	}
 	for _, identities := range [][]string{authority.Clients, authority.Subjects, authority.RequiredRoles} {
 		if !validIdentityValues(identities, false) {
 			return invalid("identity_claim_filter")
@@ -68,11 +73,46 @@ func validateIdentityAuthority(name string, authority model.IdentityAuthority) e
 func VerifierAuthority(name string, authority model.IdentityAuthority) identity.Authority {
 	return identity.Authority{
 		Name: name, Issuer: authority.Issuer, JWKSURL: authority.JWKSURL,
+		TrustStoreFile: authority.TrustStoreFile, TrustStoreSHA256: authority.TrustStoreSHA256,
 		Audience: authority.Audience, Profile: identity.Profile(authority.Profile),
 		Clients: authority.Clients, Subjects: authority.Subjects,
 		RequiredScopes: authority.RequiredScopes, RequiredRoles: authority.RequiredRoles,
 		RequireDPoP: authority.SenderConstraint != nil,
 	}
+}
+
+func validTrustStoreDeclaration(authority model.IdentityAuthority) bool {
+	if authority.TrustStoreFile == "" && authority.TrustStoreSHA256 == "" {
+		return true
+	}
+	return filepath.IsAbs(authority.TrustStoreFile) && filepath.Clean(authority.TrustStoreFile) == authority.TrustStoreFile && lowerHexDigest(authority.TrustStoreSHA256)
+}
+
+func lowerHexDigest(value string) bool {
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	for _, character := range value {
+		if !(character >= '0' && character <= '9' || character >= 'a' && character <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidateLoadedTrustStores checks protected trust material only after policy
+// parsing. Parse stays side-effect free so staged configuration can be checked
+// before it is published.
+func ValidateLoadedTrustStores(config model.MCP) error {
+	for _, authority := range config.Authorities {
+		if authority.TrustStoreFile == "" {
+			continue
+		}
+		if err := transport.ValidateTrustStore(authority.TrustStoreFile, authority.TrustStoreSHA256); err != nil {
+			return invalid("identity_trust_store")
+		}
+	}
+	return nil
 }
 
 func validSenderConstraint(value *model.SenderConstraint) bool {

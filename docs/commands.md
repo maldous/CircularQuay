@@ -138,4 +138,10 @@ bootstrap and evidence-custody instructions in [RELEASE.md](../RELEASE.md); do n
 point them at an operational instance. A failing or unexecuted gate remains a
 failing or unexecuted gate.
 
+`sonar-bootstrap` also accepts `--token-validity-days 7..30` (default `7`).
+The hosted disposable fixture selects `30`, keeps the new project-scoped token
+in private state, and destroys the isolated server after collecting evidence.
+Actual scanner warnings still fail the gate. This option does not rotate an
+existing token and is not accepted by `sonar-init`.
+
 [Documentation](README.md) · [CircularQuay](../README.md)

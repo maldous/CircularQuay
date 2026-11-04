@@ -41,6 +41,39 @@ func TestPathOwnershipRejectsWritersOverInputsAndEachOther(t *testing.T) {
 	}
 }
 
+func TestPathOwnershipTreatsAuthorityTrustStoreAsInput(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authority-roots.pem")
+	policy := namedIdentityPolicy()
+	authority := policy.MCP.Authorities["workforce"]
+	authority.TrustStoreFile = path
+	authority.TrustStoreSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	policy.MCP.Authorities["workforce"] = authority
+	setFileTarget(&policy, "sink", path)
+	if Validate(policy) == nil {
+		t.Fatal("trust-store writer collision accepted")
+	}
+}
+
+func TestPolicyFileOwnershipRejectsAuthorityTrustStoreUnderMutableInputs(t *testing.T) {
+	base := t.TempDir()
+	for name, path := range map[string]string{
+		"policy":     filepath.Join(base, "policy.json"),
+		"repository": filepath.Join(base, "repository", "authority-roots.pem"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			policy := namedIdentityPolicy()
+			policy.Repository = testRepository(base)
+			authority := policy.MCP.Authorities["workforce"]
+			authority.TrustStoreFile = path
+			authority.TrustStoreSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+			policy.MCP.Authorities["workforce"] = authority
+			if validatePolicyFileOwnership(policy, filepath.Join(base, "policy.json")) == nil {
+				t.Fatal("authority trust store under mutable policy input accepted")
+			}
+		})
+	}
+}
+
 func TestPathOwnershipRejectsRepositoryAndPolicyOutputs(t *testing.T) {
 	base := t.TempDir()
 	policy := validPolicy()

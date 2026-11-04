@@ -53,6 +53,20 @@ func TestCancelledBootstrapDoesNotContactServer(t *testing.T) {
 	}
 }
 
+func TestBootstrapTokenValidityFlagIsBootstrapOnlyAndBounded(t *testing.T) {
+	for _, arguments := range [][]string{
+		{"sonar-init", "--token-validity-days", "30"},
+		{"sonar-bootstrap", "--token-validity-days", "6"},
+		{"sonar-bootstrap", "--token-validity-days", "31"},
+		{"sonar-bootstrap", "--token-validity-days", "not-a-number"},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), arguments, &stdout, &stderr); code != 2 || stdout.Len() != 0 || stderr.Len() == 0 {
+			t.Fatal("invalid bootstrap token validity accepted or disclosed output")
+		}
+	}
+}
+
 func TestAuditSignalContextHonorsParentCancellation(t *testing.T) {
 	parent, cancelParent := context.WithCancel(context.Background())
 	ctx, stop := auditSignalContext(parent)

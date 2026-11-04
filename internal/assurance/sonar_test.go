@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/platform"
 )
@@ -177,6 +179,52 @@ func TestSonarPrivateStateAndBootstrap(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(sonarFixture))
 	defer server.Close()
 	assertBootstrapServerValidation(t, directory, server.URL)
+}
+
+func TestBootstrapSonarTokenValidityIsSentToFixture(t *testing.T) {
+	directory := privateAssuranceDirectory(t, "sonar-token-validity")
+	if err := InitSonar(directory); err != nil {
+		t.Fatal(err)
+	}
+	var expirationDate atomic.Value
+	started := time.Now().UTC()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/api/user_tokens/generate" {
+			if err := request.ParseForm(); err != nil {
+				t.Errorf("parse fixture token request: %v", err)
+				return
+			}
+			expirationDate.Store(request.Form.Get("expirationDate"))
+		}
+		sonarFixture(writer, request)
+	}))
+	defer server.Close()
+	if err := BootstrapSonarWithOptions(context.Background(), directory, server.URL, "fixture", BootstrapSonarOptions{TokenValidityDays: 30}); err != nil {
+		t.Fatal(err)
+	}
+	finished := time.Now().UTC()
+	date := expirationDate.Load()
+	if date != started.AddDate(0, 0, 30).Format("2006-01-02") && date != finished.AddDate(0, 0, 30).Format("2006-01-02") {
+		t.Fatal("fixture token expiration was not bounded to the requested validity")
+	}
+}
+
+func TestBootstrapSonarRejectsTokenValidityBeforeContact(t *testing.T) {
+	directory := privateAssuranceDirectory(t, "sonar-invalid-token-validity")
+	if err := InitSonar(directory); err != nil {
+		t.Fatal(err)
+	}
+	var contacted atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		contacted.Add(1)
+		sonarFixture(writer, request)
+	}))
+	defer server.Close()
+	for _, days := range []int{-1, 0, 6, 31} {
+		if err := BootstrapSonarWithOptions(context.Background(), directory, server.URL, "fixture", BootstrapSonarOptions{TokenValidityDays: days}); err == nil || contacted.Load() != 0 {
+			t.Fatal("out-of-range token validity accepted or contacted its server")
+		}
+	}
 }
 
 func assertBootstrapPassword(t *testing.T, directory string) {

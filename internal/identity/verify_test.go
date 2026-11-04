@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -112,6 +113,51 @@ func newFixtureVerifier(t *testing.T, fixture *authorityFixture, authority Autho
 		t.Fatal(err)
 	}
 	return verifier
+}
+
+func TestVerifierRejectsAmbiguousOrMalformedTrustStoreConfiguration(t *testing.T) {
+	fixture := newAuthorityFixture(t)
+	trustStorePath := filepath.Join(t.TempDir(), "authority-roots.pem")
+	for name, change := range map[string]func(*Authority){
+		"injected client": func(authority *Authority) {
+			authority.TrustStoreFile = trustStorePath
+			authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+		},
+		"missing digest": func(authority *Authority) { authority.TrustStoreFile = trustStorePath },
+		"missing path":   func(authority *Authority) { authority.TrustStoreSHA256 = strings.Repeat("a", 64) },
+		"relative path": func(authority *Authority) {
+			authority.TrustStoreFile = "roots.pem"
+			authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+		},
+		"noncanonical path": func(authority *Authority) {
+			authority.TrustStoreFile = filepath.Dir(trustStorePath) + string(filepath.Separator) + "." + string(filepath.Separator) + filepath.Base(trustStorePath)
+			authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+		},
+		"upper digest": func(authority *Authority) {
+			authority.TrustStoreFile = trustStorePath
+			authority.TrustStoreSHA256 = strings.Repeat("A", 64)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			authority := fixture.authority(ProfileRFC9068)
+			change(&authority)
+			client := (*http.Client)(nil)
+			if name == "injected client" {
+				client = fixture.server.Client()
+			}
+			if _, err := newVerifier(context.Background(), authority, client, func() time.Time { return fixture.now }); err == nil {
+				t.Fatal("invalid trust-store verifier configuration accepted")
+			}
+		})
+	}
+}
+
+func TestKeyClientPreservesStricterCallerDeadline(t *testing.T) {
+	deadline := 10 * time.Second
+	client := keyClient(&http.Client{Timeout: deadline})
+	if client.Timeout != deadline {
+		t.Fatalf("key-client timeout = %s, want %s", client.Timeout, deadline)
+	}
 }
 
 func TestRFC9068VerifierBindsSignedIdentityAndFilters(t *testing.T) {

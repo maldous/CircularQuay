@@ -2,6 +2,8 @@ package policy
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -79,6 +81,32 @@ func TestLoadStrictJSONAndRelativePaths(t *testing.T) {
 		if !filepath.IsAbs(path) || !strings.HasPrefix(path, dir+string(filepath.Separator)) {
 			t.Fatal("relative path was not anchored")
 		}
+	}
+}
+
+func TestLoadRejectsInvalidPinnedAuthorityTrustStore(t *testing.T) {
+	directory := privatePolicyDirectory(t)
+	trustStore := filepath.Join(directory, "authority-roots.pem")
+	trustBytes := []byte("synthetic non-certificate trust store")
+	if err := platform.WriteProtected(trustStore, trustBytes); err != nil {
+		t.Fatal(err)
+	}
+	policy := namedIdentityPolicy()
+	authority := policy.MCP.Authorities["workforce"]
+	digest := sha256.Sum256(trustBytes)
+	authority.TrustStoreFile = trustStore
+	authority.TrustStoreSHA256 = hex.EncodeToString(digest[:])
+	policy.MCP.Authorities["workforce"] = authority
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "policy.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("invalid pinned authority trust store accepted at load")
 	}
 }
 

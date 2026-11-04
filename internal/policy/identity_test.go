@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -116,6 +117,36 @@ func TestNamedIdentityRejectsClaimAndPermissionDrift(t *testing.T) {
 	}
 }
 
+func TestNamedIdentityTrustStoreDeclarationIsPairedAndPinned(t *testing.T) {
+	trustStorePath := filepath.Join(privatePolicyDirectory(t), "identity-roots.pem")
+	p := namedIdentityPolicy()
+	authority := p.MCP.Authorities["workforce"]
+	authority.TrustStoreFile = trustStorePath
+	authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+	p.MCP.Authorities["workforce"] = authority
+	assertSchemaAndParseAccept(t, policyJSONValue(t, p))
+	for name, edit := range map[string]func(*model.IdentityAuthority){
+		"file only":     func(a *model.IdentityAuthority) { a.TrustStoreSHA256 = "" },
+		"digest only":   func(a *model.IdentityAuthority) { a.TrustStoreFile = "" },
+		"relative path": func(a *model.IdentityAuthority) { a.TrustStoreFile = "roots.pem" },
+		"noncanonical path": func(a *model.IdentityAuthority) {
+			a.TrustStoreFile = filepath.Dir(trustStorePath) + string(filepath.Separator) + "." + string(filepath.Separator) + filepath.Base(trustStorePath)
+		},
+		"upper digest": func(a *model.IdentityAuthority) { a.TrustStoreSHA256 = strings.Repeat("A", 64) },
+		"short digest": func(a *model.IdentityAuthority) { a.TrustStoreSHA256 = "abc" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := namedIdentityPolicy()
+			value := candidate.MCP.Authorities["workforce"]
+			value.TrustStoreFile = trustStorePath
+			value.TrustStoreSHA256 = strings.Repeat("a", 64)
+			edit(&value)
+			candidate.MCP.Authorities["workforce"] = value
+			assertSchemaAndParseReject(t, policyJSONValue(t, candidate))
+		})
+	}
+}
+
 func TestAuthorityFingerprintBindsOnlySelectedTrust(t *testing.T) {
 	config := namedIdentityPolicy().MCP
 	first := MCPAuthorityFingerprint(config, "workforce")
@@ -136,5 +167,26 @@ func TestAuthorityFingerprintBindsOnlySelectedTrust(t *testing.T) {
 	config.Resource += "/changed"
 	if MCPAuthorityFingerprint(config, "workforce") == first {
 		t.Fatal("resource change retained authority")
+	}
+	trustConfig := namedIdentityPolicy().MCP
+	trustFirst := MCPAuthorityFingerprint(trustConfig, "workforce")
+	authority = trustConfig.Authorities["workforce"]
+	authority.TrustStoreFile = "/private/identity-roots.pem"
+	authority.TrustStoreSHA256 = strings.Repeat("a", 64)
+	trustConfig.Authorities["workforce"] = authority
+	withTrustStore := MCPAuthorityFingerprint(trustConfig, "workforce")
+	if withTrustStore == trustFirst {
+		t.Fatal("trust-store declaration retained authority fingerprint")
+	}
+	authority.TrustStoreFile = "/private/rotated-roots.pem"
+	trustConfig.Authorities["workforce"] = authority
+	withRotatedPath := MCPAuthorityFingerprint(trustConfig, "workforce")
+	if withRotatedPath == withTrustStore {
+		t.Fatal("trust-store path retained authority fingerprint")
+	}
+	authority.TrustStoreSHA256 = strings.Repeat("b", 64)
+	trustConfig.Authorities["workforce"] = authority
+	if MCPAuthorityFingerprint(trustConfig, "workforce") == withRotatedPath {
+		t.Fatal("trust-store digest retained authority fingerprint")
 	}
 }

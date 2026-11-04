@@ -25,6 +25,7 @@ verify it.
 - [Integration guide](integrations.md)
 - [AWS, Azure, Google Cloud and emulator validation](integrations/cloud-provider-validation.md)
 - [Keycloak and OpenBao fixture contracts](integrations/identity-and-provider-fixtures.md)
+- [Compatibility gateway and independent local composition](integrations/compatibility-gateway.md)
 - [Identity, key access and expiry explained](identity-and-expiry.md)
 - [Hosted identity and application connections](hosted-identity.md)
 - [Optional managed key service](managed-key-service.md)
@@ -34,7 +35,9 @@ verify it.
 
 ## Develop, verify and release
 
+- [Integration testing locally and in CI](integration-testing.md)
 - [Testing and audit results](verification.md)
+- [Dependency review, SBOMs and provenance](integrations/supply-chain.md)
 - [Assurance contract](assurance.md) and [qualification evidence](qualification.md)
 - [Architecture](architecture.md), [security model](threat-model.md) and [language ADR](adr/0001-language-and-assurance.md)
 - [Implementation and qualification plan](implementation-plan.md)

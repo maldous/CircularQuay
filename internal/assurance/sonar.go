@@ -338,14 +338,27 @@ func writeNewPrivate(path string, data []byte) error {
 	return platform.CreateProtectedExclusive(path, data)
 }
 
+// BootstrapSonarOptions controls a fresh loopback fixture without changing the default bootstrap contract.
+type BootstrapSonarOptions struct {
+	// TokenValidityDays must be between 7 and 30 inclusive. BootstrapSonar
+	// supplies the default of 7; a zero value is intentionally invalid.
+	TokenValidityDays int
+}
+
+const (
+	defaultSonarTokenValidityDays = 7
+	maximumSonarTokenValidityDays = 30
+)
+
 // BootstrapSonar initializes only a dedicated loopback test server, never an arbitrary remote instance.
 func BootstrapSonar(ctx context.Context, directory, endpoint, project string) error {
-	if !validSonarURL(endpoint) || !projectPattern.MatchString(project) {
-		return errors.New("invalid Sonar bootstrap configuration")
-	}
-	u, _ := url.Parse(endpoint)
-	if u.Scheme != "http" || !isLoopbackHost(u.Hostname()) {
-		return errors.New("bootstrap requires a dedicated loopback server")
+	return BootstrapSonarWithOptions(ctx, directory, endpoint, project, BootstrapSonarOptions{TokenValidityDays: defaultSonarTokenValidityDays})
+}
+
+// BootstrapSonarWithOptions permits a bounded fixture token lifetime for a new loopback server.
+func BootstrapSonarWithOptions(ctx context.Context, directory, endpoint, project string, options BootstrapSonarOptions) error {
+	if err := validateBootstrapSonarConfiguration(endpoint, project, options); err != nil {
+		return err
 	}
 	client, err := authenticateSonarAdministrator(ctx, directory, endpoint)
 	if err != nil {
@@ -360,7 +373,21 @@ func BootstrapSonar(ctx context.Context, directory, endpoint, project string) er
 	if err = configureSonarProfiles(ctx, client, project); err != nil {
 		return err
 	}
-	return createSonarAuditToken(ctx, client, directory, project)
+	return createSonarAuditToken(ctx, client, directory, project, options.TokenValidityDays)
+}
+
+func validateBootstrapSonarConfiguration(endpoint, project string, options BootstrapSonarOptions) error {
+	if options.TokenValidityDays < defaultSonarTokenValidityDays || options.TokenValidityDays > maximumSonarTokenValidityDays {
+		return errors.New("invalid Sonar bootstrap configuration")
+	}
+	if !validSonarURL(endpoint) || !projectPattern.MatchString(project) {
+		return errors.New("invalid Sonar bootstrap configuration")
+	}
+	u, _ := url.Parse(endpoint)
+	if u.Scheme != "http" || !isLoopbackHost(u.Hostname()) {
+		return errors.New("bootstrap requires a dedicated loopback server")
+	}
+	return nil
 }
 
 func authenticateSonarAdministrator(ctx context.Context, directory, endpoint string) (*sonarClient, error) {
@@ -381,7 +408,7 @@ func authenticateSonarAdministrator(ctx context.Context, directory, endpoint str
 	return client, nil
 }
 
-func createSonarAuditToken(ctx context.Context, administrator *sonarClient, directory, project string) error {
+func createSonarAuditToken(ctx context.Context, administrator *sonarClient, directory, project string, validityDays int) error {
 	name, err := randomSecret()
 	if err != nil {
 		return err
@@ -407,7 +434,7 @@ func createSonarAuditToken(ctx context.Context, administrator *sonarClient, dire
 	var created struct {
 		Token string `json:"token"`
 	}
-	if err = client.call(ctx, http.MethodPost, "/api/user_tokens/generate", url.Values{"name": {login}, "type": {"USER_TOKEN"}, "expirationDate": {time.Now().UTC().AddDate(0, 0, 7).Format("2006-01-02")}}, &created); err != nil {
+	if err = client.call(ctx, http.MethodPost, "/api/user_tokens/generate", url.Values{"name": {login}, "type": {"USER_TOKEN"}, "expirationDate": {time.Now().UTC().AddDate(0, 0, validityDays).Format("2006-01-02")}}, &created); err != nil {
 		return err
 	}
 	if created.Token == "" || strings.ContainsAny(created.Token, "\r\n\x00") {

@@ -85,14 +85,20 @@ type namedVerifier struct {
 	verify      identity.Verifier
 }
 
-func newNamedAccessTokenVerifier(ctx context.Context, config model.MCP, client *http.Client) (auth.TokenVerifier, error) {
+func newNamedAccessTokenVerifierWithTrustStore(ctx context.Context, config model.MCP, client *http.Client, authorityScopedClient bool) (auth.TokenVerifier, error) {
 	if err := policy.ValidateMCP(config); err != nil {
 		return nil, err
 	}
 	verifiers := make([]namedVerifier, 0, len(config.Authorities))
 	for _, name := range sortedAuthorityNames(config) {
 		authority := config.Authorities[name]
-		verify, err := identity.NewVerifier(ctx, policy.VerifierAuthority(name, authority), client)
+		keyClient := client
+		if authority.TrustStoreFile != "" && authorityScopedClient {
+			// TrustStoreHTTPClient is created inside identity.NewVerifier. It must
+			// not inherit the shared system-root client used by another authority.
+			keyClient = nil
+		}
+		verify, err := identity.NewVerifier(ctx, policy.VerifierAuthority(name, authority), keyClient)
 		if err != nil {
 			return nil, err
 		}

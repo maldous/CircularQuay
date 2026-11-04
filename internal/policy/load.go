@@ -29,7 +29,14 @@ func Load(path string) (model.Policy, error) {
 	if err != nil {
 		return model.Policy{}, err
 	}
-	return Parse(data, absolute)
+	result, err := Parse(data, absolute)
+	if err != nil {
+		return model.Policy{}, err
+	}
+	if err := ValidateLoadedTrustStores(result.MCP); err != nil {
+		return model.Policy{}, err
+	}
+	return result, nil
 }
 
 // Parse validates a policy document for its intended configuration pathname

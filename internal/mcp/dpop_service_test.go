@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +39,50 @@ func TestDPoPServiceRequiresProtectedPersistentState(t *testing.T) {
 	}
 	if info, err := os.Lstat(filepath.Join(directory, "dpop")); err != nil || !info.IsDir() {
 		t.Fatalf("persistent replay directory unavailable: %v", err)
+	}
+}
+
+func TestDPoPServiceRejectsTrustStoreInsideReplayState(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "state")
+	config := senderConstrainedPolicy(t)
+	authority := config.MCP.Authorities["workforce"]
+	authority.TrustStoreFile = filepath.Join(directory, "authority-roots.pem")
+	authority.TrustStoreSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	config.MCP.Authorities["workforce"] = authority
+	service, err := New(config, &fakeBackend{}, Options{Audit: &memoryAudit{}, DPoPStateDirectory: directory})
+	if service != nil || !fault.Is(err, fault.Invalid) {
+		t.Fatalf("replay-state trust store accepted: service=%v err=%v", service != nil, err)
+	}
+	if _, err := os.Lstat(filepath.Join(directory, "dpop")); !os.IsNotExist(err) {
+		t.Fatalf("replay store created before trust-store rejection: %v", err)
+	}
+}
+
+func TestTrustStoreWithinDPoPStateUsesFilesystemBoundaries(t *testing.T) {
+	root := filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
+	state := filepath.Join(root, "cquay-state")
+	for name, test := range map[string]struct {
+		state, trustStore string
+		want              bool
+	}{
+		"same path":        {state, state, true},
+		"child path":       {state, filepath.Join(state, "authority-roots.pem"), true},
+		"prefix sibling":   {state, filepath.Join(root, "cquay-state-other", "roots.pem"), false},
+		"parent directory": {state, filepath.Dir(state), false},
+		"root directory":   {root, filepath.Join(root, "authority-roots.pem"), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			config := model.MCP{Authorities: map[string]model.IdentityAuthority{"authority": {TrustStoreFile: test.trustStore}}}
+			if got := trustStoreWithinDPoPState(config, test.state); got != test.want {
+				t.Fatalf("trustStoreWithinDPoPState() = %t, want %t", got, test.want)
+			}
+		})
+	}
+	if runtime.GOOS == "windows" {
+		config := model.MCP{Authorities: map[string]model.IdentityAuthority{"authority": {TrustStoreFile: strings.ToLower(filepath.Join(state, "authority-roots.pem"))}}}
+		if !trustStoreWithinDPoPState(config, strings.ToUpper(state)) {
+			t.Fatal("case-equivalent Windows paths were treated as separate directories")
+		}
 	}
 }
 

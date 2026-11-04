@@ -22,6 +22,71 @@ delegation, and managed identity-to-age-key access with authorized UI/API.
 The README and product/design/operator documents describe the final North Star;
 actual implementation and qualification belong in status/evidence records.
 
+## Published landing-page checkpoint
+
+Checkpoint `d801d479ac68bdb3866beb0259f7a475286f1cfe` has tree
+`a55a16f1bdcbc2c69918a199d9a1d2a780b9a9bd`. It publishes the 112-line
+landing README and linked guides, preserving the author's opening story,
+optional IdP/MCP wording, dual-platform quick starts, complete command examples
+and continuous comparison table. Public readback verified all 17 selected
+files; a guarded mixed reset preserved all 299 fenced working files, including
+concurrent runtime work excluded from this documentation checkpoint.
+GitHub rendering was inspected. Retain `checkpoint29-publication-readback.json`
+and `readme-d801d47-rendered.png`.
+
+GitHub's About description and 12 relevant topics were saved through its native
+editor and verified through the repository API. The description begins
+"Get the right secrets to the right apps" and states existing-provider delivery
+with optional identity and MCP. No separate website was invented. This metadata
+change is not a branch-rule or security-check enforcement change.
+
+Exact-d801 source run `41749033589` passed all native jobs, normal/race
+tests, vet, bounded fuzzing, both complexity checks and all 26 cross-builds.
+The source auditor's coverage gate remained failed at 6,125/7,173 statements
+(85.38966%) versus 100%. Security run `41749033545` passed CodeQL with zero
+annotations and failed only the gosec step with eight findings (G204 ×6,
+G103 ×2), zero suppressions. This is an analysis-gate result, not a newly
+established exploit. The synthetic merge tree matches this documentation
+checkpoint; none of these results qualifies the following source candidate.
+Retain `ci-d801d47-native-cross.json`.
+
+## Integration source follow-up
+
+The next reviewed candidate adds per-authority protected, digest-pinned private
+CA roots for JWKS; the actual tagged WireMock process suite with Linux/macOS/
+Windows CI; a fresh hosted Sonar diagnostic producer; and dependency review.
+The linked integration contracts cover cloud providers/emulators, Keycloak,
+SPIFFE/SPIRE, hosting adapters and a separate optional compatibility gateway.
+Only fields with runtime enforcement enter the v1 schema. Managed-service,
+gateway, LocalStack and real Keycloak/OpenBao service qualification remain
+separate, incomplete work; no design is a passing test receipt.
+
+Independent source reviews found and corrected native path/ACL, schema parity,
+test-oracle, process-reaping, cancellation and strict Sonar readback defects
+before publication. Source review is not compilation or execution. Exact-next
+hosted normal/race/native/security/integration/Sonar results are required.
+Local heavy work remains held. An integration worker nevertheless performed
+two compile-only/vet batches without an exact source/environment fence; no test
+bodies, WireMock, Java or Docker ran, and the root stopped further execution.
+Retain `wiremock-compile-only-execution-20261104.json`; it is not qualification.
+
+## Completed 060639 hosted receipt
+
+Checkpoint `060639f36c1c7309769f34e3b88812e42d02cabf` has tree
+`aef7be1f1b11f112ed04120ed58e61b17f864e46`; public readback verified
+all seven changed files and all 274 working files. Hosted source run
+`41744753747` passed native Linux/macOS/Windows, normal/race tests, vet,
+bounded fuzzing, both complexity checks, all 26 cross-builds and the aggregate
+checks. The synthetic merge tree matches. The source auditor passed unit tests
+and vet; coverage alone failed at 6,125/7,173 statements (85.38966%) versus 100%.
+
+Security run `41744754352` passed Staticcheck with all checks, govulncheck and
+CodeQL with zero annotations. Gosec `-nosec` failed eight findings (G204 ×6,
+G103 ×2), with zero suppressions. Retain
+`.local/qualification/ci-060639f-native-cross.json`. No exact060 Sonar,
+managed security audit, live-provider or production qualification is claimed.
+The cloud-response changes below now have this bounded execution receipt.
+
 ## Completed 018fea hosted receipt
 
 Checkpoint `018fea744d8dfb959072e1e95047c966b80ea011` has tree

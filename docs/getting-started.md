@@ -8,7 +8,7 @@ The example creates only a local synthetic fixture; it does not contact a
 provider, read credentials or start a service. Actual published artifacts and
 qualification are recorded in [the qualification matrix](qualification.md).
 
-### Linux and macOS
+## Linux and macOS
 
 ```sh
 umask 077
@@ -24,7 +24,7 @@ go build -o ./cquay ./cmd/cquay
 ./cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
 ```
 
-### Windows PowerShell
+## Windows PowerShell
 
 ```powershell
 git clone --branch feature/initial-implementation https://github.com/maldous/CircularQuay.git
@@ -45,8 +45,6 @@ policy delivers to it.
 
 For policy editing, conditional updates, doctor behavior, and all command
 flags, see the [command reference](commands.md).
-
-
 
 ## Choose an availability policy
 

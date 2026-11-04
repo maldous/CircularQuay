@@ -185,12 +185,20 @@ func permittedOrigin(origin string, allowed []string) bool {
 // metadata and provider authentication remain separate from token verification.
 func NewAccessTokenVerifier(ctx context.Context, cfg model.MCP) (auth.TokenVerifier, error) {
 	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
-	return newAccessTokenVerifier(ctx, cfg, client)
+	return newProductionAccessTokenVerifier(ctx, cfg, client)
 }
 
 func newAccessTokenVerifier(ctx context.Context, cfg model.MCP, client *http.Client) (auth.TokenVerifier, error) {
+	return newAccessTokenVerifierWithTrustStore(ctx, cfg, client, false)
+}
+
+func newProductionAccessTokenVerifier(ctx context.Context, cfg model.MCP, client *http.Client) (auth.TokenVerifier, error) {
+	return newAccessTokenVerifierWithTrustStore(ctx, cfg, client, true)
+}
+
+func newAccessTokenVerifierWithTrustStore(ctx context.Context, cfg model.MCP, client *http.Client, authorityScopedClient bool) (auth.TokenVerifier, error) {
 	if cfg.Authorities != nil {
-		return newNamedAccessTokenVerifier(ctx, cfg, client)
+		return newNamedAccessTokenVerifierWithTrustStore(ctx, cfg, client, authorityScopedClient)
 	}
 	resource, err := url.Parse(cfg.Audience)
 	if err != nil || !secureResource(resource) {

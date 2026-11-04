@@ -80,6 +80,10 @@ func runSonar(ctx context.Context, arguments []string, stdout, stderr io.Writer)
 	directory := flags.String("directory", ".local/sonar", "private local bootstrap directory")
 	endpoint := flags.String("url", "http://127.0.0.1:9000", "dedicated loopback SonarQube server")
 	project := flags.String("project", "circularquay", "fresh audit project")
+	tokenValidityDays := 7
+	if arguments[0] == "sonar-bootstrap" {
+		flags.IntVar(&tokenValidityDays, "token-validity-days", 7, "ephemeral scanner token validity (7-30 days)")
+	}
 	if flags.Parse(arguments[1:]) != nil || flags.NArg() != 0 {
 		_, _ = fmt.Fprintln(stderr, "invalid bootstrap arguments")
 		return 2
@@ -88,7 +92,7 @@ func runSonar(ctx context.Context, arguments []string, stdout, stderr io.Writer)
 	if arguments[0] == "sonar-init" {
 		err = assurance.InitSonar(*directory)
 	} else {
-		err = assurance.BootstrapSonar(ctx, *directory, *endpoint, *project)
+		err = assurance.BootstrapSonarWithOptions(ctx, *directory, *endpoint, *project, assurance.BootstrapSonarOptions{TokenValidityDays: tokenValidityDays})
 	}
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "Sonar bootstrap failed; verify a fresh isolated server and private state")
