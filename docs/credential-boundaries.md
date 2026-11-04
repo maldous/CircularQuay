@@ -77,8 +77,11 @@ trust boundary from application support roles.
 
 ### Native provider control mapping
 
-Official documentation was checked on 4 November 2026. Every row requires exact
-target/plan readback and the listed application tests before a protection claim.
+Official documentation was checked on 4 November 2026. Netlify describes
+[Netlify Database as managed PostgreSQL](https://docs.netlify.com/build/data-and-storage/netlify-database/);
+that establishes the engine family, not configured RLS or constrained runtime
+roles. Every row requires exact target/plan readback and the listed application
+tests before a protection claim.
 Cost references use the existing [forecast](managed-key-service.md#hosting-economics-and-capacity-assumptions),
 not a second budget. Unknown entitlement or cost is an unresolved selection gate.
 
@@ -96,13 +99,16 @@ not a second budget. Unknown entitlement or cost is an unresolved selection gate
 
 For a qualified PostgreSQL target, use a dedicated runtime role that is neither
 table owner nor superuser and has no `BYPASSRLS`; separate migration/maintenance
-credentials. Enable RLS on all tenant tables, with `USING` for reads/deletes and
-`WITH CHECK` for inserts/updates, including tenant changes. Consider `FORCE ROW
-LEVEL SECURITY` for owner paths but never treat it as restricting superuser or
-`BYPASSRLS`. Remove runtime DDL, role administration, `TRUNCATE` and broad
+credentials. Enable RLS on all tenant tables; without an applicable policy,
+enabled RLS denies normal row reads and writes. Table owners normally bypass
+RLS; `FORCE ROW LEVEL SECURITY` subjects owners to it. Superusers and roles with
+`BYPASSRLS` still bypass it, including when `FORCE` is set. Use `USING` to
+restrict rows selected, updated or deleted, and `WITH CHECK` to constrain new
+inserted/updated rows, including tenant changes. Remove runtime DDL, role
+administration, `TRUNCATE` and broad
 maintenance capabilities. Review views, security-definer functions, joins,
 partitions, exports and background jobs for bypass paths. PostgreSQL documents
-these limitations in its [row-security reference](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
+these limitations in its [PostgreSQL 17 row-security reference](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
 
 Set transaction-local tenant context only after server identity/grant verification,
 on the same connection and transaction as the protected queries. Never accept a
