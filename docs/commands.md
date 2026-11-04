@@ -63,6 +63,26 @@ fields. Inspect the selected executable and enrolled catalog before acting;
 account connections, scanning transmission and issuer mutations require their
 own actual authorization.
 
+The [composition contract](configuration-repositories.md#single-file-or-master-and-includes-configuration)
+accepts either a self-contained file or explicit trusted includes resolved as
+one policy. It does not establish extra compose/resolve/explain flags in the
+selected CLI. Inspect actual help/schema before use; config CRUD must not be
+used as an arbitrary file-concatenation or remote personal-file upload route.
+
+[First-run hosted key service initialization](management-and-discovery.md#first-run-and-minimal-managed-registration)
+requires both CLI and configuration opt-outs to be supported and resolved before
+any hosted-service network, with explicit precedence and enterprise lock
+validation. This intended behavior does not establish current opt-out flags,
+registration commands or a `KVM` mode in the dispatcher. Use actual help/schema
+and qualification evidence; do not guess a flag or pass an ignored field to
+claim that hosted registration is disabled.
+
+Configuration read/resolve/validate/explain/save stays on the client and uses
+its own source credentials/network/VPN. A missing source or browser CORS/file
+permission is not permission to upload config or use a hosted backend/proxy.
+The hosted API is limited to profile/key retrieval/association and necessary
+service metadata; no new remote config CRUD command is implied.
+
 ## Operational inspection
 
 Use `cquay --config PATH update check --json` for advisory release metadata.

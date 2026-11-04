@@ -76,6 +76,41 @@ Secret-free OpenTelemetry lifecycle events support operations. They do not
 establish immutable storage, exactly-once delivery or required-audit durability.
 The audit boundary below remains independently enforced.
 
+Configuration may be a self-contained file or a master with explicitly trusted
+department-owned includes, resolved through the same canonical contract. Source
+order, namespace/ownership, pins and typed conflict rules cannot weaken locked
+enterprise policy or let an include self-authorize. The
+[corporate GitHub/personal local case](configuration-repositories.md#corporate-github-and-personal-local-configuration)
+keeps grants, keys, cache and provenance partitioned; personal content is not
+uploaded for management, explain or telemetry. Optional offline cache and
+refresh/freshness rules are explicit, and full validation precedes atomic
+activation across every interface.
+
+The [hosted key service baseline](managed-key-service.md) remains minimal
+authenticated identifier-to-age-private-key registration/retrieval, not a default
+enterprise orchestration subscription. Enterprise features here are separately
+chosen capabilities and costs. [First run](management-and-discovery.md#first-run-and-minimal-managed-registration)
+initializes that hosted key service after resolved configuration and identity
+unless explicitly disabled via CLI or configuration; both opt-outs and locked
+policy conflicts are evaluated before hosted network. A new personal enrollment
+cannot claim an enterprise tenant or grant. Self-hosted/offline operation and
+noninteractive workload enrollment preserve the same authorization ceiling.
+
+All client configuration, including enterprise/corporate sources, is read,
+resolved/validated and saved client-side through the user's network/VPN and
+credentials. Neither contents nor source credentials go to hosted backend,
+proxy, analytics or logs. Hosted administration covers profile/key associations
+and necessary enrollment/window/usage/billing metadata only. Optional enterprise
+integrations cannot turn it into a config orchestration service; required
+source/identity/scanner policies still apply on the approved client boundary.
+
+Production safeguards for the minimal hosted service are not optional feature
+scope: [WAF/bot/DDoS, strict admission, durability/recovery and geographic SLOs](managed-key-service.md#production-protection-and-service-objectives)
+need exact infrastructure/plan evidence and costs. Headless automation cannot
+be indiscriminately challenged. The confirmed client-SPA OTel design queries
+only user-selected authorized endpoints; it implies no hosted config/telemetry
+backend or custom UI implementation approval.
+
 ## Audit contract
 
 Audit is a durable authorization and release-decision record, not a debug log

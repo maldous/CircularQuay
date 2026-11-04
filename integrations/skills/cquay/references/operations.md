@@ -68,3 +68,49 @@ commands in the table. Discover actual capabilities, retain separate grants,
 use canonical locks and common administration checks, and return a bounded
 unsupported result for absent tooling. Never add unrecognized policy fields or
 turn a local config write into a remote issuer effect.
+
+Configuration may be self-contained or a master with trusted pinned includes;
+one resolved model is not a one-physical-file restriction. Verify actual
+resolver/schema support rather than adding unrecognized keys or inventing a
+command. Explicit order/namespace/conflict rules preserve enterprise locks.
+Corporate GitHub + protected personal local composition must not upload personal
+content, keys or unauthorized provenance. Domain grants/cache stay separate,
+refresh/offline policy is explicit, and every required input validates before
+atomic activation. No silent omission, unsafe concatenation or permissive
+last-writer-wins workaround is authorized.
+
+The first-run hosted key service contract is config→trusted discovery→manual
+fallback→resolved-identity authentication→minimal authorized initialization,
+unless disabled via CLI or config. Resolve both opt-out surfaces and locks
+before any hosted network. This file supplies no invented flags, registration
+tool, endpoint or KVM enum. Use the actual selected release's capabilities;
+unsupported tooling is not a reason to connect accounts manually. CI enrollment
+is idempotent with workload identity. Default subscription is identifier-to-age
+private-key retrieval with future release windows, not remote orchestration.
+No personal material upload, automatic payment or copied-key revocation is implied.
+
+Customer utilization is successful logical hosted access, not profile/key slots:
+one daily hosted fetch=one use, twenty independent hosts/fetches=twenty uses,
+local reuse=zero. Denied/precommit failures add no uses; committed uncertain
+access reconciles once and same-logical-access retry never adds a second charge.
+No idempotency sharing across distinct clients/versions/requests is authorized.
+Expanded custom administration UI/screens remain deferred/unapproved; prior
+proposals do not authorize construction or imply delivery.
+
+All config stays on the client: user-owned network/VPN/source credentials,
+complete single/multiple-source resolution/validation/explain and local save.
+No contents/source credentials reach hosted backend/proxy/analytics/logs.
+Browser CORS/file restrictions require permitted native/local CLI/SDK integration,
+not a server fetch proxy. Hosted state is profile→age-key plus necessary
+service metadata; keys are never logged/displayed. CLI/config disable resolves
+before hosted network. PVM/KVM remain unverified user mode labels; no guessed
+flag, custom UI work or automatic subscription follows from this design.
+
+Customer account/usage/invoice/plan/quota/subscription/support operations require
+exact tenant/account/field grants; hosting dashboard/admin APIs are not customer
+billing or CRM. Reconcile signed provider events and lost/duplicate mutations
+idempotently. Future unattended financial actions need explicit bounded user
+authority and applicable confirmation; capability alone never authorizes charges.
+Use actual qualified provider-hosted payment entry, not card custody/admin keys
+or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or
+custom UI implementation is authorized by design documentation.

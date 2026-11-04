@@ -31,6 +31,16 @@ rotation/revocation have distinct authority; an instruction file supplies none.
 Never read an operational value or compute/send its hash to bind an incident.
 GitGuardian's internal `secret_hash` is not a local hash lookup interface.
 
+Single-file and explicitly trusted master/include layouts resolve to the same
+canonical model. Master-defined pins, namespaces, source order and typed
+conflict/group rules preserve enterprise locks and each source's authority
+ceiling. Reject cycles/duplicates/escape, bound loading and validate all inputs
+before atomic activation. Corporate and personal grants, decryption keys,
+cache and scoped provenance stay separate; no personal uploads through remote
+administration, explain or telemetry. Explicit refresh and optional finite
+offline policy preserve known denials and never infer production access.
+Do not invent syntax or bypass an unsupported resolver with a manual merge.
+
 ## Exposure and issuer response
 
 Associate evidence with the exact tenant/account/source and immutable credential
@@ -73,3 +83,39 @@ removal, exposure/revocation history, replay/approvals and required audit. Never
 make a feature appear usable by dropping an unsupported field, inventing an
 endpoint, restoring a permissive policy or resetting incident state. The
 release's qualification record establishes actual profile/interface support.
+
+Optional enterprise lifecycle/evaluator/scanner profiles above are not default
+hosted-subscription components or costs. The baseline hosted key service is
+minimal authenticated identifier-to-age-private-key association/retrieval with
+safe metering and an upgrade opportunity, not remote-unlock/config orchestration.
+First-run initialization honors CLI/config disable before any hosted network;
+locked conflicts deny. Registration supplies neither arbitrary key access nor
+permission to import local keys/config or charge automatically. CI repeats
+reconcile one workload-identity enrollment. User-named KVM is not a verified
+runtime mode; do not invent a flag or silently rename it. Copied keys/ciphertext
+remain usable outside future service-release decisions.
+
+Meter hosted access events, not profiles/key slots. Distinct host fetches are
+distinct successful uses; local reuse and denied/precommit failures add zero.
+Retries of one committed logical access reconcile the same durable usage event,
+without reauthorizing revoked access or creating repeated charges. Extra
+custom admin UI/screens remain deferred/unapproved; reuse existing platform
+services and the confirmed CLI/text flow.
+
+All config stays on the client: user-owned network/VPN/source credentials,
+complete single/multiple-source resolution/validation/explain and local save.
+No contents/source credentials reach hosted backend/proxy/analytics/logs.
+Browser CORS/file restrictions require permitted native/local CLI/SDK integration,
+not a server fetch proxy. Hosted state is profile→age-key plus necessary
+service metadata; keys are never logged/displayed. CLI/config disable resolves
+before hosted network. PVM/KVM remain unverified user mode labels; no guessed
+flag, custom UI work or automatic subscription follows from this design.
+
+Customer account/usage/invoice/plan/quota/subscription/support operations require
+exact tenant/account/field grants; hosting dashboard/admin APIs are not customer
+billing or CRM. Reconcile signed provider events and lost/duplicate mutations
+idempotently. Future unattended financial actions need explicit bounded user
+authority and applicable confirmation; capability alone never authorizes charges.
+Use actual qualified provider-hosted payment entry, not card custody/admin keys
+or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or
+custom UI implementation is authorized by design documentation.

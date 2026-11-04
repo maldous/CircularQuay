@@ -9,6 +9,21 @@ authorization, validation, approval and required-audit boundary for CLI, API,
 UI, official SDK and optional MCP. [Qualification](qualification.md) records
 actual implementation, supported profiles and revision-bound evidence.
 
+The policy can live in one self-contained file or a master plus explicitly
+trusted department/local includes. Both resolve to the same authority and
+lifecycle model; source splitting grants no new rights. The
+[corporate GitHub and personal local case](configuration-repositories.md#corporate-github-and-personal-local-configuration)
+keeps domain grants, decryption keys, caches and viewer-scoped provenance
+separate. No personal material uploads to a corporate service or telemetry path.
+Explicit version-refresh/trust and optional finite offline-cache policy preserve
+locks, known exposure/revocation and complete validated activation.
+
+All configuration for these capabilities stays on the client, including
+corporate/personal files and URLs, source credentials, resolution/validation,
+explain and local save. No hosted config backend/proxy/analytics/log upload is
+permitted. Hosted profile/key association and necessary service metadata are
+separate from client policy; optional capabilities do not widen that boundary.
+
 ## Provision and deprovision where supported
 
 An explicitly enrolled SCIM connector manages user/group metadata in the

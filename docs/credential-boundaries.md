@@ -16,6 +16,120 @@ trust assumptions. Hardware/private-key protection does not recall plaintext
 or released data keys. Every recipient and recovery path participates in the
 bundle's real authorization boundary.
 
+## Hosted database protection and compromise boundaries
+
+This is a **design and qualification requirement**, not a deployed database or
+cryptographic implementation. The inspected repository and retained records do
+not establish an active hosted database, envelope implementation or configured
+provider controls. Select **Cloudflare or Netlify** against the actual required
+profile; this comparison does not authorize deploying both. Reuse the selected
+provider's native services before adding tools. Account/CRM, billing and admin
+records need tenant authorization and privacy controls as well as age private
+keys needing confidential custody. Client configuration and source credentials
+remain client-side and must never enter either hosted store.
+
+### Data and key custody
+
+Use provider encryption at rest and TLS as the storage baseline. Add a vetted
+application AEAD envelope profile for age private-key bytes and sensitive
+account fields where the threat assessment requires protection against database
+exports. Generate independent random DEKs per profile/key version or sensitive
+record, with the selected library's cryptographically secure generator; a
+profile-wide DEK means compromise exposes that profile's entire DEK domain.
+Public profile IDs, predictable seeds and custom permutations are **not encryption
+secrets**. Use maintained cryptographic APIs, not an authored cipher or protocol.
+[Envelope encryption](https://docs.cloud.google.com/kms/docs/envelope-encryption)
+is the established layering pattern, not a decision to buy Google KMS.
+
+Keep only ciphertext, authenticated format/algorithm version, nonce, wrapped DEK,
+KEK version and necessary safe metadata in the database. Authenticate tenant,
+profile, record, key version and purpose with canonical, unambiguous AAD; derive
+the expected context from verified authorization and authoritative record identity,
+not solely attacker-editable row labels. Reject unknown algorithms/versions,
+wrong context and failed tags before returning plaintext. Ensure nonce uniqueness
+per encryption key for data and any AEAD wrapping, including retries, concurrency
+and restore. Follow the selected API's nonce and size limits. AAD is public and
+does not itself prevent replay of a complete older valid row: restored versions,
+revocations and meter state need authoritative reconciliation/fences. These
+requirements follow [RFC 5116](https://www.rfc-editor.org/rfc/rfc5116.html).
+
+Keep KEKs outside the database, dumps and application repository. First evaluate
+the selected host's restricted production secret mechanism and established runtime
+crypto support. A native runtime secret is a lean custody option, **not an HSM
+or non-exportable KMS**: authorized application code can read/use it. Scope decrypt
+authority to the custody service, keep plaintext lifetimes short, cap bulk reads,
+alert on abnormal decrypt/export activity and separate support/account runtime
+credentials from key custody where that produces an enforceable boundary. A
+second table under the same all-powerful credential is not such a boundary.
+Introduce an established external KMS only for a demonstrated unmet requirement
+(for example independent non-exportable custody), then quote operation, latency,
+recovery and availability costs. No new KMS is the default.
+
+Version KEKs and DEKs; distinguish wrapping-key rotation/rewrap from replacement
+of exposed age private keys. Retain protected recovery keys only for the declared
+backup window; test restoration before retiring old KEKs. Encrypt exported
+backups with independently controlled access, retain no plaintext exports and
+include key recovery, deletion and incident response in retention policy. Minimize
+account PII; keep payment-card entry with the payment provider. Do not log keys,
+tokens, configuration contents, source URLs/credentials, plaintext PII or support
+attachments containing them. Infrastructure administrators remain a separate
+trust boundary from application support roles.
+
+### Native provider control mapping
+
+Official documentation was checked on 4 November 2026. Every row requires exact
+target/plan readback and the listed application tests before a protection claim.
+Cost references use the existing [forecast](managed-key-service.md#hosting-economics-and-capacity-assumptions),
+not a second budget. Unknown entitlement or cost is an unresolved selection gate.
+
+| Requirement | Cloudflare candidate and explicit configuration | Netlify candidate and explicit configuration | Verification, entitlement and cost |
+| --- | --- | --- | --- |
+| Database storage protection | [D1](https://developers.cloudflare.com/d1/reference/data-security/) encrypts stored objects automatically with Cloudflare-managed AES-256 keys and uses TLS. Bind only the required database to the designated Worker; constrain operator tokens separately. | Verify the exact Netlify Database service's at-rest/TLS and operator-access guarantees; the reviewed [database permissions](https://docs.netlify.com/build/data-and-storage/netlify-database/access-control/) page documents dashboard access, not encryption/key ownership. Do not infer customer-managed KEKs or PostgreSQL roles from it. | Record service, region, account, database and current guarantees; inspect bindings/roles without secret values. D1 operations/storage and Netlify compute/egress are modeled; Netlify storage tariff and custody costs remain unresolved. Provider EAR does not protect an authorized SQL export. |
+| Envelope/key custody | [Workers secrets](https://developers.cloudflare.com/workers/configuration/secrets/) provide encrypted bindings; [Web Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/) supports AES-GCM and key wrapping. Separate production secrets and service bindings from previews and account/support code. | Use [environment scopes and deploy contexts](https://docs.netlify.com/build/environment-variables/overview/) to restrict custody secrets to production Functions, with no browser/build/preview exposure; confirm actual secret-visibility restrictions and Secrets Controller entitlement before relying on them. Select a maintained runtime crypto library. | Test ciphertext/context swaps, actual rotation/restore and preview denial. Neither mechanism alone is an independently authorized unwrap service. No extra KMS line item assumed; measure crypto CPU and quote any additional custody service before accepting reserves. |
+| Tenant and field authorization | D1 is SQLite-based: no PostgreSQL RLS claim. Use verified server tenant/profile context, parameterized tenant predicates for every query/write/join/list/aggregate/job, composite tenant keys and constrained bindings. | If the selected PostgreSQL service permits the required roles/policies, use the RLS contract below. A dashboard Team Owner/Developer permission is operator authority, not customer isolation. Verify actual database role provisioning and pool behavior; unsupported controls are a gap. | Exercise customer, scoped support, agent and global-admin paths across two tenants, including background work and exports. D1 can use separate databases for justified isolation, with migration/binding/limit cost; PostgreSQL connection/pool/role costs must be measured. |
+| Authentication | Worker verifies the configured application's issuer, audience, subject and scopes; operator Cloudflare Access/team login alone is not customer authentication. | Use actually entitled [Netlify Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/plans-and-pricing/) or the chosen supported issuer, then enforce account RBAC server-side. | Test invalid/revoked/wrong-audience identities and every UI/API/CLI/SDK/MCP route. Included Identity pricing does not prove machine-flow suitability; external IdP/enterprise entitlements remain explicit costs. |
+| Abuse and authoritative quotas | Use native [rate limits](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) for local approximate abuse control; durable transactional state enforces global usage/idempotency. Select available zone rules without challenging unattended clients. | Qualify entitled [rate limiting](https://docs.netlify.com/manage/security/secure-access-to-sites/rate-limiting/) and durable database quota transactions; [WAF](https://docs.netlify.com/manage/security/secure-access-to-sites/web-application-firewall/) requires Enterprise + High-Performance Edge. | Test distributed bursts, retries, denial and limit-store outage. WAF is not tenant authorization or exact billing. Lean forecast includes D1 admission writes; premium protection is optional/quoted, not silently included in Netlify Pro. |
+| Logs and evidence | Use native Workers logs/metrics with redaction, explicit retention and alerts. | Use native function/observability logs, confirm retention/export access on the selected plan. | Synthetic canary-secret leakage test must cover app, edge, traces and support/export surfaces. Forecast's log allowance/retention is bounded; longer durable audit/export is a separately quoted requirement, not an immutable-log claim. |
+| Backup and recovery | [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/) on the production storage backend is automatic: Paid 30 days, Free 7 days, no additional history/restore charge. Restrict destructive restore authority. | [Netlify database backups](https://docs.netlify.com/build/data-and-storage/netlify-database/backup-and-recovery/) are daily and on production publish. Scheduled retention: Free 3 days, Personal 7, Pro/Enterprise 30; on-publish retention differs. Restrict restore to the appropriate operator. | Restore synthetic data with the correct historical KEK, then reconcile revocations/usage and verify fail-closed fences. Daily backup is not 15-minute RPO. Longer exports, encrypted key recovery and restore labor are additional costs; no restore has run here. |
+
+### PostgreSQL row security contract
+
+For a qualified PostgreSQL target, use a dedicated runtime role that is neither
+table owner nor superuser and has no `BYPASSRLS`; separate migration/maintenance
+credentials. Enable RLS on all tenant tables, with `USING` for reads/deletes and
+`WITH CHECK` for inserts/updates, including tenant changes. Consider `FORCE ROW
+LEVEL SECURITY` for owner paths but never treat it as restricting superuser or
+`BYPASSRLS`. Remove runtime DDL, role administration, `TRUNCATE` and broad
+maintenance capabilities. Review views, security-definer functions, joins,
+partitions, exports and background jobs for bypass paths. PostgreSQL documents
+these limitations in its [row-security reference](https://www.postgresql.org/docs/current/ddl-rowsecurity.html).
+
+Set transaction-local tenant context only after server identity/grant verification,
+on the same connection and transaction as the protected queries. Never accept a
+client-supplied tenant setting as proof; never use session-level context that can
+bleed through pooled connections. Missing/malformed context must deny. Prove
+alternating-tenant, rollback, timeout and concurrent-pool isolation with the actual
+driver/pool. RLS can contain query mistakes; a compromised application credential
+that can set arbitrary trusted context can still impersonate tenants. Scope
+credentials/stores or use independently enforced identity where that threat must
+be contained. No PostgreSQL version, RLS privilege or pooled-context behavior has
+been verified for a deployed CircularQuay target.
+
+### Compromise model and residual risk
+
+| Compromise | Expected protection and remaining exposure |
+| --- | --- |
+| Database dump/export without KEK or decrypt authority | AEAD envelope keeps covered private-key/sensitive fields confidential; unencrypted account metadata, relationships, volume and timestamps can still leak. EAR alone does not protect a logical export. |
+| One independent DEK exposed | Its record/profile domain is exposed; independent DEKs restrict cryptographic spread. Released age keys and copied ciphertext remain usable and cannot be recalled. |
+| Authorized application runtime compromised | Attacker can abuse accessible data and unwrap authority, impersonate context and leak plaintext. Short access, separate custody authority, rate/bulk limits and alerts reduce opportunity; per-record DEKs do not guarantee containment. |
+| Shared KEK or sufficiently privileged operator compromised | Every reachable wrapped DEK under that KEK can be exposed, including retained backups. Random per-record DEKs do not fix shared-KEK compromise. Partition custody only where independently enforceable and plan incident key replacement. |
+| Old valid database/backup restored | AEAD can still validate old content. Reconcile key versions, revoked grants and usage fences against authoritative recovery evidence before serving; if freshness is uncertain, remain unavailable. |
+
+The [integration cases](integration-testing.md#hosted-database-security-validation)
+are required evidence for implementation. They are currently **unexecuted**;
+static documentation checks and a standalone crypto example would not establish
+application isolation, safe custody or deployment protection.
+
 ## Protected storage and native delivery profiles
 
 | Surface | Profile contract | Boundary |

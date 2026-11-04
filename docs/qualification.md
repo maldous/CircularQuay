@@ -22,6 +22,7 @@ This matrix distinguishes implementation from independent or live qualification.
 | Public distribution | Source publication in progress | No release, module-index, OCI or MCP Registry publication claimed. |
 | Remote discovery and administration | [Complete v1 contract](management-and-discovery.md) and [security controls](administration-security.md) defined; no managed control-plane implementation | Runtime local CRUD/bootstrap and four-operation MCP do not establish remote administration, enrollment or generic service discovery. |
 | Product-wide assurance profiles | [Default/strict contract](security-profiles.md) defined; no profile field or unified enforcement in the current policy model/schema | No strict-mode, downgrade-resistance or enterprise-compliance qualification is claimed. Existing baseline controls require their own exact evidence. |
+| Client-side composition | Bounded JSON master/includes resolver, native CLI integration and private-domain guards added as source changes | Source/static review only; new tests have not run under the shared-host execution hold. Full hierarchy/profile enforcement and service parity are not established. |
 | Canonical hierarchy and lifecycle | [Governance](configuration-governance.md) and [lifecycle](credential-lifecycle.md) contracts defined; current schema remains the flat local runtime policy | Group/default/lock compilation, managed sessions/SCIM, provider-native mutation, scanner gates and cross-interface lifecycle administration remain unimplemented. |
 
 ## Source workflow scope
@@ -38,6 +39,72 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact 2757155 hosted receipt
+
+Publication `275715525b74c99200ee9afc83ff069f6129b4a2`, tree
+`2e7bb1cf20fda50c07107a5dccb81154d57433ad`, was tested as synthetic
+merge `8ebd570715148137fa61e6e38443f83b82c9e786` with the same tree.
+These observations do not qualify the following composition or design changes.
+
+[Sonar 41803634899](https://github.com/maldous/CircularQuay/actions/runs/41803634899)
+completed CE task `5e9b0bdd-6169-455f-8651-7d556be0e44d` and analysis
+`692633b5-b7da-4035-821a-d72465b266f9`, with zero CE warnings and all
+retained strict readbacks HTTP 200. Issues, violations, hotspots, duplication
+groups and overall duplicated-line density are zero. The gate remains ERROR:
+66.5% coverage, missing new-code coverage/duplication metrics, and a Python
+3.15→3.14 analyzer warning. Scanner exit 3 follows successful upload/CE and
+does not imply a failed upload. Go statement coverage is 7,295/8,738
+(83.485923552%); it has a different scope from Sonar line coverage.
+
+[Source 41803634763](https://github.com/maldous/CircularQuay/actions/runs/41803634763)
+passed its Linux synthetic complexity-ceiling step after the OTel extraction.
+The separate source-assurance gate still fails the tagged integration package's
+unit scope, coverage and vet. Bounded workflow readback also records the
+[security toolchain failure](https://github.com/maldous/CircularQuay/actions/runs/41803634592),
+[SDK failures](https://github.com/maldous/CircularQuay/actions/runs/41803634904),
+three passing [WireMock jobs](https://github.com/maldous/CircularQuay/actions/runs/41803634597)
+and passing [Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41803634887).
+Those aggregate observations do not establish new finding dispositions, lock
+qualification or native/provider acceptance. Retain
+`checkpoint45-2757155-hosted-sonar.json` and its exact source/tree fence.
+
+## Following composition and security-design changes
+
+Source commit `5b6770594bd50a8b7459b9e597215c0f0ebb22fe`, tree
+`0e5c4de6f12cbcc7bcb8593996c78381027b029e`, contains this composition
+implementation. It has source/static review only; its subsequent hosted
+qualification must bind these exact bytes and the selected documentation tree.
+
+The new client-side resolver preserves single-document parsing and adds
+explicit root-owned JSON includes, immutable pins, namespaces/dependencies,
+bounded graph loading, conflict rejection, overrides and equality locks.
+It validates a complete candidate after root edits, then exposes one policy
+snapshot. CLI operational dispatch retains that snapshot. Raw `config get/list`
+inspect only the protected root; validation and writes resolve the complete
+candidate. No configuration or source credential is sent to a hosted key
+service or server proxy.
+
+Repository includes use the existing native signature/ancestry/object-graph
+protections and the new `FetchPinned` pre-acceptance exact-commit check. Offline
+cache use is explicit and time-bounded; online failures have no implicit cached
+fallback. Admission rechecks cache deadlines and cancellation after graph
+validation. That check is not a lease that automatically terminates an already
+running consumer or recalls an age key/plaintext copy; complete pre-effect and
+existing-generation lifetime qualification remains required. Repository cache acceptance is not a distributed transaction with
+all other includes or runtime activation. The resolver's private-domain guards
+cover declared path/reference aliases, publish/remote-grant restrictions and
+mixed snapshots; they do not prove that two copied key files contain different
+key material or protect plaintext from an authorized hostile native consumer.
+
+New schema, resolver, repository-pin, CLI and privacy tests are source-reviewed
+fixtures only until executed. Pinned formatting and bounded static checks are
+narrower than compilation, unit/race/fuzz execution, native file protection or
+Sonar/security qualification. No builds, resolvers, containers or runtime
+tests ran locally under the shared Foo resource hold. The full canonical
+organisation/group/lock and signed strict-profile engines remain unimplemented;
+the composition master alone does not establish centrally imposed enterprise
+authority or downgrade resistance.
 
 ## Exact fa767446 hosted receipt
 
@@ -664,13 +731,27 @@ These results are intentionally not represented by a green README badge.
 ## Managed-service design status
 
 The linked managed-key document and README describe the v1 North Star. The
-authenticated key-mapping endpoint, managed administration UI/API, protected
+authenticated key-mapping endpoint, managed association administration API, protected
 local custody, bundle-bound remote unlocking, and new CLI/MCP management paths
 are not implemented or qualified in this source checkpoint. Upstream plugin
 and hosting documentation is research evidence, not a CircularQuay integration
 receipt. The hosting/capacity/revenue calculations are explicit assumptions,
 not benchmarks, customer traction, approved prices, or operating accounts.
 No service, paid plan, credential, or BAU infrastructure was created or changed.
+Custom administration screens are explicitly deferred and unapproved for
+implementation. The confirmed UI North Star is design, not a deployment or
+permission to build it. No verified hosted worker/site/database/project identity
+for this service is recorded; repository research alone cannot establish the
+state of unrelated provider accounts.
+
+The confirmed near-term service is authenticated profile-to-age-private-key
+association/retrieval with necessary enrollment and successful-access metering.
+CLI/config opt-outs must precede hosted network access. This initialization,
+opt-out precedence, retrieval and metering implementation is still absent;
+neither the user's KVM/PVM terminology nor the forecast introduces a new source
+mode. All configuration remains client-side. The lean launch can defer optional
+enterprise/premium infrastructure within an explicitly approved release scope;
+it cannot waive fundamental security or the engineering gates for shipped code.
 
 The [management/discovery](management-and-discovery.md),
 [administration security](administration-security.md) and

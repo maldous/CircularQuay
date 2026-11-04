@@ -1,5 +1,11 @@
 # Security profiles and qualification
 
+This page specifies the final v1 security design. It is not an implementation
+or qualification report; the [qualification matrix](qualification.md#managed-service-design-status)
+records the selected revision's controls and gaps. The design uses present-tense
+product behavior as the North Star, without asserting that an unavailable
+profile or deployment has passed verification.
+
 CircularQuay applies one security engineering and qualification contract to the
 whole v1 product: native runtime, providers, encrypted offline state, identity,
 administration, SDKs, optional MCP, agent packages, telemetry and distribution.
@@ -13,6 +19,13 @@ engine and fail closed at protected boundaries. No profile is a claim of
 certification or immunity from compromise. Actual implementation and test
 evidence is recorded in [qualification](qualification.md).
 
+The North Star includes both profiles. A lean launch advertises only the
+implemented, qualified scope: deferring premium infrastructure or enterprise
+features does not make an unavailable strict profile available. The published
+artifact and release notes identify supported profiles and limits. Fundamental
+authentication, tenant isolation, key protection and bounded abuse controls
+remain mandatory; all shipped code retains the same engineering gates.
+
 Profiles apply through [canonical hierarchy and locked controls](configuration-governance.md)
 and [lifecycle workflows](credential-lifecycle.md). Optional SCIM or exposure
 integrations become mandatory for a descendant when locked by an authorized
@@ -21,6 +34,13 @@ deny affected release in strict mode. Warning/exception policy never permits
 issuer-revoked credentials, self-approval or bypass of required audit. Provider
 mutation requires its own supported capability and grant. OTel export remains
 operational delivery, not an immutable-store or required-audit guarantee.
+
+Both profiles preserve client-only configuration ownership: reads over the
+user's network/VPN/source credentials, full resolve/validate and local save.
+No hosted config store/proxy/log/analytics upload is allowed. Hosted state is
+profile-to-age-key plus necessary service metadata, and CLI/config disable
+precedes hosted network. Strict mode cannot require a config upload or silently
+turn on a disabled hosted service. Custom admin UI remains deferred/unapproved.
 
 ## Safeguards that never become optional
 
@@ -43,7 +63,7 @@ identity. The same rule applies to hardware custody, remote audit and revocation
 
 | Boundary | Default | Strict |
 | --- | --- | --- |
-| Initial use | Explicit local setup and a synthetic example; optional integrations remain disabled until enrolled. | Explicit approved enrollment and a signed policy/trust baseline before protected use. |
+| Initial use | Protected local setup and a synthetic example; first-run hosted key-service association honors both opt-outs before network access and authenticates before registration. Other integrations require enrollment. | Explicit approved enrollment and a signed policy/trust baseline before protected use. |
 | Configuration | Validated protected local policy, or authenticated pinned/signed remote policy under its selected trust contract. | Signed, revisioned policy; independently approved trust and privilege changes; durable anti-rollback and freshness enforcement. |
 | Identity | Declared local operator authority or an explicitly enabled qualified identity profile. | Named qualified human/workload profiles, bounded session and revocation freshness, phishing-resistant human administration and sender constraints. |
 | Secret selection | Exact declared sources, workloads and grants; no ambient credential fallback. | The same checks plus approved provider/account/resource/version selectors and machine-verifiable entitlement to the selected custody/release profile. |
@@ -63,6 +83,60 @@ provider entitlement, durable audit or revocation guarantee is incompatible
 with that strict deployment. Validation identifies the missing capability and
 denies the affected operation. It does not emulate assurance by accepting a
 configuration flag or silently substituting a weaker mechanism.
+
+## Effective security context
+
+The effective profile is a verified security context, not a user-supplied
+Boolean. Its signed envelope binds the profile identifier and revision,
+tenant and trusted issuer, enrollment and authority generation, applicable
+control identifiers and bounds, compatible client/service capabilities,
+not-before/deadline, and the digest of the complete resolved policy graph.
+The graph, its digest and configuration provenance remain client-side; they
+are not uploaded to the hosted key service. That service independently
+authorizes its narrow profile/key operation using its own enrolled authority.
+Approvals and exceptions bind that same context, operation and resource
+versions; they cannot be replayed against a different revision or tenant.
+Trust enrollment is separate from the policy it authenticates. A policy cannot
+introduce its own approving key or declare itself enterprise-approved.
+
+Acceptance checks the signature's explicit algorithm/key/purpose, exact
+audience and issuer/tenant association, validity and revocation freshness,
+supported contract and required capabilities. Durable accepted generations
+prevent restoration of an older policy, trust set or profile after restart,
+cache use, backup restore or failover. A failure to read that state is a
+denial, not a new enrollment. Changing a trust root, lowering a locked
+requirement or resetting accepted generations needs separately authorized
+recovery with the same audit and separation of duties.
+
+The policy compiler derives requirements once from authenticated inputs.
+Each operation retains its resolved configuration snapshot and the associated
+security context. The enforcement point verifies current authority before
+provider access and rechecks it after waits, before plaintext disclosure,
+publication or activation. Service replicas use durable fencing and approval
+consumption; a losing or uncertain writer cannot repeat a non-idempotent effect.
+Cancellation and expiry prevent new effects. Completed effects with an
+uncertain response remain subject to reconciliation and cannot be reported as
+if they had never happened.
+
+| Control | Enforcement point | Required adversarial evidence |
+| --- | --- | --- |
+| Authenticated context | Enrollment, policy compilation, request admission and artifact verification. | Unknown issuer/key/algorithm, wrong tenant/audience, altered graph, stale trust and unsupported contract deny before protected reads. |
+| Monotonic requirements | Every interface, descendant, cached/offline context and recovery path. | Local edits, flags, environment, SDK options, alternate endpoints and restored state cannot lower an ancestor's requirements or accepted generation. |
+| Exact authority | Resource/action admission, provider boundary and pre-effect recheck. | A read grant cannot publish, rotate, administer or disclose; group changes, expiry and revocation during a provider wait deny the subsequent effect. |
+| Custody and isolation | Credential loading, snapshot handling, target delivery and native process creation. | Cross-tenant/profile keys, private/corporate include collisions, redirected paths, hostile children and unsupported native boundaries fail within the declared host assumptions. |
+| Approval and step-up | High-impact management intent and one-time commit. | Self-approval, repeated approvers, changed intent, expired proofs, replay and concurrent consumption cannot satisfy quorum. |
+| Durable audit | Before an operation whose effective requirements mandate audit. | Unavailable/full storage, invalid checkpoints and failed durable admission block the effect; optional telemetry cannot substitute. |
+| Bounded availability | Queues, parsers, provider requests, retries, caches and offline releases. | Oversized input, cyclic includes, stale decisions, clock anomalies, outage and retry storms never widen scope or lifetime. |
+| Safe outcomes | CLI/API/SDK/MCP errors, events, metrics and diagnostic export. | Synthetic canary secrets and protected references remain absent; unknown outcomes preserve operation identity for authorized reconciliation. |
+
+Every supported operation has a control mapping and positive/negative tests;
+an unmapped protected operation is not eligible for release. The mapping covers
+first-run authentication and opt-outs, hosted key retrieval, local workloads,
+offline export, configuration CRUD/composition, provider lifecycle,
+administration, updates, recovery and each official client boundary. A missing
+implementation cannot be represented by accepting the profile name and
+skipping the missing checks. Exact implementation status belongs in
+[qualification](qualification.md#managed-service-design-status).
 
 ## Enforcement and downgrade resistance
 
@@ -100,8 +174,11 @@ uses the same scoped change/approval process as an ordinary configuration edit.
 Default ease of use means predictable setup and quiet operation, not hidden
 authority. Once approved configuration and credentials are enrolled, routine
 work runs without repeated confirmation unless its actual policy requires
-step-up. Optional telemetry, provider enrollment, identity login and service
-discovery do not start merely because an executable is launched.
+step-up. The first-run hosted key-service association follows its declared
+configuration, authentication and CLI/config opt-out checks before network
+access. Optional telemetry, unrelated provider enrollment and arbitrary service
+discovery do not start merely because an executable is launched. Self-hosted
+and offline configurations keep their declared independent boundaries.
 
 Non-interactive calls never wait for a browser, biometric input or confirmation.
 If interaction or fresh approval is required, they return a stable safe failure

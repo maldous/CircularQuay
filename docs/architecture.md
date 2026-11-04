@@ -24,10 +24,13 @@ local configuration or an authenticated, enrolled discovery reference; explicit
 overrides select context without widening a grant. Discovery hints, runner
 markers and downloaded configuration cannot establish authority by themselves.
 
-The management plane edits versioned non-secret declarations, mappings and
-bounded grants. It is separately authorized from workload execution and raw
-value disclosure. The optional managed service applies that same model to its
-UI/API and tenant storage. SDK transport choice, a plugin installation or a
+The client edits/resolves/validates versioned configuration and saves it locally,
+using its own network/VPN and source credentials. The hosted service stores
+only profile-to-age-key associations, protected keys and necessary enrollment,
+windows, usage and billing. Configuration contents/source credentials never
+enter its backend, fetch proxy, logs or analytics. Hosted mapping/grant actions
+are separately authorized from client configuration, workload execution and
+raw disclosure. SDK transport choice, a plugin installation or a
 platform dashboard role cannot bypass it.
 
 Required audit records precede protected release. Operational metrics, traces
@@ -48,6 +51,16 @@ External provider mutation and consumer activation are not one transaction;
 durable intent, staged reconciliation and current-generation fencing preserve
 known blocks and uncertain outcomes. OTel export is an independent operational
 path, not an immutable-audit guarantee.
+
+Physical storage supports either a self-contained file or an explicitly
+trusted master/include graph. The resolver authenticates pinned source bytes,
+applies namespace/ownership limits and deterministic typed rules, validates all
+inputs, then activates one immutable effective generation atomically. Source
+order cannot override locks or let a department enlarge its own authority.
+[Corporate/personal composition](configuration-repositories.md#corporate-github-and-personal-local-configuration)
+keeps domain identities, decryption keys and caches distinct. Personal inputs
+resolve locally; remote administration and explain never acquire or export them
+by implication. Optional offline and refresh rules preserve the same ceiling.
 
 ## Distinct authorities
 

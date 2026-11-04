@@ -52,6 +52,16 @@ or model-visible bootstrap credentials. Retain the exact installed-byte,
 deployment, backup/restore and independent review receipts; no profile name
 establishes certification or replaces missing qualification.
 
+For a lean launch, record the explicitly selected secure baseline and deferred
+enterprise capabilities in the release scope/evidence. Do not advertise strict
+mode, premium WAF/bot services, contractual availability or geographic guarantees
+without their actual implementation, plan entitlement and qualification. Spend
+reductions can defer optional scope; they cannot waive authentication, tenant
+isolation, key protection, sensible abuse limits or the required engineering
+gates for shipped code. Use the existing managed-service forecast for cost and
+upgrade assumptions; no deployment, plan purchase or account connection follows
+from that model.
+
 ### Version and branch policy
 
 Use Semantic Versioning and Gitflow. `feature/<purpose>` and `hotfix/<purpose>` describe work; `develop` integrates reviewed changes; `release/<major.minor.patch>` stabilizes a selected release; `main` contains qualified stable releases. Preserve merge commits and back-merge release/hotfix fixes into `develop`. Do not use direct feature pushes to `main` or rewrite published history.
@@ -118,15 +128,17 @@ Use the standalone [managed-service contract](docs/managed-key-service.md) for
 identity/key mappings, administration, custody limits, and the separate financial
 model. Prefer already available paid Netlify/Cloudflare identity and management
 interfaces; verify plan entitlements, seats, credits, and retention before
-choosing a deployment. Build only missing key-specific screens and host their
-UI/API within those environments. Deployment and preview identities are separate;
+choosing a deployment. Custom key-specific administration screens are deferred
+and unapproved for implementation; this operator guide does not authorize
+building them. The minimal hosted API and CLI/text authentication flow keep
+their separately approved scope. Deployment and preview identities are separate;
 previews contain synthetic keys only. Platform-account roles, site protection,
 application identity, mapping/grant administration, and key reads are separate
 permissions. Preserve server-side checks and redacted audit for every route.
 
 Enroll exact trusted issuers/audiences, clients, stable subjects/domains, key
 versions, grant windows, refresh/custody policy, and independently held recovery
-recipients. Back up keys, mappings, policy revisions, and revocations together;
+recipients. Back up hosted keys, mappings, association-policy generations and revocations together;
 restoring old grants must not undo a deny. Test key release, denied-domain access,
 revocation, IdP freshness, audit failure, retention, and isolated restore before
 operator acceptance. A mapped private key is intentionally disclosed to its
@@ -134,6 +146,16 @@ client: revoking the mapping stops future fetches but does not invalidate copied
 keys or old ciphertext. Capacity, hosting costs, paid plans, release gates, and
 native/hardware acceptance require their own actual receipts; no purchase or
 production deployment follows from documentation.
+
+Configuration remains entirely client-side, including retrieval through the
+operator's VPN/network, credentials, composition, validation and local save.
+Never send configuration bodies, source credentials or protected references
+to the hosted key service, a server proxy, analytics or logs. Browser limits
+require a permitted client/native route. Test both CLI and configuration
+opt-outs before any hosted registration/network access; a disabled hosted
+service supports fully client-only use. Hosted metering records successful
+logical profile/key access events, deduplicates retries, and cannot charge
+local reuse or turn a denied/precommit failure into a successful fetch.
 
 ### Managed-service validation and promotion
 

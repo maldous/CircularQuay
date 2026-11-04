@@ -10,6 +10,18 @@ This is the security contract for [discovery and management](management-and-disc
 The [security profiles](security-profiles.md) define product-wide enforcement;
 [qualification](qualification.md) records implemented controls and exact evidence.
 
+All configuration is client-side: retrieval through the user's network/VPN,
+source authentication, composition, validation and local save do not send raw
+or resolved policy, source credentials or protected references to a hosted
+CircularQuay service, proxy, analytics or logs. The hosted service manages only authenticated
+profile-to-age-key association/retrieval and necessary enrollment, metering
+and billing. Its administration never implies remote configuration custody.
+Repository publication and optional external identity/policy integrations
+retain their separate explicit authority and minimal metadata boundaries.
+Custom administration screens are deferred and unapproved for implementation;
+these security requirements do not authorize building them. Browser CORS/file
+limits require a permitted client-side/native route, never a hosted proxy.
+
 ## Independent trust decisions
 
 | Control | Required decision |
@@ -246,6 +258,114 @@ without granting broader access. Recovery has tested RPO/RTO and explicit
 operator ownership. No control promises to recall plaintext or keys already
 copied by an authorized consumer or defeat an administrator controlling the
 consumer's host.
+
+## ADMIN-08: Customer accounts and financial authority
+
+Customer identity, profile-attributed successful-access usage/history, invoices,
+plans, quotas, subscription status and support have separate permissions from
+key retrieval and hosting administration. A Cloudflare/Netlify operator API or
+dashboard is never an end-customer account portal. Provider administration
+credentials remain outside clients and model context. Customer-facing services
+use only their actual qualified features and entitlements.
+
+Payment entry uses an established provider-hosted flow without CircularQuay
+card custody. Payment/subscription events authenticate their exact provider,
+account, tenant and event identity; bounded replay/idempotency controls and
+durable reconciliation handle duplicates, reordered events and uncertain
+responses. Successful-fetch metering, invoice status and secret authorization
+are distinct records. A webhook or browser return cannot self-assert payment,
+erase usage, widen a grant or change another tenant's subscription.
+
+CLI/API/SDK and any separately authorized management MCP expose the same typed
+account operations and current tenant ceiling. Unattended financial changes
+require explicit approved operations, spending/plan bounds, expiry and any
+applicable confirmation. Enabling an integration, resolving configuration or
+exceeding a quota never authorizes an automatic charge or upgrade. Usage reads,
+support access, payment actions and plan changes are separately auditable;
+card data, keys, configuration and source credentials stay out of those events.
+This design authorizes no live payment setup, purchase or custom UI build.
+
+## ADMIN-09: Restricted operator administration
+
+The remotely hosted operator plane is separate from the customer's account
+portal and the client's local configuration workspace. It manages scoped
+customer/service metadata, support cases, safe database maintenance,
+infrastructure health and secret-free telemetry. Reuse qualified hosting,
+payment and monitoring consoles where they meet the required roles and audit
+contract. Their operator APIs and credentials are never customer capabilities.
+Custom console implementation retains the baseline-first deferral.
+
+Operators authenticate with the required strong identity and scoped role;
+support access is tenant-bound, time-limited and audited. Maintenance uses
+typed reviewed operations, exact targets, concurrency checks, bounded effects
+and reconciliation. Privileged database, key-custody, recovery and role changes
+need their separate approval and retained evidence. There is no routine
+plaintext age-key display, unrestricted database browser or configuration
+upload route. Root-cause investigation uses approved metadata and redacted
+diagnostics, not client configuration or source credentials.
+
+Approved support metadata can include the tenant-scoped key identifier, public
+age recipient, fingerprint of the public key, version/status and lifecycle
+timestamps. It excludes the private key and secret-derived hashes. Activity
+and security events retain authenticated source, UTC time, action, result and
+request correlation. Geographic context is coarse and purpose-limited, with
+explicit access, privacy and retention controls; it is not an implicit location
+tracking feed. ISO/IEC 27001 mapping supports evidence and review within the
+customer's assessed scope without asserting certification.
+
+An emergency operation has an enrolled recovery purpose, finite authority,
+independent approval where required and post-event review; it cannot silently
+disable encryption, tenant isolation, signature validation or required audit.
+Qualification uses synthetic isolated state and tests denial, audit/storage
+failure, concurrent maintenance, restore and uncertain effects before the
+operator capability is exposed. Design and test instructions authorize no
+production deployment, paid service or live data mutation.
+
+## ADMIN-10: Account roles and scoped delegation
+
+Account administration separates an operation's role permissions from its
+tenant, organisation, customer, group, environment, selected fleet, key-metadata
+and billing scope. These are server-side account/authorization records, not
+uploaded client configuration. An authenticated role alone is insufficient:
+the operation and every target must fall within an active explicit assignment.
+
+| Persona | Permitted purpose and default scope |
+| --- | --- |
+| Superuser administrator | Exactly one protected global administrator account, with explicit global account-control authority and separate audited use. This is not an ordinary support role. |
+| Product owner | Approved product/catalog and commercial settings; no customer key or support access implied. |
+| Service operator | Scoped service health and reviewed maintenance; no automatic customer business authority. |
+| Support personnel | Individually assigned customer/enterprise subsets and allowed support actions, with finite access and no blanket tenant access. |
+| Customer account owner | Own account membership, subscription and support permissions within explicitly assigned boundaries. |
+| Enterprise administrator | Assigned organisation/group/environment and selected-fleet administration within the authorizing profile. |
+| Billing administrator/reviewer | Separately assigned invoice/usage or approved subscription-change permissions; no key retrieval. |
+| Auditor | Authorized redacted evidence inspection without mutation or private-key disclosure. |
+| Workload or AI agent | Named nonhuman identity and explicit bounded delegation, expiry, actions and resource selection; no inherited human or global authority. |
+
+The superuser account uses the strongest qualified human authentication and
+protected recovery custody. Routine work uses scoped identities instead.
+Global use, privilege changes and recovery are attributable and audited;
+high-impact actions retain their required independent approval. A single global
+account does not mean a shared password or exemption from controls. Its role
+does not automatically grant raw age-private-key access, source credentials,
+payment-card custody or permission to ingest client configuration.
+
+Explicit denies prevail. Applicable assignments combine only under declared
+rules; conflicting scopes or ownership deny. Delegation cannot exceed or
+outlive the delegator, change tenants, self-approve or grant another global
+account. Revocation and role/group changes invalidate affected sessions and
+delegations within the qualified freshness bound, with a pre-effect recheck.
+UI/API/CLI/SDK and optional management MCP use the same server-side evaluator;
+the workload MCP catalog does not become an administration catalog.
+
+Fleet/group/configuration actions are restricted to the authorizing profile
+and explicitly selected targets. Client-side connections use the user's own
+network/VPN and authenticated provider or enrolled agent capabilities; a
+browser cannot reach an unavailable private fleet or bypass CORS. A capability
+requiring central client-configuration storage conflicts with the custody
+boundary and must be redesigned or explicitly resolved before implementation.
+It is not silently implemented by storing configuration on the key service.
+
+No live accounts, roles, fleet actions or privileges are created by this design.
 
 ## Qualification evidence
 

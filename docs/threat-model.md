@@ -72,6 +72,16 @@ export does not prove immutable audit or recall released material. These
 controls require their own implementation/qualification; naming an integration
 is not evidence that its boundary is enforced.
 
+[Configuration composition](configuration-repositories.md#single-file-or-master-and-includes-configuration)
+adds include-cycle/alias, namespace escape, path/SSRF, pin drift, precedence and
+partial-activation threats. Master-authorized source/namespace/authority limits,
+bounded loading, typed conflicts, enterprise locks and full graph validation
+precede one atomic activation. Source order or departmental ownership cannot
+self-enroll trust. Corporate/personal composition keeps grants/keys/cache
+partitioned and prevents personal file/value/provenance uploads through remote
+interfaces, explain or telemetry. Stale/unavailable inputs follow explicit
+refresh/offline policy and cannot infer production access.
+
 ## Disclosure limitations
 
 MCP raw values can enter client/model context, transcripts, or telemetry. No server response annotation can guarantee downstream retention. Invoking an arbitrary application also does not guarantee that application's logs remain secret-free.

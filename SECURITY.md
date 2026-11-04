@@ -35,6 +35,17 @@ implementation review: signer/issuer substitution, ambiguous signed data,
 replay/rollback, approval and revocation races, profile downgrades, alternate
 ingress and recovery are in scope. Baseline protections apply in every profile.
 
+Review configuration composition as a client-side trust boundary: pinned
+sources, dependency/namespace conflicts, ancestor locks, local reference bases,
+private/corporate custody, complete candidate validation and safe provenance.
+Raw/resolved configuration, source credentials and protected references must
+not reach a hosted backend, proxy, analytics or logs. The hosted service's
+narrow profile-to-age-key operation does not authorize configuration custody.
+Include first-run opt-outs before hosted network access, registration
+authentication, retry/metering consistency and required-audit failures. Default
+ease of use cannot waive any baseline; strict requirements must be verifiably
+enforced, with unsupported deployments denied rather than silently downgraded.
+
 ## Dependency advisories
 
 Publish upstream advisories and tested mitigations separately from first-party findings. Do not suppress an affected executable from the SBOM. The SOPS Vault-metadata advisory, [GHSA-jgf3-f6rg-8x3h](https://github.com/getsops/sops/security/advisories/GHSA-jgf3-f6rg-8x3h), requires explicit restricted `SOPS_HC_VAULT_ALLOWLIST` handling. Removing a finding from a dashboard is not remediation.

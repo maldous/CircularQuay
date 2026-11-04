@@ -43,8 +43,9 @@ records what was tested; passing a workflow does not establish a qualified relea
 ## Try it in a minute
 
 [Install or build `cquay`](docs/getting-started.md), then create a local example
-with fabricated values. It needs no provider account, identity server or MCP
-connection.
+with fabricated values in a local JSON file. This fixture uses no external
+secret-provider account or MCP connection. Hosted key-service enrollment has
+its own first-run authentication and opt-out contract, described below.
 
 **Linux and macOS**
 
@@ -62,6 +63,18 @@ cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello f
 .\cquay.exe --config cquay.json doctor
 .\cquay.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Hello from cquay.'
 ```
+
+On first run, the product checks existing configuration, then trusted discovery,
+then manual selection, authenticates and initializes the
+[hosted key service](docs/management-and-discovery.md#first-run-and-minimal-managed-registration)
+unless disabled via CLI or configuration. Its default subscription is the
+simple authorized identifier-to-age-private-key service, with future
+key-release windows, a free allowance and a clear subscription opportunity;
+hosted-event allowances and prices remain undecided and there is no automatic charge.
+Utilization counts hosted access events: twenty independent host fetches are
+twenty uses; local reuse adds none. Enterprise orchestration/remote unlocking
+are separately selected capabilities.
+A copied age key has no expiry and can still decrypt matching old ciphertext.
 
 From there, [connect a provider and choose online, offline or hybrid access](docs/getting-started.md#choose-an-availability-policy),
 [start from a Git configuration repository](docs/configuration-repositories.md),
@@ -113,7 +126,10 @@ profile](docs/security-profiles.md). [Discovery and administration](docs/managem
 share explicit trust, scoped permissions and [signed-change safeguards](docs/administration-security.md)
 across the CLI, UI, SDKs and optional MCP.
 Manage organisational defaults, group rules and locked settings through
-[one governed configuration](docs/configuration-governance.md). Add SCIM
+[one governed configuration](docs/configuration-governance.md): use a
+self-contained file, or a master with explicitly trusted department files.
+[Compose corporate GitHub policy with protected personal local configuration](docs/configuration-repositories.md#corporate-github-and-personal-local-configuration)
+without overriding corporate locks or uploading personal secrets. Add SCIM
 provisioning where supported, coordinate authorized provider-native rotation
 and revocation, and use GitHub secret-scanning signals with an optional
 GitGuardian block/warn/approved-exception policy. The
@@ -126,6 +142,16 @@ and permission ceiling.
 
 The guides describe the complete v1 end state; [qualification
 evidence](docs/qualification.md) records what each exact revision has proved.
+
+All configuration stays on your client: read files or URLs through your own
+network/VPN, resolve and validate them, and save locally. The hosted service
+receives no configuration or source credentials; it stores only the authorized
+profile-to-age-key association and necessary enrollment/usage/billing data.
+The [account-service design](docs/managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+also covers your usage history, invoices, subscriptions and support through
+qualified customer-facing services; it does not expose operator dashboards or
+authorize automatic charges. Browser access respects CORS/file permissions and can use explicit native
+client integration; it never falls back to a hosted configuration proxy.
 
 ## Make AI access deliberate
 

@@ -99,6 +99,85 @@ replacement keys; never infer GitGuardian identifiers from a local secret hash.
 OTel export is not immutable audit. Fix forward through approved migrations
 without resetting locks, exposure, revocation or replay state.
 
+## Self-contained or composed policy
+
+One canonical model can come from a self-contained file or explicitly trusted
+master/includes. Inspect actual loader/schema support before use; never invent
+include flags, concatenate files or upload personal local sources to a remote
+service. Apply master-approved pins, namespaces, typed order/conflict/group
+rules and enterprise locks; a child source cannot enlarge its authority.
+Validate the complete bounded graph before one atomic activation. Corporate
+and personal grants/keys stay separate, with no personal content or unauthorized
+provenance in corporate explain/telemetry. Offline cache and refresh/trust rules
+must be explicit; unavailable input grants no extra access.
+
+## Hosted key service initialization
+
+The product's first-run contract checks config, then trusted discovery/manual
+fallback, authenticates and initializes the minimal hosted key service unless
+CLI or configuration disables it. Resolve either opt-out before any hosted
+network call; validate precedence/enterprise locks and deny conflicts rather
+than registering anyway. Inspect actual installed capabilities: this contract
+creates no flag/schema/tool or verified `KVM` mode. The user's KVM label must
+not be silently renamed.
+
+Minimal enrollment maps only authorized identifiers/clients/tenants; CI uses
+idempotent workload-identity enrollment. It grants no arbitrary key or corporate
+membership. Do not upload personal config/secrets/keys, import a key, purchase a
+plan or enroll enterprise orchestration by implication. Free allowance/upgrade
+opportunity has undecided event allowances/prices and no automatic charge. Windows govern
+future age-private-key release only; copied keys remain usable. Self-hosted,
+offline and disabled-hosted policies retain their separate approved boundaries.
+
+Profile utilization is one hosted age-key access event, not profile/key count.
+Independent twenty-host fetches are twenty uses; local reuse is zero. A logical
+access and its automatic retries reconcile one committed event; denied/precommit
+failure adds no retrieval use. Never infer consumption from stored key slots.
+
+Expanded custom admin UI/screens are deferred/unapproved. Prior design prose
+is not a human approval to build them. Reuse existing platform services and
+preserve the confirmed CLI/text flow; do not cancel independently approved work.
+
+All config is client-side: files/URLs via user network/VPN/source credentials,
+full resolve/validate/explain and local save. Never send config content/source
+credentials to hosted backend/proxy/analytics/logs. Respect browser CORS/file
+permissions via permitted native CLI/SDK/local integration, never server proxy.
+Hosted state is only authenticated profile→age-key and necessary enrollment/
+window/meter/billing; protect key values with no display/logging. CLI/config
+disable before hosted network supports fully client-only operation. The user
+also said PVM; neither PVM nor KVM is a verified source mode/flag. Do not invent
+or silently rename them. Custom UI remains deferred/unapproved design.
+
+The user confirmed a README-led public landing and authenticated client SPA
+as design only; custom UI implementation remains deferred. Client OTel uses
+user-selected query/collector endpoints with actual network/VPN/CORS/auth or
+permitted local/native integration. No general browser OTLP listener, hosted
+telemetry/config ingestion or immutable-audit guarantee follows from it.
+Production-grade minimal hosted service needs qualified WAF/bot/DDoS, headless
+rate limits, consistency/custody/recovery and measured geo objectives; no plan
+label or forecast authorizes provisioning or proves those properties.
+
+End-customer account/usage/history/invoice/subscription/support capabilities
+are separate from Cloudflare/Netlify operator administration. Use only actually
+supported customer-scoped methods with common authorization, tenant isolation,
+idempotency/reconciliation and audit. Provider IDs are not ownership proof.
+Reuse hosted payment entry; no card fields, admin keys or portal session URLs
+in model logs. Unattended financial actions require explicit user-approved
+operation/account/plan/amount/currency/time limits plus applicable confirmation.
+Capability is not consent to charge/upgrade. No live provider setup, purchase,
+configuration upload or deferred custom UI work follows from these instructions.
+
+Role permissions and tenant/org/customer/group/environment/fleet/key-metadata/
+billing scope bind in one assignment tuple; do not mix one role's actions with
+another assignment's broader scope. Individual support sees only assigned
+enterprise/customer subsets. The single protected global application superuser
+is a distinct design role, not support, shared agent login or raw-key access.
+Deny/conflict/time/delegation/revocation and financial confirmation remain.
+Customer enterprise admin and selected-fleet work require explicit authorizing
+profile+provider+target grants and actual CORS/VPN/agent capability. No central
+config broker/storage or invented fleet command is permitted; report conflicts
+and unsupported options. Custom console implementation stays deferred.
+
 ## Raw disclosure and recovery
 
 `read_secret` deliberately returns plaintext to the client/model context and

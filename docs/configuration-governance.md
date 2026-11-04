@@ -1,6 +1,6 @@
 # One configuration, governed access
 
-CircularQuay uses one canonical v1 policy graph for organisational defaults,
+CircularQuay uses one client-resolved canonical v1 policy graph for organisational defaults,
 groups, environments, workloads, permitted user choices and optional
 integrations. CLI, API, UI, SDK and optional MCP operate on the same typed,
 versioned resources and authorization rules. A tool-specific settings file is
@@ -21,6 +21,64 @@ redacted field provenance and a stable policy/authorization generation. The
 runtime policy, protected enrollment/custody store and managed deployment
 schema have distinct responsibilities; they are not competing operator-policy
 files. Credentials remain protected references outside ordinary JSON.
+
+One effective policy can come from a self-contained file or a master with
+explicit external includes. Physical file separation preserves department
+ownership; it does not create independent policy engines or last-write-wins
+authority. The master selects trusted locations, immutable revisions/digests,
+namespaces, dependencies, reference bases and permitted overrides. Fragments
+cannot introduce trust, grants or executable behavior themselves. Resolution
+rejects duplicate identities, conflicts, cycles, excessive graphs and invalid
+cross-references before exposing one complete candidate.
+
+## Client-side configuration boundary
+
+All configuration handling stays on the client. The native CLI, official SDK
+or a permitted browser client reads files/URLs using the user's own network,
+VPN and explicitly selected source credentials, resolves and validates the
+complete graph, then saves locally. Neither raw nor resolved configuration,
+personal includes, source credentials or protected reference details enter a
+CircularQuay hosted backend, server proxy, analytics or logs. Local validation
+cannot silently become remote configuration administration.
+
+The hosted key service accepts only the authenticated profile-to-age-key
+association and retrieval contract, with necessary enrollment, metering and
+billing metadata. It does not store configuration or resolve providers on the
+client's behalf. A configuration digest/provenance view is local diagnostic
+state, not additional hosted request metadata. Optional external identity or
+policy decisions use their separately approved minimal metadata contract;
+they do not authorize sending configuration bodies or source credentials.
+
+Browser CORS and file-permission limits are real compatibility boundaries.
+A browser uses an explicitly permitted source or approved local native
+CLI/SDK bridge; it never routes the configuration through a hosted proxy to
+work around those limits. Custom administration screens remain deferred and
+unapproved for implementation. This client-side design does not authorize
+building or deploying them.
+
+A corporate signed repository and a protected personal local file can
+contribute to the same environment without sharing custody. Personal values,
+references and raw documents stay local. They cannot override corporate locks
+or grants, acquire remote disclosure permissions, be republished to corporate
+targets or share corporate decryption credentials. Mixed-domain snapshots are
+rejected. Provenance excludes personal origins and document digests from
+exported views. Once an authorized native workload receives plaintext, its
+behavior still depends on the declared host and workload trust boundary;
+configuration validation cannot recall or control a copied value.
+
+The JSON composition contract is closed and explicit. Every include is pinned
+by SHA-256; repository inputs also require the existing authenticated,
+signed-commit/ancestry contract and an exact commit. Offline repository use is
+explicit with a finite cache deadline; an online trust failure never silently
+selects a cache. All child data/credential paths bind to the master's declared
+reference base, independently of the fragment's storage location. Local
+configuration edits validate the complete candidate before atomic replacement;
+they never write included documents. This is candidate atomicity, not a claim
+of a distributed transaction across repository cache acceptance and runtime
+activation. See the [field reference and synthetic example](composition-reference.md)
+and [configuration repositories](configuration-repositories.md).
+
+## Hierarchy and locks
 
 | Layer | Responsibility | Limitation |
 | --- | --- | --- |

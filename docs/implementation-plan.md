@@ -6,7 +6,12 @@ V1 is one complete product contract. Work packages describe implementation
 dependencies and parallel ownership; they do not define reduced releases or
 defer a promised capability. Source checkpoints make changes reviewable. Fixes
 move the implementation forward against the same acceptance requirements.
-Launch requires the whole declared contract and its revision-bound evidence.
+A full-v1 claim requires the whole declared contract and its revision-bound
+evidence. The separately requested near-term lean secure launch can defer
+optional enterprise functionality under an explicitly bounded release profile;
+it does not abandon the North Star or waive engineering/security gates for
+what is shipped. Record actual scope, limitations, cost and receipts in the
+existing release/qualification records.
 
 ## Accepted product decisions
 
@@ -39,13 +44,155 @@ The optional [managed key service](managed-key-service.md) associates a verified
 existing identity with authorized age-key mappings. Scoped UI/API/CLI/MCP
 administration manages allowed principals, clients, windows, modification, and
 revocation. Reuse available paid Netlify/Cloudflare identity and management
-capabilities first; host only the missing key-specific UI/API within those
-platforms. There is no separate email/onboarding suite. Key distribution is
+capabilities first for the minimal hosted API and confirmed CLI/text flow.
+Expanded custom key-specific UI/screens remain deferred/unapproved. There is no separate email/onboarding suite. Key distribution is
 explicitly distinct from protected local custody and remote unlocking. Bundle,
 recipient, recovery, and authorization-domain isolation apply to every unlock
 path. Private keys, released data keys, and plaintext cannot be recalled;
 SOPS/age do not enforce expiry. Commercial packaging and financial scenarios
 are assumptions, not chosen prices, traction, or deployment authorization.
+
+Expanded custom administration UI/screens are deferred/unapproved, not a
+current implementation workstream. Prior UI proposals are not proof of human approval or delivery. The explicit
+[landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred)
+is now confirmed as design only; custom implementation remains deferred. Reuse existing platform services and
+preserve explicitly approved CLI/text onboarding and product capabilities.
+
+### Established baseline and first-run acceptance
+
+The hosted subscription baseline is authenticated identifier-to-age-private-key
+mapping/storage/retrieval with minimal authorized registration, window checks,
+metering/free allowance and a clear opt-in subscription opportunity. It does not
+include enterprise policy/configuration orchestration, remote unlocking or all
+optional integrations by default. Preserve those as separately selected
+CircularQuay capabilities and independently costed deployments. The user-named
+“KVM” path has no verified source mode/enum at this planning checkpoint; do not
+rename it or invent runtime support.
+
+First run resolves existing configuration, discovery or manual fallback,
+authenticates through the selected identity, then immediately initializes the
+hosted key service unless explicitly disabled by CLI or configuration. Implement
+both opt-out surfaces and deterministic precedence/lock-conflict handling
+before any hosted-service network call. Test default initialization, CLI
+disable, config disable, conflicting/locked settings, untrusted/invalid source,
+self-hosted/offline paths and no personal-file/value/key uploads. Registration
+must be authorized, idempotent and concurrency-safe for user/client/tenant and
+noninteractive workload-identity CI enrollment; a retry creates no duplicate
+association or billing event.
+
+Managed release windows default on for future key retrieval; durations remain
+policy-defined. Registration cannot grant an unauthorized key/tenant role or
+production access. Ending a release window does not expire age or revoke copied
+private keys/ciphertext. The hosted-access-event metric is defined; allowances,
+thresholds, prices and payment/hosting vendors are undecided; test usage notices and explicit subscription opportunity
+without automatic charging. Evaluate vendors against the existing baseline
+forecast without provisioning accounts or enrolling trials/purchases.
+
+[Profile utilization](managed-key-service.md#profile-utilization-and-fair-metering)
+counts hosted access events, not profile count/key slots: one daily hosted fetch
+is one use, twenty independent hosts/fetches are twenty, local reuse adds zero.
+Test denied/precommit failures at zero customer uses, postcommit uncertain
+release reconciled once, and same-logical-access retries/concurrent requests
+without duplicate metering. Distinct hosts cannot share one idempotency identity
+to bypass independent access accounting. Provider attempts/logs/storage still
+incur costs; derive allowance/tariff from measured all-in costs and margin. The existing
+managed-service forecast includes conditional personal/business/enterprise-volume
+proposals; they are review inputs, not live prices or new UI/hosting authority.
+
+### Client-only configuration acceptance
+
+All config content, source credentials, resolution/validation/explain and save
+are client-side. Browser/native clients access sources over the user's own
+network/VPN and credential boundary. Test that no content/credentials/provenance
+leak through hosted backend/proxy/analytics/logs, including corporate sources.
+Browser CORS/file restrictions require honest permitted native CLI/SDK/local
+integration, never a server proxy or silent unsupported options. Save locally.
+Hosted state is limited to authenticated profile→age-key association/retrieval
+and necessary enrollment/window/metering/billing. Protect keys without display
+or logging. CLI/config disable before network supports fully client-only use.
+User terms PVM/KVM are not verified source enum/flags; invent neither.
+This is design; expanded custom UI remains deferred/unapproved.
+
+### Near-term lean launch and long-term production acceptance
+
+Minimize near-term Cloudflare/Netlify spend using actual tiers/limits and a
+bounded secure service profile. Premium WAF/bot/SLA/multi-region/enterprise
+identity may be deferred where justified by the measured requirements and
+budget. Keep authentication, tenant isolation, provider plus application-level
+key encryption/custody, durable event metering and sensible abuse controls.
+The existing forecast distinguishes basic/premium capabilities, conditional
+plan proposals and measured/customer upgrade triggers. UI stays deferred,
+all config stays client-side, and no lower-priced plan inherits a higher-tier
+entitlement or an unmeasured reliability claim.
+
+### Minimal service production acceptance
+
+The minimal service must satisfy [production protection and service objectives](managed-key-service.md#production-protection-and-service-objectives)
+without becoming a config/backend orchestration service. Qualify exact WAF/bot/
+DDoS and per-IP/client/profile/tenant limit entitlements, headless CLI/CI access,
+authoritative revocation/idempotency/usage consistency, encrypted durable key
+storage/custody/residency, independent backup/restore/rotation and secret-free
+observability with no public key-response caching. Measure realistic
+availability/latency and geography/failure cases; no platform-name or free-tier
+claim substitutes for evidence. Price fixed and usage-dependent protection,
+limiter, storage, authentication, retention and operational costs before a plan
+is called profitable. The guide's SLOs/plan proposals are design/sensitivity
+inputs, not achieved results, live tariffs or procurement permission.
+
+### End-customer account service acceptance
+
+[Account/subscription design](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+includes authenticated profile-successful-fetch usage/history, invoices,
+plans/quotas/status, support and customer lifecycle. Qualify actual customer
+identity, provider-hosted payment/subscription portals and support services
+separately from Cloudflare/Netlify operator dashboards. No provider-admin
+credentials or payment-card custody enter the client/model. Configuration and
+source credentials remain entirely local; custom account UI remains deferred.
+
+Relevant CLI/API/SDK/MCP operations require common scopes, field/tenant isolation,
+idempotent meter/payment/subscription reconciliation, signed-event verification,
+durable audit and safe operation state. Future unattended financial execution
+requires an explicit user-approved action/account/amount/currency/plan/time
+boundary and applicable confirmation; capability does not authorize charges.
+Test wrong-customer IDs, stale/duplicate/out-of-order events, lost responses,
+payment/portal/support denial, budget/approval expiry and all cross-tenant paths.
+Price support seats/labor, account history/storage/traffic and provider Billing
+fees in the existing forecast without buying or connecting any service.
+
+### Restricted operator administration design
+
+The [operator plane](managed-key-service.md#restricted-remotely-hosted-operator-administration)
+is separate from customer billing and client-config SPA. It handles scoped
+customer/key metadata (public recipient/fingerprint only), activity/security/
+usage and coarse geographic context, safe database/support/monitoring and
+maintenance. Strong operator auth, distinct privileges, bounded/audited reads
+and mutations, key redaction, privacy/retention and exact provider entitlements
+are required. No client config/source credentials or routine private-key display.
+Reuse hosting/payment/support/monitoring consoles; custom implementation remains
+deferred. ISO27001 alignment is an evidence goal, not certification. No live
+customer data or maintenance action is authorized by design.
+
+### Account RBAC and profile-scoped enterprise operations
+
+[Account RBAC](managed-key-service.md#account-rbac-and-scoped-authority) separates
+permissions from tuple-bound tenant/org/customer/group/environment/fleet/
+key-metadata/billing scope. Exactly one protected global application superuser
+is required by design, not ordinary support and not an implicit key-reader.
+Use strong auth, scoped routine identities, audited use and controlled recovery
+that never leaves two active roots. Individual support assignments cover only
+specified enterprise/customer subsets; agents have distinct bounded identities.
+Test deny/conflict/time/delegation/revocation and cross-assignment scope-mixing
+across UI/API/CLI/SDK/MCP, including financial confirmation and key-custody denial.
+
+[Customer enterprise/fleet design](managed-key-service.md#customer-enterprise-administration-and-selected-fleet)
+is separate from provider support. Verify actual IdP/API scopes, browser/VPN/
+CORS/file access and explicit selected-agent capability. All config/source
+credentials stay client-side. If a central fleet broker or provider function
+requires hosted config/credential storage, report the conflict/options rather
+than relax the boundary. No fleet agent/control command is verified in this
+source checkpoint, and custom console implementation remains deferred. Price
+operator/SSO/audit/recovery and optional fleet/provider costs independently;
+no live accounts, grants, fleet actions or infrastructure changes are authorized.
 
 ## Managed-service development and delivery contract
 
@@ -242,6 +389,28 @@ export neither guarantees immutable audit nor waives durable required audit.
 Account connections, purchases, secret transmission and live issuer mutation
 need independent authorization and qualified capability evidence. Mock fixtures,
 documentation and schema work do not establish any of those outcomes.
+
+### Single-file and explicitly composed configuration acceptance
+
+Both self-contained policy files and master policies with explicitly trusted
+external department/local includes are required. They resolve to one common
+validated contract across CLI/API/SDK/MCP and managed-service boundaries; no
+single-physical-file restriction replaces that requirement. Authenticate each
+source and version/digest pin, constrain namespace/ownership and transitive
+fetch authority, and enforce deterministic typed precedence/conflicts and
+multi-membership without weakening enterprise locks or approved override limits.
+
+Test cycles, duplicate/aliased sources and object IDs, traversal/link escape,
+bounded loading, pin/trust drift, stale/unavailable inputs, and complete graph
+validation before atomic activation. Safe explain/provenance must enforce domain
+and viewer permissions, not expose personal content or credential references.
+The corporate GitHub + protected personal local acceptance case must prove
+personal secrets/keys never upload to corporate services, keys/grants remain
+separate, and personal data cannot override corporate locks or infer production
+access. Explicit refresh/trust and optional finite offline-cache policy preserve
+known denies and govern both new activation and existing-generation validity.
+Required migrations fix forward without dropping single-file compatibility.
+Implementation tests and revision-bound receipts remain distinct from this design.
 
 ## Evidence and remaining work
 

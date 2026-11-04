@@ -11,7 +11,94 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
-Latest reviewed publication `fa767446175f76ae442ff81baff4b5d7ac2d73bf`, tree
+Current published parent `275715525b74c99200ee9afc83ff069f6129b4a2`, tree
+`2e7bb1cf20fda50c07107a5dccb81154d57433ad`, has retained hosted readback in
+`checkpoint45-2757155-hosted-sonar.json`. Synthetic merge
+`8ebd570715148137fa61e6e38443f83b82c9e786` uses the same tree. The Linux
+complexity step passed. Sonar CE/upload/readbacks succeeded with zero issues,
+hotspots and duplication, but the gate still fails 66.5% coverage, absent
+new-code metrics and the Python-version warning. Go statement coverage is
+7,295/8,738 (83.485923552%). Source assurance, security and SDK failures remain;
+WireMock and Dependency Review pass only their recorded scopes. See
+[exact qualification](qualification.md#exact-2757155-hosted-receipt).
+
+### Following client-side composition and security work
+
+The following source introduces `internal/configuration`, explicit pinned JSON
+includes, bounded namespaces/dependencies, conflict rejection, root overrides
+and equality locks. Single-file JSON/YAML remains supported through the
+separate parser. The native CLI, linked Go SDK and native-process SDK paths
+share the resolver; operational dispatch retains a complete snapshot.
+`config get/list` return only the protected root declaration. Validation and
+atomic writes resolve the whole candidate. MCP retains its existing four-tool
+workload catalog and separate authorization/reload boundary.
+
+Repository includes call `repository.FetchPinned`, which checks the exact
+commit before acceptance while retaining signature/ancestry/quota/native Git
+protections. Cache admission is not a distributed transaction across the
+complete graph. Private-domain guards check declared data/credential and
+executable paths, repository/writer locations, named remote grants, publication
+and snapshots after root edits. They do not prove different key bytes behind
+copied paths or constrain an authorized hostile plaintext consumer. The
+[composition reference](composition-reference.md) and synthetic examples
+contain the exact implemented descriptor vocabulary.
+
+Independent source review, pinned formatting and bounded static checks are
+complete; new tests have not run locally under the shared Foo BAU hold.
+The source commit is `5b6770594bd50a8b7459b9e597215c0f0ebb22fe`, tree
+`0e5c4de6f12cbcc7bcb8593996c78381027b029e`. It supersedes a never-ref-updated
+source object after removal of an unused import caught by a bounded check.
+Hosted/native/security/Sonar evidence for these new source bytes is required.
+Do not run local builds, resolvers, tests, analyzers, installers or containers
+without release of that resource hold. No production qualification follows.
+
+The security-design review makes the required signed effective profile,
+accepted generations, pre-effect reauthorization, approvals, durable audit,+downgrade-negative tests and cross-product control mapping explicit. Actual
+source still lacks the signed strict-profile/hierarchy engine. Default/strict
+are product contracts, not accepted runtime flags or certification claims.
+Never advertise strict enforcement from this composition implementation alone.
+
+Latest confirmed scope keeps **all configuration client-side**, including
+source authentication through the user's own network/VPN, composition,
+validation and local save. No raw/resolved config, source credentials or
+protected references may reach a hosted backend, proxy, analytics or logs.
+The minimal hosted service is authenticated profile-to-age-private-key
+association/retrieval plus necessary enrollment, successful-access metering
+and account/subscription lifecycle. First-run CLI/config opt-outs must run
+before hosted network access; those hosted initialization/retrieval/metering
+implementations remain absent. KVM/PVM are user terminology, not source modes.
+
+The long-term enterprise North Star remains. A lean secure release can defer
+optional premium infrastructure/features under its explicitly selected scope,
+without lowering authentication, tenant isolation, key protection, abuse
+controls or shipped-code quality gates. The existing managed-service forecast
+contains sourced provider rates and hypothetical costs/proposals, not approved
+tariffs, traction or purchased accounts. No verified deployed worker/site/
+database/endpoint for this service is recorded; prepared settings are not
+applied or tested infrastructure. Custom client/customer/operator screens
+remain design-only and unapproved for implementation. Reuse qualified hosting,
+identity, payment and support services where appropriate; never expose their
+operator credentials or treat hosting invoices as customer subscription billing.
+No payment setup, charges, account connection, deployment or BAU change occurred.
+
+Supporting documentation is coordinated with the existing owner and retains
+its exact composition/first-run/forecast and subsequent account-design receipts.
+Root reserves governance, security/assurance, RELEASE, qualification and this
+handoff. Preserve prior owner manifests and use final amended hashes for
+publication rather than overwriting historical evidence.
+
+Retain the composition security review, five-file source amendment, final
+cache/cancellation admission review and separate unused-import amendment.
+The worker overwrote the first draft cache-admission receipt after reporting
+its hash; its original bytes were not retained. The separate checkpoint47
+receipt records that transition and current hashes. Do not call that first
+draft immutable. Final independent receipts remain separate and unchanged.
+Supporting first-run and subsequent 13-path account/database/payment-design
+manifests have their own static and formula checks, with no live qualification.
+
+The following publications and receipts are historical.
+
+Reviewed publication `fa767446175f76ae442ff81baff4b5d7ac2d73bf`, tree
 `77843bdaec5eab412d1ed6a490b854af563c1b2b`, has readback for all 62 changed
 files and preserves 392 working files. PR #1 remains draft to `develop`.
 [Exact fa767446 evidence](qualification.md#exact-fa767446-hosted-receipt)

@@ -124,6 +124,108 @@ removal, scanner closure, issuer revocation and verified rotation differ;
 OTLP export is not immutable audit. Record capability gaps in the existing
 qualification/handoff workflow while retaining the coherent product contract.
 
+### Configuration composition and privacy
+
+The intended contract supports a self-contained policy or a master with trusted
+external includes, resolving to one model. Inspect the selected schema/loader
+before adding include syntax or suggesting a compose/explain command; the
+one-document policy reader does not substitute for a composition resolver or
+establish include support by itself. Implementation owners retain resolver/schema/tests
+and their revision-bound evidence. See
+[composition and corporate/personal acceptance](configuration-repositories.md#single-file-or-master-and-includes-configuration).
+
+Never concatenate arbitrary JSON/YAML, choose a last-writer-wins merge or upload
+a personal local file to make a remote interface appear capable. Enforce source
+pins/trust, namespaces, enterprise locks, typed conflicts/multi-membership,
+finite loading and complete atomic activation. Keep personal values, keys,
+credential references and unauthorized provenance outside corporate services,
+logs, explain and telemetry. Optional offline cache and version refresh require
+explicit domain policy; unavailable corporate input grants no production access.
+
+### First-run evidence and hosted-service boundary
+
+The established [hosted key service](managed-key-service.md) is simple
+authenticated identifier-to-age-private-key registration/storage/retrieval,
+with minimal safe metering/free allowance and an explicit upgrade opportunity.
+Enterprise orchestration, remote unlocking and optional integrations are not
+assumed base-subscription requirements or costs. The
+[first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
+initializes it after config/discovery/manual selection and authentication unless
+disabled via CLI or config. Both opt-outs must be resolved before any hosted
+network call; validate enterprise locks and fail before network on a conflict.
+
+Repository/source review found no `KVM` mode/enum; it is the user's supplied
+label, not a verified `--mode` value or a term to silently rename. Current
+bootstrap/usage source does not prove this full initialization behavior, hosted
+endpoint or opt-out tooling. Implementers must supply actual schema/command and
+runtime test evidence. Do not connect accounts, upload personal material or
+infer production permission from this product contract. Future key-release
+windows cannot expire or remotely revoke a retained age private key.
+
+[The customer meter](managed-key-service.md#profile-utilization-and-fair-metering)
+counts hosted age-key access events: independent host fetches count separately,
+local reuse counts zero, and a logical access/retry sequence is charged at most
+once after durable release commit. Denied/precommit failures are not retrieval
+uses. Do not equate profile count/key slots to consumption or present conditional
+forecast margin floors or conditional plan proposals as launched prices/profit.
+The user authorized cost-derived proposals; actual account/payment/vendor setup
+and an unsupported mode remain unauthorized by documentation alone.
+
+### Client-only configuration and hosted state
+
+All files/URLs/config options resolve, validate, explain and save locally on the
+browser/native client, through the user's VPN/network/source credentials.
+Never upload content/source credentials to the hosted backend/proxy/analytics/
+logs, even for corporate sources. Browser CORS/file permissions are not solved
+with a server proxy; use permitted native CLI/SDK/local client integration.
+Hosted state is only profile-to-age-key association/retrieval and necessary
+enrollment/window/usage/billing. No key values are logged/displayed. CLI/config
+disable resolves before hosted network for fully client-only use. The user also
+said PVM; neither PVM nor KVM has a verified source enum/flag. Keep the naming
+uncertainty explicit rather than inventing support. This remains design and
+adds no authorization for deferred custom UI.
+
+### UI authorization boundary
+
+Expanded custom administration UI implementation remains deferred while the
+baseline stabilizes. Earlier authored screen proposals were not human-approved.
+The user has now explicitly confirmed the narrow [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred),
+which is design confirmation only, not implementation approval. Do not
+start a UI workstream or describe those proposals as human-agreed/built. Reuse
+Cloudflare/Netlify services where appropriate and retain the confirmed CLI/text
+first-run authentication flow. This does not cancel other explicitly approved
+CircularQuay capabilities.
+
+### Customer service versus provider administration
+
+The [account service](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+is an explicit subsequent design capability: own account, profile-successful-
+fetch usage/history, invoices, plans/quotas/subscription status and support.
+Cloudflare/Netlify operator dashboards/bills are not customer billing/CRM.
+Never expose operator API keys, accept another customer's provider ID or collect
+payment-card fields. Reuse actually entitled customer portals/support services.
+Machine financial actions require explicit user-approved boundaries and any
+applicable confirmation; no automatic charge/upgrade follows from enablement.
+Current docs establish no implemented billing command or connected provider.
+Configuration remains local and custom UI implementation remains deferred.
+
+The [restricted operator console design](managed-key-service.md#restricted-remotely-hosted-operator-administration)
+is not the customer billing portal or local config SPA. Scoped support may see
+public key metadata, activity/utilization and justified coarse geography, never
+routine plaintext private keys or client config. Read-only defaults, strong
+operator auth, privacy/retention, independent maintenance authority and audit
+apply. Reuse provider consoles; custom UI remains deferred. ISO27001 alignment
+is not certification. No live customer-data access follows from this design.
+
+[Server account RBAC](managed-key-service.md#account-rbac-and-scoped-authority)
+requires role+scope assignment tuples, no blanket support/customer access and
+one protected global application superuser by design. AI agents have distinct
+bounded identities; no role grants routine key bytes or bypasses financial
+confirmation. [Enterprise selected-fleet work](managed-key-service.md#customer-enterprise-administration-and-selected-fleet)
+needs actual reachable provider/agent capability and explicit profile scope.
+No fleet-agent/admin command was verified in native source; no backend config
+broker, VPN proxy or live fleet action is authorized by this design.
+
 ## Set up and verify a bounded change
 
 Read [getting started](getting-started.md) for synthetic setup. Native source

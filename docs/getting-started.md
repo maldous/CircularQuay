@@ -48,6 +48,36 @@ policy delivers to it.
 For policy editing, conditional updates, doctor behavior, and all command
 flags, see the [command reference](commands.md).
 
+## First-run product flow
+
+The [first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
+checks an existing selected policy, then trusted discovery, then manual selection
+when no admissible source is found. It authenticates through the resolved
+identity and initializes the hosted key service unless specifically disabled
+via command line or configuration. Resolve both opt-out surfaces, precedence
+and enterprise locks before any hosted-service network call. Self-hosted/offline
+profiles remain supported; an invalid policy or conflicting lock is repaired,
+not discarded to obtain a permissive hosted default.
+
+The default service is minimal identifier-to-age-private-key registration and
+authorized retrieval with key-release windows, not a remote policy/configuration
+orchestration subscription. No personal configuration, keys or secrets upload
+by default. Free allowance and an upgrade opportunity do not imply an automatic
+charge; event allowances, thresholds, prices and vendor remain undecided. The service can
+stop future key retrieval, but age does not expire a copied key or prevent it
+decrypting matching old ciphertext.
+
+[Profile utilization](managed-key-service.md#profile-utilization-and-fair-metering)
+counts hosted accesses, not keys/profiles: one daily fetch is one use, twenty
+independent host fetches are twenty, local key reuse is zero. Automatic retries
+of one logical access reconcile a single event; failed/denied pre-release calls
+are not customer retrieval uses. No subscription is purchased automatically.
+
+The synthetic commands above describe the selected executable's documented
+route. They do not prove the full first-run/service contract is implemented or
+supply new enrollment/opt-out flags; use the [command reference](commands.md)
+and [qualification](qualification.md) for actual capability evidence.
+
 ## Connect your application or pipeline
 
 Use [bootstrap and discovery](configuration-repositories.md) to select trusted

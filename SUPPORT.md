@@ -24,4 +24,16 @@ GitGuardian alert bodies, secret hashes or replacement credentials. Unsupported
 SCIM/provider/plan capabilities need qualification; no support report authorizes
 account enrollment, purchases, incident dismissal or live revocation.
 
+The intended [customer account/support service](docs/managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+keeps authenticated customer usage/history, billing/invoice/subscription status
+and support lifecycle separate from hosting-provider operator support. Reuse an
+existing approved private channel or a qualified customer helpdesk; no Freshdesk,
+Stripe or other account/plan is connected by this document. Public GitHub
+Discussions/Issues remain for synthetic public material, never private billing
+or key/config details. Customer ticket/history APIs must authorize exact tenant/
+account and safe fields. No config/source-credential attachment, key dump,
+payment-card field or automatic diagnostic upload belongs in support. Paid
+support/SLA/SSO and unattended financial actions require explicit scope and
+actual entitlements; custom support/account UI implementation remains deferred.
+
 Before a release is marked stable, its release notes must identify supported versions, known limitations, migration and rollback constraints, dependencies and the evidence supporting each qualified capability. Registries and package managers have separate publication and verification records; a GitHub release alone does not establish availability elsewhere.

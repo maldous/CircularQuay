@@ -85,6 +85,65 @@ GitGuardian and provider credentials in their independent protected references.
 Incident closure, issuer invalidity and replacement activation remain distinct
 facts. Approved OTel export never implies immutable or durable required audit.
 
+The [single-file or master/include contract](configuration-repositories.md#single-file-or-master-and-includes-configuration)
+also applies to plugin/agent clients. One resolved model does not require one
+physical file. Select only supported resolver operations and never invent an
+include schema, remote local-file fetch or unsafe manual merge. Corporate locks
+survive personal/department sources; personal values, keys and unauthorized
+provenance never upload through a plugin, explain tool or telemetry hook.
+
+## Hosted key service first run
+
+The [first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
+initializes the minimal hosted key service association after configuration
+resolution and authentication, unless CLI or config explicitly disables it.
+Both opt-outs apply before any hosted network call, under validated enterprise
+locks; a conflict is not permission to register anyway. An agent uses only the
+selected release's actual enrollment/opt-out capabilities, not invented tools.
+Idempotent CI uses the declared workload identity and no human prompt.
+
+Default registration is neither a paid subscription, key-import request nor
+enterprise remote-unlock/config-orchestration enrollment. No personal config,
+provider value, private key or sensitive provenance uploads by default. The
+user-named “KVM” label establishes no current mode flag. Free allowance and an
+upgrade opportunity use undecided event allowances/prices and never auto-charge. Key
+windows gate future private-key release; copied keys retain decryption ability.
+
+Hosted utilization is an [access event](managed-key-service.md#profile-utilization-and-fair-metering),
+not a profile/key slot. Independent host fetches count separately; local reuse
+and failed/denied precommit calls add no customer uses. A retry of a committed
+logical access reconciles its one event, not a new charge or extra grant.
+
+Expanded custom admin UI/screens are deferred/unapproved. Intended UI parity
+is not authority for an agent to build or publish a dashboard. Reuse existing
+platform services while preserving approved CLI/text onboarding and other
+explicitly authorized capabilities.
+
+All config operations and file/URL reads stay client-side with the user's
+network/VPN/source credentials, full option validation and local save. Never
+send contents/source credentials through a hosted backend, proxy, tool response,
+analytics or logs. Browser CORS/file permissions are real; use permitted native
+CLI/SDK/client integration, not a server-side workaround. The hosted API is
+profile-to-age-key association/retrieval plus necessary enrollment/meter/billing,
+not remote client-config CRUD. Protect key bytes from display/logging. PVM/KVM
+are user labels with no verified source mode, not guessed flags.
+
+The explicitly confirmed [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred)
+remains deferred for implementation. Optional user-configured client OTel
+queries/collection do not authorize a hosted telemetry service, bypass CORS/VPN
+or make a browser an OTLP listener. No agent may implement earlier proposed
+custom screens by treating design text as a build approval.
+
+[Account/subscription operations](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+are customer-scoped, not access to hosting-provider administration. CLI/API/SDK/
+MCP share authorization, safe metadata DTOs, idempotency, current provider-state
+reconciliation and audit. Use provider-hosted payment entry; no card/provider
+admin credentials or portal session secrets in model logs. Future unattended
+financial mutations require explicit user boundaries and applicable confirmation,
+including exact tenant/action/plan/amount/currency/time; unsupported methods and
+missing authority fail rather than use an admin-token workaround. This is design,
+not an account connection, payment or custom UI implementation approval.
+
 ## Packaging and qualification
 
 The release owner validates the selected manifest schema, package identity,

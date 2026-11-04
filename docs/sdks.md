@@ -134,6 +134,49 @@ values, raw scanner responses or a guessed GitGuardian secret-hash binding.
 Reconcile ambiguous issuer effects before retrying. SDK observers export only
 safe telemetry, which does not guarantee immutable or durable audit.
 
+Both self-contained and master/include configurations use the
+[same resolved policy](configuration-repositories.md#single-file-or-master-and-includes-configuration),
+with pinned source trust, namespaces, locks and complete atomic validation.
+An SDK adapter does not gain authority to read/upload personal local files
+through a remote service. Inspect actual methods and schema support before
+using composition; local config CRUD is not a multi-source compiler by itself.
+Return only viewer-authorized explain/provenance metadata and apply explicit
+offline/refresh policy without weakening corporate grants.
+
+SDKs share the [first-run initialization contract](management-and-discovery.md#first-run-and-minimal-managed-registration):
+resolve policy and CLI/config hosted opt-outs before any hosted-service network,
+authenticate the resolved identity and idempotently initialize the minimal
+hosted key service association when enabled. Noninteractive clients use enrolled
+workload identity or return an actionable interaction-required outcome. This
+contract supplies no unimplemented SDK method or opt-out option by implication.
+Registration returns safe metadata, not a personal-file upload, payment consent
+or enterprise remote-control grant; future key release remains separately
+mapping/window-authorized and cannot revoke copied keys.
+
+Hosted-access metering uses the [shared logical-event contract](managed-key-service.md#profile-utilization-and-fair-metering).
+Preserve request-bound idempotency through safe reconciliation; never create
+extra charges by retrying one logical access or collapse independent host
+fetches into a profile-count unit. Cancellation/network loss after release
+commit does not prove zero use; failed/denied precommit calls are not retrieval
+uses. SDK observers expose no key bytes in usage diagnostics.
+
+Client SDKs resolve/validate/save all user configuration locally through the
+caller's files/network/VPN/source credentials. No config content or source
+credential crosses to hosted backend/proxy/logs/analytics; remote hosted methods
+operate only on authenticated profile/key associations and necessary service
+metadata. Browser integration must honor CORS/file permissions and offer the
+same options via permitted native/local integration, never a hosted fetch proxy.
+Key values are protected and not displayed/logged.
+
+The [account service contract](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+adds customer-authorized account/usage/invoice/subscription/support methods only
+when the selected implementation exposes them. Bound provider IDs to verified
+tenant/account, keep safe paginated history, and reconcile duplicate/out-of-order
+provider events and uncertain mutations through one durable intent. Financial
+execution needs explicit user-approved limits plus applicable confirmation;
+SDK installation grants none. Do not expose operator credentials/card fields,
+retry a charge blindly or confuse a provider's compute invoice with profile uses.
+
 ## Agent integration and distribution
 
 Applications own SDK lifecycle and transport. Agent clients additionally use the

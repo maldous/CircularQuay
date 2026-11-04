@@ -3,8 +3,10 @@
 CircularQuay provides one v1 management contract across self-hosted and managed
 deployments. Operators, applications and approved agents can find their service,
 manage declared access and inspect the resulting decisions. Client enrollment
-requires its own grant and interactive or attested trust ceremony; a general
-agent grant or tool listing does not authorize enrollment.
+requires its own authorization and authenticated trust profile; a general
+agent grant or tool listing does not authorize enrollment. The first-run default
+below performs permitted minimal registration automatically after authentication,
+without turning it into broad management authority.
 The CLI, UI, API, official SDKs and optional MCP interface enforce the same
 authority and revision rules. Standalone operation remains independent of a
 hosted service, identity provider or MCP connection.
@@ -13,6 +15,125 @@ This document defines the product contract. Exact implementation, package and
 interoperability evidence belongs in [qualification](qualification.md).
 The mandatory trust controls are defined in [administration security](administration-security.md)
 and the product-wide [security profiles](security-profiles.md).
+
+Interface parity below describes the intended authorization contract, not
+approval to implement custom web screens. Expanded custom administration UI is
+deferred/unapproved while the baseline stabilizes; reuse existing platform
+services. Confirmed CLI/text onboarding and authentication remain in scope.
+
+## Client ownership and hosted service boundary
+
+All configuration lives on the browser/native client, including every single/
+master/include source, supported option, resolve/validate/explain operation and
+local save. Source reads use that client's VPN/network and credentials. No
+config contents or source credentials enter the hosted backend, a fetch/resolve
+proxy, analytics or logs. Browser CORS/file permissions are honored; a native
+CLI/SDK/local client integration handles unsupported browser access explicitly,
+never via a hosted proxy or silent loss of options.
+
+The hosted service is only authenticated **profile-to-age-key** association/
+retrieval plus necessary enrollment, access windows, metering and billing. It
+protects key values without displaying/logging them. Typed administration parity
+means client-side config operations share validation and authorization across
+interfaces; remote hosted operations act on the permitted association metadata,
+not uploaded user config. Optional separately approved features retain this
+boundary. Custom UI remains deferred/unapproved design, not delivered software.
+
+## First-run and minimal managed registration
+
+The intended product starts after installing an authenticated binary and running
+it: inspect the selected existing configuration first; otherwise use enrolled,
+trusted discovery; if no admissible source is found, offer manual selection of
+a protected file or independently verified source/service. A single file and a
+master/include graph resolve to the same model. Invalid, unsafe, substituted or
+expired configuration is an error to repair, not permission to discard locks
+and fall back to a more permissive source. Manual selection does not create
+trust merely by accepting a URL or tenant name.
+
+Resolve an explicit command-line hosted-service opt-out and the configuration's
+hosted-service setting before **any hosted-service network call**, including
+registration/discovery against the hosted key service. Both opt-out surfaces
+are supported in the intended contract; this guide does not invent their flag
+or schema spelling. Explicit CLI selection takes precedence over an unlocked
+configured preference only where that override is authorized; configuration
+precedes the product default. An explicit CLI disable suppresses hosted network;
+a configured disable does likewise absent an authorized explicit override.
+Otherwise the managed default initializes the hosted key service. Enterprise locks still
+apply: an attempt to force a locked-off service on, or a contradictory locked
+requirement and requested offline/disabled mode, returns an actionable conflict
+before network rather than ignoring the opt-out, dropping a lock or silently
+registering. Authentication discovery for an explicitly selected self-hosted
+profile remains limited to that profile's approved endpoints.
+
+Resolve the service/profile and identity authority from the effective policy
+before sending registration data. Authenticate through the exact resolved issuer,
+resource and client profile. In the default managed profile, register the
+minimal user/client/tenant association immediately after successful
+resource-specific authentication and its server-side enrollment checks. This is
+the simple [identifier-to-age-private-key subscription](managed-key-service.md),
+not default configuration orchestration, remote unlocking or enterprise access
+administration. Managed key-release windows are enabled by default; registration
+precedes the first permitted key fetch. No window duration is invented here.
+Registration creates no arbitrary mapping, tenant-admin role, production grant
+or permission to retrieve a key absent its current owner-authorized mapping.
+
+Automatic tenant association follows verified ownership/invitation/provisioning
+rules. Do not infer corporate membership from email domain, display name,
+GitHub account or a personal registration. An enterprise may require approval,
+allowlisted issuers/clients, its own service, managed registration policy or
+complete disablement via policy or the supported CLI opt-out. Resolve these
+controls and locked settings before hosted network activity. Self-hosted,
+offline and explicitly hosted-registration-disabled modes use their selected local/self-hosted trust and do not contact or subscribe
+to the public hosted service as fallback. Standalone personal use remains valid.
+
+Only the minimal authorized identifier/client/tenant enrollment metadata and
+possession proof reach the selected service. No personal configuration, include
+contents, provider values, private/decryption keys, environment dump or local
+provenance uploads by default. Key generation/import/storage is separately
+owner-authorized; registration must not scan local key files to populate a
+mapping. Protect enrollment credentials and retain only safe status locally.
+
+CI uses its declared workload identity and preapproved trust, never a browser
+prompt or human-session credential. Bind enrollment idempotency to the verified
+tenant/issuer/subject/client and intended resource with concurrency/revision
+controls; retries reuse or reconcile the same enrollment instead of creating
+new tenants, clients or billing events. A missing trust anchor, required
+interaction or ambiguous outcome returns a safe actionable failure rather than
+silently choosing a hosted account. CLI/API/SDK/MCP share these resolved checks
+and metadata-only responses, subject to their actually supported interfaces.
+
+The service gates future key release during active authorized windows; a copied
+age private key keeps its ability to decrypt matching ciphertext. Disabling
+registration, exceeding usage, ending a subscription or revoking enrollment
+does not cryptographically expire or remotely recall that key. Free allowance
+and a clear subscription opportunity are separate from enrollment: event allowances,
+thresholds/prices/vendor are undecided and no automatic charge is permitted.
+
+[Utilization](managed-key-service.md#profile-utilization-and-fair-metering) is a
+hosted access event attributed to a profile, not a profile or stored key count.
+Independent hosts/accesses are separate; local reuse adds no hosted event.
+Denied/pre-release failures are zero customer uses, while an uncertain committed
+release and its retries reconcile one durable event. Common idempotency and
+metering semantics apply across interfaces without sharing access authority.
+
+The [end-customer account service](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+adds authenticated usage/history, invoices, plans/quotas/subscription status,
+support and customer lifecycle to necessary hosted metadata. These are distinct
+from operator hosting dashboards/billing APIs. Machine operations share the
+same tenant/field authorization, validation, idempotency/reconciliation and
+audit; future unattended financial actions need explicit user boundaries and
+applicable confirmation. No automatic charge/upgrade, card custody, provider
+admin credential exposure or hosted config upload follows from capability.
+Provider-hosted portals are candidates; custom UI implementation stays deferred.
+
+[Account RBAC](managed-key-service.md#account-rbac-and-scoped-authority) binds role
+permissions separately to tenant/org/customer/group/environment/fleet/key-
+metadata/billing scope. Support personnel get individual named enterprise/
+customer subsets; exactly one protected global application superuser is a
+separate design role, not support or an automatic key-reader. Human/nonhuman
+identities, denies, time/delegation ceilings and revocation apply consistently.
+Customer enterprise administration uses its own profile/provider/selected-fleet
+authority, never the provider support role or a hosted config store.
 
 ## Three discovery boundaries
 
@@ -78,7 +199,7 @@ custody material to every interface.
 | Tenants and service enrollment | Create/enroll, inspect, suspend, transfer under approval, offboard and verify deletion/retention. |
 | Users, groups, clients and workloads | Associate verified identities, inspect effective associations, update membership/mappings, disable and remove. Issuer and subject identity remain distinct from display names and email. |
 | Provider connections and secret references | Declare account/project/namespace, authenticate the selected machine profile, validate metadata, update, disable and remove. Provider administration exists only where the selected adapter explicitly supports it. |
-| Policy and configuration revisions | Read/list, create, validate, diff, simulate, approve, publish and activate an immutable revision; inspect effective provenance and reconcile observed state. Corrections move forward through a new revision. |
+| Client-local policy and configuration revisions | Read/list, create, validate, diff, simulate, approve and activate locally; resolve user-accessible sources and save locally. No config content/source credentials enter hosted management or a backend proxy. Independent source publication is separately authorized outside the hosted key service. |
 | Grants and associations | Create/list/read, constrain/update, expire and revoke permissions for exact principals, workloads, resources and operations. Environment labels and scopes are operator-defined. |
 | Delegations and approvals | Request, approve/deny, inspect, expire, cancel and revoke; retain the original actor, recipient and bounded authority chain. |
 | Sessions, leases and operations | Inspect status, renew only within policy, revoke/cancel and reconcile an uncertain result using its operation identifier. |
@@ -107,10 +228,11 @@ requires an explicitly selected service, tenant, identity and management
 operation. Missing remote context fails; it never falls back to a local write
 or silently promotes a local edit into a server change.
 
-Remote desired state, observed service state, the effective runtime revision and
-a local cached/offline snapshot are separate objects. Reconciliation records
-their provenance, precedence, drift and conflicts; it cannot overwrite a newer
-revision or widen local/central authority by choosing the more permissive copy.
+Client-local desired/effective configuration and cache snapshots stay with the
+client. Hosted observed state is limited to profile/key associations and necessary
+enrollment, windows, usage and billing. Reconcile permitted service metadata
+without sending config contents, source credentials or local provenance to the
+hosted service. A remote association mutation is not remote config CRUD.
 
 ## Identity and delegated authority
 

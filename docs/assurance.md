@@ -50,6 +50,55 @@ The current SOPS Vault-metadata advisory lists affected versions with an allowli
 
 ## Evidence bundle
 
+Qualification separates **runtime security profiles** (default/strict) from
+**audit execution profiles** (source/enterprise). Selecting an audit profile
+does not enroll an application into strict mode; selecting a runtime profile
+does not establish any passed engineering gate. Both runtime profiles receive
+the same first-party coverage, analysis and release requirements.
+
+Each release's control evidence maps a stable control identifier to its threat
+and requirement, authoritative schema/contract revision, enforcement location,
+positive and adversarial tests, affected interfaces/platforms, observed result
+and exact source/artifact/tool identities. Not-applicable entries require an
+explicit product-scope rationale; unavailable implementations, permission gaps,
+skipped tests and missing receipts are unqualified. The
+[security-profile matrix](security-profiles.md#effective-security-context)
+defines the cross-product enforcement points. Default/strict downgrade tests
+include imported configurations, alternate clients, child processes, retries,
+offline caches, uncertain outcomes and restore/failover.
+
+Secure-default verification covers clean first use, no ambient credentials,
+least-privilege grants, explicit opt-outs before hosted key-service contact,
+separate authentication before registration, finite unattended failures and
+absence of unrelated integration traffic. It does not invent a no-network
+default where the authorized first-run contract selects hosted association.
+Audit verification injects unavailable/full storage, corrupt checkpoints,
+collector outage and dropped/duplicated delivery. Required durable audit must
+deny the protected effect; optional export failure follows its explicit policy.
+Synthetic canary values and protected references must stay absent from every
+diagnostic, metric, trace, audit-event field and model-visible error.
+
+The verification basis includes applicable, version-pinned requirements from
+[OWASP ASVS 5.0.0](https://asvs.owasp.org/) for API/web boundaries and
+[NIST SSDF 1.1](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-218.pdf)
+for secure development, defaults and vulnerability response. Record actual
+requirement identifiers and applicability in the release evidence; citing a
+framework is not a conformance or certification result. Vulnerability-response
+evidence binds supported versions, private intake, triage ownership,
+remediation and independent fix verification. Operational exceptions have an
+owner, exact scope and finite review deadline; they cannot waive a required
+release gate or revive an expired/revoked credential.
+
+Supply-chain evidence includes consumer verification of provenance and artifact
+digests for each distribution channel, not only successful provenance creation.
+Any [SLSA v1.1](https://slsa.dev/spec/v1.1/levels) level claim requires its actual
+producer, isolation and consumer-verification requirements. Repository policy
+readback retains the enforced branch/ruleset, approval, required-check,
+workflow-token and immutable action-reference settings. A heuristic
+[OpenSSF Scorecard](https://github.com/ossf/scorecard/blob/main/docs/checks.md)
+result complements that evidence; unreadable or denied administrative settings
+are unknown, not proof of protection.
+
 Every `cquay-audit run` needs a protected v1 [tool manifest](../internal/assurance/tool_manifest.schema.json) outside both the
 source checkout and audit output. The portable schema describes structure;
 the strict decoder also requires the integer spelling `1` and bounds paths to

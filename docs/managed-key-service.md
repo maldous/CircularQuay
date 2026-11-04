@@ -1,20 +1,65 @@
 # Managed key service
 
-CircularQuay's optional managed key service answers a small request: authenticate
-me, check my authorization, and return my mapped age private key. It uses an
-existing identity provider. The service adds key mappings, scoped access
-management, and audit; it does not run an email, password-reset, or identity
-onboarding system. It can be hosted for customers or operated by an employer.
+The default subscription is deliberately small: authenticate an identifier,
+check its exact authorization and key-release window, then return its mapped
+age **private key** to the authorized client. It uses an existing identity
+provider, protected key storage and minimal registration/mapping administration.
+It is not a default remote-unlock, configuration-distribution or enterprise
+orchestration control plane. The user has called this client path **“KVM”** and **“PVM”**;
+neither label has a verified source mode/enum. Do not invent a flag/schema value,
+expand an acronym or silently rename either supplied term.
 
-The administration UI and API let authorized administrators inspect, create,
-modify, expire, and revoke access. Existing Netlify or Cloudflare services supply
-identity and access-management interfaces wherever they fit. Any remaining
-key-specific UI is a thin application hosted within those environments.
+First run initializes the hosted key service by default, after configuration
+selection and authentication, unless specifically disabled on the command line
+or in configuration. Resolve either opt-out before any hosted-service network
+call; apply documented precedence and enterprise locks without silently
+registering through a conflict. Registration and bounded future key-release
+windows are enabled for the managed profile. Self-hosted, offline and
+hosted-disabled profiles remain supported. [First-run discovery and registration](management-and-discovery.md#first-run-and-minimal-managed-registration)
+resolves policy and authenticates before registration; it uploads neither
+personal configuration nor secret values by default. The selected policy and
+service authorize mappings and future releases, not arbitrary secrets from the
+client. Registration alone cannot grant a key.
 
-This is the complete intended v1 service and custody contract. It is not a
-claim of a deployed endpoint, customer enrollment or a qualified release.
-[Delivery requirements](implementation-plan.md#managed-service-development-and-delivery-contract)
-and [revision-bound qualification](qualification.md) establish those separately.
+Expanded custom admin UI/screens remain deferred/unapproved; use existing
+platform services and the confirmed first-run CLI/text authentication flow.
+The base service needs the user/client/domain association, owner-authorized key
+mapping/storage/retrieval, access-window decisions, safe operational records and
+metering. Enterprise hierarchy, SCIM, GitHub/GitGuardian gates, provider rotation,
+workload federation, posture and OPA are optional CircularQuay capabilities,
+not assumed base-subscription components or costs. Remote unlocking and a wider
+management control plane are separate, explicitly chosen enterprise deployments.
+Security, tenant isolation and secret-free diagnostics still apply to the small
+service; simplicity does not make authentication or key authorization optional.
+
+The service controls **future private-key release** during its authorized
+window. Age gives a private key no intrinsic expiry. A retained private key can
+still decrypt matching old ciphertext after registration, subscription or
+retrieval access ends; copied keys/ciphertext cannot be remotely revoked.
+Application credential rotation, recipient changes and remote unlocking are
+separate mechanisms with their own residual limits.
+
+This is the intended product contract, not a deployed endpoint or qualified
+release. [Delivery requirements](implementation-plan.md#managed-service-development-and-delivery-contract)
+and [revision-bound qualification](qualification.md) establish actual evidence.
+
+## Client configuration is outside hosted storage
+
+All configuration is read, resolved, fully validated and saved on the browser/
+native client through the user's own local files, URLs, network/VPN and source
+credentials. It never enters this hosted backend, a server-side proxy,
+analytics or logs; this includes corporate config as well as personal config,
+include contents and source credentials. Client-only explain/provenance does
+not upload them as metadata. Browser CORS/file permissions remain real; use
+explicit native CLI/SDK/local integration when needed, not a backend fetch.
+The intended browser supports the same configuration options, but custom UI
+implementation remains deferred/unapproved.
+
+Hosted state is limited to authenticated profile-to-age-key association,
+protected keys and necessary enrollment, access-window, metering and billing
+records. Key bytes are not displayed or logged. Turning hosted use off via CLI
+or config before network leaves a fully client-side operation under its actual
+local policy/custody; it creates no hosted config record or subscription.
 
 ## Identity and authorization
 
@@ -63,6 +108,10 @@ outdated replica or cached allow from overriding an acknowledged service deny.
 
 ## Provisioning, exposure and issuer response
 
+The following integrations describe optional enterprise capabilities, not
+services automatically enrolled or billed by the baseline key-retrieval plan.
+
+
 The service uses [one governed configuration](configuration-governance.md) for
 tenant defaults, locked controls, groups, contexts and effective workload rules.
 Its [lifecycle contract](credential-lifecycle.md) includes optional qualified
@@ -84,6 +133,17 @@ credentials at their issuer when authorized; distributing a new age key alone
 does not invalidate credentials or ciphertext already accessible to a recipient.
 OTLP exports contain approved metadata only and do not make the audit store
 immutable or recall released keys.
+
+Customers can use one self-contained configuration or explicitly compose
+trusted departmental sources through a master under the
+[canonical policy contract](configuration-governance.md). Both share namespace,
+locks, deterministic conflict resolution and complete validated activation.
+The [corporate/personal composition case](configuration-repositories.md#corporate-github-and-personal-local-configuration)
+does not enroll personal files, grants or decryption keys into the hosted
+service. A remote service cannot resolve a client-local source by silently
+uploading it, exporting its provenance or treating omission as an authorized
+partial policy. Approved local resolution and optional domain-specific
+cache/refresh rules retain the same authority ceiling.
 
 ## Key lookup and client behavior
 
@@ -120,6 +180,11 @@ agent actions return task results. Age private keys remain bootstrap material,
 not ordinary MCP secret aliases or model-visible management output.
 
 ## Distribution, local custody, and remote unlocking
+
+Private-key distribution is the baseline subscription. Protected local custody
+and remote unlocking are independently selected profiles; a subscription does
+not silently turn one into another or add their infrastructure to the baseline.
+
 
 These are different security models. The small hosted service above distributes
 keys. The stronger boundaries below are separate custody profiles, not hidden
@@ -208,6 +273,15 @@ qualification receipt for a CircularQuay adapter.
 
 ## Administration UI and hosting preference
 
+Reuse existing Cloudflare/Netlify authentication and administration surfaces
+where they fit. Expanded custom administration UI/screens were author-proposed,
+not approved for implementation, and remain **deferred/unapproved** while the
+functional baseline is stabilized. The confirmed first-run CLI/text interface
+and authentication remain in scope. The UI controls below describe intended
+end-state possibilities, not an implementation instruction or delivered screen.
+They do not add orchestration to the simple subscription.
+
+
 Reuse already available paid Netlify or Cloudflare capabilities before building
 login, account administration, policy screens, hosting, or observability.
 An existing subscription is not assumed to include every identity, seat,
@@ -219,7 +293,7 @@ No additional purchase is implicit in this design.
 | Cloudflare Access and its administration console | Existing IdP connections, app access policies, session controls, and authentication audit. | Validate the Access JWT under its declared profile and audience. Cloudflare account administration is not customer key-mapping authorization. See [Access policies](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/) and [JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/). |
 | Netlify Identity and its managed user administration | Available application login, user/role lifecycle, function verification, and entitled identity audit. | Use provider-managed authentication; do not add an email system. Identity roles gate app operations only after server verification. See [Identity capabilities](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/overview/) and [managed user administration](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/manage-existing-users/). |
 | Netlify project protection/team SSO | Protect the deployment and operator/team access where appropriate. | These sessions are distinct from application-user identity and per-key grants; a shared site password cannot implement individual key revocation. See [site access controls](https://docs.netlify.com/manage/security/secure-access-to-sites/overview/). |
-| Thin key-specific administration UI | Mapping metadata, scoped grants/windows, effective access, versioned changes, revocation, and redacted audit. | Build only the missing domain screens. Host static assets on Netlify or Cloudflare, with authenticated Functions/Workers APIs and protected transactional storage. No key material in client bundles, public build variables, or preview deployments. |
+| Deferred/unapproved custom key-specific administration UI | Intended mapping metadata, scoped grants/windows, effective access, versioned changes, revocation and redacted audit. | No implementation is authorized; reuse platform services and stabilize the baseline. Host static assets on Netlify or Cloudflare, with authenticated Functions/Workers APIs and protected transactional storage. No key material in client bundles, public build variables, or preview deployments. |
 
 The same-origin UI/API pattern avoids an unnecessary cross-cloud identity and
 secret path. Split hosting remains possible when a particular custody or
@@ -227,6 +301,65 @@ enterprise identity requirement justifies it. Preview deployments use synthetic
 keys and separate identities. Browser sessions, CSRF protection, CSP, origin
 checks, request limits, abuse budgets, and server authorization protect changes;
 the managed login screen alone does not authorize a mapping mutation.
+
+### Explicitly confirmed UI design, implementation deferred
+
+The following is the user's explicit design confirmation, distinct from the
+earlier author-proposed administration screens. **Custom UI implementation is
+still deferred/unapproved until the functional baseline is stable.** This does
+not authorize UI coding, hosting, account setup or payment connections.
+
+The public landing is a single screen derived from the README's reasoning:
+**“The right secrets, ready for your apps.”** Use a concise, broadly appealing
+summary of how CircularQuay connects existing secret providers to approved
+apps, and a clear functionality diagram. Call out optional official SDKs,
+MCP, enterprise integration, SCIM and other independently approved features
+without implying that every integration is in the base hosted subscription.
+Login offers only identity providers actually supported, configured and entitled
+by the chosen Cloudflare/Netlify deployment. A platform name or decorative
+provider logo does not establish a working login option.
+
+After login, the client-side SPA reads one or multiple files/URLs through the
+user's own network/VPN and credentials, supports all configuration options,
+edits/resolves/validates and saves **locally**. Nothing sends config or source
+credentials to a hosted backend/proxy/log/analytics path. Browser file grants
+and CORS are honored. An explicit authorized native CLI/SDK/local bridge may
+supply equivalent access, never a hosted proxy or a silently reduced option set.
+The backend remains authenticated profile→age-key association/retrieval with
+necessary enrollment, metering and billing; key values are protected and never
+displayed or logged.
+
+```mermaid
+flowchart LR
+  R[Public landing: README reasoning and optional features] --> I[Actually supported identity login]
+  I --> C[Authenticated client SPA]
+  F[User files / URLs / VPN sources] -->|User network and source credentials| C
+  C -->|Resolve / edit / validate| L[Local save]
+  C -->|Minimal authenticated profile request| K[Hosted profile to age-key service]
+  K -->|Protected authorized release; no display or logging| C
+  C <-->|User-authorized queries / client signals| O[User-selected telemetry endpoint]
+```
+
+The SPA may gather/display **client OpenTelemetry** only as user-configured.
+Select the collector and, separately, its supported query/read endpoint,
+permissions and authentication. OTLP ingestion is not automatically a query
+API, and a browser cannot become a general OTLP receiver or reach a private/VPN
+endpoint merely because the URL was entered. Browser transport and exporters
+have [platform/CORS limitations](https://opentelemetry.io/docs/languages/js/exporters/).
+Use permitted browser fetch, user network access and explicit local/native
+integration where supported. A local bridge needs its own enrollment,
+authenticated caller/origin checks and bounded scope; it is not an unauthenticated
+loopback proxy or authority to inspect unrelated credentials.
+
+No hosted telemetry ingestion or dashboard store is implied. Queries stay on
+the user's client; read permissions do not imply collector-write permission or
+access to another tenant. Only approved safe telemetry fields may be shown or
+emitted: no config content, source credentials, key values, tokens, raw provider
+bodies or sensitive error capture. Collector CORS/auth failures return honest
+unavailable/permission outcomes, not server relays. OTel export or a visible
+chart makes no immutable-audit or complete-history guarantee. Test data-flow,
+VPN/CORS/file/native boundaries and redaction before claiming a client feature
+implemented; no browser/client qualification is established by this diagram.
 
 ## Local development, integration, and controlled delivery
 
@@ -271,6 +404,13 @@ validation is separately scoped: it uses a preview-specific application,
 identity audience, storage namespace, and synthetic key set, and it cannot read
 or modify production mappings, audit records, or custody material.
 
+The baseline qualification covers minimal registration/idempotency, mapping
+storage/retrieval, authorization/windows, metering/no-charge behavior and the
+applicable isolation, privacy, durability and recovery controls. Optional
+enterprise profiles add their own tests only when selected; their costs and
+activation are not assumed part of the subscription. The requirements below
+span those separately qualified profiles.
+
 The required managed-service test gates cover exact authentication audience and
 issuer binding; tenant and authorization-domain isolation; operation scopes;
 mapping version conflicts; expiry and revocation before release; concurrent
@@ -310,111 +450,719 @@ modify an unrelated instance. Publisher accounts, registry steps, and operator
 commands are maintained in [RELEASE.md](../RELEASE.md); this document defines
 the architecture and acceptance contract rather than an operator procedure.
 
+## Deployment state and prepared security settings
+
+The retained [session handoff](session-handoff.md) records no production
+deployment. The inspected repository has no verified hosted-service
+Cloudflare Worker/Netlify project identity, deployed endpoint, account-bound
+bindings or deployment configuration. That is evidence of **design/source work,
+not an inspected secured deployment**; it does not assert that every external
+account has been searched. No new account connection or deployment is implied.
+
+| Setting to prepare for an authorized target | Verification required before calling it configured/tested |
+| --- | --- |
+| TLS-only service origin and exact resource/issuer audiences | Read back actual endpoint/TLS policy, reject wrong issuer/audience/expired/malformed credentials and insecure redirect paths. Provider TLS is inherited only when the selected endpoint actually uses it. |
+| Encrypted durable age-key records | Provider encryption at rest plus application-level envelope encryption through a maintained approved library/KMS profile. Bind ciphertext authentication to tenant/profile/key version/purpose; keep wrapping keys outside the database in separately scoped custody. Test wrong-domain decrypt denial and actual restore. |
+| Separate signing custody only where needed | Existing issuer signatures are verified; do not create an unnecessary token issuer/signing service. If service receipts require signing, use a distinct key/purpose/identity from encryption wrapping and rotate under explicit scope. |
+| Least-privilege runtime/deployment identities | Bind only the selected database and key-wrapping operations, separate runtime/publisher/recovery authority, no public database or broad account token. Read back grants and test cross-tenant/profile/resource denial. |
+| Private responses and secret-free operations | `Cache-Control: no-store` on key responses, no public-cache rule, no key/query/body/token capture in request logs/traces/error tools. Verify synthetic key markers never enter CDN/vendor logs, metrics or UI display. |
+| Browser controls for future UI | Restrictive CSP (`object-src 'none'`, `frame-ancestors 'none'`, controlled script sources/nonces), exact enrolled CORS origins and authenticated CSRF/session rules where relevant. CLI authentication does not depend on browser Origin. Client-selected config/query endpoints require explicit local origin/network policy, not `*` credentials or a backend proxy. UI implementation remains deferred. |
+| Backup/restore/rotation and fail behavior | Encrypt/export only necessary hosted records, preserve key/deny/usage versions, independently protect recovery/wrapping material and test restore before release. An application compromise can still use authorized unwrap paths: database encryption alone does not prevent it. Required unavailable custody/auth/ledger/audit denies release. |
+
+Record each control as **inherited**, **explicitly configured** or **actually
+tested**, with exact target identity, artifact/profile revision and receipt.
+These prepared settings are not proof of any of those states, and no guessed
+Worker name, database ID, Netlify site or new deployment file is created to
+make the service appear provisioned. The owner must identify an authorized
+existing target before reversible live hardening can be performed; otherwise
+the concrete settings and tests above remain the deployment preparation.
+
+## End-customer accounts, subscriptions and support
+
+This is the explicitly added **end-customer account service design**, alongside
+the small key-delivery API. Authenticated customers can inspect their account,
+profile-attributed successful-fetch usage/history, invoices, plans/quotas,
+subscription/entitlement status and support history. Customer lifecycle covers
+verified onboarding, association updates, suspension/offboarding, retention and
+separately authorized financial reconciliation. It does not add hosted config
+storage, provider-source credentials or custom UI implementation authority.
+
+| Customer-facing function | Smallest established candidate | What must not be confused with it |
+| --- | --- | --- |
+| Identity/account login | An actually entitled application-user IdP, for example [Netlify Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/plans-and-pricing/) on supported credit plans, or a qualified B2C/OIDC issuer verified by a Worker. | A Cloudflare/Netlify operator account, team SSO or dashboard token is not customer identity or permission to enumerate another customer's records. |
+| Successful-fetch usage/history | The service's durable profile-scoped event ledger and bounded authenticated query DTOs. | Vendor request/compute dashboards and hosting invoices measure operator costs, not the customer's logical successful fetches. Retry attempts and local key reuse have different semantics. |
+| Invoices, payment entry and subscription self-service | [Stripe's hosted customer portal](https://docs.stripe.com/customer-management) is one established candidate for customer payment details, invoices and allowed subscription actions; use the selected provider's actually enabled feature set. | Hosting-platform billing APIs charge the operator. They are not customer subscription/CRM services and their admin credentials never reach a customer or agent. |
+| Support/customer relationship | Existing authorized support channel for a lean start; a separately selected service such as [Freshdesk](https://www.freshworks.com/freshdesk/pricing/) can supply customer ticket portal/shared inbox/history. | Provider operator support tickets are not an end-customer helpdesk. Agent roles, SSO, history visibility, automation and any enterprise SLA need their exact support-plan entitlements. |
+
+Cloudflare/Netlify can host the authenticated adapter and its necessary account
+metadata; neither is assumed to supply customer billing or CRM. Keep provider
+customer/subscription/invoice/ticket identifiers bound to the authoritative
+tenant/account, with field-scoped visibility. Never accept a client-supplied
+provider customer ID as ownership. An account/email change cannot transfer
+another tenant's key, usage, subscription or support history. Profile count
+is metadata, not the usage unit. Key authorization/windows and billing
+entitlement are separate checks; payment never grants an otherwise denied key.
+
+Payment-card entry and sensitive payment-method management stay on the chosen
+provider's hosted pages. No card number, CVC, payment credential or provider
+admin key is collected by the config client, model, support form or application
+logs. Portal sessions are short-lived and created only for the verified
+customer; redirect/deliver them through the trusted client rather than logging
+bearer-like URLs or dumping them into model-visible diagnostics. Reuse existing
+provider portals instead of implementing deferred custom account/payment screens.
+
+CLI/API/SDK/MCP operations share the same current tenant/resource/field scopes,
+validation, approvals, idempotency, durable audit and safe errors. Read account,
+usage or invoice status only for the authorized customer. Plan changes,
+cancellation, refund, invoice/payment action and support/customer mutations are
+distinct operations; service capability **never authorizes an automatic charge
+or upgrade**. Future unattended financial work needs an explicit user-approved
+boundary naming action, account/tenant, plan, currency/amount/budget, period,
+expiry and approval/confirmation requirements. Missing, ambiguous or expired
+authority denies or requests the applicable confirmation. A standing grant does
+not override a required per-action confirmation, nor justify a workaround through
+a payment-provider admin API.
+
+Reconcile provider state through authenticated APIs and verified signed events,
+not a browser success redirect, a client-provided paid flag or webhook arrival
+order. [Stripe webhook guidance](https://docs.stripe.com/webhooks) requires a
+qualified signature/event profile; deduplicate deliveries and reconcile current
+object state so stale events cannot reactivate old entitlement. Bind local
+operation idempotency to the exact customer, intent and parameters; provider
+[idempotency semantics](https://docs.stripe.com/api/idempotent_requests) have
+API/version/retention limits and do not replace the local durable ledger.
+Timeout, duplicate event or provider outage cannot create repeated invoices,
+charges, upgrades, grants or meter entries. Return safe operation state and
+reconcile uncertain effects before retry.
+
+Keep necessary account/usage/billing/support metadata in protected isolated
+storage with declared retention/access/export/deletion rules and a bounded
+customer history. Provider invoices and retained financial records are not
+arbitrarily erased by ordinary offboarding. Support intake accepts only approved
+synthetic/structured diagnostics; no config/source-credential attachments,
+private keys, raw environment dumps or automatic log upload. Customer portal,
+support SSO/API automation and machine billing actions need synthetic positive/
+negative/tenant/duplicate/out-of-order/confirmation tests and real capability
+qualification before availability is claimed. Nothing here connects a provider,
+creates a live account, purchases a plan or authorizes financial execution.
+
+## Account RBAC and scoped authority
+
+Server-side **account-policy metadata** governs access to account/service
+resources; it is distinct from client configuration, which stays local. Model
+an auditable human or nonhuman principal, role permissions, a separate scope
+assignment, conditions/time bounds and delegation source. Scope can constrain
+tenant, organization, customer subset, group, environment, explicitly selected
+fleet, key **metadata** and billing objects. A role name or UI persona never
+selects a tenant or supplies ownership.
+
+| Role/persona | Permitted responsibilities when assigned | Default scope and exclusions |
+| --- | --- | --- |
+| One global superuser administrator | Protected global authority over application account policy, roles/scope assignment, product/service administration and recovery control. | **Exactly one active application superuser account.** Global is intentional, not ordinary support. It does not imply plaintext key release, client config access or unrestricted financial execution. |
+| Product owner | Product/plan/service policy proposals and approved account-lifecycle administration within assigned authority. | No customer-wide browse, financial action or production change merely from the title. Global tasks need explicit assignment from the superuser's policy. |
+| Customer/account owner | Own account metadata, profile usage/history, permitted invoices/subscription and support actions. | Own verified account/tenant; payment changes still need explicit financial authority/confirmation. |
+| Customer enterprise administrator | Authorized enterprise account/group associations and profile-bounded client-side group/config/selected-fleet operations below. | Only assigned organization/customer/group/environment/fleet resources; never the provider support plane or a hosted config store. |
+| Individually assigned support person | Safe account/key metadata, own-assigned tickets, approved activity/utilization/geography and bounded investigation. | Specified enterprise organizations and/or customer subsets, not all customers by default; no routine key bytes, payment mutation, source credentials or fleet execution. |
+| Billing/finance role | Authorized invoice/subscription review and separately approved scoped financial mutations. | Assigned customer/billing objects and action/amount/currency/time; not global provider-admin tokens or automatic charge authority. |
+| Service/infrastructure operator | Scoped health/telemetry, safe maintenance, protected deployment/storage operations. | Named service/resources/environments; support authority and financial authority are not inherited. |
+| Security auditor | Authorized activity, access-policy and integrity/retention evidence review. | Read-only assigned scopes; audit export has separate permission and no secret/config contents. |
+| Recovery custodian | Explicit recovery/rotation ceremony using independently protected material. | Recovery purpose/time; not a second standing global superuser or normal key-reader account. |
+| AI agent/service principal | Named nonhuman identity performs the explicitly delegated subset of the above operations. | Bound sponsor, tenant/resources/actions/deadline/budget; no shared human login, implied global role or confirmation bypass. |
+
+Each assignment binds **role + scope + conditions** as one tuple. Evaluate the
+requested action/resource against each active matching tuple, then intersect
+with verified client/profile/provider/delegation authority and mandatory safety
+checks. Do not union permissions from one assignment with scopes from another
+and accidentally grant write access to the other's customers. Applicable
+explicit denies win; security floors combine restrictively, time bounds
+intersect and unresolved conflicts deny. Unknown roles/resources/groups and
+ambiguous tenant ownership grant nothing. Explain only viewer-authorized role/
+scope provenance, never another customer's metadata or client config.
+
+Support assignments are personal, not shared: a synthetic support principal
+assigned to organization A/customers A1/A2 cannot read A3 or B merely because
+its role allows support reads. A separate assignment can authorize a different
+subset and action. Delegation names grantor/recipient, exact role-action/scope,
+reason, approvals, time and parent authority; it cannot widen the grantor,
+remove a deny, enable self-approval or become an indefinite group grant.
+Changing membership/scope/revocation invalidates affected sessions/approvals/
+queued operations and rechecks generation after waits/before effects across
+UI/API/CLI/SDK/MCP. Revocation stops future access, not copied key/plaintext recall.
+
+The single global superuser uses a uniquely identified protected application
+account with qualified strong MFA/possession, short sessions, step-up and
+redacted audit of privileged reads/mutations. Routine work uses separately
+scoped identities; credentials are never shared with support or AI agents.
+Create/replace/recover that one principal through an explicit controlled
+ceremony with independently protected recovery, concurrency/invariant checks
+and audit. Recovery cannot leave two active superusers or quietly mint another
+standing global administrator. Provider account owners remain separate
+infrastructure identities, not customer-facing application superusers.
+
+Global authority is real for account administration but is not a bypass for
+signature/tenant/custody/audit/financial-confirmation requirements. No role
+assignment, including superuser, automatically grants age-private-key retrieval
+or operator plaintext display. A key release still needs its exact authorized
+profile/mapping/window; custody recovery is a separate scoped operation.
+A privileged application/provider compromise remains a residual risk, not
+something a role label makes impossible. No live role, user or privilege is
+created by this design.
+
+## Customer enterprise administration and selected fleet
+
+Customer enterprise administrators act **exclusively within the authorizing
+profile**, intersected with verified IdP/provider scopes, tenant ownership and
+explicit selected-fleet authority. They are not provider support operators.
+Their client may inspect/change authorized group associations, client config
+and selected fleet actions only through actual qualified provider/agent
+capabilities. Group membership or an “enterprise” subscription label alone is
+not permission to administer another organization or every host.
+
+All configuration stays on the customer client. A remotely hosted UI executes
+configuration/group/source work in its browser/native client through that
+user's VPN/network/credentials; it never uploads config/source credentials to
+the hosted key service. Browser CORS, file permissions and provider public-client
+OAuth capabilities are real constraints. Use an explicitly authorized native
+CLI/SDK/local integration when needed; do not proxy VPN/provider credentials
+through a backend or invent a provider group-write interface.
+
+Selected fleet operations bind immutable target IDs, action/input constraints,
+actor/profile, exact tenant/environment, approvals and time. Require an explicit
+bounded selection; no implicit all-fleet wildcard, guessed URL or profile-name
+impersonation. Each qualified agent/provider verifies target authorization and
+current policy at dispatch/result/cancel, reconciles idempotent jobs and reports
+partial host failures without claiming cross-fleet atomicity. Provider support
+cannot impersonate this role from a ticket. No deployed fleet-agent/control
+entry point was verified in the inspected native source, so this is a design
+capability/dependency, not a new working command or permission for live actions.
+
+| Proposed operation | Client-only option / unresolved conflict |
+| --- | --- |
+| Direct reachable group/config management | Use the user's actually authorized provider endpoint or local native client, validate locally and save locally; verify actual CORS/VPN/auth/API scope. |
+| Direct selected-agent operations | Only where an enrolled reachable client/agent capability exists, authenticate target/profile and keep config on the selected customer clients. Agent protocol, local storage, offline handling and permissions require implementation/evidence. |
+| Existing customer fleet-management service | Use only explicitly authorized metadata/actions through its actual API; if it requires storing desired config or credentials centrally, expose that conflict and obtain an explicit design decision rather than silently doing it. |
+| Always-on fleet broker/inventory or offline convergence | Requires state/connectivity/agent infrastructure beyond the key/account service; not automatically solved by a browser. Prefer customer-owned local state/direct execution or report unavailable. A hosted config/credential store would violate the current boundary and is not authorized. |
+
+Fleet/provider licensing, agent lifecycle/distribution, connectivity, enterprise
+IdP scopes, operator oversight and retention are optional separately measured
+costs, not hidden in the successful-fetch price. Key fetches remain the usage
+unit; an “enterprise volume” fetch bundle does not grant group/fleet management.
+The intended UI/API/CLI/SDK/MCP share scoped rules, but expose only actually
+implemented, reachable and authorized operations. Custom UI implementation
+remains deferred and no fleet/provider action is authorized by this design.
+
+## Restricted remotely hosted operator administration
+
+The operator console is a **distinct restricted persona/plane**, not the public
+landing, customer billing portal or client configuration SPA. It is a confirmed
+design for customer/account metadata, safe database operations, support/root-cause
+investigation, service monitoring, infrastructure maintenance and telemetry.
+Reuse existing hosting, payment, helpdesk and monitoring consoles before building
+duplicate screens. Custom console implementation remains deferred until the
+baseline is stable; this design authorizes no live customer-data access,
+production mutation, deployment, purchase or account connection.
+
+| Operator view/action | Allowed boundary |
+| --- | --- |
+| Profile/key support metadata | Authorized tenant/profile scope can inspect key ID, public age recipient, public-recipient fingerprint, version, status and relevant timestamps. No routine plaintext private-key display, decrypted bundle or private-key hash. A public fingerprint is not a secret-value hash or proof of ownership. |
+| Account/security activity | Bounded records identify source/channel, UTC time, action, safe result and opaque request correlation; include only necessary authorized actor/resource metadata. Source means service/channel provenance, not a client config URL, source credential or uploaded configuration. Operator reads and exports themselves need scope and audit. |
+| Utilization/history | Reconciled successful-fetch events, quota/subscription outcome and duplicate/failed-attempt distinctions, never key contents. Payment-provider state remains independently reconciled. |
+| Geography | Coarse country/region or service-edge/processing location only when justified for security/support. Label network-derived context as approximate, not physical-person proof. Minimize precision, restrict access and declare retention/export/privacy controls; raw IP/device/location data is not routine dashboard enrichment. |
+| Safe database/maintenance | Read-only metadata by default; approved parameterized/allowlisted operations, bounded scans, dry-run/version guards and audited scoped mutations. Backup/restore/migration/rotation/repair uses separate privileges and tested recovery; no generic SQL/credential shell, secret dump or silent cross-tenant write. |
+| Monitoring/infrastructure | Service-owned latency/error/abuse/custody/backup/usage signals and actual resource health. Not an ingestion path for client configuration/source credentials or arbitrary client OTel. Financial and infrastructure changes need their own authority; support access is not permission to change a plan or restart production. |
+
+Require strong operator authentication, least-privilege tenant/resource/field
+roles, short sessions, step-up/independent approval where declared, and redacted
+audit of changes and privileged reads. Separate ordinary support, billing,
+security, infrastructure and recovery authority. Break-glass is explicitly
+controlled and audited, not a path to routine key display. Provider dashboards
+remain operator-only: [Cloudflare roles](https://developers.cloudflare.com/fundamentals/manage-members/roles/)
+and [Stripe team roles](https://docs.stripe.com/get-started/account/teams/roles)
+show why “administrator” is too broad for ordinary support. Verify actual
+Netlify/hosting/helpdesk role/audit/SSO entitlements before claiming them.
+
+The [database protection and compromise contract](credential-boundaries.md#hosted-database-protection-and-compromise-boundaries)
+maps Cloudflare or Netlify native controls, configuration, plan/cost limits and
+required tests for key custody **and account/CRM/admin data**. Select one provider
+against the actual profile; reuse its services first, with no new KMS by default.
+Provider at-rest encryption plus correctly implemented application envelope
+encryption is the proposed protection for covered stored fields; it is not yet
+verified in a hosted implementation. An application/operator compromise with unwrap authority can
+still abuse that access. A console label cannot guarantee isolation from a
+privileged provider administrator. Restrict and test custody paths, recovery
+identities, logging and field-level redaction instead of claiming impossibility.
+ISO/IEC 27001 alignment is a design/evidence goal, **not certification**, and a
+log view is not immutable audit. No new custom console or live-data test has
+been implemented by documenting this design.
+
+## Profile utilization and fair metering
+
+A use is one **hosted age-key access event attributed to a profile**. It is not
+a profile, key slot, configured machine or local decrypt. One daily hosted fetch
+is one use that day; twenty hosts making twenty independent hosted fetches are
+twenty uses. Reusing an already held local key without contacting the hosted
+key service adds zero hosted uses. This metric does not imply that the service
+can observe or charge for offline decryption.
+
+| Outcome | Customer utilization | Provider cost / safety treatment |
+| --- | --- | --- |
+| Authorized logical access reaches the durable key-release decision | One use, committed once with its operation ID. | Current mapping/window checks and required receipt precede release; no key bytes in the meter. |
+| Automatic retry/reconnect of that same logical access | No second use. | Same principal/client/profile/key version, request binding and idempotency identity; bounded reconciliation and current authorization still required. |
+| Independent fetch by another host, or a new logical access | A separate use on success. | One host cannot reuse another client's operation ID to share a billed authorization. |
+| Invalid/denied/expired request or failed access before release commit | Zero customer uses. | Requests/CPU/abuse control and safe denial logging can still cost the operator. |
+| Network loss after release commit; delivery uncertain | At most that one committed use, pending reconciliation. | Do not pretend TCP receipt proves client consumption. Reconcile safe operation state; do not charge each retry. Support an audited correction for proven service failure under the eventual billing policy. |
+| Local cached-key reuse, registration, usage inspection, offboarding/revocation | Zero hosted retrieval uses. | Keep these operational/security actions separately counted internally; they are not extra retrieval charges. |
+
+Bind the durable event to tenant, profile, verified principal/client, immutable
+key version, request scope and finite idempotency window. Reusing an ID with
+different binding rejects. Define retention/retry limits in the versioned
+contract; no indefinite secret-response cache or arbitrary cross-host replay.
+Lost metering/audit state must not yield a free unrecorded release or duplicate
+charge. SDK/MCP/API/CLI use the same logical-access semantics. Do not hash the
+private key to create a meter or upload personal configuration for attribution.
+
+## Production protection and service objectives
+
+Enterprise production quality applies to the **same small profile-to-key API**,
+not a new configuration backend or UI. For the long-term enterprise profile, qualify the exact
+infrastructure/entitlements, least-privilege deployment credentials,
+headless-compatible abuse controls, encrypted durable state, consistency,
+recovery and geography. No plan label, global CDN or published SLA proves this
+application meets its objectives. Custom UI stays deferred/unapproved and all
+configuration remains client-side.
+
+| Control | Required behavior and platform evidence |
+| --- | --- |
+| DDoS/WAF/bot protection | Both vendors document platform DDoS protection. [Cloudflare security phases](https://developers.cloudflare.com/waf/feature-interoperability/) distinguish skippable SBFM from Free Bot Fight Mode, which cannot be selectively skipped. Do not put indiscriminate browser challenges on authenticated CLI/CI fetches. [Netlify WAF](https://docs.netlify.com/manage/security/secure-access-to-sites/web-application-firewall/) requires Enterprise + High-Performance Edge; Pro is not equivalent. Rule tuning, false-positive and abuse tests are mandatory. |
+| Rate limits | Apply coarse unauthenticated per-IP cost protection and independently authenticated per-client/profile/tenant limits with finite bursts and retry guidance. NAT/shared-IP users need fair treatment. [Workers limiter](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/) is approximate/per-location, not a global accounting guarantee. Use qualified strongly consistent admission/ledger state for strict limits. [Netlify limits](https://docs.netlify.com/manage/security/secure-access-to-sites/rate-limiting/) vary by plan; full controls need HP Edge. No unverified request header is an identity. |
+| Authentication | Exact issuer/resource/client/profile binding, current windows and revocation before release, short-lived credentials and replay protection. Automated clients receive structured denial/429, not CAPTCHA/JavaScript challenges or a weakened bypass. Operator/site SSO is not key-release authority. |
+| Protected state | Platform TLS and encryption at rest are necessary. [D1 security](https://developers.cloudflare.com/d1/reference/data-security/) does not imply application-owner HSM custody. Use approved key wrapping/domain isolation, least-privilege storage access and protected rotations; record wrapping/restore dependencies and costs. Never store client config or source credentials. |
+| Consistency | Commit authorization generation, required usage/idempotency/audit outcome and revocation fence before release, with recheck after waits. [D1 replication sessions](https://developers.cloudflare.com/d1/best-practices/read-replication/) do not by themselves make every replica globally current. Critical decisions must use qualified authoritative/transactional state; do not use eventual KV/edge cache for current release grants. |
+| Residency and placement | Enroll the supported storage jurisdiction/region and processing/log/backup boundaries, not an inferred CDN location. Placement hints are not contractual residency. Test primary-region latency and failover against those constraints; do not replicate private keys into an undeclared region for speed. |
+| Recovery and rotation | Rehearse encrypted backups and independent custody recovery, key-wrapping/signing credential rotation, revocation/meter history preservation and restore fencing. [Netlify backups](https://docs.netlify.com/build/data-and-storage/netlify-database/backup-and-recovery/) have plan-specific retention and restoring loses post-backup changes. Never restore a grant or double-charge by dropping later deny/usage state. |
+| Cache and failure | Key responses use `Cache-Control: no-store` and are excluded from public CDN/application caches, request/response capture and debug tools. Fail closed on unavailable required authorization, authoritative quota or audit; no cached key-response fallback. Reconcile uncertain release rather than repeatedly charging or minting credentials. |
+| Operations | Secret-free metrics/logs/traces, low-cardinality outcome/duration/limiter-health signals, alerts and bounded operator response. Key values/tokens are neither displayed nor logged; WAF/vendor telemetry also needs payload-capture review. Operational export is not immutable audit. |
+
+Initial **design objectives, not measured results or contractual promises**:
+99.9% successful authorized-fetch availability over a rolling 30-day window
+(43.2 minutes equivalent error budget), with errors from required storage/IdP/
+protection dependencies counted. Track policy/abuse denials separately, and
+count erroneous blocking/challenges of valid headless requests as service errors.
+Measure both endpoint and synthetic authenticated user-path availability; a
+200 health check alone is insufficient. Higher contractual targets require a
+qualified priced topology, not an assumed free-tier guarantee.
+
+For warm authenticated fetches with cached valid issuer metadata, target p95
+under 500 ms/p99 under 1 second from the enrolled primary geography; across
+continents target p95 under 1.2 seconds/p99 under 2 seconds. Report cold start,
+interactive login, throttling and dependency-outage results separately. Test
+Sydney, Singapore, a US region and a European region, with at least 1,000
+synthetic fetches/location under ordinary and burst load, TLS, correct denial,
+key-window expiry, rotation and regional/provider failure. Confirm DNS/route/
+region/residency and record the actual percentiles, failures and exact artifact.
+These targets may need revision from measurements; no low-latency/absolute-HA
+claim or geography is established by documentation.
+
+Recovery objectives for qualification are a 60-minute service RTO and at most
+15-minute key/mapping RPO, with **no admission of lost/uncertain revocation or
+usage history**: fence retrieval until reconciled even if this extends outage.
+Daily backups alone cannot meet that RPO. Price the needed incremental
+replication/journal/backup retention and independent restore tests before
+claiming the objective met. Free tiers are development comparisons, not
+interchangeable production guarantees.
+
 ## Hosting economics and capacity assumptions
 
-The following is an editable planning model in USD, checked against linked
-public rates on **4 November 2026**. It is not a measured capacity result,
-production bill, chosen plan, approved price, or customer/revenue claim. It
-models simple key retrieval; the added administration UI, entitlement checks,
-write volume, IdP integrations, and retention increase total delivery cost.
-Existing paid-plan capacity can reduce incremental spend but is not free or
-reserved capacity. Netlify credits/usage and Access seats need account-specific
-costing before a hosting selection.
+This is the **existing forecast revised around hosted uses**, checked against
+current official Cloudflare/Netlify documentation on **4 November 2026**, in USD.
+The baseline remains minimal registration, identity verification, mapping/window
+checks, protected private-key retrieval, durable usage/idempotency/required
+records and safe operational logging. Enterprise orchestration/remote-unlock,
+SCIM/scanners/posture/OPA and provider remediation are separately selected costs.
+No scenario is measured capacity, traction, a selected vendor or a product tariff.
 
-| Reference | Planning inputs | Exclusions and interpretation |
+### Sourced platform rates
+
+| Input | Published rate/allowance | Forecast boundary |
 | --- | --- | --- |
-| Cloudflare Workers Standard | $5/month includes 10M requests and 30M CPU-ms; additional requests $0.30/M and CPU $0.02/M ms. | Assumed 5 ms CPU/request, not measured. At 100M requests: $5 + $27 + $9.40 = **$41.40/month** before database, audit, key wrapping, or other services. [Rates](https://developers.cloudflare.com/workers/platform/pricing/). |
-| Cloudflare D1 Paid | 25B rows read, 50M writes, and 5 GB included; overage $0.001/M reads, $1/M writes, $0.75/GB-month. | One audit write per 100M retrievals already adds $50 beyond the write allowance. Index maintenance, administration, denials, and storage add usage. [Rates](https://developers.cloudflare.com/d1/platform/pricing/). |
-| AWS retrieval example | US East (N. Virginia), HTTP API, x86 Lambda at 256 MiB for 100 ms, one strongly consistent DynamoDB read of an indexed item up to 4 KiB, one symmetric KMS decrypt, and a log-ingestion allowance of 1 GB per million retrievals. | Approximately **$5.24/M**: API $1 + requests $0.20 + compute $0.4167 + reads $0.125 + KMS $3 + logs $0.50. Excludes free allowances, writes, data/storage, egress, backups, tax, and the KMS key's monthly charge. A key read plus a separate grant read costs more. [API](https://aws.amazon.com/api-gateway/pricing/), [Lambda](https://aws.amazon.com/lambda/pricing/), [DynamoDB](https://aws.amazon.com/dynamodb/pricing/), [KMS](https://aws.amazon.com/kms/pricing/), [logs](https://aws.amazon.com/cloudwatch/pricing/). |
-| AWS Secrets Manager | $0.40 per separate secret per month; 100 separate key objects imply $40/month before calls. | Different custody/storage choice, not an extra fee necessarily present in the DynamoDB example. [Rates](https://aws.amazon.com/secrets-manager/pricing/). |
-| Small VM comparison | A 1 GiB DigitalOcean Basic VM is $6/month; the listed 512 MiB tier is $4/month. | Neither is a production capacity commitment. Patching, TLS, backups, redundancy, monitoring, and operational labor are additional. [Rates](https://www.digitalocean.com/pricing/droplets). |
+| Cloudflare Workers Standard | $5 monthly minimum; 10M requests and 30M CPU-ms included, then $0.30/M requests and $0.02/M CPU-ms. No Workers bandwidth/egress charge. | [Official pricing](https://developers.cloudflare.com/workers/platform/pricing/); Free has 100,000 requests/day and 10 ms CPU/invocation, not reserved production capacity. |
+| D1 Paid | 25B row reads, 50M row writes and 5 GB included monthly; then $0.001/M reads, $1/M writes, $0.75/GB-month. | [Official D1 rates](https://developers.cloudflare.com/d1/platform/pricing/). Indexed changes add physical rows written. Free read/write/storage limits are daily/capped, not equivalent monthly service guarantees. |
+| Workers Logs on this model date | 20M events/month included on Paid, then $0.60/M; seven-day retention. | Same [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/). This is operational logging, not the separate required audit store. The [announced observability change](https://developers.cloudflare.com/observability/pricing/) begins 1 December 2026 and requires repricing then. |
+| Netlify credit accounting | 2 credits/10,000 requests; 10/GB-hour function compute; 20/GB web or database bandwidth; 15/successful production deploy. | [Official credit meters](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/). Function elapsed time × allocated memory is not Workers CPU time. |
+| Netlify plans/packs | Free 300 credits with hard limit; Personal $9/1,000 credits; Pro starts $20/3,000. Pro additional packs: $10/1,500 credits. | [Official plans](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/). The comparison uses Pro plus whole packs, not necessarily the cheapest tier; no recharge/purchase is authorized. Legacy/Enterprise terms differ. |
+| Netlify Database | Compute and database egress add credits; documented examples use 10 credits/compute-unit-hour and 20/GB database egress. | [Database billing](https://docs.netlify.com/build/data-and-storage/netlify-database/billing-and-usage/). The page still says storage billing starts no earlier than July 2026 without a current storage tariff; **storage cost is unresolved, not assumed free**. Reconfirm its actual billing conversion/plan before purchase. |
 
-Cloudflare's [observability pricing change](https://developers.cloudflare.com/observability/pricing/)
-begins **1 December 2026**, not the date of this model. The announced Paid pooled
-allowances are 50 GB ingestion and 10 GB-month storage, then $0.25/GB ingestion
-and $0.10/GB-month storage; Free has 0.5 GB/day ingestion and seven-day retention.
-Enterprise changes at contract renewal; Log Explorer datasets have a separate
-rate. Those future byte rates are excluded from the current Workers example.
-Audit bytes, retention, and export are separate cost inputs, not zero-cost
-consequences of counting key fetches.
+[Netlify Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/plans-and-pricing/)
+is documented as included on credit-based plans with unlimited active users;
+its Pro features and protocol fit still need qualification. Using another IdP
+or running on Cloudflare does not automatically inherit that entitlement.
+[Netlify function logs](https://docs.netlify.com/build/functions/logs/) have
+plan-bound retention; external drains/long retention add separately verified
+cost and cannot replace durable required records. No custom dashboard is
+assumed or approved by these platform comparisons.
 
-Users, throughput, and concurrency are different quantities. With a 30-day
-month, 100,000 users fetching once a day produce 3M requests, about 1.16 requests
-per second on average. If all fetch together, the burst can be 100,000 requests;
-with a ten-minute jitter window it averages about 167 requests/second during
-that window. At 100 ms response time, 167 requests/second implies roughly 17
-in-flight requests in a stable system, not a 17-user limit. These are arithmetic
-scenarios, not benchmarks.
+Authentication is not priced as “free” merely because JWT validation is local.
+The selected IdP's active-user/machine/token/step-up allowances, required external
+KMS/wrapping, database storage not quoted above, backups, durable audit retention,
+SIEM export, support, security operations and tax remain separately measured cost
+inputs. Existing subscriptions may cover some usage but do not establish unused
+capacity or authority to spend. Read/write/retention and denied-traffic costs
+remain real even when the customer meter records no use.
 
-The [Workers Free limit](https://developers.cloudflare.com/workers/platform/limits/)
-is 100,000 requests/day. The daily example consumes all of it before retries,
-UI calls, or administration, so it does not justify offering 100,000 reliable
-users on Free. CPU time, database throughput, KMS quotas, cold starts,
-revocation consistency, audit persistence, and synchronized refreshes require
-load tests. D1's [example throughput](https://developers.cloudflare.com/d1/platform/limits/)
-at 1 ms/query is conditional; it is not an application SLA. A paid plan becomes
-necessary when actual feature/usage/availability requirements exceed the free
-service, not when a particular unmeasured user count is reached.
+### Explicit traffic and resource assumptions
 
-## Illustrative revenue model
+These synthetic distributions reuse the earlier 1,000/10,000/100,000 scale
+points, with no acquisition or paying-conversion claim. In a 30-day month,
+profiles are distributed among 1, 5 and 20 independent daily hosted fetches.
+A profile with twenty fetching hosts has twenty uses/day, not one profile unit.
+Low batches traffic into a daily window; base/high distribute it throughout the
+day. Peak concurrency, jitter, outages and abuse need load tests.
 
-A five-unit free tier and a larger paid tier such as 100 units are business
-ideas only. The managed unit could be a key, identity, client, or organization;
-its definition, included usage, tiers, pricing, billing country, and support
-commitments remain unsettled. Nothing in this document offers a live paid plan.
-
-| Editable input or output | Low case | Base case | High case |
+| Assumed input/output | Low | Base | High |
 | --- | ---: | ---: | ---: |
-| Active accounts | 1,000 | 10,000 | 100,000 |
-| Paid conversion assumption | 2% | 5% | 10% |
-| Paying accounts | 20 | 500 | 10,000 |
-| Monthly price assumption | $5 | $10 | $20 |
-| Fetches per active account/month | 20 | 200 | 1,000 |
-| Total monthly fetches | 20,000 | 2,000,000 | 100,000,000 |
-| Monthly recurring revenue | $100 | $5,000 | $200,000 |
-| Annualized recurring revenue | $1,200 | $60,000 | $2,400,000 |
-| Infrastructure budget allowance | $25 | $100 | $1,000 |
-| Payment-fee allowance | $9.60 | $330 | $10,200 |
-| Support allowance at $1/payer/month | $20 | $500 | $10,000 |
-| Illustrative gross contribution | $45.40 | $4,070 | $178,800 |
-| Illustrative contribution margin | 45.4% | 81.4% | 89.4% |
+| Profiles (context, not billing units) | 1,000 | 10,000 | 100,000 |
+| Mix at 1 / 5 / 20 daily accesses | 90% / 9% / 1% | 70% / 25% / 5% | 30% / 40% / 30% |
+| Unique successful hosted uses, N | 46,500 | 885,000 | 24,900,000 |
+| Provider requests, Q = 1.06N | 49,290 | 938,100 | 26,394,000 |
+| D1 indexed row reads including strict admission, 6Q | 295,740 | 5,628,600 | 158,364,000 |
+| D1 physical rows written including strict admission, 8.16N | 379,440 | 7,221,600 | 203,184,000 |
+| Stored records + key/limit metadata, GB | 0.054 | 0.866 | 20.982 |
+| Netlify DB compute-unit-hours | 15 | 720 | 1,440 |
 
-Infrastructure allowances are planning inputs, not computed vendor bills. The
-payment assumption is a US-based, USD-billing card merchant with a conservative
-blended allowance of **3.6% + $0.30 per monthly payer**. It is not a universal
-Stripe quote; [published payment rates](https://stripe.com/us/pricing) vary by
-country, card, currency, and other services. Taxes, refunds, disputes, additional
-subscriptions/billing products, acquisition, engineering, independent security,
-insurance, legal, compliance, and general overhead are excluded. Contribution
-is not net profit.
+Common assumptions: 2% retry attempts, 1% denied requests and 3% registration/authentication/account/history/support/webhook traffic on top of successful accesses; denied/failed calls
+are not customer uses. Each attempt takes 7 ms Workers CPU; the Netlify function
+case uses the documented default [1 GB allocation](https://docs.netlify.com/build/functions/usage-and-billing/)
+for an assumed 100 ms elapsed. Each response averages 2 KiB
+of web egress, and database results total 6 KiB per unique access. Assume four
+production deploys/month. Required records/usage/idempotency use three logical
+writes plus index effects, modeled as six physical rows/access; denial/admin
+adds 0.04N writes and strict admission adds two reads/writes per attempt (2Q),
+for total 6Q reads and 8.16N writes. Storage assumes 768 bytes/access retained 30 days plus
+2 KiB/profile plus 160 bytes/profile for limiter counters and 16 KiB/profile
+of account/subscription/invoice/ticket-ID metadata (not card fields or config). These are tunable sizing assumptions, not verified per-request
+measurements or an instruction to retain secret responses.
+
+Low assumes 15 DB active hours/month, including wake/sleep and admin activity;
+base one minimum compute unit all month (720 hours); high two tenant-partitioned
+units/databases. High needs at least three D1 shards by size alone because the aggregate retained
+20.9824 GB exceeds a [single D1 database limit](https://developers.cloudflare.com/d1/platform/limits/).
+The separately assumed two-way Netlify split keeps database egress per shard below the
+listed Pro per-database cap. Partition routing, transaction boundaries, maximum
+tenant size, compute-unit interpretation and the operational capacity of these
+assumptions require implementation and qualification; arithmetic does not prove
+that two shards suffice for every workload.
+
+### Recomputed baseline platform subtotals
+
+| Modeled subtotal/output | Low | Base | High |
+| --- | ---: | ---: | ---: |
+| Cloudflare Workers request/CPU minimum + excess | $5.00 | $5.00 | $13.01 |
+| D1 excess read/write/storage | $0.00 | $0.00 | $165.17 |
+| Workers operational-log excess | $0.00 | $0.00 | $3.84 |
+| **Cloudflare listed-platform subtotal** | **$5.00** | **$5.00** | **$182.02** |
+| Netlify requests/function compute/web+DB egress/deploy/DB compute credits | 241.28 | 7,855.38 | 31,211.28 |
+| **Netlify Pro + whole-pack subtotal** | **$20.00** | **$60.00** | **$210.00** |
+
+Netlify subtotals exclude the unresolved storage tariff and both subtotals
+exclude unselected identity/custody, additional required-record retention,
+backup/export and operating costs. They are **not all-in bills or profits**.
+Free-tier fit is conditional: low's modeled Netlify credits/DB active hours and
+Cloudflare daily requests/row writes fit the referenced free usage ceilings,
+but do not establish custody, availability or production qualification. Base's
+D1 writes already exceed its daily Free allowance, and its modeled Netlify
+always-active database cannot be treated as a free suspended instance.
 
 The formulas are:
 
 ```text
-payers = active_accounts * paid_conversion
-monthly_fetches = active_accounts * fetches_per_active_account
-MRR = payers * monthly_price
-ARR = 12 * MRR
-fees = 0.036 * MRR + 0.30 * payers
-contribution = MRR - infrastructure_allowance - fees - support_allowance
-margin = contribution / MRR
-next_month_payers = prior_payers * (1 - monthly_paid_churn) + new_paid_conversions
+N = profiles * 30 * weighted_daily_accesses
+Q = 1.06 * N
+CF = 5 + .30*max(Q-10M,0)/M + .02*max(7Q-30M,0)/M
+     + .001*max(6Q-25B,0)/M + max(8.16N-50M,0)/M
+     + .75*max((768N+18592*profiles)/1e9-5,0) + .60*max(Q-20M,0)/M
+credits = 2Q/10000 + 10*(Q*1*.10/3600)
+          + 20*(2048Q/1e9 + 6144N/1e9) + 10*DB_unit_hours + 15*4
+Netlify_Pro = 20 + 10*ceil(max(credits-3000,0)/1500)
+all_in_cost = listed_platform + identity + custody + unresolved_storage
+              + extra_logging_audit_backup_export + support_security_operations + tax
 ```
 
-Revenue starts with the first actual paying conversion, not account creation.
-No acquisition timeline is asserted. For the base price, a fixed $100
-infrastructure allowance alone is covered at 12 payers under these variable
-cost assumptions; that is not business break-even. Add fixed operating costs
-before calculating business break-even. Each additional $1,000/month of fixed
-cost needs about 120 more $10 payers at the same assumptions.
+Cloudify remains an evaluated, unpriced alternative, not another name for
+Cloudflare. Its official [Manager setup](https://docs.cloudify.co/latest/trial_getting_started/set_trial_manager/),
+[sizing](https://docs.cloudify.co/latest/install_maintain/installation/prerequisites/)
+and [Premium licensing](https://docs.cloudify.co/latest/install_maintain/installation/manager-license/)
+describe orchestration plus underlying infrastructure. No comparable current
+per-retrieval quote was established; adding a Manager to the minimal subscription
+needs its own justified cost, rather than replacing the API bill with zero.
+No vendor/account/trial/recharge has been selected or connected.
 
-At 3% monthly paid churn, the base snapshot needs 15 replacement paid accounts
-per month just to retain 500. At 1%/3%/5% churn, simplified expected lifetimes
-are 100/33.3/20 months; acquisition economics must use retained contribution,
-not headline ARR. A $10 monthly price requires **83,334 payers** to reach at
-least $10M annualized revenue. That is an arithmetic scale target, not demand or
-traction evidence. Pricing and retention sensitivity, security operating cost,
-and customer acquisition determine whether this becomes a viable business.
+### Production protection costs and the unit model
+
+The preceding $5/$5/$182.02 and Pro $20/$60/$210 figures are **compute/storage
+comparison subtotals**, not the enterprise production configuration. The
+[Cloudflare zone plans](https://www.cloudflare.com/plans/) list Pro at $25/month
+and Business at $250/month on monthly billing. The costed production candidate
+uses a **Business zone ($250)** plus Workers/D1 and a consistent limiter; neither
+Pro nor that zone's SLA is automatically a Workers/application SLA. Enterprise
+Bot Management, advanced rule characteristics, extra residency/retention,
+authentication and key-wrapping entitlements may need an additional quote.
+
+For an explicit limiter sensitivity, assume two authoritative Durable Object
+admissions per provider attempt, each active 100 ms including waits, 128 MB
+memory, bounded state and two physical counter writes/attempt. [DO pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+includes 1M requests and 400,000 GB-seconds/month, then $0.15/M requests and
+$12.50/M GB-seconds; storage operations add their published charges. Use its
+published upward billing-unit rounding. This is a conservative optional limiter sensitivity, not implemented capacity.
+The lean calculation already budgets D1 limiter rows; migrating those counters
+to DO replaces that part of D1 cost. The table retains both as an upper-budget
+sensitivity rather than claiming two simultaneous limiter stores are required.
+Request/duration behavior and the actual atomic ledger design require tests.
+
+| Candidate production budget component | Low | Base | High |
+| --- | ---: | ---: | ---: |
+| Previously computed Cloudflare subtotal | $5.00 | $5.00 | $182.02 |
+| Business zone for protection | $250.00 | $250.00 | $250.00 |
+| DO limiter request/duration/write allowance estimate | $0.00 | $0.15 | $23.30 |
+| **Conservative premium candidate budget** | **$255.00** | **$255.15** | **$455.32** |
+
+Limiter high estimate is $7.80 requests + $12.50 duration + $3 physical writes;
+actual storage/idle behavior may differ. This excludes quoted/unmeasured
+key wrapping, required retention/backup/residency, incident response and any
+additional WAF/bot/rate-limit entitlement. Paid-zone selection itself is not
+authorization to provision or a passing protection/availability test.
+
+For Netlify, **Enterprise + High-Performance Edge WAF/full-limit pricing is
+unquoted**. Its Enterprise credit and storage terms may also differ from Pro.
+Do not advertise a protected production baseline at the Pro subtotal or assume
+“Pro + a known small add-on.” Obtain the actual protection/compute/storage/
+auth/log/export/backup quote before a like-for-like cost comparison. No quote,
+account or deployment has been requested here. A no-charge included Identity
+feature does not establish the required machine-identity protocol by itself.
+
+The premium candidate is a long-term upgrade comparison, not the near-term
+launch spend floor. Plan sensitivities below instead use the lean candidate
+budgets and explicitly separate per-use/operations/free-user reserves. These
+are **budget assumptions**, not all-in verified bills or Netlify quotes. Every unpriced component must fit those reserves or the proposed
+allowance/price must change. Production abuse/request amplification, failed
+requests, denied attempts and monitoring traffic increase provider cost even
+when customer successful-fetch usage stays unchanged.
+
+### Near-term lean launch and explicit upgrade triggers
+
+The near-term priority is the leanest viable **secure** minimal service; some
+premium enterprise functionality is deferred until customer demand and revenue
+justify it. The long-term design above remains intact. Do not claim that
+omitting a premium product means authentication, tenant isolation, protected
+key custody, accurate durable metering or basic abuse controls can be omitted.
+
+| Lean candidate | Minimum/comparison costs | Required limitations and fundamental controls |
+| --- | --- | --- |
+| Workers Paid + D1, no premium zone/bot purchase | $5 monthly Workers minimum; modeled listed costs $5/$5/$182.02 for low/base/high, including transactional admission row budget. | Platform DDoS/available basic rules, bounded per-IP abuse limits and authoritative per-identity/profile/tenant admission in the same transactional state as usage. No indiscriminate headless challenges. No paid-zone SLA, advanced bot score/WAF or multi-region guarantee is claimed. Key wrapping/backup/IdP/retention must fit measured explicit reserves. |
+| Netlify Free for a bounded pilot | Modeled low 240.80 credits fits 300 and 15 DB active hours fits the cited 48-unit Free limit, subject to other limits/storage tariff. | Hard caps can pause service; no production availability promise. Must still prove correct auth/custody/tenant/meters/abuse controls. Never silently recharge or weaken checks at the cap. |
+| Netlify Personal or Pro when usage requires | Personal $9 includes 1,000 credits; under these cases Personal + packs is $9/$79/$314. Pro + packs is $20/$60/$210. | Use actual account terms and measured billing before selection; Pro becomes cheaper than Personal in base/high under the quoted pack assumptions. No Enterprise WAF or HP Edge entitlement is implied. |
+
+For the lean profile, use an initial monitored **99.5% monthly authorized-fetch
+objective**, not an SLA or achieved result; dependency failures and accidental
+blocking of valid headless clients count. Track cold starts and warm/cross-ocean
+latencies separately; publish observed geography percentiles before promising
+a latency target. Region-local authoritative checks may be slower than a public
+CDN read and are preferable to stale authorization. Recovery remains fail-closed
+for uncertain revocations/usage, with the actual backup RPO/RTO disclosed.
+
+Upgrade when measured request/CPU/database/credit usage approaches its actual
+hard allowance or the current budget, bursts trigger valid-client throttling,
+backup/residency/latency objectives cannot be met, or a customer explicitly
+requires a quoted WAF/bot/SLA/identity/geographic entitlement. The operator
+reviews that evidence, customer commitment and funded cost before approving a
+purchase. Those are measurement/customer requirements, not fabricated current
+customer counts or preapproved thresholds. Use a new exact profile/cost receipt;
+do not represent the basic profile as full enterprise functionality.
+
+The release record must name the bounded lean profile, deferred protections,
+known limitations and actual tests separately from the complete intended v1
+contract. It cannot turn a design change into a passing quality/security gate.
+All client config remains local, the host remains profile-to-key, UI remains
+deferred and no account connection/provisioning/purchase is authorized here.
+
+### Customer-service and operator cost delta
+
+The [native protection mapping](credential-boundaries.md#native-provider-control-mapping)
+uses one selected host's included encryption, secrets, database access, backups
+and monitoring first. It does not add a second host or an external KMS by
+default. Crypto CPU, enforced isolation boundaries and recovery/export work
+must still fit measured reserves; unsupported custody or row-isolation needs
+require an explicit design/cost decision before a secure-service claim.
+
+Customer billing/support does not come free with Cloudflare or Netlify hosting.
+The updated traffic model includes **3% account/auth/history/support/webhook
+traffic** rather than 1% admin traffic, and 16 KiB/profile of necessary account/
+provider-reference metadata. This is a sizing assumption, not a billing unit or
+a recommendation to keep raw webhook/card/ticket/config payloads. Measure real
+query counts, history pagination, event bursts and retention, and add support/
+operator audit export/SSO costs where the selected entitlements require them.
+
+The chosen billing portal remains unselected. A Stripe candidate reuses its
+customer portal and the sourced Payments + Billing fees already in the model;
+it does not require another custom billing UI. A provider's portal, supported
+API/version, quotas, tax, SSO and machine-action scope still need qualification.
+Only the selected provider's features are exposed to customers, never hosting
+admin tokens or operator billing APIs.
+
+For lean support, reuse an existing **authorized** private channel and public
+synthetic-only GitHub support where suitable; actual mailbox/labor cost is not
+assumed zero. Optional [Freshdesk Growth](https://www.freshworks.com/freshdesk/pricing/)
+currently lists **$19/agent/month billed annually** for ticketing/shared inbox
+and customer portal/knowledge base. One seat is a **$228 annual commitment**,
+not permission for a $19 monthly purchase. Its higher role/SSO/audit/SLA and API
+automation requirements must be checked independently. The page also lists
+vendor MCP-action and connector-task add-ons: do not treat unattended support
+as unlimited/free or assume our CLI/MCP operation is a vendor-billed MCP action.
+No AI/connector add-on is selected; quote actual automation volumes before use.
+
+| Listed platform + optional one helpdesk seat | Low | Base | High |
+| --- | ---: | ---: | ---: |
+| Cloudflare comparison + annual-equivalent support seat | $24.00 | $24.00 | $201.02 |
+| Netlify Pro comparison + annual-equivalent support seat | $39.00 | $79.00 | $229.00 |
+
+These are still partial costs, not invoices: encrypted storage/custody,
+identity, history/retention, operator permissions/audit/monitoring, tax, support
+labor and provider automation may add unquoted charges. Reuse entitled operator
+consoles where practical; a custom admin console is not implemented or costed
+as “free,” and remains deferred. Add an actual new seat/SSO/monitoring quote to
+the release cost receipt before purchase. Financial operations remain subject
+to explicit user authority and applicable confirmation, regardless of plan.
+
+## Free allowance and subscription opportunity
+
+Profile utilization is the hosted access event defined above. The **free event
+allowance**, period, paid package/usage rate, threshold, payment provider and
+hosting choice remain undecided. Earlier five/100-unit quantities and $5/$10/$20
+monthly prices were exploratory; they are not settled allowances, key slots or
+profile-count tariffs. Registration and local key reuse are not paying conversions.
+
+Use the confirmed CLI/text flow or existing entitled platform surfaces for
+usage/upgrade information; expanded custom admin UI remains deferred/unapproved.
+Show usage and remaining allowance, then a clear subscription opportunity when
+the eventual event allowance is exceeded. No automatic charge, paid enrollment,
+trial conversion or provider auto-recharge follows from authentication or excess
+usage. Tenant controls govern who may subscribe. Insufficient entitlement returns
+an actionable outcome without widening access/windows; security offboarding,
+revocation and safe usage inspection remain available. Opted-out/self-hosted/
+offline clients do not create a hosted subscription or submit utilization by
+implication. Independent host fetches count separately, while retries of one
+logical access reconcile the same event and cannot be overcharged.
+
+## Illustrative revenue model
+
+Replace the earlier flat per-account price/conversion forecast with event-based
+unit economics. No demand, paying fraction or actual margin is claimed. Let
+`b` be the fraction of successful uses left billable after the eventual free
+allowance, `U=b*N`, `p` the realized revenue per billable use, `B` monthly payment
+transactions, and `C` the **all-in** cost above. For an explicitly hypothetical USD domestic-card subscription, current
+[Stripe Payments pricing](https://stripe.com/pricing) shows 2.9% + $0.30 and
+[Billing pay-as-you-go](https://stripe.com/billing/pricing) shows 0.7% of Billing
+volume. Together these support `f=3.6%` plus `$0.30/payment` for that specific
+scenario, not a universal rate or a selected provider/account. International
+cards, FX, refunds/disputes, tax and actual merchant-country terms add costs;
+reconfirm them before any launched tariff.
+
+```text
+revenue R = p * U
+contribution = (1-f)*R - .30*B - C
+contribution_margin = contribution/R
+required_p = (C + .30*B) / (U * (1-f-target_margin))
+```
+
+An 80% contribution target with `f=.036` leaves `.164*R` for costs and fixed
+payment fees. A 60% target leaves `.364*R`. These are planning targets, not
+promised profit. With an illustrative **20% of uses billable**, the 80% target
+implies the following **platform-only lower bounds per 1,000 billable uses**:
+
+| Lower bound, not a customer price | Low | Base | High |
+| --- | ---: | ---: | ---: |
+| Cloudflare listed subtotal only | $3.2783 | $0.1722 | $0.2229 |
+| Netlify listed Pro subtotal only | $13.1130 | $2.0670 | $0.2571 |
+
+These bounds deliberately omit unmeasured costs and fixed payment transactions;
+charging at them cannot be described as profitable. For base traffic, every
+additional $100/month of real operating cost adds **$3.4449 per 1,000 billable
+uses** to that 80%-target floor; monthly minimums and payment batch size matter.
+A different billable fraction changes the floor inversely: a generous free tier
+must be funded by paid utilization, not hidden in the profile count. Select the
+allowance and subscription units/rate only after measuring full costs, burst/
+abuse budgets and retention, then verify actual margin. Optional enterprise
+features require their own incremental cost model and explicit enrollment.
+
+### Plan proposals from costs
+
+These are **proposals for review, not launched tariffs, entitlements or
+purchase authorization**. They cover only the minimal hosted key service, not
+enterprise configuration/UI/orchestration features. They are derived from the
+preceding costs plus explicit reserves; measured costs must fit the reserves
+before they can be treated as sustainable prices. Do not ask a user to pick an
+arbitrary threshold or assume profile count is consumption.
+
+A free allowance of **30 successful hosted fetches per month** supports one
+hosted fetch/day in this 30-day model, with unlimited local reuse adding no
+hosted events. Attribute usage to profiles but pool the allowance under a
+verified owner so creating more profiles cannot multiply free entitlement.
+The free-owner cost assumption is $0.10/month: $0.03 for 30 uses at an extra
+$0.001/use reserve plus $0.07 identity/storage/idle/abuse reserve. This is a
+budget assumption, not a vendor price. Quotas and measured abuse must bound
+it; the paid service funds free utilization explicitly.
+
+For paid proposals, assume 100 paying owners and 100 free owners, one authorized
+payment/paid owner/month, a **$29/month lean Cloudflare/support budget** (the prior $10 infrastructure
+reserve plus a $19 annual-equivalent support seat), or **$79/month Netlify/support
+comparison budget**. Allocate $0.29 or $0.79/paid owner respectively, plus $0.10 to fund one free owner.
+Larger measured usage/costs must use the recomputed scenario, not those startup
+budgets. Add **$0.001/successful paid fetch** as
+an incremental unquoted-cost reserve for key custody/auth/storage/records; it
+is added to the platform budget rather than pretending those items are free.
+Allow per-paid-owner operations reserves of $0.50/$2/$7 for the three proposals.
+These cover no promised support SLA; insurance/engineering/security effort and
+actual vendor costs may require larger allocations. The 100/100 cohort is a
+sensitivity input, not customers, conversion or traction.
+
+| Proposal for review | Successful hosted fetches/month | Proposed USD/month | CF cost / contribution / margin | Netlify cost / contribution / margin | Payment/Billing fees |
+| --- | ---: | ---: | --- | --- | ---: |
+| Personal | 300 | $5 | $1.19 / $3.33 / 66.6% | $1.69 / $2.83 / 56.6% | $0.48 |
+| Business | 3,000 | $15 | $5.39 / $8.77 / 58.5% | $5.89 / $8.27 / 55.1% | $0.84 |
+| Enterprise volume | 20,000 | $65 | $27.39 / $34.97 / 53.8% | $27.89 / $34.47 / 53.0% | $2.64 |
+
+The allowances correspond to 10/100/about 667 hosted fetches/day, not numbers
+of profiles or key slots. For example, 20 hosts fetching four times/day consume
+2,400 monthly events and fit the business proposal; 100 hosts fetching six
+times/day consume 18,000 and fit the enterprise-volume proposal. Neither plan
+authorizes remote unlocking, custom UI, server-side configuration or premium
+support. Access/windows and offboarding are independent of plan names.
+
+The model uses full included utilization. Margins are before excluded costs
+outside the reserves, taxes and acquisition; they are not actual net profits.
+At full included usage and one free owner/payer, a 50% contribution target
+under the $29 Cloudflare/support budget needs at least **26 personal, 19 business
+or 11 enterprise-volume paying owners** in a single-tier cohort; the $79
+Netlify/support budget needs **71, 51 or 29** respectively. Mixed cohorts use aggregate costs.
+These are arithmetic funding requirements, not traction or guaranteed margins.
+The platform budget must actually fit the chosen usage: if a single large
+customer exceeds it, recalculate rather than treating a minimum as a flat bill.
+
+More free owners per payer reduce margin. Ten free owners/payer add $0.90 to
+each paid-owner cost beyond this one-to-one model; in personal that reduces
+CF margin from 66.6% to 48.6% and Netlify margin from 56.6% to 38.6%. At 100
+free owners/payer, the personal proposal loses money. Free growth needs its own
+funded budget and abuse controls, not assumed paying conversion.
+Actual authentication, storage, retention or support exceeding reserves also
+reduces margin. Measure and reprice the allowance before launch when a reserve
+fails. Exceeding an allowance offers explicit upgrade/prepayment choices; no
+automatic overage charge, paid conversion or recharge is proposed. Enterprise
+volume is a fetch bundle, not a silently expanded enterprise control plane.
+
+[Payment validation](integration-testing.md#payment-provider-validation-layers)
+uses the existing synthetic harness and a future selected official SDK; mocks,
+contract fixtures and any separately authorized provider sandbox are not
+production qualification. No provider account or live payment is required by
+this documentation pass.
 
 ## Runtime, SDK and agent integration
 

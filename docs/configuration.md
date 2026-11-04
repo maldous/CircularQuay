@@ -45,6 +45,65 @@ approval, revision and required-audit rules. Use only fields supported by the
 selected schema/runtime; do not add design fields to an executable example,
 invent environment settings or bypass an ancestor lock with local CRUD.
 
+### Physical files and the resolved model
+
+Choose a self-contained file or a master with explicit trusted external
+includes; both resolve to one validated policy under the
+[canonical governance contract](configuration-governance.md). Includes carry
+approved source/version/digest pins, namespaces, source order and conflict
+rules, while inherited locks and authority ceilings remain mandatory. A child
+source cannot enlarge its own authority. Bound graph loading and reject cycles,
+duplicate source/object identities and unresolved conflicts before atomic
+activation of the complete generation.
+
+[Corporate GitHub plus protected personal local configuration](configuration-repositories.md#corporate-github-and-personal-local-configuration)
+keeps personal values, decryption keys and scoped provenance local; no corporate
+upload follows from composition. Refresh/trust and optional offline-cache
+rules are explicit per domain. The reference schema and executable commands
+below remain version-specific; do not insert unimplemented include fields into
+otherwise valid examples.
+
+### Hosted key service initialization
+
+The [first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
+resolves CLI and configuration opt-outs before any hosted-service network call.
+Both surfaces can disable the default hosted key service; CLI disable overrides
+an ordinary configured default, configuration disable applies absent a CLI
+selection, and enterprise locks are validated rather than silently bypassed.
+Contradictory requirements deny before network. Use only the selected runtime's
+implemented flag/schema spelling; this design adds no ignored policy fields.
+
+Initialization follows resolved configuration/discovery/manual selection and
+identity authentication, creates only the permitted minimal user/client/tenant
+association and enables future key-release-window checks. It does not upload
+personal files/keys, enroll enterprise orchestration or create a paid plan.
+Self-hosted/offline profiles retain their separate trust; absence of hosted
+registration cannot become a fallback to unauthorized access.
+
+## Client-side configuration ownership
+
+All user configuration remains client-side. A browser or native client reads
+single/multiple local files or approved URLs through the user's own network,
+VPN and source credentials, resolves and validates every supported option, and
+saves the result locally. Neither configuration content nor source credentials
+may be sent to the hosted backend, a server-side fetch/resolve proxy, analytics
+or logs. Client-side explain/provenance follows the same boundary; metadata
+must not become a disguised configuration upload.
+
+Browser design supports explicit file permissions and CORS as enforced by the
+source/browser. When those prevent access, use a separately authorized native
+CLI/SDK or local client integration with equivalent validation and local-save
+behavior. Do not bypass CORS with a hosted proxy, ask the server to fetch a
+VPN URL, or silently support fewer configuration options. A future browser UI
+is design only: expanded custom admin UI/screens remain deferred/unapproved.
+
+The hosted key service stores authenticated profile-to-age-key associations
+and necessary enrollment, window/usage and billing records only. Key values
+travel through protected authorized storage/retrieval paths, never display or
+logging. It is not a configuration authority/store or a resolver for the client.
+CLI/config hosted disable is resolved before hosted network; disabled operation
+can remain fully client-only under its actual local grants and key custody.
+
 ## Loading and filesystem boundary
 
 `cquay --config PATH` loads JSON or YAML. Relative references are resolved
