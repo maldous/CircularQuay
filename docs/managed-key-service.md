@@ -199,6 +199,88 @@ keys and separate identities. Browser sessions, CSRF protection, CSP, origin
 checks, request limits, abuse budgets, and server authorization protect changes;
 the managed login screen alone does not authorize a mapping mutation.
 
+## Local development, integration, and controlled delivery
+
+The managed service has one artifact, configuration, storage-migration, and
+authorization contract across local development, CI, preview, and production.
+A developer instance is a loopback-only isolated deployment of that same
+versioned artifact. It uses an independent local data directory, isolated
+tenant/domain identifiers, synthetic keys and secrets, and a developer-approved
+identity-provider profile. `development` and `production` are labels chosen by
+an operator; neither label grants an identity, selects a tenant, or weakens a
+policy.
+
+Authentication and authorization remain real in a local instance. A local
+browser session, test header, loopback origin, or developer OS account is not a
+substitute for a verified service credential and server-side mapping decision.
+A self-hosted Keycloak fixture, a constrained wire-compatible identity fixture,
+and selected OpenBao scenarios provide repeatable integration inputs where they
+exercise their respective protocols. They use fabricated tenants, principals,
+recipients, tokens, and encrypted values. They do not turn a test provider into
+an implicit production authority or require any particular IdP in a customer
+deployment.
+
+Each local instance trusts only its own test certificate authority for its
+declared endpoints. Test certificates, issuer metadata, and isolated client
+trust are created with the fixture and removed with it. The service never asks a
+developer to add a permanent system/browser trust-store exception, disable TLS
+verification, or reuse an operational certificate. A trust failure is a test
+failure, including on loopback.
+
+The same pinned artifact, policy fixtures, migration sequence, health contract,
+and redacted evidence format run locally and in CI. Cleanup removes only the
+test instance's data, certificates, and synthetic identities after evidence is
+captured; it does not mutate a shared provider, account, or host trust store.
+Parallel runs use distinct instance, tenant, database, and audit namespaces.
+This permits concurrency, retry, backup/restore, expiry, and revocation testing
+without conflating one developer's result with another's.
+
+Netlify Dev and Wrangler local adapters exercise the same authenticated API and
+tenant-isolation contract using synthetic inputs. They are adapter tests, not
+evidence that a hosted platform has enforced a production policy. Preview
+validation is separately scoped: it uses a preview-specific application,
+identity audience, storage namespace, and synthetic key set, and it cannot read
+or modify production mappings, audit records, or custody material.
+
+The required managed-service test gates cover exact authentication audience and
+issuer binding; tenant and authorization-domain isolation; operation scopes;
+mapping version conflicts; expiry and revocation before release; concurrent
+grant/mapping updates; idempotent migration and rollback; backup encryption,
+restore, and recovery authorization; durable audit-before-release; redaction;
+and health/recovery behavior. Provider-specific Keycloak, OpenBao, Netlify, and
+Cloudflare routes add their own protocol and entitlement gates. A passing local
+fixture never substitutes for a native, provider, preview, or production
+qualification receipt; current results are recorded in the
+[qualification matrix](qualification.md#managed-service-design-status).
+
+Workload identity can strengthen service-to-service callers without replacing
+the end-user/application authorization model. [SPIFFE](https://spiffe.io/docs/latest/spiffe-about/overview/)
+and [SPIRE](https://spiffe.io/docs/latest/spire-about/spire-concepts/) can supply
+workload identities and short-lived mTLS credentials where an operator runs
+them. Their trust domain, selectors, registration authority, workload attestation,
+and rotation/revocation behavior are explicit deployment configuration. A
+SPIFFE identity proves an enrolled workload identity; it does not itself select
+a tenant, mapping, operation, or age key, and it does not replace an IdP access
+credential when the policy requires one.
+
+Controlled delivery follows Gitflow: feature work integrates through `develop`,
+a release branch stabilizes a candidate, `main` contains approved stable
+releases, and a hotfix returns to every affected integration branch. Each v1
+release candidate and stable release is one immutable, versioned artifact set
+with published digests and provenance. Rebuilding, rebadging, changing build
+inputs, or changing a migration produces a new candidate that repeats the
+applicable qualification; it cannot inherit approval from bytes that were not
+tested.
+
+Promotion uses the exact tested artifact in its approved environment. It
+requires migration rehearsal and rollback evidence, health and readiness
+evidence, authorization/tenant-isolation verification, backup/restore evidence,
+and redacted audit evidence for the selected scope. A production promotion does
+not create a broad publisher credential, bypass an environment approval, or
+modify an unrelated instance. Publisher accounts, registry steps, and operator
+commands are maintained in [RELEASE.md](../RELEASE.md); this document defines
+the architecture and acceptance contract rather than an operator procedure.
+
 ## Hosting economics and capacity assumptions
 
 The following is an editable planning model in USD, checked against linked

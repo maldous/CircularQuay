@@ -1,0 +1,119 @@
+{
+  "realm": "cquay-it",
+  "enabled": true,
+  "displayName": "CircularQuay synthetic interoperability fixture",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 60,
+  "ssoSessionIdleTimeout": 120,
+  "ssoSessionMaxLifespan": 300,
+  "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "realm": [],
+    "client": {
+      "cquay-mcp-resource": [
+        {
+          "name": "read-access",
+          "description": "Synthetic fixture role for the CircularQuay read operation",
+          "clientRole": true,
+          "composite": false
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "cquay-fixture-client",
+      "name": "CircularQuay fixture service client",
+      "description": "FIXTURE ONLY: client credentials are synthetic and must never be used outside the disposable interoperability test.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "fixture-only-not-a-production-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "access.token.header.type.rfc9068": "true"
+      },
+      "defaultClientScopes": [
+        "service_account",
+        "cq.read"
+      ],
+      "protocolMappers": [
+        {
+          "name": "cquay fixture audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cquay-fixture-audience",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "cquay fixture roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "cquay-mcp-resource",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "serviceAccountUser": {
+        "username": "service-account-cquay-fixture-client",
+        "enabled": true,
+        "clientRoles": {
+          "cquay-mcp-resource": [
+            "read-access"
+          ]
+        }
+      }
+    },
+    {
+      "clientId": "cquay-mcp-resource",
+      "name": "CircularQuay fixture resource",
+      "description": "Fixture resource role container; it is not a CircularQuay authorization-server configuration.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "cq.read",
+      "description": "Synthetic fixture scope for a CircularQuay read operation",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    }
+  ]
+}

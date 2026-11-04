@@ -31,6 +31,48 @@ path. Private keys, released data keys, and plaintext cannot be recalled;
 SOPS/age do not enforce expiry. Commercial packaging and financial scenarios
 are assumptions, not chosen prices, traction, or deployment authorization.
 
+## Managed-service development and delivery contract
+
+The managed service is developed as the same versioned artifact and migration
+sequence used for controlled releases. Its local developer deployment is
+loopback-isolated, carries its own tenant/domain, storage, certificate authority,
+and synthetic fixtures, and exercises verified authentication and server-side
+authorization. A local origin, test header, developer account, or environment
+label is never an authorization shortcut. Keycloak, wire-compatible identity,
+and selected OpenBao fixtures are optional protocol inputs with fabricated
+identities and secrets; they do not define a required customer IdP or an
+implicit production trust relationship.
+
+Per-instance CA trust is isolated to the test clients and removed with the
+fixture. No permanent trust-store modification or TLS bypass is acceptable.
+Local and CI runs share pinned artifacts, policy fixtures, migrations, health
+checks, cleanup rules, and redacted evidence. Parallel runs receive separate
+tenant, storage, audit, and synthetic identity namespaces. Netlify Dev and
+Wrangler adapter tests use that same authenticated contract, while preview
+validation is independently scoped to a preview application, audience, storage,
+and synthetic keys. It never has production mapping or custody access.
+
+Before promotion, managed-service qualification covers authentication/audience
+binding, tenant/domain isolation, scopes, optimistic mapping updates, expiry,
+revocation, concurrent changes, backup/restore, migration/rollback, health,
+and durable redacted audit. Provider integration, native runtime, preview, and
+production receipts remain separate. [SPIFFE/SPIRE](managed-key-service.md#local-development-integration-and-controlled-delivery)
+can complement an IdP with workload mTLS identity, but each trust domain,
+attestation, selector, and policy association is explicit; workload identity
+does not by itself grant tenant, mapping, or key access.
+
+Release delivery follows the Gitflow contract: feature branches integrate into
+`develop`, a release branch stabilizes v1 release candidates, and approved
+stable artifacts reach `main`. Every release candidate and stable artifact is
+immutable, versioned, digest-identified, and qualified as its own bytes.
+Rebuilds, rebranding, changed build inputs, and changed migrations create a new
+candidate and repeat the applicable gates. Production promotion uses the exact
+tested artifact and approved environment only after migration/rollback, health,
+authorization isolation, backup/restore, and audit evidence pass. Publisher,
+account, registry, and operator procedures remain in [RELEASE.md](../RELEASE.md).
+The [qualification matrix](qualification.md#managed-service-design-status)
+records the actual managed-service implementation and qualification status.
+
 ## Non-negotiable boundaries
 
 Do not implement new cryptography, a vault, arbitrary expression evaluator, global credential broker, universal process supervisor or general lease-renewal daemon. Reuse upstream SOPS, native provider SDK/auth lifecycle and platform facilities.
@@ -50,7 +92,7 @@ No automatic history rewrite, estate-wide rotation or production service restart
 | Providers | Core | Narrow value adapters with identity, version, lifecycle, typed failure and export contracts. |
 | Native delivery | Core | Protected process/file/native projections, correct restart/recreation behavior and scoped ownership. |
 | MCP | Core/provider boundaries | Per-request verified identity, filtered discovery, action/read separation and safe output/audit behavior. |
-| Managed hosted connections | Qualified MCP and explicit hosted scope | External IdP/resource-server separation; typed tenant/environment/principal/connection isolation; approved identity associations; client and operation grants; lifecycle/revocation bounds and administrative audit. See [hosted identity](hosted-identity.md). |
+| Managed hosted connections | Qualified MCP and explicit hosted scope | External IdP/resource-server separation; typed tenant/environment/principal/connection isolation; approved identity associations; client and operation grants; lifecycle/revocation bounds and administrative audit. Local/CI/preview/production use the controlled-delivery contract in [managed key service](managed-key-service.md); see [hosted identity](hosted-identity.md). |
 | Assurance | Starts with foundation | Fresh independent Sonar route, scope/coverage validation, complementary checks, formal/conformance and negative tests. |
 | Distribution | Tested artifacts | Immutable native/Go/OCI/MCP/MCPB metadata, signatures, provenance, free account directions and clean install. |
 | Operator qualification | Relevant implementations | Real reboot/device/provider/client/restore receipts, not merely compilation. |

@@ -36,6 +36,26 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 060639 development receipt
+
+At `060639f36c1c7309769f34e3b88812e42d02cabf` (tree
+`aef7be1f1b11f112ed04120ed58e61b17f864e46`),
+[source workflow 41744753747](https://github.com/maldous/CircularQuay/actions/runs/41744753747)
+passed native Linux/macOS/Windows, normal/race tests, vet, bounded fuzzing,
+both complexity ceilings, all 26 cross-builds and the aggregate checks.
+The synthetic merge has the same tree. The source auditor's unit tests and
+vet passed; coverage alone failed at 6,125/7,173 statements (85.38966%),
+below the unchanged 100% requirement.
+
+[Security workflow 41744754352](https://github.com/maldous/CircularQuay/actions/runs/41744754352)
+passed Staticcheck with all checks, govulncheck and CodeQL with zero
+annotations. Gosec `-nosec` failed eight findings (G204 ×6, G103 ×2),
+with zero suppressions. These tests exercise cloud-response identity
+binding, including unpinned GCP responses and Azure origin ambiguity;
+they do not establish live-provider compatibility. Retain
+`.local/qualification/ci-060639f-native-cross.json`.
+No exact060 Sonar, managed security audit or production qualification is claimed.
+
 ## Exact 018fea development receipt
 
 At `018fea744d8dfb959072e1e95047c966b80ea011` (tree
