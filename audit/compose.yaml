@@ -27,6 +27,13 @@ services:
       SONAR_WEB_JAVAOPTS: -Xmx512m -Xms128m
       SONAR_CE_JAVAOPTS: -Xmx512m -Xms128m
       SONAR_SEARCH_JAVAOPTS: -Xmx512m -Xms512m
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc:
+        soft: 8192
+        hard: 8192
     ports:
       - 127.0.0.1:${SONAR_PORT:-9000}:9000
     volumes:

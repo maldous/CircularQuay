@@ -99,25 +99,11 @@ jobs:
           vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable-after-set"
           printf 'after=%s\n' "$vm_max_map_count" >>"$evidence/vm.max_map_count.txt"
           [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] && (( vm_max_map_count >= 524288 )) || fatal "vm-max-map-count-too-low"
+          # These are diagnostics for the shell driving Docker, not the
+          # SonarQube service process. The enforced values are read from PID 1
+          # after Compose applies audit/compose.yaml's service ulimits.
+          printf 'nofile_soft=%s\nnofile_hard=%s\nnproc_soft=%s\nnproc_hard=%s\n' "$(ulimit -Sn)" "$(ulimit -Hn)" "$(ulimit -Su)" "$(ulimit -Hu)" >"$evidence/runner-shell-limits.txt"
           limit_is_adequate() { [[ "$1" == unlimited ]] || { [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" >= "$2" )); }; }
-          nofile_soft_before="$(ulimit -Sn)" || fatal "ulimit-n-soft-unavailable"
-          nofile_hard_before="$(ulimit -Hn)" || fatal "ulimit-n-hard-unavailable"
-          printf 'soft_before=%s\nhard_before=%s\n' "$nofile_soft_before" "$nofile_hard_before" >"$evidence/ulimit-n.txt"
-          limit_is_adequate "$nofile_hard_before" 131072 || fatal "ulimit-n-hard-too-low"
-          if ! limit_is_adequate "$nofile_soft_before" 131072; then ulimit -Sn 131072 || fatal "ulimit-n-soft-set-failed"; fi
-          nofile_soft_after="$(ulimit -Sn)" || fatal "ulimit-n-soft-unavailable-after-set"
-          nofile_hard_after="$(ulimit -Hn)" || fatal "ulimit-n-hard-unavailable-after-set"
-          printf 'soft_after=%s\nhard_after=%s\n' "$nofile_soft_after" "$nofile_hard_after" >>"$evidence/ulimit-n.txt"
-          limit_is_adequate "$nofile_soft_after" 131072 || fatal "ulimit-n-too-low"
-          nproc_soft_before="$(ulimit -Su)" || fatal "ulimit-u-soft-unavailable"
-          nproc_hard_before="$(ulimit -Hu)" || fatal "ulimit-u-hard-unavailable"
-          printf 'soft_before=%s\nhard_before=%s\n' "$nproc_soft_before" "$nproc_hard_before" >"$evidence/ulimit-u.txt"
-          limit_is_adequate "$nproc_hard_before" 8192 || fatal "ulimit-u-hard-too-low"
-          if ! limit_is_adequate "$nproc_soft_before" 8192; then ulimit -Su 8192 || fatal "ulimit-u-soft-set-failed"; fi
-          nproc_soft_after="$(ulimit -Su)" || fatal "ulimit-u-soft-unavailable-after-set"
-          nproc_hard_after="$(ulimit -Hu)" || fatal "ulimit-u-hard-unavailable-after-set"
-          printf 'soft_after=%s\nhard_after=%s\n' "$nproc_soft_after" "$nproc_hard_after" >>"$evidence/ulimit-u.txt"
-          limit_is_adequate "$nproc_soft_after" 8192 || fatal "ulimit-u-too-low"
           cat /proc/sys/fs/file-max >"$evidence/fs.file-max.txt" 2>&1 || fatal "fs-file-max-unavailable"
           test "$(cat "$evidence/fs.file-max.txt")" -ge 131072 || fatal "fs-file-max-too-low"
           awk '/MemAvailable:|MemTotal:/{print}' /proc/meminfo >"$evidence/memory.txt" 2>&1 || fatal "memory-unavailable"
@@ -139,6 +125,13 @@ jobs:
           compose_start_attempted=1
           timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
           timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
+          timeout 20s "${compose[@]}" exec -T sonarqube cat /proc/1/limits >"$evidence/sonarqube-process-limits.txt" 2>&1 || fatal "sonarqube-process-limits-unavailable"
+          read -r sonar_nofile_soft sonar_nofile_hard < <(awk '$1 == "Max" && $2 == "open" && $3 == "files" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+          test -n "${sonar_nofile_soft:-}" && test -n "${sonar_nofile_hard:-}" || fatal "sonarqube-nofile-limits-missing"
+          limit_is_adequate "$sonar_nofile_soft" 131072 && limit_is_adequate "$sonar_nofile_hard" 131072 || fatal "sonarqube-nofile-limits-too-low"
+          read -r sonar_nproc_soft sonar_nproc_hard < <(awk '$1 == "Max" && $2 == "processes" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+          test -n "${sonar_nproc_soft:-}" && test -n "${sonar_nproc_hard:-}" || fatal "sonarqube-nproc-limits-missing"
+          limit_is_adequate "$sonar_nproc_soft" 8192 && limit_is_adequate "$sonar_nproc_hard" 8192 || fatal "sonarqube-nproc-limits-too-low"
 
           ready=0
           for _ in $(seq 1 90); do
