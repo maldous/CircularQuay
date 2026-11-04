@@ -53,6 +53,119 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact eac85a1 source and evidence boundary
+
+Published source `eac85a1e642adc164c79fe85f1b8e4f0831d271f`, tree
+`46cad58b3500f49ddd297819e2335babb3d4b538`, has exact public Git readback for
+21 selected files and all 453 working files, clean at publication. Source-only
+independent reviews cover early CLI/MCP command-identity preflight, finite
+128 MiB executable hashing, configuration/Transit/assurance readability,
+TypeScript response-boundary test source and Sonar browser-test classification.
+The bounded source fingerprint admits only the exact declared contact-sheet
+PNG up to 2 MiB, validates its PNG signature and compares the same bounded
+working descriptor bytes with immutable Git blob bytes. The general 1 MiB file
+limit, aggregate limits and full source identity remain enforced. A rejected
+second pathname-hash proposal and its replacement are retained separately.
+
+Static review covers 253 Go files using the pinned formatter, 67 Markdown files,
+666 local links, 27 JSON documents, six JSON examples and three embedded Python
+AST snippets. These checks are not compilation, executed tests, coverage or a
+security audit. No local application/build/analyzer runtime was run for this
+publication. Root browser source is unchanged from e103; the separate frontend
+correction candidate has not been integrated or qualified by this checkpoint.
+
+Automatic hosted runs are
+[Source](https://github.com/maldous/CircularQuay/actions/runs/41924790410),
+[Security](https://github.com/maldous/CircularQuay/actions/runs/41924790453),
+[SDK](https://github.com/maldous/CircularQuay/actions/runs/41924790633),
+[Sonar](https://github.com/maldous/CircularQuay/actions/runs/41924790471),
+[Browser](https://github.com/maldous/CircularQuay/actions/runs/41924790469),
+[WireMock](https://github.com/maldous/CircularQuay/actions/runs/41924790431) and
+[Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41924790820).
+The first bounded readback reports the same eight gosec findings and nine
+failed browser jobs, with scoped WireMock and Dependency Review success. The
+browser failure cause was not read and is not inferred from historical e103
+failures. That original `checkpoint55/eac85a1-hosted-one-shot.json` is preserved.
+
+The later `checkpoint55/eac85a1-hosted-followup.json` binds tested merge
+`fc745e2cde08af922fad9cd76cea5ef8f537469f` to the exact candidate tree.
+Source assurance passes identity before/after checks, repository policy,
+formatting, unit tests and vet. It fails **8,496/10,218 statements
+(83.147386964%)** against 100%; required tagged integration remains `not_run`.
+The Linux complexity job reports two remaining violations: the matching-override
+test at `internal/cli/command_preflight_test.go:76` is 12 and
+`prepareWorkloadCommand` at `internal/cli/commands.go:186` is 11. The Android
+cross-build stops on a protobuf v1.36.12 proxy ZIP HTTP/2 `INTERNAL_ERROR` before
+first-party compilation; that failure is not evidence of a source compile bug
+or a successful target build. The connector returns only the first job page.
+
+Sonar completes CE and exact current-analysis/revision fencing, but the gate is
+**ERROR**, with **64.1%** coverage, three issues, zero hotspots and zero
+duplication groups/density. The issues are two duplicated error-operation strings
+in `internal/platform/process.go` and the unhandled example-load promise in
+`web/local/configuration.js`. Required new-coverage and new-duplication metrics
+are absent; the Python 3.15-to-3.14 analyzer warning remains, and scanner exit 3
+is a failed gate. The separately reported Go statement percentage and Sonar
+percentage have different denominators; no unsupported attribution explains
+the difference. No JavaScript execution-coverage pass follows from correct
+browser-test classification.
+
+The SDK first page returns 30 jobs, four successes and 26 failures. Its bounded
+Python 3.11 artifact reports client 86%, local 79% and types 92%; these do not
+satisfy the 100% gates. The first artifact page exposes no TypeScript coverage
+artifact, so exact missing TypeScript lines/branches remain unknown in this
+receipt. Dependency-audit, full-matrix, installed-artifact, native/provider and
+independent qualification remain open. No workflow was manually rerun or
+cancelled for either observation.
+
+The product-wide default/strict enforcement remains a release blocker.
+Independent private design review rejects self-referential policy/generation
+hashes before public implementation; revised contracts require protected
+enrollment, unforgeable local proof values, maintained-library signatures,
+durable fencing and honest uncertain-effect recovery. A contract or profile
+name does not establish implementation, downgrade resistance or compliance.
+
+## Following reviewed frontend and native corrections
+
+The next source candidate integrates the independently reviewed thirty-file
+frontend snapshot through one full e103-based patch. Eighteen web paths change;
+429 non-web working files retain their pre-integration hashes. Original frozen
+packets, blocked reviews and the settled mobile screenshot remain preserved.
+The actual example-load error handler is awaited and generic; invalid numeric
+edits invalidate removal Undo without discarding the later draft, while earlier
+invalid input still returns with Undo. Asset reads compare retained bigint
+file identity with the opened descriptor before reading and revalidate paths
+before/after bounded reads. Bare and populated query delimiters are rejected.
+The source review does not claim atomic operating-system path containment.
+
+The isolated frontend producer reports syntax success and **37/37 current
+tests across six files**, plus actual synthetic browser checks of both Undo
+schedules and canonical cleanup. Its separate 70-test discovery includes 33
+historical snapshot tests; that is not seventy distinct current tests. Live
+checks cover ten asset byte/MIME/security-header results, four prior boundary
+denials and eight raw-query denials on the same owned loopback ports. Node
+24.16.0 producer evidence is not the hosted runtime/platform matrix. Root
+copied and hash-verified the immutable packet and reviewed its static source
+and screenshot; no root Node/browser execution occurred.
+
+The candidate also retains all command-preflight/target checks while separating
+cohesive request validation from engine construction, preserves both matching
+pinned and unpinned override test assertions, and names duplicated executable
+fault-operation strings without changing values or error categories. The
+Windows Python negative fixture explicitly denies an owned temporary directory
+with an Everyone-write DACL instead of assuming every generic temporary
+directory is unsafe. Native protected-root enforcement is unchanged; the
+positive APPDATA init/doctor/plan fixture remains. These source reviews and
+static formatting do not establish fresh complexity/Sonar/Windows passes.
+
+`checkpoint55/frontend-correction-integration.json`, both corrective frontend
+independent reviews, `native-readability-independent-review.json` and the
+Windows fixture review retain exact hashes and limits. Required published
+source/security/Sonar/coverage, full SDK/native/provider/artifact and independent
+qualification remain open. Searchable help has an accepted sixteen-family
+source inventory; it does not yet have a complete manual, per-control rendered
+state mapping, versioned index implementation or search/accessibility pass.
+
 ## Exact e103a52 integration and security boundary
 
 Published source `e103a52b8c0884d45f3ca853008f915cd52dcbe9`, tree

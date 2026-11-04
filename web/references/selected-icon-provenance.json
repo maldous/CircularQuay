@@ -10,10 +10,38 @@
     "sheet_column": 1,
     "visual_identity": "Dark navy open C surrounding a horizontal key: circular bow to left, shaft extending right, two downward teeth, on white.",
     "inspection": "Original contact sheet visually inspected; printed number 13 confirmed.",
-    "isolated_or_vector_asset_created": false
+    "isolated_raster_asset_created": true,
+    "vector_asset_created": false
   },
   "dimensions": [
     1218,
     1291
-  ]
+  ],
+  "derived_asset": {
+    "path": "web/logo.png",
+    "mime": "image/png",
+    "sha256": "08ff797a51764787f61ad7a8cce0fb48bcda10fcf86ab14aaee6988fe17ad318",
+    "bytes": 28361,
+    "dimensions": [
+      176,
+      157
+    ],
+    "crop": {
+      "left": 24,
+      "top": 544,
+      "width": 176,
+      "height": 157
+    },
+    "method": "Lossless rectangular extraction of original selected icon13 pixels; no generation, resizing, recoloring or vectorization",
+    "source_pixels_equal": true,
+    "selected_number_and_other_icons_excluded": true,
+    "source_path": "web/references/selected-icon-contact-sheet.png"
+  },
+  "native_vector_variants": {
+    "light": "web/logo-light.svg",
+    "dark": "web/logo-dark.svg",
+    "method": "Native circle/arc and polygon paths derived from selected icon 13. Flat fills and transparent backgrounds; geometry is a faithful reconstruction, not original vector source or pixel-identical raster tracing.",
+    "raster_source_preserved": true,
+    "variants_share_geometry": true
+  }
 }

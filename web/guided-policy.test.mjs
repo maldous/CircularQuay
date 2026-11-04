@@ -12,6 +12,9 @@ const workloadRow = (name, mode = 'hybrid') => ({ name, mode, environment: 'refe
 
 test('guided source rename rejects dangling bindings without changing the active candidate', () => {
   const policy = canonicalPolicy();
+  // Keep the map non-empty so deletion reaches reference validation rather
+  // than being rejected earlier by the schema's minProperties constraint.
+  policy.sources.unreferenced = copy(policy.sources['service-sops']);
   const before = copy(policy);
   const previous = sourceRow('service-sops', 'repo:secrets/reference-api.sops.json');
   assert.throws(
@@ -28,6 +31,7 @@ test('guided source rename rejects dangling bindings without changing the active
 
 test('guided workload rename and deletion reject dangling grants atomically', () => {
   const policy = canonicalPolicy();
+  policy.workloads.unreferenced = copy(policy.workloads['reference-api']);
   const before = copy(policy);
   const previous = workloadRow('reference-api');
   assert.throws(
@@ -115,11 +119,24 @@ test('guided source collisions use own map entries, including special identifier
 
 test('guided candidate rejects an inherited source name as an undeclared binding', () => {
   const policy = canonicalPolicy();
-  policy.workloads['reference-api'].bindings[0].source = 'toString';
+  // This inherited name satisfies the identifier schema, isolating the
+  // own-property reference check from the separate mixed-case format denial.
+  policy.workloads['reference-api'].bindings[0].source = 'constructor';
   const before = copy(policy);
   assert.throws(
     () => prepareGuidedPolicyChange(policy, 'sources', sourceRow('service-sops', 'repo:secrets/revised-reference-api.sops.json'), sourceRow('service-sops', 'repo:secrets/reference-api.sops.json'), schema),
     /unknown source/,
+  );
+  assert.deepEqual(policy, before);
+});
+
+test('guided candidate rejects a mixed-case inherited name at schema validation without mutation', () => {
+  const policy = canonicalPolicy();
+  policy.workloads['reference-api'].bindings[0].source = 'toString';
+  const before = copy(policy);
+  assert.throws(
+    () => prepareGuidedPolicyChange(policy, 'sources', sourceRow('service-sops', 'repo:secrets/revised-reference-api.sops.json'), sourceRow('service-sops', 'repo:secrets/reference-api.sops.json'), schema),
+    /does not match required format/,
   );
   assert.deepEqual(policy, before);
 });

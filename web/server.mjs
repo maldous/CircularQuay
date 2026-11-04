@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
-const shared = new Set(['ui.js', 'style.css', 'logo.png']);
+const shared = new Set(['ui.js', 'style.css', 'logo.png', 'logo-light.svg', 'logo-dark.svg']);
 const planes = new Set(['local', 'remote']);
 const assets = {
   local: new Set(['local/entry.js', 'local/model.js', 'local/workbench.js', 'local/configuration.js', 'local/schema-tools.js', 'local/policy-schema.json', 'local/linux-example.json']),
   remote: new Set(['remote/entry.js', 'remote/model.js']),
 };
-const types = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' };
+const types = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const listeners = new Set();
 const maximumAssetBytes = 4 * 1024 * 1024;
 const maximumReloadListeners = 32;
@@ -21,34 +21,70 @@ function isContained(directory, path) {
   return remainder !== '' && remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder);
 }
 
+function sameIdentity(expected, actual) {
+  // Bigint stats preserve native 64-bit IDs. An unavailable inode cannot prove
+  // identity; fail closed instead of treating two placeholder IDs as a match.
+  return typeof expected.ino === 'bigint' && expected.ino > 0n &&
+    typeof actual.ino === 'bigint' && actual.ino > 0n &&
+    expected.dev === actual.dev && expected.ino === actual.ino;
+}
+
+function sameFileSnapshot(expected, actual) {
+  return actual.isFile() && !actual.isSymbolicLink() && sameIdentity(expected, actual) &&
+    expected.size === actual.size && expected.mtimeNs === actual.mtimeNs && expected.ctimeNs === actual.ctimeNs;
+}
+
 async function trustedAssetPath(directory, name) {
   const path = resolve(directory, name);
   if (!isContained(directory, path)) return null;
-  const rootInfo = await lstat(directory);
-  if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) return null;
+  const parents = [];
+  const rootInfo = await lstat(directory, { bigint: true });
+  if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink() || !sameIdentity(rootInfo, rootInfo)) return null;
+  parents.push({ path: directory, info: rootInfo });
   let current = directory;
+  let expected;
   const components = name.split('/');
   for (const [index, component] of components.entries()) {
     current = join(current, component);
-    const info = await lstat(current);
-    if (info.isSymbolicLink() || (index < components.length - 1 && !info.isDirectory())) return null;
-    if (index === components.length - 1 && !info.isFile()) return null;
+    const info = await lstat(current, { bigint: true });
+    if (info.isSymbolicLink() || !sameIdentity(info, info)) return null;
+    if (index < components.length - 1) {
+      if (!info.isDirectory()) return null;
+      parents.push({ path: current, info });
+    } else {
+      if (!info.isFile()) return null;
+      expected = info;
+    }
   }
   const [canonicalDirectory, canonicalPath] = await Promise.all([realpath(directory), realpath(path)]);
-  return isContained(canonicalDirectory, canonicalPath) ? path : null;
+  return isContained(canonicalDirectory, canonicalPath) ? { path, directory, expected, parents, canonicalDirectory, canonicalPath } : null;
+}
+
+async function assetPathMatches(trusted) {
+  for (const parent of trusted.parents) {
+    const current = await lstat(parent.path, { bigint: true });
+    if (!current.isDirectory() || current.isSymbolicLink() || !sameIdentity(parent.info, current)) return false;
+  }
+  const named = await lstat(trusted.path, { bigint: true });
+  if (!sameFileSnapshot(trusted.expected, named)) return false;
+  const [directory, path] = await Promise.all([realpath(trusted.directory), realpath(trusted.path)]);
+  return directory === trusted.canonicalDirectory && path === trusted.canonicalPath && isContained(directory, path);
 }
 
 async function readTrustedAsset(directory, name) {
-  const path = await trustedAssetPath(directory, name);
-  if (!path) return null;
+  const trusted = await trustedAssetPath(directory, name);
+  if (!trusted) return null;
   const flags = constants.O_RDONLY | (process.platform === 'win32' ? 0 : constants.O_NOFOLLOW);
-  const file = await open(path, flags);
+  const file = await open(trusted.path, flags);
   try {
-    const [opened, named] = await Promise.all([file.stat(), lstat(path)]);
-    if (!opened.isFile() || opened.size > maximumAssetBytes || !named.isFile() || named.isSymbolicLink() || opened.dev !== named.dev || opened.ino !== named.ino) return null;
-    const bytes = await readBoundedAsset(file, opened.size);
-    const [after, namedAfter] = await Promise.all([file.stat(), lstat(path)]);
-    if (!bytes || after.size !== opened.size || !namedAfter.isFile() || namedAfter.isSymbolicLink() || after.dev !== namedAfter.dev || after.ino !== namedAfter.ino) return null;
+    const opened = await file.stat({ bigint: true });
+    // Compare the descriptor to the PRE-open file snapshot before reading any
+    // payload. Post-open pathname and fd agreement alone does not prove trust.
+    if (!sameFileSnapshot(trusted.expected, opened) || opened.size < 0n || opened.size > BigInt(maximumAssetBytes)) return null;
+    if (!await assetPathMatches(trusted)) return null;
+    const bytes = await readBoundedAsset(file, Number(opened.size));
+    const after = await file.stat({ bigint: true });
+    if (!bytes || !sameFileSnapshot(opened, after) || !await assetPathMatches(trusted)) return null;
     return bytes;
   } finally {
     await file.close();
@@ -75,7 +111,7 @@ export function reloadablePath(name) {
 
 export function requestURL(value) {
   try {
-    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\') || value.includes('#') || /%(?![0-9A-Fa-f]{2})/.test(value)) return null;
+    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\') || value.includes('#') || value.includes('?') || /%(?![0-9A-Fa-f]{2})/.test(value)) return null;
     const url = new URL(value, 'http://localhost');
     return url.origin === 'http://localhost' && !url.search ? url : null;
   } catch { return null; }

@@ -74,40 +74,35 @@ func TestWorkloadCommandRejectsInvalidCommandBeforeResolutionEffects(t *testing.
 }
 
 func TestPrepareWorkloadCommandRetainsMatchingPinnedAndUnpinnedOverrides(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		mutate   func(*model.Workload)
-		override func(model.Workload) []string
-	}{
-		{
-			name:     "matching pinned override",
-			mutate:   func(*model.Workload) {},
-			override: func(work model.Workload) []string { return append([]string(nil), work.Command...) },
-		},
-		{
-			name:   "unpinned local override",
-			mutate: func(work *model.Workload) { work.CommandSHA256 = "" },
-			override: func(work model.Workload) []string {
-				return append(append([]string(nil), work.Command[:2]...), "exit")
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			app, policy, work, probe := commandPreflightFixture(t)
-			test.mutate(&work)
-			policy.Workloads["demo"] = work
-			request, err := parseWorkloadRequest(commandPreflightArgs(test.override(work)))
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, accepted, engine, err := app.prepareWorkloadCommand(policy, request)
-			if err != nil || engine == nil || accepted.CommandSHA256 != work.CommandSHA256 {
-				t.Fatal("valid command preflight contract changed")
-			}
-			if probe.fetches != 0 || probe.currents != 0 {
-				t.Fatal("command preflight contacted repository")
-			}
+	t.Run("matching pinned override", func(t *testing.T) {
+		testPrepareWorkloadCommandAcceptsOverride(t, func(*model.Workload) {}, func(work model.Workload) []string {
+			return append([]string(nil), work.Command...)
 		})
+	})
+	t.Run("unpinned local override", func(t *testing.T) {
+		testPrepareWorkloadCommandAcceptsOverride(t, func(work *model.Workload) {
+			work.CommandSHA256 = ""
+		}, func(work model.Workload) []string {
+			return append(append([]string(nil), work.Command[:2]...), "exit")
+		})
+	})
+}
+
+func testPrepareWorkloadCommandAcceptsOverride(t *testing.T, mutate func(*model.Workload), override func(model.Workload) []string) {
+	t.Helper()
+	app, policy, work, probe := commandPreflightFixture(t)
+	mutate(&work)
+	policy.Workloads["demo"] = work
+	request, err := parseWorkloadRequest(commandPreflightArgs(override(work)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, accepted, engine, err := app.prepareWorkloadCommand(policy, request)
+	if err != nil || engine == nil || accepted.CommandSHA256 != work.CommandSHA256 {
+		t.Fatal("valid command preflight contract changed")
+	}
+	if probe.fetches != 0 || probe.currents != 0 {
+		t.Fatal("command preflight contacted repository")
 	}
 }
 

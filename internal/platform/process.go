@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	pipeDrainWaitDelay         = 250 * time.Millisecond
-	maxVerifiedExecutableBytes = 128 << 20
+	pipeDrainWaitDelay          = 250 * time.Millisecond
+	maxVerifiedExecutableBytes  = 128 << 20
+	executableSizeOperation     = "registered executable size"
+	executableIdentityOperation = "invalid executable identity"
 )
 
 // Run executes a workload with a clean environment. It never passes bootstrap
@@ -148,14 +150,14 @@ func VerifyExecutable(path, expected string) error {
 	}
 	defer f.Close()
 	if !withinExecutableReadBound(before.Size()) {
-		return fault.New(fault.Trust, "registered executable size")
+		return fault.New(fault.Trust, executableSizeOperation)
 	}
 	digest, exceeded, err := boundedExecutableDigest(f, maxVerifiedExecutableBytes)
 	if err != nil {
-		return fault.New(fault.Trust, "registered executable size")
+		return fault.New(fault.Trust, executableSizeOperation)
 	}
 	if exceeded {
-		return fault.New(fault.Trust, "registered executable size")
+		return fault.New(fault.Trust, executableSizeOperation)
 	}
 	if !stableVerifiedExecutable(f, resolved, before) {
 		return fault.New(fault.Trust, "registered executable changed")
@@ -169,13 +171,13 @@ func VerifyExecutable(path, expected string) error {
 func expectedExecutableDigest(path, expected string) ([]byte, error) {
 	decoded, err := hex.DecodeString(expected)
 	if err != nil {
-		return nil, fault.New(fault.Trust, "invalid executable identity")
+		return nil, fault.New(fault.Trust, executableIdentityOperation)
 	}
 	if len(decoded) != sha256.Size {
-		return nil, fault.New(fault.Trust, "invalid executable identity")
+		return nil, fault.New(fault.Trust, executableIdentityOperation)
 	}
 	if !filepath.IsAbs(path) {
-		return nil, fault.New(fault.Trust, "invalid executable identity")
+		return nil, fault.New(fault.Trust, executableIdentityOperation)
 	}
 	return decoded, nil
 }

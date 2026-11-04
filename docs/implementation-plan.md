@@ -521,6 +521,40 @@ known denies and govern both new activation and existing-generation validity.
 Required migrations fix forward without dropping single-file compatibility.
 Implementation tests and revision-bound receipts remain distinct from this design.
 
+## Self-service help and documentation acceptance
+
+Searchable help is part of the complete v1 product. Every rendered control and
+feature has an indexed explanation, and each supported audience has complete
+task journeys with prerequisites, permission boundaries, safe examples, expected
+results and recovery or escalation steps. This includes local users, developers,
+security and tenant administrators, operators, support engineers, maintainers
+and AI-agent integrators. A search box alone does not satisfy this contract.
+
+The manual joins actual CLI/configuration CRUD, Go/TypeScript/Python SDK examples,
+MCP-agent workflows and authoritative API/schema specifications. It reuses
+canonical definitions instead of inventing commands, endpoints or supported
+capabilities. Each topic binds feature/control identifiers, audience, journey,
+content, stable search/deep-link route, exact source version, owner and evidence.
+Implemented native behavior, synthetic interface demonstrations and intended
+service capabilities remain distinguishable in revision-scoped evidence.
+
+Acceptance includes keyboard and assistive-technology behavior, readable mobile
+and desktop layouts, query/result/empty/error states, meaningful relevance tests,
+complete control/topic coverage, safe troubleshooting, installation/upgrade and
+release-verification journeys. Source and content owners verify accuracy, broken
+links, capability drift and index regeneration for each release. Search indexes
+only approved static product documentation and control metadata; user policies,
+secret values, protected references, configuration provenance, private evidence
+and queries do not enter hosted search, analytics or diagnostic logs.
+
+Retrieval and ranking run entirely in the client, without a remote search API
+or server-search dependency. Progressively load a versioned public static index
+and lazily load/cache article chunks while preserving complete searchable corpus
+coverage. A titles-only fallback cannot stand in for content search. Verify cold
+and warm transfer size/latency, repeated-query throughput and editing/input
+responsiveness on the supported desktop/mobile routes. Static public content
+delivery is distinct from transmitting a user's search query to a service.
+
 ## Evidence and remaining work
 
 Actual outcomes are machine-readable audit reports and [qualification receipts](qualification.md), not checkmarks added to this plan. Current live-account, native-host, client and publication status is recorded in `RELEASE.md`. Claims must stay narrower than the observed evidence.

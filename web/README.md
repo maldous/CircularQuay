@@ -114,7 +114,12 @@ issuer is contacted and no avatar/brand image is uploaded. The selected icon 13
 contact sheet is preserved unmodified at `references/selected-icon-contact-sheet.png`,
 with source details, size, SHA-256 and visual selection in
 `references/selected-icon-provenance.json`. Number 13 is row 3, column 1.
-This is the original raster reference, not a finished isolated/vector logo.
+The reference remains unchanged. `logo.png` is the exact isolated crop;
+`logo-light.svg` and `logo-dark.svg` are transparent native-path reconstructions
+of the selected C/key geometry. They share geometry with navy/off-white fills,
+follow the application theme, and appear in all wordmarks including the local
+landing page. They are derived vectors, not the original vector source or a
+pixel-identical reproduction of the raster texture.
 Dock/Guided were structural preferences, not a claimed approved final
 layout. The pre-revision source is retained at
 `/tmp/cquay-frontend-before-workbench/web`.
@@ -135,3 +140,9 @@ loopback ports, browser-local drafts, Node 22+ dependency-free toolchain and
 synthetic-only adapters. Integration/publication stays with the implementation
 owner; existing evidence is under `output/playwright/`. No new lease, harness
 assignment, service exposure or production authority follows from the frontend.
+
+The configuration editor groups destinations and native option menus, keeps
+secondary actions under More actions, and offers Undo removal until the next
+edit/save/document replacement. Undo restores the whole previous proposal and
+invalid numeric inputs. Browser validation remains separate from native
+qualification. `PRODUCT.md` and `DESIGN.md` record the authorized browser scope.

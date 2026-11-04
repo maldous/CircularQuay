@@ -1,4 +1,6 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
+import fs from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import http from 'node:http';
@@ -113,6 +115,8 @@ test('request target parsing and watcher path filtering are bounded and portable
   assert.equal(requestURL('http://example.invalid/ui.js'), null);
   assert.equal(requestURL('/%invalid'), null);
   assert.equal(requestURL('/ui.js')?.pathname, '/ui.js');
+  for (const target of ['/logo-light.svg?', '/ui.js?x=1', '/__reload?', '/?']) assert.equal(requestURL(target), null, target);
+  assert.equal(requestURL('/logo-light.svg')?.pathname, '/logo-light.svg');
   assert.equal(reloadablePath('output\\evidence.json'), false);
   assert.equal(reloadablePath('local\\entry.js'), true);
 });
@@ -135,3 +139,65 @@ test('reload admission is finite and HEAD leaves no held stream', { timeout: 500
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+for (const component of ['root', 'intermediate']) {
+  test(`asset open rejects a deterministic ${component} replacement before reading another file`, async () => {
+    const fixture = await mkdtemp(join(tmpdir(), 'cquay-preview-race-'));
+    const directory = join(fixture, 'current');
+    const outside = join(fixture, 'outside');
+    const backup = join(fixture, 'original-component');
+    const name = component === 'root' ? 'style.css' : 'remote/model.js';
+    const target = join(directory, name);
+    const swappedPath = component === 'root' ? directory : join(directory, 'remote');
+    const replacement = component === 'root' ? outside : join(outside, 'remote');
+    let server;
+    let openMock;
+    let armed = false;
+    let swapped = false;
+    let attackReads = 0;
+    try {
+      await Promise.all([mkdir(join(directory, 'remote'), { recursive: true }), mkdir(join(outside, 'remote'), { recursive: true })]);
+      await writeFile(target, 'SYNTHETIC_EXPECTED_ASSET');
+      await writeFile(join(outside, name), 'SYNTHETIC_EXTERNAL_ASSET');
+      const nativeOpen = fs.open;
+      openMock = mock.method(fs, 'open', async (path, ...args) => {
+        const attack = armed && path === target;
+        if (attack) {
+          armed = false;
+          await fs.rename(swappedPath, backup);
+          await symlink(replacement, swappedPath, process.platform === 'win32' ? 'junction' : 'dir');
+          swapped = true;
+        }
+        const file = await nativeOpen(path, ...args);
+        return attack ? {
+          stat: (...options) => file.stat(...options),
+          read: (...options) => { attackReads += 1; return file.read(...options); },
+          close: () => file.close(),
+        } : file;
+      });
+      syncBuiltinESMExports();
+      server = createPreview('remote', directory);
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      const ordinary = await requestPreview(server, '/' + name);
+      assert.equal(ordinary.status, 200);
+      assert.equal(ordinary.body.toString(), 'SYNTHETIC_EXPECTED_ASSET');
+      armed = true;
+      const attacked = await requestPreview(server, '/' + name);
+      assert.equal(swapped, true, 'the replacement happened at the actual open boundary');
+      assert.equal(attacked.status, 404);
+      assert.equal(attacked.body.length, 0);
+      assert.equal(attackReads, 0, 'reject the unexpected descriptor before reading its payload');
+      await fs.unlink(swappedPath);
+      await fs.rename(backup, swappedPath);
+      const restored = await requestPreview(server, '/' + name);
+      assert.equal(restored.status, 200);
+      assert.equal(restored.body.toString(), 'SYNTHETIC_EXPECTED_ASSET');
+      for (const query of ['?', '?x=1']) assert.equal((await requestPreview(server, '/' + name + query)).status, 400);
+    } finally {
+      openMock?.mock.restore();
+      syncBuiltinESMExports();
+      if (server) await new Promise(resolve => server.close(resolve));
+      await rm(fixture, { recursive: true, force: true });
+    }
+  });
+}

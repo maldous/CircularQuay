@@ -188,28 +188,45 @@ func (a application) prepareWorkloadCommand(p model.Policy, request workloadRequ
 	if !ok {
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "workload")
 	}
-	if request.command == "run" {
-		// Reject command-identity changes before state, repository, or provider
-		// resolution. launchInputs repeats this immediately before child launch.
-		if _, err := platform.ValidateCommandIdentity(workload, request.override); err != nil {
-			return request, model.Workload{}, nil, err
-		}
-	}
-	if request.command == "apply" && request.target == "" {
-		return request, model.Workload{}, nil, fault.New(fault.Invalid, "explicit target required")
-	}
-	if request.command == "apply" || request.command == "sync" {
-		var err error
-		request.targets, err = selectedTargets(workload, request.target)
-		if err != nil {
-			return request, model.Workload{}, nil, err
-		}
+	request, err := preflightWorkloadRequest(workload, request)
+	if err != nil {
+		return request, model.Workload{}, nil, err
 	}
 	engine, err := a.engine(p)
 	if err != nil {
 		return request, model.Workload{}, nil, err
 	}
 	return request, workload, engine, nil
+}
+
+// preflightWorkloadRequest completes all command-specific checks before state,
+// repository, provider, or generation resolution begins.
+func preflightWorkloadRequest(workload model.Workload, request workloadRequest) (workloadRequest, error) {
+	switch request.command {
+	case "run":
+		// Reject command-identity changes before state, repository, or provider
+		// resolution. launchInputs repeats this immediately before child launch.
+		if _, err := platform.ValidateCommandIdentity(workload, request.override); err != nil {
+			return request, err
+		}
+	case "apply":
+		if request.target == "" {
+			return request, fault.New(fault.Invalid, "explicit target required")
+		}
+		return withSelectedTargets(workload, request)
+	case "sync":
+		return withSelectedTargets(workload, request)
+	}
+	return request, nil
+}
+
+func withSelectedTargets(workload model.Workload, request workloadRequest) (workloadRequest, error) {
+	targets, err := selectedTargets(workload, request.target)
+	if err != nil {
+		return request, err
+	}
+	request.targets = targets
+	return request, nil
 }
 
 func resolveWorkloadGeneration(ctx context.Context, engine *resolve.Engine, request workloadRequest) (model.Generation, error) {
