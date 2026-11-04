@@ -70,24 +70,31 @@ func newOTelBackend(ctx context.Context, config model.Observability, token, vers
 	}
 	headers := collectorHeaders(token)
 	result := &otelBackend{diag: diagnostic, exportState: health}
+	if err = result.configureSignals(ctx, config, resource, client, headers, urls); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (b *otelBackend) configureSignals(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, urls collectorURLs) error {
 	if enabled(config.Traces) {
-		if err = result.configureTraces(ctx, config, resource, client, headers, urls.traces); err != nil {
-			return nil, err
+		if err := b.configureTraces(ctx, config, resource, client, headers, urls.traces); err != nil {
+			return err
 		}
 	}
 	if enabled(config.Metrics) {
-		if err = result.configureMetrics(ctx, config, resource, client, headers, urls.metrics); err != nil {
-			shutdownConfigured(result)
-			return nil, err
+		if err := b.configureMetrics(ctx, config, resource, client, headers, urls.metrics); err != nil {
+			shutdownConfigured(b)
+			return err
 		}
 	}
 	if enabled(config.Logs) {
-		if err = result.configureLogs(ctx, config, resource, client, headers, urls.logs); err != nil {
-			shutdownConfigured(result)
-			return nil, err
+		if err := b.configureLogs(ctx, config, resource, client, headers, urls.logs); err != nil {
+			shutdownConfigured(b)
+			return err
 		}
 	}
-	return result, nil
+	return nil
 }
 
 type collectorURLs struct{ traces, metrics, logs string }
