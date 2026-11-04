@@ -24,6 +24,7 @@ This matrix distinguishes implementation from independent or live qualification.
 | Product-wide assurance profiles | [Default/strict contract](security-profiles.md) defined; no profile field or unified enforcement in the current policy model/schema | No strict-mode, downgrade-resistance or enterprise-compliance qualification is claimed. Existing baseline controls require their own exact evidence. |
 | Client-side composition | Bounded JSON master/includes resolver, native CLI integration and private-domain guards added as source changes | Source/static review only; new tests have not run under the shared-host execution hold. Full hierarchy/profile enforcement and service parity are not established. |
 | Canonical hierarchy and lifecycle | [Governance](configuration-governance.md) and [lifecycle](credential-lifecycle.md) contracts defined; current schema remains the flat local runtime policy | Group/default/lock compilation, managed sessions/SCIM, provider-native mutation, scanner gates and cross-interface lifecycle administration remain unimplemented. |
+| Hosted KMS and age associations | Both associations are required by the hosted enrollment design; local age, hosted age-key retrieval and remote KMS custody remain distinct | No hosted enrollment, provider provisioning, key-service endpoint, policy/SDK/MCP integration or live KMS qualification is established. Current SOPS source still rejects cloud KMS and key groups. |
 
 ## Source workflow scope
 
@@ -39,6 +40,91 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact 10dde6d hosted observation
+
+Public commit `10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`, tree
+`9174f780b61636b6f6e9820264bebe0b446910c6`, has bounded public workflow
+readback in `checkpoint46-10dde6d-hosted-workflow-readback.json` and a separate
+safe diagnostic amendment in `checkpoint46-10dde6d-bounded-log-amendment.json`.
+This observation is not a complete artifact or security qualification.
+
+[Source 41815497020](https://github.com/maldous/CircularQuay/actions/runs/41815497020)
+has 30 failed visible jobs. The bounded Linux and
+[CodeQL 41815497012](https://github.com/maldous/CircularQuay/actions/runs/41815497012)
+logs identify `internal/cli/cli.go:292:15: undefined: platform`; the following
+source correction restores the required import. Linux also reports trust-store,
+protected-path and composition fixture/validation mismatches. The static
+security job fails before govulncheck/gosec, so no clean scan or finding
+disposition follows. [Sonar 41815497048](https://github.com/maldous/CircularQuay/actions/runs/41815497048)
+uploads but fails fresh evidence. Neither a successful upload nor the preceding
+candidate's zero findings establishes a passed gate for this tree.
+
+At capture [SDK 41815497053](https://github.com/maldous/CircularQuay/actions/runs/41815497053)
+is queued with no test evidence. [WireMock 41815497163](https://github.com/maldous/CircularQuay/actions/runs/41815497163)
+passes its three synthetic jobs and
+[Dependency Review 41815497172](https://github.com/maldous/CircularQuay/actions/runs/41815497172)
+passes. No workflow was manually retried or cancelled for these observations.
+The prior d9ff832 source/SDK runs are cancelled, security/Sonar fail and
+WireMock/Dependency Review pass at their own recorded scope. These states
+remain distinct from the current unexecuted source amendments.
+
+## Following custody and source-assurance changes
+
+The following development source adds `internal/keyservice`: a profile-bound
+enrollment/custody core with explicit trusted authorization, association storage,
+provisioning and native-provider collaborators. It separates KMS wrap/unwrap
+from deliberate hosted age-private-key retrieval, requires both associations
+before activation, and treats partial/uncertain provisioning or storage effects
+as reconciliation. Current-association authorization is rechecked after remote
+waits before returning key material. Safe errors cannot retain collaborator
+text. The native Transit adapter uses the established OpenBao/Vault API with
+explicit protected connection credentials and provider-key checks; it is not
+an AWS/Azure/Google KMS SDK or a new cryptographic construction. The software
+adapter uses the already pinned Go JOSE library with an explicit
+`A256KW`/`A256GCM` flattened JWE profile, injected private KEK resolver, protected
+key/version headers and authenticated opaque artifact context. It performs
+software cryptography, with no non-exportability or HSM claim. It does not
+implement the hosting platform, production KEK storage or cross-language JWE
+interoperability; its authored crypto tests have not run locally.
+
+The shared HTTP classifier now limits availability to positively typed native
+connection failures or a bounded request timeout, with caller cancellation and
+TLS/trust failures taking precedence. Unknown errors, malformed/truncated body
+reads and unexpected protocol responses deny. Native Unix/Windows errno sets
+are explicit; unsupported native classifications remain conservative. Transit
+uses only that finite safe connection/timeout classification and strictly
+decodes bounded provider responses, including duplicate-field rejection.
+
+This package is source work, not a running hosted service. It has no production
+authorization/store/provisioning implementation, HTTP server, hosted-age
+custodian, metering/billing engine or policy/CLI/SDK/MCP integration. Its
+synthetic tests are not yet executed under the local resource hold. Native
+provider identity/custody, actual round trips, failure classification and
+end-to-end profile enforcement remain unqualified. No strict runtime profile,
+automatic first-run enrollment or migration is enabled by adding this package.
+
+The source corrections also restore the CLI's missing platform import and fix
+omitted optional protected references being mistaken for an empty policy path.
+Nonempty trust/credential/input ownership restrictions remain enforced. JSON
+composition masters can omit root sources/workloads at the intermediate decode
+boundary; ordinary JSON still requires them, and unresolved composition cannot
+be executed through `Parse`. Complete resolved validation remains mandatory.
+The private-snapshot test follows the actual first rejecting privacy check.
+
+Source assurance now retains manifest-bound integration-tagged test files for
+identity/formatting while separating their non-buildable directory from
+untagged Go commands. The report adds required `tagged_integration` status
+`not_run` with code `requires_qualified_tagged_integration_lane`, so this change
+does **not** make the repository audit pass. Required fixture-lane evidence,
+coverage/provenance joining and full source/security/Sonar qualification remain
+outstanding. The real production executable denominator is not waived.
+
+Independent static review and pinned formatting are narrower than compilation,
+test/race/fuzz execution, native protection or a real provider trial. New hosted
+results must bind the exact published source/tree and artifacts. The whole
+product default/strict control register and highest-applicable ASVS/SSDF design
+remain requirements, not a certification or completed qualification.
 
 ## Exact 2757155 hosted receipt
 
@@ -738,18 +824,50 @@ and hosting documentation is research evidence, not a CircularQuay integration
 receipt. The hosting/capacity/revenue calculations are explicit assumptions,
 not benchmarks, customer traction, approved prices, or operating accounts.
 No service, paid plan, credential, or BAU infrastructure was created or changed.
-Custom administration screens are explicitly deferred and unapproved for
-implementation. The confirmed UI North Star is design, not a deployment or
-permission to build it. No verified hosted worker/site/database/project identity
+Local-to-managed custody migration remains a required unimplemented and
+unqualified boundary: client-side inventory, actual age/OS/KMS reuse/import/
+rewrap/re-encryption, compatible artifact transition, idempotent interruption
+recovery, destination activation and explicit original/retained-copy handling.
+A mode flag or provider interface does not establish migration support. No
+operational key was inspected, uploaded or migrated during this work.
+The current forecast request is hosting-only: software key operations and age
+fetches, requests/CPU/elapsed runtime, database/storage/audit/backup, egress and
+paid/free usage cohorts. It separates incremental spend within an already paid
+plan from total allocated hosting cost and shows public-plan breakpoints.
+Labor, external KMS, CRM and payment fees do not belong in that subtotal.
+Earlier age-only, partial-KMS and labor-loaded price/margin proposals do not
+answer it. Product tiers are not provider hosting plans. Actual account
+entitlement, spare capacity and incremental cost remain unverified; conditional
+public-plan examples and customer tariffs must not be presented as account facts.
+Synthetic user/account and operator/admin frontend development/previews and a
+loopback local client dashboard are now explicitly authorized. This supersedes
+the earlier frontend deferral only. Real backend integration, operational
+key/provider access and production deployment remain outside that authorization.
+No frontend implementation, browser acceptance or preview deployment is
+qualified by this runtime candidate. No verified hosted worker/site/database/project identity
 for this service is recorded; repository research alone cannot establish the
 state of unrelated provider accounts.
 
-The confirmed near-term service is authenticated profile-to-age-private-key
-association/retrieval with necessary enrollment and successful-access metering.
-CLI/config opt-outs must precede hosted network access. This initialization,
-opt-out precedence, retrieval and metering implementation is still absent;
-neither the user's KVM/PVM terminology nor the forecast introduces a new source
-mode. All configuration remains client-side. The lean launch can defer optional
+The confirmed hosted-service contract requires real remote cryptographic
+wrap/unwrap and authenticated age-private-key retrieval. The explicitly approved
+launch profile uses software custody within an existing paid Cloudflare or
+Netlify allocation, not a mandatory paid external/native KMS. A runtime wrapping
+key stays separate from the database and independently random profile data
+keys; runtime/shared-KEK compromise can expose all reachable wrapped records.
+This changes the earlier independent-custody assumption and does not satisfy
+strict non-exportability/HSM requirements. No software hosted backend or
+platform deployment is qualified. Authorized profile enrollment
+automatically provisions both associations; it does not download an offline
+key, enable hybrid or create a successful-fetch billing event. The human
+clarified that KVM/PVM meant KMS configured in the application user profile,
+not an OS home/profile or ambient provider credential chain. CLI/config opt-outs
+must precede hosted network access. Hosted initialization, provisioning,
+opt-out precedence, retrieval and metering remain absent. Current SOPS rejects
+cloud-KMS/key-group metadata and writes age-only snapshots. Online-only has no
+offline bypass. Explicit hybrid fallback retains availability-only admission,
+finite scope/window/freshness/expiry, audit and revocation requirements; denial,
+trust, malformed responses, expiry, cancellation and unknown failures do not
+permit it. All configuration remains client-side. The lean launch can defer optional
 enterprise/premium infrastructure within an explicitly approved release scope;
 it cannot waive fundamental security or the engineering gates for shipped code.
 

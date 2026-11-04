@@ -1,5 +1,20 @@
 # Official SDKs
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 Use CircularQuay directly from a Go, TypeScript or Python application. The SDKs
 let a service check its declared workload, run an approved action, or manage a
 local configuration without parsing terminal output or writing shell commands.
@@ -145,15 +160,31 @@ offline/refresh policy without weakening corporate grants.
 
 SDKs share the [first-run initialization contract](management-and-discovery.md#first-run-and-minimal-managed-registration):
 resolve policy and CLI/config hosted opt-outs before any hosted-service network,
-authenticate the resolved identity and idempotently initialize the minimal
-hosted key service association when enabled. Noninteractive clients use enrolled
+authenticate the resolved identity and idempotently initialize BOTH hosted KMS
+and age-key associations when enabled, as required by the latest product decision.
+This is intended behavior, not current adapter support. Do not download an
+offline age key or activate hybrid by association creation alone. Noninteractive clients use enrolled
 workload identity or return an actionable interaction-required outcome. This
 contract supplies no unimplemented SDK method or opt-out option by implication.
+Migration requires the [same complete migration contract](managed-key-service.md#end-to-end-local-to-managed-migration)
+across native/SDK/API/CLI/MCP: metadata-only planning, explicit source/destination
+grants, verified backend format/export capability, staged output, durable per-asset
+idempotency/recovery and atomic validated activation. Do not invent a migration
+method or treat a mode option as key import. No private keys/config/variables enter
+model-visible SDK diagnostics or logs; real backend evidence remains separate
+from mock conformance, under the existing project assurance gates. A separate
+frontend checkout may use synthetic/mock SDK-facing previews or loopback local
+configuration simulations only; it cannot add a real SDK service/backend, host
+proxy, provider/key/account access or production deployment.
+
 Registration returns safe metadata, not a personal-file upload, payment consent
 or enterprise remote-control grant; future key release remains separately
 mapping/window-authorized and cannot revoke copied keys.
 
-Hosted-access metering uses the [shared logical-event contract](managed-key-service.md#profile-utilization-and-fair-metering).
+Association creation, genuine KMS operations and age fetches remain separately
+typed events with explicit quota/tariff policy; retries reconcile one logical
+operation even if provider attempts incur additional cost. Age-access metering
+uses the [shared logical-event contract](managed-key-service.md#profile-utilization-and-fair-metering).
 Preserve request-bound idempotency through safe reconciliation; never create
 extra charges by retrying one logical access or collapse independent host
 fetches into a profile-count unit. Cancellation/network loss after release

@@ -218,7 +218,7 @@ func TestConfigurationGuardSnapshotDomainBoundaries(t *testing.T) {
 		changeWorkload(&policy, func(workload *model.Workload) {
 			setSnapshot(workload, filepath.Join(paths.corporateRoot, "snapshot.json"))
 		})
-		requireConfigurationGuardReject(t, policy, "configuration_private_snapshot")
+		requireConfigurationGuardReject(t, policy, "configuration_private_reference")
 	})
 
 	t.Run("corporate snapshot identity cannot alias personal root", func(t *testing.T) {

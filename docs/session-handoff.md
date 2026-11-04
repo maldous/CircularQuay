@@ -11,7 +11,19 @@ Do not claim a passed gate without its retained evidence.
 Use `git rev-parse HEAD` to select the current checkout. Every receipt below
 qualifies only its recorded revision, tree and execution scope.
 
-Current published parent `275715525b74c99200ee9afc83ff069f6129b4a2`, tree
+Latest captured public commit is `10dde6d3b94fce98e3415e4ca8d8c0dcb649f0d0`,
+tree `9174f780b61636b6f6e9820264bebe0b446910c6`. Its bounded hosted readback
+records source/security/Sonar failure, SDK queued and three WireMock jobs plus
+Dependency Review passing. Source Linux and CodeQL share a missing `platform`
+import in `internal/cli/cli.go`; the following amendment restores it. Linux
+also reports protected-path/trust-store and composition fixture mismatches.
+Use the [exact observation](qualification.md#exact-10dde6d-hosted-observation)
+and separate source receipts; no dirty source or new KMS/profile code is
+qualified by these failed runs. Prior d9ff832 source/SDK cancellations remain
+historical. No manual rerun or cancellation occurred during this readback.
+
+The preceding complete historical analysis for
+`275715525b74c99200ee9afc83ff069f6129b4a2`, tree
 `2e7bb1cf20fda50c07107a5dccb81154d57433ad`, has retained hosted readback in
 `checkpoint45-2757155-hosted-sonar.json`. Synthetic merge
 `8ebd570715148137fa61e6e38443f83b82c9e786` uses the same tree. The Linux
@@ -58,15 +70,48 @@ source still lacks the signed strict-profile/hierarchy engine. Default/strict
 are product contracts, not accepted runtime flags or certification claims.
 Never advertise strict enforcement from this composition implementation alone.
 
+The following development source adds a profile-bound `internal/keyservice`
+core, optional native OpenBao/Vault Transit adapter and maintained Go JOSE
+software adapter (`A256KW`/`A256GCM`, private KEK resolver, fixed flattened JWE).
+Software is not HSM/non-exportable custody or a deployed hosted backend.
+It requires separate KMS/age
+actions, complete dual enrollment, conditional activation/reconciliation,
+stable approved cryptographic context, safe error normalization and current
+authorization after provider waits. This is not a hosted deployment or
+policy/CLI/SDK/MCP integration. Real authorization/storage/provisioning,
+hosted age custody, metering, strict-profile enforcement and migration remain
+absent. New synthetic tests are source-reviewed, not executed under the hold;
+exact provider, native and full engineering qualification remain required.
+
+The same source batch fixes the missing CLI platform import, empty optional
+reference aliases and intermediate composition JSON decoding. Ordinary JSON
+root requirements and complete resolved validation remain. Source assurance
+separates manifest-bound integration-tagged test-only inputs from untagged Go
+commands and adds required `tagged_integration:not_run`; it cannot pass until
+the missing fixture-lane evidence/join is implemented. No denominator or gate
+is waived. Preserve the separate exact source reviews for scope, policy/model
+and custody changes; subsequent hosted results must bind their published bytes.
+
 Latest confirmed scope keeps **all configuration client-side**, including
 source authentication through the user's own network/VPN, composition,
 validation and local save. No raw/resolved config, source credentials or
 protected references may reach a hosted backend, proxy, analytics or logs.
-The minimal hosted service is authenticated profile-to-age-private-key
-association/retrieval plus necessary enrollment, successful-access metering
-and account/subscription lifecycle. First-run CLI/config opt-outs must run
-before hosted network access; those hosted initialization/retrieval/metering
-implementations remain absent. KVM/PVM are user terminology, not source modes.
+The intended hosted-service contract requires genuine remote key wrap/unwrap
+and authenticated age-private-key retrieval. Authorized enrollment
+provisions both associations; it does not download an offline key, activate hybrid or constitute
+a successful-fetch billing event. KVM/PVM were clarified to mean KMS configured
+in the application user profile, not OS USERPROFILE or ambient credentials.
+First-run CLI/config opt-outs run before hosted network. Hosted initialization,
+provisioning, retrieval and metering remain absent. Source/schema/CLI/SDK/MCP
+integration and exact-provider qualification remain required. Current SOPS
+rejects cloud KMS/key groups and writes age-only snapshots. Online-only has no
+offline bypass; explicitly authorized hybrid retains positively classified
+availability-only fallback with all scope/window/freshness/expiry/audit and
+revocation checks. Denial, trust failures, malformed data, expiry, cancellation
+and unknown failures never trigger fallback. Local age, hosted age retrieval
+and remote KMS are distinct custody boundaries. Copied keys/plaintext cannot
+be recalled. Synthetic frontend development/previews and a loopback local
+client dashboard are authorized; real backend and production UI remain held.
 
 The long-term enterprise North Star remains. A lean secure release can defer
 optional premium infrastructure/features under its explicitly selected scope,
@@ -75,11 +120,41 @@ controls or shipped-code quality gates. The existing managed-service forecast
 contains sourced provider rates and hypothetical costs/proposals, not approved
 tariffs, traction or purchased accounts. No verified deployed worker/site/
 database/endpoint for this service is recorded; prepared settings are not
-applied or tested infrastructure. Custom client/customer/operator screens
-remain design-only and unapproved for implementation. Reuse qualified hosting,
+applied or tested infrastructure. The latest explicit frontend authorization
+covers synthetic/mock user/account and operator/admin previews, local client
+forms/validation/configuration editing and simulation. It supersedes the prior
+frontend deferral, not backend integration or production deployment. Work in a
+separate frontend checkout/branch, own only `web/`, keep client configuration
+loopback/local and preserve the runtime publication snapshot. No current UI
+writer existed in this checkout; ports 5180/5181 were unbound at readback, not
+reserved services. Keep frontend checks bounded and retain the native heavy
+execution hold. Reuse qualified hosting,
 identity, payment and support services where appropriate; never expose their
 operator credentials or treat hosting invoices as customer subscription billing.
 No payment setup, charges, account connection, deployment or BAU change occurred.
+
+The latest explicit launch decision authorizes software custody on one existing
+paid Cloudflare or Netlify footprint, with no required paid external KMS or
+upgrade. Protected runtime KEK stays separate from the database; independently
+random profile DEKs do not isolate shared-KEK/runtime compromise. Strict policies
+requiring non-exportability or independent native custody deny this profile.
+Fundamental security and all engineering gates remain unchanged. No actual
+host entitlement, spare allocation or software backend/deployment is qualified.
+Paid Netlify Pro status alone does not establish billing family, database
+allowance, credits or incremental cost; Cloudflare billing readback is denied.
+Do not change shared BAU account limits, buy resources or infer account selection.
+
+The forecast now answers hosting-only cost for product usage tiers: native
+request counts and software-cryptography runtime, storage/database/audit/backup and egress, with
+paid/free cohorts and public-plan inflection points. Separate incremental spend
+from total allocated hosting. Exclude labor, external KMS, CRM and payment fees
+from that subtotal. Earlier age-only/partial-KMS and labor-loaded proposals are
+superseded, not valid current hosting prices or tariffs. Preserve historical
+receipts and the latest supporting amendment without overwriting them.
+Local-to-managed migration covers actual provider import/
+export and non-exportable limits, rewrap versus re-encryption, idempotent
+interruption recovery, destination activation and retained copies. No actual
+inventory, key inspection/upload or migration was performed.
 
 Supporting documentation is coordinated with the existing owner and retains
 its exact composition/first-run/forecast and subsequent account-design receipts.

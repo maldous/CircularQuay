@@ -1,5 +1,21 @@
 # Agent skills, client plugins and MCP
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews and loopback local-configuration simulations are authorized
+separately; production or real-backend UI remains unapproved, and real backend
+tests remain separate from static design evidence.
+
 CircularQuay's agent integration combines portable operating instructions with
 an explicitly enrolled runtime connection. The skill is named `cquay`, pronounced
 “see-key”; installing instructions does not install a service, authenticate a
@@ -53,7 +69,10 @@ administration. Discover the selected server's catalog and match the operation
 to its documented contract; do not fabricate tool names or substitute a mutable
 script for a missing administrative capability. Delegation records grantor,
 recipient, workload, operations, expiry and reason, and cannot exceed the
-original grant. Model-visible administration returns metadata, never key bytes.
+original grant. Model-visible administration returns metadata, never key bytes. A separate
+frontend checkout may use only synthetic/mock administration data and loopback
+local-configuration simulations; it cannot supply a real backend, host proxy,
+provider/key/account access or production operation.
 
 An approved tool can consume scoped values inside its process and return
 allowlisted results. `read_secret` is a separate intentional plaintext release;
@@ -94,18 +113,29 @@ provenance never upload through a plugin, explain tool or telemetry hook.
 
 ## Hosted key service first run
 
+For existing local AGE/KMS assets use the [complete migration contract](managed-key-service.md#end-to-end-local-to-managed-migration):
+client-local metadata planning, source/destination permissions, actual import/
+export or non-exportable limits, rewrap versus re-encrypt, protected staged
+output, per-asset idempotency/recovery and separately approved retirement. A
+mode flag or dual enrollment is not permission to inventory/upload local keys.
+Apply existing project security/assurance gates; unavailable backend is
+unqualified, and mock conformance is not real provider migration evidence.
+
 The [first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
-initializes the minimal hosted key service association after configuration
+initializes the hosted KMS/age profile associations after configuration
 resolution and authentication, unless CLI or config explicitly disables it.
 Both opt-outs apply before any hosted network call, under validated enterprise
 locks; a conflict is not permission to register anyway. An agent uses only the
 selected release's actual enrollment/opt-out capabilities, not invented tools.
 Idempotent CI uses the declared workload identity and no human prompt.
 
-Default registration is neither a paid subscription, key-import request nor
-enterprise remote-unlock/config-orchestration enrollment. No personal config,
+Authorized registration now must provision BOTH genuine hosted KMS and age-key
+associations, superseding the earlier age-only baseline. It is neither a paid
+subscription consent, offline-key download, hybrid activation, local-key import
+nor enterprise config-orchestration enrollment. No personal config,
 provider value, private key or sensitive provenance uploads by default. The
-user-named “KVM” label establishes no current mode flag. Free allowance and an
+user clarified KVM/PVM meant KMS configured per profile; that requires actual
+adapter/schema qualification, not a guessed mode flag. Free allowance and an
 upgrade opportunity use undecided event allowances/prices and never auto-charge. Key
 windows gate future private-key release; copied keys retain decryption ability.
 
@@ -114,25 +144,29 @@ not a profile/key slot. Independent host fetches count separately; local reuse
 and failed/denied precommit calls add no customer uses. A retry of a committed
 logical access reconciles its one event, not a new charge or extra grant.
 
-Expanded custom admin UI/screens are deferred/unapproved. Intended UI parity
-is not authority for an agent to build or publish a dashboard. Reuse existing
-platform services while preserving approved CLI/text onboarding and other
-explicitly authorized capabilities.
+Production custom admin UI/screens remain unapproved. A separate frontend
+checkout may build synthetic/mock dashboard previews and loopback local
+configuration simulations, but intended UI parity is not authority for an agent
+to publish a dashboard or connect a real backend, key, provider or account.
+Reuse existing platform services while preserving CLI/text onboarding.
 
 All config operations and file/URL reads stay client-side with the user's
 network/VPN/source credentials, full option validation and local save. Never
 send contents/source credentials through a hosted backend, proxy, tool response,
 analytics or logs. Browser CORS/file permissions are real; use permitted native
 CLI/SDK/client integration, not a server-side workaround. The hosted API is
-profile-to-age-key association/retrieval plus necessary enrollment/meter/billing,
-not remote client-config CRUD. Protect key bytes from display/logging. PVM/KVM
-are user labels with no verified source mode, not guessed flags.
+profile-to-KMS/age association/retrieval plus necessary enrollment/meter/billing,
+not remote client-config CRUD. Protect key bytes from display/logging. Apply the
+[per-profile KMS/hybrid contract](managed-key-service.md#per-profile-age-and-kms-custody)
+consistently across actual interfaces; KMS support is not inferred from cloud
+secret-reader SDKs.
 
-The explicitly confirmed [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred)
-remains deferred for implementation. Optional user-configured client OTel
-queries/collection do not authorize a hosted telemetry service, bypass CORS/VPN
-or make a browser an OTLP listener. No agent may implement earlier proposed
-custom screens by treating design text as a build approval.
+The explicitly confirmed [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-and-bounded-preview-work)
+is authorized only for synthetic/mock functional previews and loopback
+local-configuration simulations. Production or real-backend implementation
+remains unapproved. Optional user-configured client OTel queries/collection do
+not authorize a hosted telemetry service, bypass CORS/VPN or make a browser an
+OTLP listener. No agent may treat design text as production build approval.
 
 [Account/subscription operations](managed-key-service.md#end-customer-accounts-subscriptions-and-support)
 are customer-scoped, not access to hosting-provider administration. CLI/API/SDK/

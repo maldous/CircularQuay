@@ -67,6 +67,15 @@ defines the cross-product enforcement points. Default/strict downgrade tests
 include imported configurations, alternate clients, child processes, retries,
 offline caches, uncertain outcomes and restore/failover.
 
+The [whole-product release decision](security-profiles.md#whole-product-release-admission)
+joins exact-candidate control evidence across native runtime, hosted KMS/age
+operations, configuration, administration, SDKs, optional MCP, packaging and
+operations. Both runtime profiles receive the same engineering review.
+Highest-level applicable ASVS requirements cover privileged hosted boundaries;
+native/offline and provider-specific properties require additional evidence.
+Required checks that are missing, stale, skipped, cancelled or unreadable block
+qualification. An operational exception cannot approve a failed release gate.
+
 Secure-default verification covers clean first use, no ambient credentials,
 least-privilege grants, explicit opt-outs before hosted key-service contact,
 separate authentication before registration, finite unattended failures and

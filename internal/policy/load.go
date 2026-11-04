@@ -142,6 +142,9 @@ func decodeJSON(data []byte, result *model.Policy) error {
 	if jsondocument.Decode(data, result) != nil || hasJSONNull(data) || !validOperationalDocument(jsonDocument(data)) {
 		return fault.New(fault.Invalid, "policy_json")
 	}
+	if result.Composition == nil && (result.Sources == nil || result.Workloads == nil) {
+		return fault.New(fault.Invalid, "policy_json")
+	}
 	return nil
 }
 

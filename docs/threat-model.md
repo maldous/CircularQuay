@@ -102,6 +102,45 @@ private key, document data key, or plaintext defeats later fetch revocation.
 Offline expiry assumes trusted local enforcement and does not withstand a
 hostile endpoint administrator by cryptographic promise alone.
 
+## Product-wide security profiles and key custody
+
+The [default/strict design](security-profiles.md) applies to every shipped
+surface with the same engineering gates. Default quiet operation cannot turn
+an absent approval, expired grant or failed verification into permission.
+Strict requirements are authenticated, monotonic requirements, not a local
+Boolean. The [qualification record](qualification.md) identifies actual
+enforcement and outstanding evidence; these invariants do not establish a
+qualified strict runtime.
+
+| Threat | Control and residual boundary |
+| --- | --- |
+| Lower profile through another client or recovery | Bind effective requirements and accepted generations into authenticated context; enforce at every admission/effect/release point and preserve them through restore/failover. Unsupported required controls deny. |
+| Automatic enrollment creates unauthorized cloud resources | Use the explicitly selected qualified connection, scoped enrollment authority, idempotency and independent approval/audit where required. Never infer a cloud account or grant from OS profile, environment or first contact. |
+| Half-enrollment or uncertain provider/storage outcome | Provision distinct KMS and age associations, conditionally activate only a complete matching profile and reconcile uncertain effects. Association creation is neither key release nor a billable fetch. |
+| Profile/artifact/key-context substitution | Use authoritative tenant/profile/association generations, exact provider key/version/algorithm and approved opaque artifact/purpose context. Maintained native KMS enforces its authenticated binding; metadata labels alone do not. |
+| Age association bypasses online-only KMS | Do not include a usable offline recipient or release its private key through implicit fallback. Hybrid activation has separate explicit authority, compatible key/artifact versions and a finite offline window. Ordinary multiple recipients are OR. |
+| Denial disguised as outage | Only positively classified adapter availability can reach hybrid fallback; auth/trust/integrity/context/version/expiry/audit/cancellation/unknown failures deny. A blocked network is not proof the provider failed. |
+| Enrollment/unwrap races revocation | Reauthorize current association and grant state after waits before material release; conditionally commit effects and retain durable audit/idempotency/reconciliation state. No claim of atomic external-provider creation. |
+| Migration leaks or weakens custody | Keep inventory client-side, authorize actual key transfer/native crypto separately, verify supported import/export and destination activation, and retain recovery/provenance. Rewrap does not repair copied data keys; historical local copies remain usable under their old keys. |
+| Cost or convenience relaxes qualification | Apply the same source/security/coverage/Sonar/artifact gates to both profiles; record plan/entitlement and native/provider assumptions separately. Optional premium services are not mandatory baseline controls. |
+
+KMS custody prevents export of the master key only within the selected
+provider's verified assumptions. Returned data keys, age private keys and
+plaintext remain copyable. Local administrators, compromised providers,
+untrustworthy clocks and authorized consumers remain explicit trust boundaries;
+neither signatures nor a strict profile can promise remote recall of copies.
+
+The [authorized launch software profile](security-profiles.md#authorized-launch-custody)
+does not claim such non-exportability. Its protected runtime KEK is separate
+from the database and wraps independently random profile data keys. A database
+dump alone lacks that KEK; an authorized-runtime, deployment-authority or shared
+KEK compromise can reach all accessible profile records. Per-profile data keys
+do not remove that shared compromise domain. This is the explicitly accepted
+launch tradeoff, not unchanged independent KMS/HSM custody. Scoped auth,
+tenant isolation, safe audit, bounded abuse controls, rotation/recovery and
+release gates remain mandatory. A stronger locked custody requirement rejects
+software; migration to a qualified stronger profile remains explicit.
+
 ## Review scope
 
 Review policy, endpoint/account selection, input parsing, native process/file boundaries, lifecycle and fallback, per-user MCP, audit outputs, installation, and release trust. Test denial before retrieval and failure paths using fabricated data. The [assurance contract](assurance.md) and [implementation plan](implementation-plan.md) define evidence and outstanding qualification.

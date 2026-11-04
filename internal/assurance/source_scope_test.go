@@ -94,6 +94,127 @@ func TestAuditFailsBeforeTargetToolsWithoutManifestGoScope(t *testing.T) {
 	}
 }
 
+func TestSourceGoScopeSeparatesVerifiedTaggedIntegration(t *testing.T) {
+	root := fixtureRepository(t)
+	writeTaggedIntegrationFixture(t, root, "wiremock_test.go", "//go:build integration\n\npackage integration\n")
+	writeTaggedIntegrationFixture(t, root, "wiremock_provider_test.go", "//go:build integration\n\npackage integration\n")
+	identity := boundFixtureIdentity(t, root)
+	scope, err := sourceGoScope(root, &identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(scope.packages, []string{"."}) || !slices.Equal(scope.coverage, []string{strings.TrimSuffix(modulePrefix, "/")}) {
+		t.Fatalf("untagged scope changed: %#v", scope)
+	}
+	if !slices.Equal(scope.taggedIntegrationPackages, []string{"./internal/integration"}) {
+		t.Fatalf("tagged integration scope = %#v", scope.taggedIntegrationPackages)
+	}
+	for _, name := range []string{"wiremock_test.go", "wiremock_provider_test.go"} {
+		if !slices.Contains(scope.files, filepath.Join(root, "internal", "integration", name)) {
+			t.Fatalf("tagged integration file escaped formatting scope: %#v", scope.files)
+		}
+	}
+	if check, present := taggedIntegrationQualificationCheck(scope); !present || check.Name != taggedIntegrationCheckName || !check.Required || check.Status != "not_run" || check.Code != taggedIntegrationCheckCode {
+		t.Fatalf("tagged integration qualification check = %#v, present=%t", check, present)
+	}
+}
+
+func TestSourceGoScopeRejectsInvalidTaggedIntegrationFiles(t *testing.T) {
+	cases := map[string]string{
+		"missing build tag":       "package integration\n",
+		"wrong build tag":         "//go:build smoke\n\npackage integration\n",
+		"combined build tag":      "//go:build integration && windows\n\npackage integration\n",
+		"missing tag separator":   "//go:build integration\npackage integration\n",
+		"duplicate build tag":     "//go:build integration\n//go:build integration\n\npackage integration\n",
+		"legacy build tag":        "//go:build integration\n// +build integration\n\npackage integration\n",
+		"block comment placement": "/* synthetic */\n//go:build integration\n\npackage integration\n",
+		"production source":       "//go:build integration\n\npackage integration\nfunc value() {}\n",
+	}
+	for name, data := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := fixtureRepository(t)
+			filename := "invalid_test.go"
+			if name == "production source" {
+				filename = "invalid.go"
+			}
+			writeTaggedIntegrationFixture(t, root, filename, data)
+			identity := boundFixtureIdentity(t, root)
+			if _, err := sourceGoScope(root, &identity); err == nil {
+				t.Fatal("invalid tagged integration file accepted")
+			}
+		})
+	}
+}
+
+func TestTaggedIntegrationSourceReadRejectsOversizedFile(t *testing.T) {
+	directory := privateAssuranceDirectory(t, "tagged-integration-source")
+	filename := filepath.Join(directory, "oversized_test.go")
+	if err := os.WriteFile(filename, make([]byte, maxSourceFileBytes+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := boundedSourceRead(filename); err == nil {
+		t.Fatal("oversized tagged integration source accepted")
+	}
+}
+
+func TestSourceGoScopeKeepsSimilarIntegrationDirectoryInUntaggedScope(t *testing.T) {
+	root := fixtureRepository(t)
+	directory := filepath.Join(root, "internal", "integration2")
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	commitFixtureFile(t, root, filepath.Join("internal", "integration2", "ordinary_test.go"), []byte("package integration2\n"))
+	identity := boundFixtureIdentity(t, root)
+	scope, err := sourceGoScope(root, &identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(scope.packages, []string{".", "./internal/integration2"}) || len(scope.taggedIntegrationPackages) != 0 {
+		t.Fatalf("similar directory escaped untagged scope: %#v", scope)
+	}
+}
+
+func TestAuditReportsTaggedIntegrationLaneAsRequiredNotRun(t *testing.T) {
+	root := fixtureRepository(t)
+	writeTaggedIntegrationFixture(t, root, "wiremock_test.go", "//go:build integration\n\npackage integration\n")
+	output := filepath.Join(root, "audit-results", "source")
+	fake := sourceAuditCommand(t, "synthetic")
+	command := func(ctx context.Context, binary string, args []string, directory string, environment []string) commandResult {
+		if binary == "go" && len(args) > 0 && (args[0] == "test" || args[0] == "vet") && strings.Contains(strings.Join(args, " "), "./internal/integration") {
+			t.Fatal("untagged Go command received tagged integration package")
+		}
+		return fake(ctx, binary, args, directory, environment)
+	}
+	report, err := runForTest(context.Background(), Options{Source: root, Output: output, Profile: "source"}, command)
+	if err != nil || report.Passed || report.Coverage.Percent != 100 {
+		t.Fatalf("tagged integration report was not an explicit qualification hold: %#v, %v", report, err)
+	}
+	for _, check := range report.Checks {
+		if check.Name == taggedIntegrationCheckName && check.Required && check.Status == "not_run" && check.Code == taggedIntegrationCheckCode {
+			return
+		}
+	}
+	t.Fatal("missing required tagged integration qualification check")
+}
+
+func writeTaggedIntegrationFixture(t *testing.T, root, name, data string) {
+	t.Helper()
+	directory := filepath.Join(root, "internal", "integration")
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	commitFixtureFile(t, root, filepath.Join("internal", "integration", name), []byte(data))
+}
+
+func boundFixtureIdentity(t *testing.T, root string) SourceIdentity {
+	t.Helper()
+	identity, err := bindSource(context.Background(), runCommand, root, filepath.Join(root, "audit-results", "source"), auditEnvironment(filepath.Join(privateAssuranceDirectory(t, "identity"), "home")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return identity
+}
+
 func toolName(binary string, args []string) string {
 	if binary == "gofmt" {
 		return "format"

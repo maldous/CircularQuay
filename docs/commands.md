@@ -47,7 +47,9 @@ Validate the complete candidate before use; a local edit does not grant a remote
 caller access or publish a changed policy to an enrolled server.
 
 Optional UI/API/MCP administration and official SDK entry points share the same
-scope and audit contract, with operation-specific authority. Discover the
+scope and audit contract, with operation-specific authority. Synthetic/mock
+frontend previews and loopback local-configuration simulations add no command,
+endpoint, server, proxy or authority to this dispatcher. Discover the
 selected interface's documented capabilities instead of deriving a remote tool
 name from a CLI subcommand. Delegation records grantor, recipient, workload,
 operations and active window without exporting bootstrap material. See
@@ -73,7 +75,11 @@ used as an arbitrary file-concatenation or remote personal-file upload route.
 requires both CLI and configuration opt-outs to be supported and resolved before
 any hosted-service network, with explicit precedence and enterprise lock
 validation. This intended behavior does not establish current opt-out flags,
-registration commands or a `KVM` mode in the dispatcher. Use actual help/schema
+registration commands or KMS profile tooling in the dispatcher. The user clarified
+KVM/PVM meant KMS. The new hosted product requires both real KMS and age-key
+associations automatically on authorized enrollment, with distinct operations.
+No current command support, offline-key release or hybrid activation is implied.
+Use actual help/schema
 and qualification evidence; do not guess a flag or pass an ignored field to
 claim that hosted registration is disabled.
 

@@ -13,14 +13,17 @@ The [security profiles](security-profiles.md) define product-wide enforcement;
 All configuration is client-side: retrieval through the user's network/VPN,
 source authentication, composition, validation and local save do not send raw
 or resolved policy, source credentials or protected references to a hosted
-CircularQuay service, proxy, analytics or logs. The hosted service manages only authenticated
-profile-to-age-key association/retrieval and necessary enrollment, metering
+CircularQuay service, proxy, analytics or logs. The hosted service manages
+separate authenticated key-service and age-private-key associations, remote
+key wrap/unwrap, permitted age-key retrieval and necessary enrollment, metering
 and billing. Its administration never implies remote configuration custody.
 Repository publication and optional external identity/policy integrations
 retain their separate explicit authority and minimal metadata boundaries.
-Custom administration screens are deferred and unapproved for implementation;
-these security requirements do not authorize building them. Browser CORS/file
-limits require a permitted client-side/native route, never a hosted proxy.
+Synthetic user/account and operator/admin frontend development/previews and a
+loopback local client dashboard are authorized. They use mock adapters; they
+do not authorize backend integration, operational key access or production
+deployment. Browser CORS/file limits require a permitted client-side/native
+route, never a hosted configuration proxy.
 
 ## Independent trust decisions
 
@@ -61,6 +64,30 @@ KMS/HSM or approved native protected custody; they are never placed in browser
 bundles, model context, generic policy documents or repository artifacts.
 Hardware protection, non-exportability and cryptographic-module validation are
 separately evidenced properties, not implications of a configuration label.
+
+Authorized hosted enrollment provisions both the profile's KMS association and
+its age-private-key association through the selected qualified connection.
+Neither account discovery nor OS home/profile credentials supply authority.
+Creation uses an idempotent enrolled operation identity; partial or uncertain
+provider work is reconciled before activation. Association provisioning is not
+an age-key download, offline permission, billable fetch or cross-provider
+distributed transaction. Strict enrollment satisfies its independent approval
+and durable audit requirements before any protected effect.
+
+KMS wrap/unwrap, age-key retrieval, rotation, disable and recovery have separate
+exact grants and independently versioned association state. Where selected,
+native provider key policy remains effective after application authorization.
+The approved launch software profile has no independent native-KMS permission
+boundary: its protected runtime wrapping key stays separate from the database,
+but runtime/shared-key compromise can expose all reachable profile keys. It
+cannot satisfy a policy requiring non-exportable or independent master custody.
+The [launch custody decision](security-profiles.md#authorized-launch-custody)
+does not waive any administration, isolation, audit or engineering requirement.
+Pre-effect and
+pre-release checks reject a revoked or changed association after a provider
+wait. The [custody and availability matrix](security-profiles.md#custody-availability-and-release-decisions)
+governs every interface; no administrator, support role or alternate route can
+convert denial or a trust failure into authorized hybrid fallback.
 
 ## ADMIN-02: Strict signatures and parsing
 

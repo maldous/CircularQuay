@@ -37,10 +37,14 @@ operational delivery, not an immutable-store or required-audit guarantee.
 
 Both profiles preserve client-only configuration ownership: reads over the
 user's network/VPN/source credentials, full resolve/validate and local save.
-No hosted config store/proxy/log/analytics upload is allowed. Hosted state is
-profile-to-age-key plus necessary service metadata, and CLI/config disable
-precedes hosted network. Strict mode cannot require a config upload or silently
-turn on a disabled hosted service. Custom admin UI remains deferred/unapproved.
+No hosted config store/proxy/log/analytics upload is allowed. Authorized hosted
+enrollment provisions two separate profile associations: remote key-service
+wrap/unwrap and authenticated age-private-key retrieval. Necessary service
+metadata and bounded cryptographic key operations do not authorize configuration
+custody. CLI/config disable precedes hosted network. Strict mode cannot require
+a config upload or silently turn on a disabled hosted service. Authorized
+synthetic frontend development/previews do not authorize real backend
+integration or production deployment; the local client dashboard stays loopback.
 
 ## Safeguards that never become optional
 
@@ -83,6 +87,135 @@ provider entitlement, durable audit or revocation guarantee is incompatible
 with that strict deployment. Validation identifies the missing capability and
 denies the affected operation. It does not emulate assurance by accepting a
 configuration flag or silently substituting a weaker mechanism.
+
+## Authorized launch custody
+
+The initial hosted service uses a **software key service** on one existing paid
+Cloudflare or Netlify deployment, within its verified minimum-cost entitlement.
+It performs real remote wrapping/unlocking using maintained cryptographic
+libraries and the platform's supported primitives. A protected wrapping key is
+kept outside the database; independent random per-profile data keys protect the
+stored records with a vetted authenticated-encryption/envelope profile. Public
+IDs never derive encryption keys. Native secret bindings and environment
+variables supply protected runtime inputs; they are not a hardware KMS.
+
+This is an explicitly authorized launch custody tradeoff. The runtime can access
+or use its software master key. Compromise of that runtime, deployment authority
+or shared wrapping key can expose every reachable profile data key and record.
+Random per-profile data keys do not create independent compromise domains under
+a shared wrapping key. Separate database encryption, role/tenant checks and
+audit still protect their own boundaries; they do not eliminate that risk.
+The launch does not claim non-exportable/HSM-backed or independently enforced
+per-profile master-key custody.
+
+Authentication, exact scope/tenant authorization, complete key/profile binding,
+protected secret delivery, bounded abuse controls, required durable audit,
+rotation/recovery and the engineering gates remain mandatory. Preview/local
+identities and storage cannot access production wrapping keys. The chosen host
+must provide the required durable state and verified secret/runtime controls;
+a low price or an existing subscription cannot substitute for qualification.
+
+Independent managed KMS/HSM and qualified Transit connections remain explicit
+stronger custody choices and migration destinations. They are not mandatory
+paid launch dependencies. A strict policy requiring non-exportability or
+independent native custody rejects the launch software profile; a cost setting
+cannot waive that locked requirement. Software-custody support is never
+advertised as satisfying the former independent-custody assumption unchanged.
+No availability-mode default is inferred from the custody choice.
+
+Actual host entitlement and qualified implementation determine the selected
+deployment. This design does not select an unverified provider account, deploy
+both hosts, authorize a purchase or establish a running service. See the
+[qualification record](qualification.md#managed-service-design-status) and
+[cost model](managed-key-service.md) for current implementation and assumptions.
+
+## Custody, availability and release decisions
+
+The software envelope profile uses maintained JOSE implementations with fixed
+`A256KW` key wrapping and `A256GCM` content encryption. The 256-bit runtime KEK
+is explicitly versioned and resolved outside the data store. The maintained
+library generates fresh content-encryption keys and nonces; the application
+does not author a cipher, KDF or nonce scheme. One flattened JWE JSON recipient
+has protected algorithm, encryption, key ID, key-version and enrolled-association
+marker headers plus authenticated opaque profile/purpose/artifact context.
+The marker is metadata, not hardware or provider attestation. Unknown algorithms,
+unprotected overrides, duplicate fields, malformed encodings, context/version
+substitution and over-limit inputs deny. This profile wraps 32-byte data keys;
+record encryption, random profile-key provisioning and storage are separate
+qualified boundaries. Cross-language interoperability and platform/runtime
+qualification require actual vectors and tests, not the library names alone.
+
+An **application KMS profile** belongs to the enrolled CircularQuay user or
+workload profile. It is not an operating-system `USERPROFILE`, home directory,
+cloud CLI profile or ambient credential chain. Its qualified connection binds
+provider, account/tenant/project, endpoint and trust, key identity/version,
+algorithm, permitted operations, authentication identity and association
+generation. Environment and scope names are operator-defined; development and
+production are examples, never built-in permission classes.
+
+The optional hosted service provisions both KMS and age associations during
+authorized enrollment. It uses an explicitly selected, authorized provider
+connection and maintained cryptographic primitives under its declared software,
+native managed-KMS or other qualified custody profile. Association
+creation is idempotent and independently audited. Partial or uncertain creation
+requires reconciliation; it cannot activate a half-enrolled profile. Enrollment
+does not release an age private key, approve offline use or charge for a key
+fetch that did not occur. No ambient cloud account discovery creates a KMS grant.
+
+KMS wrap/unwrap and age private-key retrieval have distinct action grants,
+lifetimes, key versions and revocation state. The hosted service authorizes its
+own exact operation; a client-supplied profile ID, valid login or billing role
+does not grant key access. Native provider authorization remains a second
+boundary. Provider key management, application association management and
+plaintext release are separate permissions. Software custody cannot manufacture
+an independent provider key-policy boundary. Local age custody remains an
+independent selection for explicitly permitted local use.
+
+Wrapped-key records bind the enrolled tenant/profile, association generation,
+purpose, algorithm, key version and bounded artifact identity using the selected
+provider/library's authenticated-context mechanism. Context contains only approved
+nonsecret opaque identifiers: provider audit systems may record it. Raw/resolved
+configuration, its graph/provenance digest, source credentials and protected
+references remain client-side. A provider that cannot enforce the required
+binding is incompatible with that profile; an unverified context field is not
+cryptographic protection. Plaintext data keys, private keys, tokens and raw
+provider errors never enter ordinary state, logs, metrics or traces.
+
+| Selected availability mode | Successful path | Failure behavior |
+| --- | --- | --- |
+| Online | Current authorized remote operation using the required KMS/key association. | No local age or snapshot bypass. Unavailability denies the operation. |
+| Hybrid | Current authorized remote operation; separately approved local fallback is prepared under its own finite window. | Only a positively classified availability failure can reach fallback. Complete encrypted snapshot, matching scope/key/version, offline permissions, freshness, expiry, required audit and revocation fences must all permit it. |
+| Offline | Explicit approved local inputs and custody within their permitted lifetime. | No discovery, online permission inference or automatic widening of the offline window. |
+
+Authentication/authorization denial, disabled or destroyed keys, association or
+context mismatch, stale identity/revocation/approval evidence, TLS/trust failure,
+malformed or oversized responses, integrity failure, expiry, clock anomalies,
+required-audit failure, cancellation and unknown errors deny release. They are
+not availability failures. Opaque SOPS exit codes cannot establish a provider
+outage. A qualified adapter emits safe typed failures; neither diagnostic-text
+matching nor a generic retry policy may turn a denial into fallback.
+
+Strict offline/hybrid use requires its separate signed permission and accepted
+host/clock/custody assumptions. It cannot provide the immediate revocation of
+an online operation during disconnection. An attacker can block connectivity;
+availability fallback therefore represents a bounded policy choice, not proof
+that the provider itself failed. No profile recalls a copied plaintext value,
+data key or age private key. KMS revocation prevents future authorized provider
+operations, not decryption using key material already copied by a consumer.
+
+Flat SOPS recipients are alternatives (OR). A qualified key-group profile
+declares the exact groups, backend/key identities and threshold; recipients
+within a group remain alternatives. Extra recipients, a substituted group
+graph or a lower threshold deny acceptance. A threshold of one is not a quorum.
+Unsupported group metadata is rejected rather than silently flattened.
+
+Changing custody follows the [authorized migration procedure](../RELEASE.md#local-to-managed-custody-migration).
+Online-only artifacts do not retain an offline recipient simply because the
+profile also has an age association. Independent key IDs/windows use separate
+data keys or artifacts where required. A mode change cannot make an already
+copied local key non-exportable or remove its ability to decrypt old copies.
+Rewrap and full re-encryption have different compromise-recovery properties;
+provider import/export and hardware restrictions determine what is possible.
 
 ## Effective security context
 
@@ -213,6 +346,45 @@ backup restore and child processes. It also tests missing required audit or
 hardware, unavailable issuers/collectors, expired approvals, compromised/rotated
 signers, cross-tenant requests and malicious discovery. Default-mode tests prove
 that quiet/non-interactive behavior never becomes fail-open behavior.
+
+### Whole-product release admission
+
+One versioned control register covers every shipped executable, SDK, service,
+installer, workflow, skill/plugin, schema and enabled integration. Each entry
+binds its stable control ID to the threat, applicable runtime profiles,
+enforcement location, exact positive/negative tests, platform/provider scope,
+artifact identity and independent reviewer. Every protected operation maps to
+that register. A missing mapping or unsupported required control blocks that
+operation and its advertised release capability.
+
+| Qualification boundary | Mandatory adversarial cases |
+| --- | --- |
+| Enrollment and identity | Forged issuer/client/tenant, replayed enrollment, ambient credentials, duplicate or partial provisioning, suspension and revocation during waits. |
+| Configuration and administration | Signature/algorithm substitution, altered candidate, ancestor-lock downgrade, self-approval, approval replay, conflicting writers and restored old generations. |
+| KMS and age | Cross-profile/environment/artifact/context replay, independent key/association revocation, rotation and version pinning, malformed provider response, outage versus denial, and no release after cancellation. |
+| Runtime and offline delivery | Partial generations, redirected paths, unsupported host protection, clock rollback, expired or incomplete snapshots, fallback fences, interrupted activation and recovery. |
+| Interfaces and diagnostics | Identical authorization through native CLI, Go/TypeScript/Python SDKs and each enabled API/MCP route; secret-canary checks for output, audit, metrics, traces and packaged examples. |
+| Service durability and billing | Audit failure, concurrent one-time effects, unknown outcomes, duplicate metering, idempotent retries, tenant crossover, backup/restore and failover without resurrection. |
+| Distribution and operations | Tampered archives/signatures/provenance, publisher substitution, installed-package conformance, native upgrade/removal/reboot, provider entitlement and recovery exercises. |
+
+Release admission joins the applicable results for the **same immutable
+candidate**. It requires complete source and owned-code coverage, successful
+Sonar analysis and gate/readbacks, all other required analyzers, native and
+provider evidence, exact artifact consumer verification and independent design
+and implementation review. Pending, missing, skipped, cancelled, stale,
+unreadable or failed evidence cannot satisfy a required check. A CI workflow
+file, badge, successful upload, mock or cross-build is not the corresponding
+qualification. Administrative permission gaps are recorded, not bypassed.
+
+Default and strict use the same reviewed implementation and engineering gates.
+ASVS 5.0.0 applicability for hosted identity, key release and administration is
+assessed against its highest verification level; any inapplicable requirement
+has an explicit boundary rationale. Runtime default does not select a lower
+verification level. Native and offline properties receive their own threat and
+platform evidence because a web standard cannot cover those boundaries alone.
+SSDF requirements cover development and vulnerability response for the whole
+product. Standards mappings, scanner results and control registers do not by
+themselves establish certification.
 
 ISO/IEC 27001 control mapping supports an organisation's security programme;
 certification belongs to a separately assessed organisational scope. FIPS or

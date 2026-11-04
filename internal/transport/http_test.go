@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/platform"
@@ -141,17 +143,66 @@ func assertTransportClassification(t *testing.T) {
 			t.Fatal("incorrect status class")
 		}
 	}
-	if !fault.Is(classifyTransport(&net.OpError{Op: "dial", Err: errors.New("unavailable")}), fault.Unavailable) {
-		t.Fatal("network failure misclassified")
+	assertPositiveConnectionFailures(t)
+	assertTransportTrustFailures(t)
+	assertCancellationAndTimeoutClassification(t)
+}
+
+func assertPositiveConnectionFailures(t *testing.T) {
+	t.Helper()
+	for _, errno := range nativeConnectionErrnos() {
+		err := classifyTransport(context.Background(), context.Background(), &net.OpError{Op: "dial", Err: errno})
+		if !fault.Is(err, fault.Unavailable) {
+			t.Fatalf("known connection failure misclassified: %v", err)
+		}
 	}
-	if !fault.Is(classifyTransport(&net.DNSError{Err: "unavailable"}), fault.Unavailable) {
-		t.Fatal("DNS failure misclassified")
+	for _, err := range []error{&net.DNSError{IsTemporary: true}, &net.DNSError{IsTimeout: true}} {
+		if classified := classifyTransport(context.Background(), context.Background(), err); !fault.Is(classified, fault.Unavailable) {
+			t.Fatalf("positive DNS failure misclassified: %v", classified)
+		}
 	}
-	if !fault.Is(classifyTransport(context.DeadlineExceeded), fault.Unavailable) {
-		t.Fatal("timeout misclassified")
+}
+
+func assertTransportTrustFailures(t *testing.T) {
+	t.Helper()
+	for _, err := range []error{
+		&net.OpError{Op: "dial", Err: errors.New("synthetic")},
+		&net.DNSError{IsNotFound: true},
+		tls.RecordHeaderError{},
+		tls.AlertError(42),
+		errors.New("synthetic"),
+	} {
+		if classified := classifyTransport(context.Background(), context.Background(), err); !fault.Is(classified, fault.Trust) || fault.Is(classified, fault.Unavailable) {
+			t.Fatalf("unproven transport failure was not trust: %v", classified)
+		}
 	}
-	if !fault.Is(classifyTransport(errors.New("private upstream body")), fault.Trust) {
-		t.Fatal("unknown failure misclassified")
+	if classified := responseReadFailure(&net.OpError{Op: "read", Err: responseReadFixtureError()}); !fault.Is(classified, fault.Trust) || fault.Is(classified, fault.Unavailable) {
+		t.Fatalf("partial response error was not trust: %v", classified)
+	}
+}
+
+func responseReadFixtureError() error {
+	native := nativeConnectionErrnos()
+	if len(native) > 0 {
+		return native[0]
+	}
+	return errors.New("synthetic")
+}
+
+func assertCancellationAndTimeoutClassification(t *testing.T) {
+	t.Helper()
+	timedOut, cancelTimeout := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelTimeout()
+	if err := classifyTransport(context.Background(), timedOut, context.DeadlineExceeded); !fault.Is(err, fault.Unavailable) {
+		t.Fatalf("bounded timeout misclassified: %v", err)
+	}
+	caller, cancelCaller := context.WithCancel(context.Background())
+	cancelCaller()
+	if err := classifyTransport(caller, timedOut, tls.RecordHeaderError{}); !fault.Is(err, fault.Denied) || fault.Is(err, fault.Unavailable) {
+		t.Fatalf("caller cancellation misclassified: %v", err)
+	}
+	if err := classifyTransport(context.Background(), timedOut, tls.RecordHeaderError{}); !fault.Is(err, fault.Trust) || fault.Is(err, fault.Unavailable) {
+		t.Fatalf("TLS error lost precedence to timeout: %v", err)
 	}
 }
 

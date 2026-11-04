@@ -1,5 +1,20 @@
 # Operating workflows
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 Use the command vocabulary of the selected qualified executable. Current remote
 bootstrap requires both pins even interactively; `flow run` uses local policy or
 pinned GitHub retrieval and fails closed when discovery is unavailable.
@@ -83,10 +98,12 @@ The first-run hosted key service contract is config→trusted discovery→manual
 fallback→resolved-identity authentication→minimal authorized initialization,
 unless disabled via CLI or config. Resolve both opt-out surfaces and locks
 before any hosted network. This file supplies no invented flags, registration
-tool, endpoint or KVM enum. Use the actual selected release's capabilities;
+tool, endpoint or KMS enum. Use the actual selected release's capabilities;
 unsupported tooling is not a reason to connect accounts manually. CI enrollment
-is idempotent with workload identity. Default subscription is identifier-to-age
-private-key retrieval with future release windows, not remote orchestration.
+is idempotent with workload identity. Latest decision supersedes age-only hosted
+baseline: authorized enrollment provisions BOTH genuine hosted KMS and age-key
+associations, with distinct operations/windows and safe resource reconciliation.
+It downloads no offline key and activates no hybrid mode by itself.
 No personal material upload, automatic payment or copied-key revocation is implied.
 
 Customer utilization is successful logical hosted access, not profile/key slots:
@@ -94,17 +111,22 @@ one daily hosted fetch=one use, twenty independent hosts/fetches=twenty uses,
 local reuse=zero. Denied/precommit failures add no uses; committed uncertain
 access reconciles once and same-logical-access retry never adds a second charge.
 No idempotency sharing across distinct clients/versions/requests is authorized.
-Expanded custom administration UI/screens remain deferred/unapproved; prior
-proposals do not authorize construction or imply delivery.
+Production custom administration UI/screens remain unapproved; a separate
+frontend checkout may construct only synthetic/mock functional previews and
+loopback local-configuration simulations. They do not imply delivery or authorize
+a real backend/host proxy, operational keys, provider/account access, deployment,
+purchase or a new suite.
 
 All config stays on the client: user-owned network/VPN/source credentials,
 complete single/multiple-source resolution/validation/explain and local save.
 No contents/source credentials reach hosted backend/proxy/analytics/logs.
 Browser CORS/file restrictions require permitted native/local CLI/SDK integration,
-not a server fetch proxy. Hosted state is profile→age-key plus necessary
+not a server fetch proxy. Hosted state is profile→KMS/age plus necessary
 service metadata; keys are never logged/displayed. CLI/config disable resolves
-before hosted network. PVM/KVM remain unverified user mode labels; no guessed
-flag, custom UI work or automatic subscription follows from this design.
+before hosted network. The user clarified PVM/KVM meant per-profile KMS; no
+guessed flag, production UI authority or automatic subscription follows from
+this design. The separately authorized previews remain synthetic/mock and
+loopback-only.
 
 Customer account/usage/invoice/plan/quota/subscription/support operations require
 exact tenant/account/field grants; hosting dashboard/admin APIs are not customer
@@ -112,5 +134,97 @@ billing or CRM. Reconcile signed provider events and lost/duplicate mutations
 idempotently. Future unattended financial actions need explicit bounded user
 authority and applicable confirmation; capability alone never authorizes charges.
 Use actual qualified provider-hosted payment entry, not card custody/admin keys
-or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or
-custom UI implementation is authorized by design documentation.
+or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or production custom UI implementation
+is authorized by design documentation. Synthetic/mock previews retain the
+separate no-backend/no-provider/no-key boundary.
+
+## User-profile KMS and availability modes
+
+The user clarified KVM/PVM meant KMS configured in the user profile. Distinguish
+local age, minimal hosted age-private-key retrieval and remote KMS master-key
+custody. The inspected SOPS adapter rejects cloud-KMS recipients and key groups;
+upstream SOPS support or cloud secret-reader SDKs do not prove adapter support.
+Inspect actual schema/help/qualification; unsupported fields must fail rather
+than silently use another custody path. Do not invent a flag/tool/provider grant.
+
+A remote KMS profile needs exact provider/account/project/tenant/region/key and
+version policy, declared auth identity, minimum operation grants, trusted
+endpoints and recovery rules. Credentials/config remain client-side. Keep
+hosted KMS and age operations distinct; honor hosted opt-out/locks before network.
+Automatic dual association provisioning is required implemented product behavior
+under authorized enrollment, not live paid/account setup permission here. No
+offline-key release, hybrid activation or purchase follows merely from association.
+
+Custody and availability modes differ. Existing `online` means required online
+custody cannot bypass to age/offline. Explicit `hybrid` preserves authorized
+encrypted-snapshot fallback on qualifying availability failure within the
+approved window, with scope/freshness/denial-fence checks and audit compatibility.
+Denial, TLS/trust failure, malformed response and expiry are not availability
+failures. Existing `offline` uses explicitly authorized local custody. No silent
+mode change or undeclared recipient. Use these same rules through actual
+CLI/API/SDK/MCP; synthetic/mock UI previews and loopback local-configuration
+simulations are authorized separately, while production or real-backend UI
+remains unapproved.
+
+Ordinary SOPS recipients are alternative unlock paths, not AND. Key-group quorum
+requires actual supported/tested threshold configuration; it is currently
+rejected by this adapter. Remote KMS keeps its master key, but a client can retain
+unwrapped data keys/plaintext; an age fallback key permits offline decryption.
+Never promise every future decrypt contacts KMS or remotely expires retained keys.
+
+The latest hosted decision requires BOTH associations on authorized enrollment,
+not merely optional third-party KMS. The authorized launch uses a SOFTWARE crypto adapter with vetted library/native
+Web Crypto, protected KEK outside DB, random profile DEKs and server-resolved scoped
+key/context; returning an age private key or reading a runtime secret is not KMS.
+No provider or remote/local active-mode default is selected. Native KMS resources,
+age recipients, artifact/key versions, independent key IDs/windows and safe
+provisioning state need durable tenant-bound idempotency and partial-failure
+reconciliation. Do not claim ready with one association missing.
+
+Association creation releases no offline key and adds no age recipient to
+online-only artifacts. An explicit authorized hybrid transition needs compatible
+ciphertext/recipient or approved snapshot with exact versions/window/scope before
+activation; never assume a KMS ciphertext blob is decryptable by age. Reverting
+online-only cannot revoke copied old keys/plaintext. KMS may process protected
+data keys, but never client config/variables/source credentials. Separate logical
+association, crypto-operation and age-fetch events; only explicit tariff policy
+can equate or bill them, and retries may still incur provider cost. Current
+adapter rejects cloud KMS; this is required behavior, not an implemented tool.
+
+## Local-to-managed migration
+
+Migration is not a mode flag or enrollment side effect. Inspect only explicitly
+selected client-local metadata for age/OS/self-hosted KMS definitions, public
+recipients, ciphertext/key versions, ownership/profile/grants/windows, recovery
+and dependencies. Reconcile unknowns/duplicates before effects; do not scan
+unrelated key stores or hash private keys as identifiers. Automatic dual
+associations do not authorize local-key read/export/import/upload.
+
+An approved bounded plan distinguishes reuse of a supported reference, exportable
+key import under actual provider format/algorithm/permission limits, supported
+data-key rewrap and local payload re-encryption. Non-exportable hardware/provider
+keys cannot be copied; use an authorized source operation or report unsupported.
+Matching raw key bytes does not imply cross-provider ciphertext compatibility.
+Preserve originals/provenance. Stage protected local outputs, authenticate and
+verify destination plaintext/recipients/version/recovery before atomic activation.
+No plaintext temp/log/model output. Durable per-asset migration IDs reconcile
+interruption, uncertain creation, concurrent edits and retry without duplicate
+paid keys or partial estate success. Recheck permission after waits/before effects.
+
+Online-only cannot gain an offline recipient. Hybrid activation remains explicit,
+with compatible artifact/key version, approved window and existing availability,
+freshness, audit and denial-fence checks. Rollback/retirement is separately
+authorized and preserves accepted generations; copied old keys/ciphertext/data
+keys/plaintext remain usable. No actual key inventory or migration is authorized
+by this skill design; use only real qualified capabilities, never invented tools.
+
+Existing SECURITY/threat-model/security-profile/administration/assurance gates
+apply equally to hosted KMS, local adapters and migration. Do not lower custody,
+scopes, durable audit, replay/fallback or issue/coverage/complexity/review gates for
+cost. The user explicitly authorized the initial software-custody tradeoff;
+stronger independent non-exportable/HSM claims are unavailable. Real backend/
+recovery evidence is distinct from mocks; missing
+authorized backend is unqualified, not pass/certification. Cost model must cover
+only CF/Netlify hosting: both service workloads, lifecycle/free-owner traffic,
+CPU/elapsed/DB/egress and allocated versus already-paid incremental spend with
+inflection points. No labor/external KMS/CRM/payment/customer margin embedded.

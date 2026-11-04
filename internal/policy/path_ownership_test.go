@@ -54,6 +54,18 @@ func TestPathOwnershipTreatsAuthorityTrustStoreAsInput(t *testing.T) {
 	}
 }
 
+func TestPathOwnershipAllowsOmittedProtectedReferences(t *testing.T) {
+	if err := Validate(namedIdentityPolicy()); err != nil {
+		t.Fatalf("named authority without a local trust store rejected: %v", err)
+	}
+	policy := validPolicy()
+	policy.Observability = validObservability()
+	policy.Updates = validUpdates()
+	if err := Validate(policy); err != nil {
+		t.Fatalf("omitted operational protected references rejected: %v", err)
+	}
+}
+
 func TestPolicyFileOwnershipRejectsAuthorityTrustStoreUnderMutableInputs(t *testing.T) {
 	base := t.TempDir()
 	for name, path := range map[string]string{

@@ -1,5 +1,19 @@
 # Implementation and qualification plan
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Custom UI stays
+deferred and real backend tests remain separate from static design evidence.
+
 This is the durable engineering contract, not a completion report. Implementation and qualification use explicitly selected, isolated development environments; verify the actual executor and checkout for each session. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
 
 V1 is one complete product contract. Work packages describe implementation
@@ -41,33 +55,43 @@ existing release/qualification records.
 ## Managed-key product contract
 
 The optional [managed key service](managed-key-service.md) associates a verified
-existing identity with authorized age-key mappings. Scoped UI/API/CLI/MCP
+existing identity with BOTH authorized KMS and age-key associations. The latest
+explicit decision requires automatic provisioning of both on authorized enrollment,
+without offline-key download or hybrid activation. Scoped UI/API/CLI/MCP
 administration manages allowed principals, clients, windows, modification, and
 revocation. Reuse available paid Netlify/Cloudflare identity and management
 capabilities first for the minimal hosted API and confirmed CLI/text flow.
-Expanded custom key-specific UI/screens remain deferred/unapproved. There is no separate email/onboarding suite. Key distribution is
+Production custom key-specific UI/screens remain unapproved. A separate frontend
+checkout may build synthetic/mock functional previews and loopback
+local-configuration simulations, but no real backend, provider/key/account
+access, deployment, purchase or new email/onboarding suite is authorized. Key distribution is
 explicitly distinct from protected local custody and remote unlocking. Bundle,
 recipient, recovery, and authorization-domain isolation apply to every unlock
 path. Private keys, released data keys, and plaintext cannot be recalled;
 SOPS/age do not enforce expiry. Commercial packaging and financial scenarios
 are assumptions, not chosen prices, traction, or deployment authorization.
 
-Expanded custom administration UI/screens are deferred/unapproved, not a
-current implementation workstream. Prior UI proposals are not proof of human approval or delivery. The explicit
-[landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred)
-is now confirmed as design only; custom implementation remains deferred. Reuse existing platform services and
-preserve explicitly approved CLI/text onboarding and product capabilities.
+Production custom administration UI/screens remain unapproved, not a current
+service implementation workstream. Prior UI proposals are not proof of delivery.
+The explicit [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-and-bounded-preview-work)
+authorizes a separate frontend checkout for synthetic/mock functional previews
+and loopback local-configuration simulations only. It does not authorize real
+backend/provider/key/account access, production deployment, purchase or a new
+suite. Reuse existing platform services and preserve CLI/text onboarding and
+product capabilities.
 
 ### Established baseline and first-run acceptance
 
-The hosted subscription baseline is authenticated identifier-to-age-private-key
-mapping/storage/retrieval with minimal authorized registration, window checks,
-metering/free allowance and a clear opt-in subscription opportunity. It does not
-include enterprise policy/configuration orchestration, remote unlocking or all
-optional integrations by default. Preserve those as separately selected
-CircularQuay capabilities and independently costed deployments. The user-named
-“KVM” path has no verified source mode/enum at this planning checkpoint; do not
-rename it or invent runtime support.
+The latest authorized launch baseline includes hosted SOFTWARE cryptographic
+operations and authenticated age-private-key retrieval, with BOTH associations
+automatically provisioned on authorized profile enrollment. This supersedes the
+earlier age-only baseline, with explicit window checks, usage classes and an
+opt-in subscription opportunity. It does not include enterprise config
+orchestration or every optional integration by default. Preserve those as separately selected
+CircularQuay capabilities and independently costed deployments. The user
+clarified KVM/PVM meant **KMS**, configured per user profile. Implement the
+[separate custody contract](managed-key-service.md#per-profile-age-and-kms-custody);
+current source does not yet establish cloud-KMS support.
 
 First run resolves existing configuration, discovery or manual fallback,
 authenticates through the selected identity, then immediately initializes the
@@ -95,9 +119,73 @@ Test denied/precommit failures at zero customer uses, postcommit uncertain
 release reconciled once, and same-logical-access retries/concurrent requests
 without duplicate metering. Distinct hosts cannot share one idempotency identity
 to bypass independent access accounting. Provider attempts/logs/storage still
-incur costs; derive allowance/tariff from measured all-in costs and margin. The existing
-managed-service forecast includes conditional personal/business/enterprise-volume
-proposals; they are review inputs, not live prices or new UI/hosting authority.
+incur hosting costs. The current forecast is HOSTING ONLY for Personal/Business/
+Enterprise product workloads, with total allocated versus already-paid incremental
+spend and allowance/DB-activity inflections. No labor, external KMS, CRM/payment
+fees, customer prices or margins are embedded; these examples authorize no spend.
+
+### Per-profile KMS and hybrid acceptance
+
+Implement [custody selection](managed-key-service.md#per-profile-age-and-kms-custody)
+in the user profile: local age, hosted age-private-key retrieval, or a qualified
+remote KMS provider/key/auth identity with explicit scoped operation grants.
+The current SOPS adapter rejects cloud-KMS/key-group metadata; reuse upstream
+backends with constrained credentials rather than relabeling existing support.
+Require common schema/validation and consistent CLI/API/SDK/MCP behavior;
+intended client UI parity remains design only. Do not invent deployed support,
+provider permissions, flags, tools or provisioning authority.
+
+Keep custody distinct from availability mode. Online-only required KMS has no
+offline bypass. Explicit hybrid retains approved complete encrypted snapshot
+fallback on qualifying availability failure within its window, with existing
+scope/freshness/audit/fence checks. Denial, TLS/trust failure, malformed response
+or expired fallback cannot trigger downgrade. Test both allowed hybrid fallback
+and each prohibited downgrade. Offline remains explicitly local. Ordinary SOPS
+recipients are alternatives, not AND; quorum needs an actually supported and
+tested group/threshold mechanism. Retained data keys/plaintext or age fallback
+cannot be remotely revoked or made to require KMS on every future decrypt.
+
+Implement dual-association enrollment with durable idempotency, partial-failure
+reconciliation, resource budgets and readiness only after both associations
+exist. Resolve hosted disable/locks before network. Association creation does
+not release offline keys, activate hybrid or silently substitute age for
+required online KMS. No live paid provisioning is authorized here. Add actual per-provider operations/key-version/
+audit/recovery costs to the existing forecast before commercial commitment.
+
+### Local-to-managed migration and existing assurance
+
+Implement the [end-to-end migration contract](managed-key-service.md#end-to-end-local-to-managed-migration),
+not just a mode flag. Client-local metadata inventory/reconciliation covers age,
+OS/hardware/self-hosted KMS definitions, encrypted assets, recipient/key versions,
+profile grants/windows and recovery dependencies. Distinguish authorized reuse,
+export/import, compatible data-key rewrap and payload re-encryption. Non-exportable
+hardware keys cannot be copied; actual provider formats/import permissions and
+source unwrap authority must be verified. Preserve originals/provenance and
+separate local-key import from automatic dual association creation.
+
+Use a scoped approved plan, staged protected output, durable migration IDs and
+per-asset reconciliation; interruption/retry cannot orphan duplicate paid keys
+or activate a partial estate. Verify destination decrypt/content/recipient/key
+version and recovery before atomic activation. Retirement and rollback need
+current separate authority, with deny/replay generations preserved. Online-only
+has no offline bypass; only explicit authorized hybrid can activate compatible
+fallback under existing availability/window/freshness/audit rules. Old ciphertext,
+private keys/data keys/plaintext remain usable by holders after migration.
+
+Apply existing SECURITY/threat-model/administration/security-profile/assurance
+controls, positive and adversarial tests and exact qualification evidence.
+Real-backend/native custody/migration/recovery evidence is separate from mocks;
+an unavailable authorized backend is unqualified. The explicitly authorized
+launch SOFTWARE custody tradeoff permits runtime-accessible protected KEKs and
+random profile DEKs, with shared-runtime/KEK blast radius disclosed; it does not
+satisfy a stronger independent/HSM requirement. Auth, tenant/purpose scope, audit,
+replay/fallback controls and first-party gates remain mandatory. The
+revised [full dual-service model](managed-key-service.md#hosting-economics-and-capacity-assumptions)
+is now hosting-only: actual native meter rates, explicit workload/free-owner/
+DB-active assumptions, allocated versus incremental spend and inflection points.
+Labor, paid external KMS, CRM/payment costs and customer margins are removed. No live key
+inventory/upload/migration, paid provisioning or new account connection is
+authorized by this implementation plan.
 
 ### Client-only configuration acceptance
 
@@ -107,11 +195,16 @@ network/VPN and credential boundary. Test that no content/credentials/provenance
 leak through hosted backend/proxy/analytics/logs, including corporate sources.
 Browser CORS/file restrictions require honest permitted native CLI/SDK/local
 integration, never a server proxy or silent unsupported options. Save locally.
-Hosted state is limited to authenticated profile→age-key association/retrieval
+Hosted state includes authenticated profile→KMS/age associations, crypto operations
 and necessary enrollment/window/metering/billing. Protect keys without display
 or logging. CLI/config disable before network supports fully client-only use.
-User terms PVM/KVM are not verified source enum/flags; invent neither.
-This is design; expanded custom UI remains deferred/unapproved.
+The user clarified PVM/KVM meant KMS. Per-profile KMS is a required capability,
+not an existing enum/flag or permission for live key provisioning here.
+Qualify compatible KMS/age ciphertext, recipient/key versions and independent
+key IDs/windows for separately protected domains before hybrid activation.
+This is design; production custom UI remains unapproved. Separately authorized
+synthetic/mock previews and loopback local-configuration simulations do not
+change the client-only or no-backend boundary.
 
 ### Near-term lean launch and long-term production acceptance
 
@@ -120,8 +213,12 @@ bounded secure service profile. Premium WAF/bot/SLA/multi-region/enterprise
 identity may be deferred where justified by the measured requirements and
 budget. Keep authentication, tenant isolation, provider plus application-level
 key encryption/custody, durable event metering and sensible abuse controls.
-The existing forecast distinguishes basic/premium capabilities, conditional
-plan proposals and measured/customer upgrade triggers. UI stays deferred,
+The current hosting-only forecast distinguishes product workloads from provider
+plans, already-paid incremental spend and measured allowance/DB-activity limits.
+Paid external KMS/IdP/monitor/helpdesk/upgrades are not launch prerequisites.
+Actual tier/project/qualified customer identity metadata is unverified, so choose
+CF first only if those existing facts qualify it; otherwise evaluate the existing
+Netlify included-Identity branch without purchasing or connecting accounts. UI stays deferred,
 all config stays client-side, and no lower-priced plan inherits a higher-tier
 entitlement or an unmeasured reliability claim.
 
@@ -146,8 +243,9 @@ includes authenticated profile-successful-fetch usage/history, invoices,
 plans/quotas/status, support and customer lifecycle. Qualify actual customer
 identity, provider-hosted payment/subscription portals and support services
 separately from Cloudflare/Netlify operator dashboards. No provider-admin
-credentials or payment-card custody enter the client/model. Configuration and
-source credentials remain entirely local; custom account UI remains deferred.
+credentials or payment-card custody enter the client/model. Configuration and source credentials remain entirely local; synthetic/mock
+account previews may be developed separately, while production account UI
+remains unapproved.
 
 Relevant CLI/API/SDK/MCP operations require common scopes, field/tenant isolation,
 idempotent meter/payment/subscription reconciliation, signed-event verification,

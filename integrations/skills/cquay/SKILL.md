@@ -113,15 +113,40 @@ must be explicit; unavailable input grants no extra access.
 
 ## Hosted key service initialization
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
+For migration from existing local age/OS/self-hosted KMS and encrypted assets,
+follow the complete staged workflow in references/operations.md. Mode/enrollment
+does not migrate keys. Preserve originals, verify provider import/export and
+non-exportable limits, retain separate grants/recovery and qualify actual
+backend behavior under existing project assurance. No operational key inventory,
+upload/migration, paid setup or lower security standard is implied.
+
 The product's first-run contract checks config, then trusted discovery/manual
 fallback, authenticates and initializes the minimal hosted key service unless
 CLI or configuration disables it. Resolve either opt-out before any hosted
 network call; validate precedence/enterprise locks and deny conflicts rather
 than registering anyway. Inspect actual installed capabilities: this contract
-creates no flag/schema/tool or verified `KVM` mode. The user's KVM label must
-not be silently renamed.
+creates no flag/schema/tool. The user clarified KVM/PVM meant KMS, configured
+per user profile; inspect actual adapter/schema support before use.
 
-Minimal enrollment maps only authorized identifiers/clients/tenants; CI uses
+Authorized enrollment must idempotently provision BOTH genuine hosted KMS and
+age-key associations; this supersedes the earlier age-only hosted baseline.
+Current adapter support is not established. Association creation does not fetch
+an offline age key or activate hybrid, and grants only approved profile scope. CI uses
 idempotent workload-identity enrollment. It grants no arbitrary key or corporate
 membership. Do not upload personal config/secrets/keys, import a key, purchase a
 plan or enroll enterprise orchestration by implication. Free allowance/upgrade
@@ -129,27 +154,37 @@ opportunity has undecided event allowances/prices and no automatic charge. Windo
 future age-private-key release only; copied keys remain usable. Self-hosted,
 offline and disabled-hosted policies retain their separate approved boundaries.
 
-Profile utilization is one hosted age-key access event, not profile/key count.
+The original age-retrieval unit is one hosted age-key access event, not profile/key count.
+Keep association creation and genuine KMS operations separately typed; their
+quota/tariff is explicit, not automatically the age-fetch billable event.
 Independent twenty-host fetches are twenty uses; local reuse is zero. A logical
 access and its automatic retries reconcile one committed event; denied/precommit
 failure adds no retrieval use. Never infer consumption from stored key slots.
 
-Expanded custom admin UI/screens are deferred/unapproved. Prior design prose
-is not a human approval to build them. Reuse existing platform services and
-preserve the confirmed CLI/text flow; do not cancel independently approved work.
+Production custom admin UI/screens remain unapproved. A separate frontend
+checkout may build synthetic/mock functional user, account, operator and
+administrator previews and loopback local-configuration simulations. It must not
+connect to a real backend/host proxy, operational keys, providers or accounts,
+deploy to production, purchase services or add a suite. Reuse existing platform
+services and preserve the confirmed CLI/text flow.
 
 All config is client-side: files/URLs via user network/VPN/source credentials,
 full resolve/validate/explain and local save. Never send config content/source
 credentials to hosted backend/proxy/analytics/logs. Respect browser CORS/file
 permissions via permitted native CLI/SDK/local integration, never server proxy.
-Hosted state is only authenticated profile→age-key and necessary enrollment/
+Hosted state is only authenticated profile→KMS/age and necessary enrollment/
 window/meter/billing; protect key values with no display/logging. CLI/config
-disable before hosted network supports fully client-only operation. The user
-also said PVM; neither PVM nor KVM is a verified source mode/flag. Do not invent
-or silently rename them. Custom UI remains deferred/unapproved design.
+disable before hosted network supports fully client-only operation. The clarified
+KMS capability is distinct from hosted age retrieval. The implemented authorized
+enrollment flow must provision both associations; this assignment does not
+authorize live paid provisioning or account connection. Never invent a tool. Apply the custody/mode rules in references/operations.md.
+Preview authorization does not make custom UI a delivered or production-approved
+service.
 
-The user confirmed a README-led public landing and authenticated client SPA
-as design only; custom UI implementation remains deferred. Client OTel uses
+The user confirmed a README-led public landing and authenticated client SPA.
+A separate frontend checkout may implement it only as a synthetic/mock functional
+preview or loopback local-configuration simulation; production operation remains
+unapproved. Client OTel uses
 user-selected query/collector endpoints with actual network/VPN/CORS/auth or
 permitted local/native integration. No general browser OTLP listener, hosted
 telemetry/config ingestion or immutable-audit guarantee follows from it.
@@ -164,8 +199,10 @@ idempotency/reconciliation and audit. Provider IDs are not ownership proof.
 Reuse hosted payment entry; no card fields, admin keys or portal session URLs
 in model logs. Unattended financial actions require explicit user-approved
 operation/account/plan/amount/currency/time limits plus applicable confirmation.
-Capability is not consent to charge/upgrade. No live provider setup, purchase,
-configuration upload or deferred custom UI work follows from these instructions.
+Capability is not consent to charge/upgrade. No live provider setup, purchase
+or configuration upload follows from these instructions. Synthetic/mock previews
+remain bounded to no backend/provider/key/account access and do not authorize
+production UI work.
 
 Role permissions and tenant/org/customer/group/environment/fleet/key-metadata/
 billing scope bind in one assignment tuple; do not mix one role's actions with
@@ -176,7 +213,9 @@ Deny/conflict/time/delegation/revocation and financial confirmation remain.
 Customer enterprise admin and selected-fleet work require explicit authorizing
 profile+provider+target grants and actual CORS/VPN/agent capability. No central
 config broker/storage or invented fleet command is permitted; report conflicts
-and unsupported options. Custom console implementation stays deferred.
+and unsupported options. Synthetic/mock console previews and loopback
+local-configuration simulations are authorized separately; production or
+real-backend console implementation remains unapproved.
 
 ## Raw disclosure and recovery
 

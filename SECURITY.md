@@ -40,11 +40,32 @@ sources, dependency/namespace conflicts, ancestor locks, local reference bases,
 private/corporate custody, complete candidate validation and safe provenance.
 Raw/resolved configuration, source credentials and protected references must
 not reach a hosted backend, proxy, analytics or logs. The hosted service's
-narrow profile-to-age-key operation does not authorize configuration custody.
+narrow KMS wrap/unwrap and age-private-key operations do not authorize configuration custody.
 Include first-run opt-outs before hosted network access, registration
 authentication, retry/metering consistency and required-audit failures. Default
 ease of use cannot waive any baseline; strict requirements must be verifiably
 enforced, with unsupported deployments denied rather than silently downgraded.
+
+Review dual-association enrollment, partial/uncertain provisioning, independent
+KMS/age grants and revocation, authenticated context, key/version substitution,
+typed provider failures and authorized hybrid windows. A copied data key,
+plaintext or age private key cannot be remotely recalled. Check both profiles
+against the same whole-product engineering and independent qualification gates;
+quiet automation must not become implicit approval or a weaker verifier.
+
+The authorized launch custody profile is a hosted **software** key service
+within an existing paid Cloudflare or Netlify allocation, using vetted crypto,
+a protected runtime wrapping key separate from the database and independently
+random per-profile data keys. This explicitly changes the earlier independent
+native-KMS custody assumption; it does not claim non-exportable/HSM protection.
+A compromised authorized runtime/shared wrapping key can expose all reachable
+profile keys. Per-profile data keys alone do not prevent that exposure.
+Review exact context/version binding, runtime/preview/DB separation, audit,
+backup/rotation/recovery and stronger-custody migration. Independent managed
+KMS/HSM remains optional; policies requiring it must deny software custody.
+Cost optimization cannot waive authentication, tenant isolation, protected
+secret handling or any engineering/release gate. Actual host entitlements and
+deployment remain independently qualified; no paid upgrade is assumed.
 
 ## Dependency advisories
 

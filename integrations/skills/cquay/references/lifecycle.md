@@ -1,5 +1,20 @@
 # Governed lifecycle tasks
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 Read the selected release's capability contract before acting. The complete-v1
 product design includes the following profiles; this file does not add CLI
 verbs, MCP tools, SDK methods or schema fields to an installed release. If the
@@ -85,31 +100,52 @@ endpoint, restoring a permissive policy or resetting incident state. The
 release's qualification record establishes actual profile/interface support.
 
 Optional enterprise lifecycle/evaluator/scanner profiles above are not default
-hosted-subscription components or costs. The baseline hosted key service is
-minimal authenticated identifier-to-age-private-key association/retrieval with
-safe metering and an upgrade opportunity, not remote-unlock/config orchestration.
+hosted-subscription components or costs. The latest hosted baseline includes
+genuine KMS and authenticated age-private-key service. Authorized profile
+enrollment automatically provisions BOTH associations, with safe metering and
+an upgrade opportunity, not config orchestration. It does not release offline
+keys or activate hybrid by itself.
 First-run initialization honors CLI/config disable before any hosted network;
 locked conflicts deny. Registration supplies neither arbitrary key access nor
 permission to import local keys/config or charge automatically. CI repeats
-reconcile one workload-identity enrollment. User-named KVM is not a verified
-runtime mode; do not invent a flag or silently rename it. Copied keys/ciphertext
+reconcile one workload-identity enrollment. The user clarified KVM/PVM meant KMS
+configured per profile, not a verified runtime flag or hosted-age synonym. Copied keys/ciphertext
 remain usable outside future service-release decisions.
 
-Meter hosted access events, not profiles/key slots. Distinct host fetches are
+Track dual provisioning state and reconcile KMS/age resources separately before
+ready. Explicit hybrid activation needs compatible ciphertext/recipients and
+key-version/window/scope checks; association creation downloads no offline key.
+Retain separate logical events for associations, KMS operations and age fetches;
+only explicit tariff policy may assign customer billing, never a provider retry.
+
+Meter age hosted access events, not profiles/key slots. Distinct host fetches are
 distinct successful uses; local reuse and denied/precommit failures add zero.
 Retries of one committed logical access reconcile the same durable usage event,
-without reauthorizing revoked access or creating repeated charges. Extra
-custom admin UI/screens remain deferred/unapproved; reuse existing platform
-services and the confirmed CLI/text flow.
+without reauthorizing revoked access or creating repeated charges. Extra production custom admin UI/screens remain unapproved; a separate frontend
+checkout may build synthetic/mock previews and loopback local-configuration
+simulations only. Reuse existing platform services and the confirmed CLI/text
+flow for actual operations.
 
 All config stays on the client: user-owned network/VPN/source credentials,
 complete single/multiple-source resolution/validation/explain and local save.
 No contents/source credentials reach hosted backend/proxy/analytics/logs.
 Browser CORS/file restrictions require permitted native/local CLI/SDK integration,
-not a server fetch proxy. Hosted state is profile→age-key plus necessary
+not a server fetch proxy. Hosted state is profile→KMS/age plus necessary
 service metadata; keys are never logged/displayed. CLI/config disable resolves
-before hosted network. PVM/KVM remain unverified user mode labels; no guessed
-flag, custom UI work or automatic subscription follows from this design.
+before hosted network. KMS profile selection is separate from hosted age
+registration; no guessed flag, production UI authority or automatic subscription
+follows. The separately authorized previews remain synthetic/mock and
+loopback-only.
+
+For clarified user-profile KMS, apply [custody and availability rules](operations.md#user-profile-kms-and-availability-modes).
+Existing local keys/assets require the separate [complete migration workflow](operations.md#local-to-managed-migration),
+not a mode flag. Rewrap/import/re-encrypt and later retirement have separate
+permissions, real backend/hardware limits, resumable per-asset evidence and
+retained-copy risks under the existing security/assurance requirements.
+Online-only cannot bypass required KMS; explicit hybrid retains authorized
+availability-only encrypted fallback within its approved window. Denial, trust
+failure, malformed response and expiry do not permit downgrade. Provider revocation
+cannot recall retained data keys/plaintext or an age fallback key.
 
 Customer account/usage/invoice/plan/quota/subscription/support operations require
 exact tenant/account/field grants; hosting dashboard/admin APIs are not customer
@@ -117,5 +153,6 @@ billing or CRM. Reconcile signed provider events and lost/duplicate mutations
 idempotently. Future unattended financial actions need explicit bounded user
 authority and applicable confirmation; capability alone never authorizes charges.
 Use actual qualified provider-hosted payment entry, not card custody/admin keys
-or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or
-custom UI implementation is authorized by design documentation.
+or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or production custom UI implementation
+is authorized by design documentation. Synthetic/mock previews retain the
+separate no-backend/no-provider/no-key boundary.

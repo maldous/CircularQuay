@@ -44,6 +44,9 @@ func runForTest(ctx context.Context, options Options, command commandFunc) (Repo
 		return audit.report, err
 	}
 	audit.report.Checks = append(audit.report.Checks, format)
+	if check, required := taggedIntegrationQualificationCheck(scope); required {
+		audit.report.Checks = append(audit.report.Checks, check)
+	}
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
 	goCheck := goSourceCheckSpec{name: "unit_tests", binary: audit.options.GoBinary, arguments: testArguments, directory: audit.root, environment: audit.environment, scope: scope, source: audit.report.Source}
@@ -63,7 +66,7 @@ func runForTest(ctx context.Context, options Options, command commandFunc) (Repo
 }
 
 func addTestExternalChecks(ctx context.Context, command commandFunc, root string, environment []string, required bool, scope goSourceScope, report *Report) {
-	for _, check := range []externalToolCheck{{"staticcheck", "staticcheck", scope.packages}, {"gosec", "gosec", append([]string{"-quiet"}, sourcePackageArguments(report.Source)...)}, {"govulncheck", "govulncheck", scope.packages}, {"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}}, {"workflow_lint", "actionlint", nil}} {
+	for _, check := range []externalToolCheck{{"staticcheck", "staticcheck", scope.packages}, {"gosec", "gosec", append([]string{"-quiet"}, sourcePackageArguments(scope)...)}, {"govulncheck", "govulncheck", scope.packages}, {"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}}, {"workflow_lint", "actionlint", nil}} {
 		report.Checks = append(report.Checks, command.execute(ctx, check.name, required, check.id, check.arguments, root, environment))
 	}
 }

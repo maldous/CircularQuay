@@ -5,9 +5,11 @@ import "time"
 
 // Policy contains declarations, never credential values.
 type Policy struct {
-	Version       int                 `json:"version" yaml:"version"`
-	Sources       map[string]Source   `json:"sources" yaml:"sources"`
-	Workloads     map[string]Workload `json:"workloads" yaml:"workloads"`
+	Version int `json:"version" yaml:"version"`
+	// Sources and Workloads are required for executable policies. An unresolved
+	// composition master may omit both while the trusted resolver builds them.
+	Sources       map[string]Source   `json:"sources,omitempty" yaml:"sources"`
+	Workloads     map[string]Workload `json:"workloads,omitempty" yaml:"workloads"`
 	Grants        []Grant             `json:"grants,omitempty" yaml:"grants,omitempty"`
 	MCP           MCP                 `json:"mcp,omitempty" yaml:"mcp,omitempty"`
 	Repository    Repository          `json:"repository,omitempty" yaml:"repository,omitempty"`

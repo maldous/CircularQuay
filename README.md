@@ -67,13 +67,21 @@ cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello f
 On first run, the product checks existing configuration, then trusted discovery,
 then manual selection, authenticates and initializes the
 [hosted key service](docs/management-and-discovery.md#first-run-and-minimal-managed-registration)
-unless disabled via CLI or configuration. Its default subscription is the
-simple authorized identifier-to-age-private-key service, with future
-key-release windows, a free allowance and a clear subscription opportunity;
+unless disabled via CLI or configuration. Authorized enrollment automatically
+provisions both hosted SOFTWARE crypto and authenticated age-key associations,
+with separate operation/release permissions and windows. This is the intended
+product contract; current source does not yet implement this hosted service.
+The launch uses protected software keys outside DB and random profile DEKs on
+existing paid Cloudflare/Netlify resources, with explicit runtime/shared-key
+exposure; it does not claim independent non-exportable/HSM custody or require
+paid external KMS. Fundamental auth, isolation and audit still apply. Association
+creation neither downloads offline keys nor activates hybrid. A free allowance
+and clear subscription opportunity remain intended;
 hosted-event allowances and prices remain undecided and there is no automatic charge.
 Utilization counts hosted access events: twenty independent host fetches are
-twenty uses; local reuse adds none. Enterprise orchestration/remote unlocking
-are separately selected capabilities.
+twenty uses; local reuse adds none. KMS crypto operations and association
+creation are separately identified events; their customer tariff remains explicit.
+Enterprise orchestration remains separately selected.
 A copied age key has no expiry and can still decrypt matching old ciphertext.
 
 From there, [connect a provider and choose online, offline or hybrid access](docs/getting-started.md#choose-an-availability-policy),

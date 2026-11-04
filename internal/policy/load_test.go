@@ -175,6 +175,41 @@ func TestDecodeRejectsAmbiguousPolicies(t *testing.T) {
 	}
 }
 
+func TestDecodeDocumentCompositionAndOrdinaryJSONBoundaries(t *testing.T) {
+	master, err := json.Marshal(compositionDocument())
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeDocument(master, "/private/master.json")
+	if err != nil || decoded.Composition == nil || decoded.Sources != nil || decoded.Workloads != nil {
+		t.Fatalf("composition master decode = %#v, %v", decoded, err)
+	}
+	if _, err = Parse(master, "/private/master.json"); !fault.Is(err, fault.Unsupported) {
+		t.Fatalf("unresolved composition Parse error = %v", err)
+	}
+
+	for name, data := range map[string][]byte{
+		"ordinary missing roots": []byte(`{"version":1}`),
+		"null":                   []byte(`{"version":1,"sources":null,"workloads":{}}`),
+		"duplicate":              append(append([]byte(nil), master[:len(master)-1]...), []byte(`,"version":1}`)...),
+		"unknown":                append(append([]byte(nil), master[:len(master)-1]...), []byte(`,"unknown":true}`)...),
+		"trailing":               append(append([]byte(nil), master...), []byte(` false`)...),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := DecodeDocument(data, "/private/master.json")
+			requirePolicyJSON(t, err)
+		})
+	}
+}
+
+func requirePolicyJSON(t *testing.T, err error) {
+	t.Helper()
+	var sanitized *fault.Error
+	if !errors.As(err, &sanitized) || sanitized.Kind != fault.Invalid || sanitized.Operation != "policy_json" {
+		t.Fatalf("expected invalid policy_json, got %v", err)
+	}
+}
+
 func TestJSONNullDetectionTraversesArraysAndObjects(t *testing.T) {
 	for _, test := range []struct {
 		name string

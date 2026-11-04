@@ -1,13 +1,31 @@
 # Managed key service
 
-The default subscription is deliberately small: authenticate an identifier,
-check its exact authorization and key-release window, then return its mapped
-age **private key** to the authorized client. It uses an existing identity
-provider, protected key storage and minimal registration/mapping administration.
-It is not a default remote-unlock, configuration-distribution or enterprise
-orchestration control plane. The user has called this client path **“KVM”** and **“PVM”**;
-neither label has a verified source mode/enum. Do not invent a flag/schema value,
-expand an acronym or silently rename either supplied term.
+The latest authorized launch provides **a hosted SOFTWARE crypto/key service
+and authenticated age-private-key retrieval**, using only existing minimum-cost
+paid Cloudflare/Netlify resources. It does not require paid AWS/GCP/Azure KMS,
+new paid identity, upgrades or external services at launch. Authorized profile
+enrollment provisions both crypto and age associations; this does not release
+an offline key, activate hybrid or grant arbitrary decrypt/billing authority.
+Spoken KVM/PVM meant KMS, but the launch custody claim is explicitly **software**.
+
+The user has explicitly accepted the launch tradeoff: a versioned software
+wrapping key stays in protected host secrets **outside the database**, with
+independently random per-profile DEKs. Vetted maintained crypto performs the
+actual wrap/unwrap operations. A secrets store alone is not a key service.
+The runtime can access/use its software key; shared KEK or authorized-runtime
+compromise can expose all reachable profile DEKs. Random DEKs do not make that
+independent non-exportable/HSM custody. This supersedes the earlier requirement
+for an external provider-native KMS at launch, without changing core auth,
+tenant isolation, secret handling, durable required audit or engineering gates.
+Profiles requiring stronger hardware/non-exportability remain unavailable here.
+
+Future managed/HSM custody is retained as an explicit funded migration path,
+not silently claimed for the launch. Mode/first-run choices remain explicit;
+earlier remote-first recommendations are not a human-selected default. Synthetic/mock functional user, account, operator and administrator UI previews
+may be developed separately, including loopback dashboard local-configuration
+edits and simulations. They remain non-production: no real backend, operational
+key, provider or account access, deployment, purchase or account connection is
+authorized.
 
 First run initializes the hosted key service by default, after configuration
 selection and authentication, unless specifically disabled on the command line
@@ -21,14 +39,17 @@ personal configuration nor secret values by default. The selected policy and
 service authorize mappings and future releases, not arbitrary secrets from the
 client. Registration alone cannot grant a key.
 
-Expanded custom admin UI/screens remain deferred/unapproved; use existing
-platform services and the confirmed first-run CLI/text authentication flow.
+Expanded custom admin UI/screens remain unapproved for production operation.
+The bounded synthetic/mock preview authorization does not change that limit; use
+existing platform services and the confirmed first-run CLI/text authentication
+flow for actual operations.
 The base service needs the user/client/domain association, owner-authorized key
 mapping/storage/retrieval, access-window decisions, safe operational records and
 metering. Enterprise hierarchy, SCIM, GitHub/GitGuardian gates, provider rotation,
 workload federation, posture and OPA are optional CircularQuay capabilities,
-not assumed base-subscription components or costs. Remote unlocking and a wider
-management control plane are separate, explicitly chosen enterprise deployments.
+not assumed base-subscription components or costs. Exact-bundle remote
+authorization and a wider management control plane remain separate explicitly
+chosen profiles; genuine hosted KMS itself is now required.
 Security, tenant isolation and secret-free diagnostics still apply to the small
 service; simplicity does not make authentication or key authorization optional.
 
@@ -43,6 +64,308 @@ This is the intended product contract, not a deployed endpoint or qualified
 release. [Delivery requirements](implementation-plan.md#managed-service-development-and-delivery-contract)
 and [revision-bound qualification](qualification.md) establish actual evidence.
 
+## Authorized software launch custody and provider choice
+
+**Preferred low-cost candidate:** existing Workers Paid + D1 + native Workers
+secret bindings/Web Crypto, with R2 encrypted recovery/archive only within the
+existing authorized Cloudflare footprint. Use a separate custody Worker/service
+identity and narrowly bound encrypted key database; account/support runtime must
+not receive the KEK or unrestricted crypto binding. Keep the KEK outside DB,
+repository, build/client/preview output and logs. Generate independent random
+profile DEKs, use maintained crypto and the approved immutable crypto/envelope
+profile, unique nonces and authoritative tenant/profile/purpose/key-version AAD.
+The standard format/adapter and scoped authenticated API still need implementation;
+no bespoke cipher, public-ID derivation or unverified SOPS compatibility.
+
+The documented Workers Paid floor is $5/month before overages/archive. This is
+**conditionally feasible**, not proof of the user's existing tier or remaining
+capacity. It also needs an actually qualified existing/free customer/workload
+issuer; Cloudflare account login/Access alone is not customer identity. Do not
+add a paid IdP to make the forecast work. When that identity route is absent,
+existing eligible Netlify Personal ($9 base) or Pro with included Identity and
+production-scoped Functions/secrets/database is the conditional alternative.
+Identity protocol/sender/MFA fit, secret/role/audit controls and current entitlements
+must be verified. The gateway has supplied **no verified current paid-tier/project/
+issuer metadata**, so no actual deployment can honestly be selected as qualified.
+Select the cheapest feasible branch after owner-held readback; do not connect
+accounts, purchase a plan/pack or deploy both hosts by implication.
+
+Software launch changes the custody guarantee, not the meaning of authorization.
+Exact current tenant/profile/operation/key version/purpose/windows, possession/
+replay controls, deny-before-upstream access, bounded retries, durable required
+audit and final pre-effect checks remain mandatory. Use separate control-plane,
+crypto and customer-support identities with least privilege; separate stores or
+bindings count only when access is independently enforced. No plaintext keys in
+admin diagnostics, telemetry or generic MCP responses. Rotation/recovery keys
+remain protected under explicit custodians; an old backup cannot revive denied
+policy or an older key/version. Software storage secrecy does not protect against
+an authorized compromised crypto runtime or privileged deployment writer.
+
+Both crypto and age associations remain automatic only inside an authenticated,
+authorized idempotent enrollment with durable partial-state reconciliation.
+Existing local keys/assets need the separate migration workflow below. Online-only
+has no offline recipient bypass. Explicit hybrid activation needs compatible
+ciphertext/snapshot, recipient/key versions, window/freshness/audit/fences and
+availability-only fallback; denial/TLS-trust/malformed/expiry cannot downgrade.
+Retained plaintext/data keys/age keys remain usable and cannot be recalled.
+
+For funded stronger custody, retain logical key IDs, purpose/algorithm/envelope
+versions, provenance, grants/windows and protected recovery references. Qualify
+an actual managed SOFTWARE/HSM backend, rewrap only where the format and old/new
+authority permit, or create a fresh data key and re-encrypt locally as required.
+Stage and verify new artifacts, restore/denial generations and permitted hybrid
+paths before atomic activation; keep originals until separately approved
+retirement. Future provider cost/permission is not preapproved. Neither software
+launch nor later migration can claim an earlier copied key never existed.
+
+## Per-profile age and KMS custody
+
+The user explicitly corrected spoken KVM/PVM to **KMS** and requires it configured
+in the **user profile**. Treat custody choice and workload availability mode as
+separate validated decisions. These names describe contracts, not invented
+runtime enum values. Both associations are provisioned by the required hosted enrollment behavior;
+selection of active custody/mode remains explicit. This capability is not yet
+implemented by the inspected CircularQuay SOPS adapter.
+
+| Profile custody choice | Required configuration and authority | Boundary |
+| --- | --- | --- |
+| Local age | Exact approved recipient and protected local identity reference; local filesystem/device permissions and recovery policy. | No KMS or hosted key retrieval is implied. Retained age private keys decrypt matching ciphertext offline. |
+| Hosted age-private-key retrieval | Exact trusted service, resolved identity, tenant/profile mapping and release window; separately authorized registration/key access. | Original minimal hosted service returns a copyable age private key. It is not remote KMS master-key custody. |
+| Future/explicit external KMS | Selected provider, account/project/tenant, region, exact key resource/version policy, permitted encrypt/wrap/decrypt/unwrap operations, declared auth identity, approved endpoints and recovery policy. | Master-key custody belongs to the selected native KMS behind the service, or an explicitly selected third-party provider. Reuse established backends/SDKs; only the authorized provisioning flow may create resources. |
+
+Provider references must be unambiguous: AWS key ARN/account/region and exact
+assumed-role/workload identity; GCP project/location/key-ring/key and key-version
+policy plus service identity; or Azure tenant/vault/key/version policy plus
+managed/workload identity, according to the selected supported adapter. Validate
+resource ownership, region/residency, purpose, key state/algorithm and minimum
+operation grants; never infer KMS permission from a secret-store reader's role.
+Keep bootstrap credentials protected client-side and prefer qualified short-lived
+workload identity; no ambient human session or broad provider fallback. A
+reference to a provider key is not a key-creation or account-connection grant.
+
+The inspected `internal/source/sops.go` explicitly rejects SOPS `kms`, `gcp_kms`,
+`azure_kv`, `huawei_kms` and `key_groups` metadata. It accepts constrained age-only
+or Transit-only paths; snapshot creation supplies age recipients only. Its
+isolated subprocess environment is not a cloud-KMS identity implementation.
+Upstream [SOPS supports cloud KMS backends](https://getsops.io/docs/), but this
+does not establish support in CircularQuay. Existing cloud secret-reader SDKs
+likewise do not establish a KMS adapter. Require actual schema, source, help,
+identity and executable qualification before offering a provider choice.
+
+| Workload availability mode | Required KMS/fallback behavior |
+| --- | --- |
+| Online-only (`online` in the existing workload model) | Required KMS must succeed; no local age, hosted-age or snapshot bypass. Unsupported KMS configuration fails explicitly. |
+| Explicit hybrid (`hybrid`) | Preserve the authorized downgrade: a qualifying availability failure may restore a complete approved encrypted offline snapshot within its policy window. Require explicit offline permission, matching scope/policy, valid freshness and no denial fence; audit-required profiles cannot use the current fallback path. |
+| Offline (`offline`) | Use the explicitly approved local ciphertext/identity path. Do not claim that offline use is currently authorized by a remote KMS on every decrypt. |
+
+Current resolver eligibility requires hybrid, a configured snapshot, allowed
+fallback, no required provider audit and `Unavailable`; restore performs further
+scope/freshness/fence checks. Denied access, TLS/trust failure, malformed response,
+expired data and revoked authority are **not qualifying availability failures**.
+Do not silently change mode, classify denial as outage, or add an undeclared age
+recipient. Test both permitted hybrid downgrade and prohibited downgrade. This
+preserves established hybrid behavior; it does not assert the missing cloud-KMS
+adapter has been built or qualified.
+
+Ordinary multiple SOPS master-key recipients are **alternative unlock paths**:
+one available key can recover the data key. Upstream
+[key groups](https://getsops.io/docs/usage/identities/key-groups/) support a
+configured threshold across group fragments, but this adapter currently rejects
+groups. Do not promise AND/quorum without implementing and verifying the actual
+mechanism, threshold and every recovery path. An age fallback that can recover
+the data key permits offline decryption. KMS custody keeps its master key remote,
+but the client can retain unwrapped data keys/plaintext; a hostile client cannot
+be forced to contact KMS for every future decrypt. Policy windows cannot remotely
+expire retained keys or erase plaintext.
+
+The same resolved profile, validation, mode/fallback rules, authorization and
+safe errors must apply to CLI, API, SDK and MCP. Unknown/unsupported provider
+fields must fail, never be ignored. Config/explain shows safe provider/key
+references and effective mode, never credentials or key bytes. Intended client
+UI exposes the same complete choices and limits locally. Synthetic/mock
+previews and loopback local-configuration simulations are authorized separately;
+production or real-backend UI implementation remains unapproved. No made-up
+command, endpoint or MCP method follows from this contract.
+
+Authorized first-run enrollment now idempotently provisions **both** KMS and
+age associations under the resolved user/client/tenant profile. Honor the
+established hosted CLI/config opt-out and enterprise locks before network;
+provision neither through a conflict. Provisioning can create/reuse actual
+provider key resources only in an authorized implemented enrollment flow, under
+explicit service budgets/quotas and compensation rules. It grants no offline-key
+release or workload access by itself. No account is connected or paid key created
+in this documentation assignment.
+
+### Future managed KMS implementation boundary
+
+For a future separately selected/funded managed profile, implement an authenticated
+wrapping/unwrapping path backed by a provider-native KMS, separately from the
+age-private-key endpoint. This is not a launch dependency. An actual
+candidate is AWS KMS symmetric `Encrypt`/`Decrypt` for protected data keys, or
+`GenerateDataKey` when that established envelope format is appropriate. AWS
+[Encrypt](https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html)
+accepts bounded small payloads; it is not a general configuration upload API.
+[Decrypt](https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html)
+returns the permitted plaintext data key; pin the expected key resource rather
+than trusting a client-selected ciphertext/key identifier. Provider master-key
+custody and key policy are real KMS controls; Workers secrets, Netlify environment
+variables and database EAR do not themselves provide this remote KMS capability.
+AWS is a researched candidate, **not a selected provider or default**.
+
+Bind each call to the authenticated tenant/profile, operation, logical key ID,
+purpose, exact provider key/version and applicable window. Server-side association
+lookup supplies the permitted key; reject arbitrary key IDs and cross-profile
+ciphertext/context. Use the provider's established ciphertext format and SDK,
+not a custom cipher. AWS symmetric
+[encryption context](https://docs.aws.amazon.com/kms/latest/developerguide/encrypt_context.html)
+is authenticated and also logged in plaintext, so use opaque safe identifiers,
+never configuration, credentials or sensitive customer fields. Separate runtime
+crypto grants from resource provisioning, deletion and account administration;
+restrict provider identity, endpoints, rate/bulk operations, logs and recovery.
+
+All user config/variables/source credentials stay client-side. A KMS call may
+process an authorized protected data key; it does not ingest the user's bundle
+or become remote config orchestration. Upstream SOPS AWS/GCP/Azure integrations
+are not automatically compatible with a custom hosted HTTP endpoint. Qualify a
+real supported SOPS/key-service adapter and protected transport, exact key
+references and envelope metadata; until implemented, report unsupported. The
+current adapter rejects cloud-KMS and key-group metadata, so neither automatic
+dual provisioning nor hosted KMS operation support is yet established by source.
+
+Provision dual associations through a durable, tenant-bound idempotency record:
+track KMS and age resource state separately, reconcile retries/concurrency and
+partial failure, and do not report ready until both required associations exist.
+Do not orphan duplicate paid keys or retry-charge customers after uncertain
+outcomes. Record logical IDs, provider resources, public age recipients,
+versions/status, grant/window references and safe provisioning state only.
+Where independent protection/revocation/windows are required, use separate key
+IDs and independently enforced custody scopes; a shared master key plus labels
+is not cryptographic isolation. Key-sharing strategy and availability mode are
+explicit design decisions, not defaults supplied by this document.
+
+An online-only artifact must have no authorized offline recipient path.
+Provisioning its age association alone does not add such a path. An explicit
+authorized hybrid transition must produce or verify a compatible artifact version
+with the intended KMS-wrapped data key and approved age fallback recipient,
+using the supported SOPS mechanism. Reconcile recipient/key versions, approved
+window, scope and snapshot freshness atomically before activation. Ordinary
+recipients are alternatives; do not invent AND semantics. Do not simply assume
+AWS KMS symmetric ciphertext can be decrypted with age: the fallback needs its
+own valid wrapping of the same intended data key or an explicitly generated
+compatible snapshot. Subsequent online-only activation may require a fresh data
+key/artifact without offline recipients; copied prior keys/data remain usable.
+
+The authorized software launch deliberately uses native host secrets plus vetted
+crypto, not an external native KMS. User-facing crypto operation authority and
+internal database KEK custody remain separate purposes. A future managed/HSM
+profile is separately funded, selected and qualified, with no launch dependency. This does
+not require deploying both Cloudflare and Netlify or buying a second KMS for
+unrelated internal storage. Actual provider, key scopes, costs, auth and recovery
+remain explicit qualification decisions.
+
+## End-to-end local-to-managed migration
+
+Migration is a required product workflow, **not a mode flag**. No local key
+inventory, operational key read/upload, asset conversion or live provider setup
+has been performed or authorized here. Start with a client-local, read-only
+metadata inventory within explicitly selected paths/providers; never scan
+unrelated keychains or secret stores. Keep full configuration, variables and
+source credentials on the client throughout.
+
+Inventory protected source references and ownership, public age recipient IDs,
+OS/hardware/self-hosted/provider key definitions and export policy, ciphertext
+format/tool/version and digest, recipient/key versions, profile/tenant/domain,
+grants/windows, approved availability mode, recovery paths and dependent assets.
+Do not hash private keys as identifiers or write decrypted values into manifests.
+Reconcile duplicates/aliases, missing keys, unknown provenance and conflicting
+associations before any migration effect. Produce an exact plan of source,
+destination, unchanged originals, proposed new versions, permissions, recovery,
+cost and unsupported cases. A metadata inventory is not permission to export.
+
+| Existing material | Safe candidate path and constraints |
+| --- | --- |
+| Exportable local age identity | Reuse its recipient locally, or explicitly import its protected private identity into the authenticated age service with separate owner consent and verified encrypted transport/storage. An imported key has historical copies; managed custody cannot become retroactively non-exportable. Alternatively create a new managed recipient and migrate assets. |
+| OS-protected identity/secret | Verify actual provider API, user/service context and export rights. Protected-file/DPAPI storage is not a portable KMS key export; [DPAPI binds protection to user/computer context](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection). Where authorized original-host decryption is possible, re-protect through the supported target; never copy an opaque protected blob and claim migration succeeded. |
+| Non-exportable hardware or provider master key | Retain its supported remote reference as an explicitly selected external provider, or use an authorized unwrap/re-encrypt operation to create a compatible destination envelope. Do not attempt to extract the master key, relabel a copied public key as private custody or claim arbitrary age keys import into hardware. If no supported recovery/unwrap path exists, report the asset unmigratable until its owner supplies a legitimate route. |
+| Exportable self-hosted KMS material | Check source export capability/permission, target algorithm/key-size/import format and loss/recovery semantics before considering BYOK. [AWS import](https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html) accepts specified key types, not an arbitrary age identity or self-hosted ciphertext format. Matching raw key material does not make provider ciphertext formats interchangeable. Import is a separate explicitly approved ceremony. |
+| Existing encrypted asset | Rewrap the existing data key only if the supported format can update recipients without changing payload semantics and the old authority can authorize unwrap. Otherwise decrypt/re-encrypt locally with vetted tools into a new protected artifact. Use a new data key when removing exposed/retained-key access requires protection for future artifact versions; a recipient metadata edit alone cannot revoke an already learned data key. |
+
+[Google KMS import](https://docs.cloud.google.com/kms/docs/key-import) similarly
+requires supported binary symmetric or DER PKCS #8 asymmetric formats, an
+authorized wrapped import job and a permitted protection level. These examples
+do not choose a destination provider. Exact OS/self-hosted export policy,
+hardware restrictions and provider-specific ciphertext compatibility remain
+per-adapter acceptance requirements, not assumed migration capabilities.
+
+Upstream [SOPS key management](https://getsops.io/docs/usage/key-management/)
+distinguishes updating master-key recipients from rotating the data key and
+re-encrypting values. Reuse those actual mechanisms with a pinned supported
+adapter; the current CircularQuay adapter still rejects cloud-KMS/key-group
+metadata. Neither a hosted KMS endpoint nor a target key reference proves
+SOPS/plugin/OS ciphertext compatibility. Maintain per-format migration support
+and independent native/provider integration evidence; unsupported cases deny.
+
+Execute only an approved bounded plan under separate source-read/export,
+destination-provision/import/wrap, profile-change, offline-export and recovery
+grants. Recheck tenant/profile/purpose/version, current permission and approval
+after waits and before each effect. The authorized product flow provisions both
+KMS and age associations, but neither imports existing local keys nor releases
+an offline key by implication. Independent protection/windows need distinct
+key IDs/custody authority where required by the selected security profile.
+
+Use a durable migration ID bound to source/destination/artifact digests and
+expected revisions: planned → prepared → transformed → destination-verified →
+activation-ready → activated → separately-approved retirement. Each asset has
+its own state and reconciliation receipt. Preserve originals and provenance;
+stage output in protected client-local storage and verify authenticated decrypt,
+exact contents, intended recipient/version/mode and recovery before atomic
+activation. Do not write plaintext intermediates to general temp files, logs or
+model context. Cancellation, partial provider failure and uncertain responses
+reconcile existing destination resources, never create duplicate paid keys or
+announce a partially migrated estate as complete. Keep plaintext lifetimes short.
+
+Online-only destinations have no offline recipient bypass. Hybrid activation
+must be explicitly authorized and validate compatible KMS/age wrapping or an
+approved snapshot, grants, window, freshness, audit and denial fences. Availability
+failure alone can trigger eligible hybrid fallback; denial, invalid TLS/trust,
+malformed response, old/revoked version and expiry cannot. Test restart/resume,
+concurrent revisions, revoked permission mid-flight and required-audit failure.
+Recovery preserves accepted generations and known denials; an old backup is not
+permission to roll policy back. Keep required audit durable before protected
+effects, with secret-free opaque references rather than client config uploads.
+
+Rollback restores only an authorized protected prior generation with its still
+valid grants and fences; it cannot erase a completed import or copied plaintext.
+Retiring/deleting original keys, artifacts or provider resources is a separate
+approved action after dependency and restore checks. Historical ciphertext,
+exported keys and retained data keys/plaintext remain usable by their holders.
+Re-encryption protects new versions, not previously copied data. Record that
+residual risk and actual issuer-secret rotation needs without claiming recall.
+
+### Existing high-security assurance applies
+
+KMS, local adapters and migration inherit [SECURITY.md](../SECURITY.md), the
+[threat model](threat-model.md), [administration controls](administration-security.md),
+[default/strict security profiles](security-profiles.md) and the
+[assurance contract](assurance.md). The explicit launch software-custody tradeoff changes the custody claim; it
+does not lower engineering, auth/isolation/audit or first-party gates. Stronger
+required custody profiles remain unavailable.
+Use maintained backends/vetted crypto with immutable crypto profiles, separated
+custody and operation identities, scoped authenticated requests, replay/fallback
+controls, rotation/recovery and verified non-exportability claims. Required
+unknown capabilities deny; a flag or library label is not evidence.
+
+For each existing applicable control ID record the enforcement point, exact
+source/artifact/provider identity, positive and negative outcomes, platform scope
+and result. Exercise denial before upstream access, cross-tenant/profile/purpose,
+wrong/old/revoked versions, replay, cancellation/uncertainty, interrupted migration,
+required-audit loss, allowed outage fallback and forbidden downgrade. Real backend
+integration, recovery and qualified hardware evidence remain distinct from mocks.
+Missing authorized backend is **unqualified**, never a pass. The existing zero
+first-party issues/complexity/coverage/mutation and independent-review release
+requirements remain unchanged. No certification or production-security pass is
+claimed by this design or its static documentation checks.
+
 ## Client configuration is outside hosted storage
 
 All configuration is read, resolved, fully validated and saved on the browser/
@@ -52,10 +375,11 @@ analytics or logs; this includes corporate config as well as personal config,
 include contents and source credentials. Client-only explain/provenance does
 not upload them as metadata. Browser CORS/file permissions remain real; use
 explicit native CLI/SDK/local integration when needed, not a backend fetch.
-The intended browser supports the same configuration options, but custom UI
-implementation remains deferred/unapproved.
+A separate frontend checkout may exercise those options only in synthetic/mock
+previews and loopback local-configuration simulations; it does not authorize a
+real backend fetch, provider access or production browser service.
 
-Hosted state is limited to authenticated profile-to-age-key association,
+Hosted state includes authenticated profile-to-KMS/age associations,
 protected keys and necessary enrollment, access-window, metering and billing
 records. Key bytes are not displayed or logged. Turning hosted use off via CLI
 or config before network leaves a fully client-side operation under its actual
@@ -181,14 +505,15 @@ not ordinary MCP secret aliases or model-visible management output.
 
 ## Distribution, local custody, and remote unlocking
 
-Private-key distribution is the baseline subscription. Protected local custody
-and remote unlocking are independently selected profiles; a subscription does
-not silently turn one into another or add their infrastructure to the baseline.
+The hosted baseline now includes real KMS operations and age-private-key
+distribution as distinct capabilities. Protected local custody and exact-bundle
+remote authorization still need separately implemented profiles. Do not
+substitute one capability for another.
 
 
-These are different security models. The small hosted service above distributes
-keys. The stronger boundaries below are separate custody profiles, not hidden
-properties of that distribution endpoint.
+These are different security models. The age endpoint distributes private keys;
+the KMS endpoint performs authorized cryptographic operations with remote master-key
+custody. Neither alone provides every stronger custody boundary described below.
 
 | Model | Where key material resides | What revocation can stop | Residual boundary |
 | --- | --- | --- | --- |
@@ -274,12 +599,15 @@ qualification receipt for a CircularQuay adapter.
 ## Administration UI and hosting preference
 
 Reuse existing Cloudflare/Netlify authentication and administration surfaces
-where they fit. Expanded custom administration UI/screens were author-proposed,
-not approved for implementation, and remain **deferred/unapproved** while the
-functional baseline is stabilized. The confirmed first-run CLI/text interface
-and authentication remain in scope. The UI controls below describe intended
-end-state possibilities, not an implementation instruction or delivered screen.
-They do not add orchestration to the simple subscription.
+where they fit. Production custom administration UI/screens remain unapproved
+while the functional baseline is stabilized. A separate frontend checkout may
+build **synthetic/mock functional previews** of user, account, operator and
+administrator flows, including loopback dashboard local-configuration edits and
+simulations. That narrow authorization is not a real backend, host proxy,
+provider/key/account connection, production deployment, purchase or a new test
+suite. The confirmed first-run CLI/text interface and authentication remain in
+scope. The UI controls below describe intended end-state possibilities, not a
+delivered screen or production-operation approval.
 
 
 Reuse already available paid Netlify or Cloudflare capabilities before building
@@ -293,7 +621,7 @@ No additional purchase is implicit in this design.
 | Cloudflare Access and its administration console | Existing IdP connections, app access policies, session controls, and authentication audit. | Validate the Access JWT under its declared profile and audience. Cloudflare account administration is not customer key-mapping authorization. See [Access policies](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/) and [JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/). |
 | Netlify Identity and its managed user administration | Available application login, user/role lifecycle, function verification, and entitled identity audit. | Use provider-managed authentication; do not add an email system. Identity roles gate app operations only after server verification. See [Identity capabilities](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/overview/) and [managed user administration](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/manage-existing-users/). |
 | Netlify project protection/team SSO | Protect the deployment and operator/team access where appropriate. | These sessions are distinct from application-user identity and per-key grants; a shared site password cannot implement individual key revocation. See [site access controls](https://docs.netlify.com/manage/security/secure-access-to-sites/overview/). |
-| Deferred/unapproved custom key-specific administration UI | Intended mapping metadata, scoped grants/windows, effective access, versioned changes, revocation and redacted audit. | No implementation is authorized; reuse platform services and stabilize the baseline. Host static assets on Netlify or Cloudflare, with authenticated Functions/Workers APIs and protected transactional storage. No key material in client bundles, public build variables, or preview deployments. |
+| Production-unapproved custom key-specific administration UI | Intended mapping metadata, scoped grants/windows, effective access, versioned changes, revocation and redacted audit. | Synthetic/mock previews and loopback local-configuration simulations are authorized in the separate frontend checkout. They must not connect to a real backend, host proxy, provider, key or account. Production implementation remains unapproved; no key material in client bundles, public build variables or previews. |
 
 The same-origin UI/API pattern avoids an unnecessary cross-cloud identity and
 secret path. Split hosting remains possible when a particular custody or
@@ -302,12 +630,17 @@ keys and separate identities. Browser sessions, CSRF protection, CSP, origin
 checks, request limits, abuse budgets, and server authorization protect changes;
 the managed login screen alone does not authorize a mapping mutation.
 
-### Explicitly confirmed UI design, implementation deferred
+<a id="explicitly-confirmed-ui-design-implementation-deferred"></a>
+### Explicitly confirmed UI design and bounded preview work
 
-The following is the user's explicit design confirmation, distinct from the
-earlier author-proposed administration screens. **Custom UI implementation is
-still deferred/unapproved until the functional baseline is stable.** This does
-not authorize UI coding, hosting, account setup or payment connections.
+The following is the user's explicit design confirmation, distinct from earlier
+author-proposed administration screens. A separate frontend checkout is
+authorized to build synthetic/mock functional user, account, operator and
+administrator previews, plus loopback dashboard local-configuration edits and
+simulations. This does **not** authorize a real backend or host proxy,
+operational keys, provider or account access, production deployment, purchase,
+account setup, or a new test suite. Production custom UI operation remains
+unapproved until the functional baseline and its qualification are complete.
 
 The public landing is a single screen derived from the README's reasoning:
 **“The right secrets, ready for your apps.”** Use a concise, broadly appealing
@@ -325,8 +658,8 @@ edits/resolves/validates and saves **locally**. Nothing sends config or source
 credentials to a hosted backend/proxy/log/analytics path. Browser file grants
 and CORS are honored. An explicit authorized native CLI/SDK/local bridge may
 supply equivalent access, never a hosted proxy or a silently reduced option set.
-The backend remains authenticated profile→age-key association/retrieval with
-necessary enrollment, metering and billing; key values are protected and never
+The backend provides authenticated profile→KMS/age associations and authorized
+crypto operations or private-key retrieval, with enrollment, metering and billing; key values are protected and never
 displayed or logged.
 
 ```mermaid
@@ -335,7 +668,8 @@ flowchart LR
   I --> C[Authenticated client SPA]
   F[User files / URLs / VPN sources] -->|User network and source credentials| C
   C -->|Resolve / edit / validate| L[Local save]
-  C -->|Minimal authenticated profile request| K[Hosted profile to age-key service]
+  C -->|Minimal authenticated profile request| K[Hosted KMS operations and age-key service]
+  K -->|Authorized protected data-key operation| N[Established provider-native KMS]
   K -->|Protected authorized release; no display or logging| C
   C <-->|User-authorized queries / client signals| O[User-selected telemetry endpoint]
 ```
@@ -466,7 +800,9 @@ account has been searched. No new account connection or deployment is implied.
 | Separate signing custody only where needed | Existing issuer signatures are verified; do not create an unnecessary token issuer/signing service. If service receipts require signing, use a distinct key/purpose/identity from encryption wrapping and rotate under explicit scope. |
 | Least-privilege runtime/deployment identities | Bind only the selected database and key-wrapping operations, separate runtime/publisher/recovery authority, no public database or broad account token. Read back grants and test cross-tenant/profile/resource denial. |
 | Private responses and secret-free operations | `Cache-Control: no-store` on key responses, no public-cache rule, no key/query/body/token capture in request logs/traces/error tools. Verify synthetic key markers never enter CDN/vendor logs, metrics or UI display. |
-| Browser controls for future UI | Restrictive CSP (`object-src 'none'`, `frame-ancestors 'none'`, controlled script sources/nonces), exact enrolled CORS origins and authenticated CSRF/session rules where relevant. CLI authentication does not depend on browser Origin. Client-selected config/query endpoints require explicit local origin/network policy, not `*` credentials or a backend proxy. UI implementation remains deferred. |
+| Browser controls for future UI | Restrictive CSP (`object-src 'none'`, `frame-ancestors 'none'`, controlled script sources/nonces), exact enrolled CORS origins and authenticated CSRF/session rules where relevant. CLI authentication does not depend on browser Origin. Client-selected config/query endpoints require explicit local origin/network policy, not `*` credentials or a backend proxy. Synthetic/mock previews and loopback
+local-configuration simulations are authorized separately; production or
+real-backend UI implementation remains unapproved. |
 | Backup/restore/rotation and fail behavior | Encrypt/export only necessary hosted records, preserve key/deny/usage versions, independently protect recovery/wrapping material and test restore before release. An application compromise can still use authorized unwrap paths: database encryption alone does not prevent it. Required unavailable custody/auth/ledger/audit denies release. |
 
 Record each control as **inherited**, **explicitly configured** or **actually
@@ -648,8 +984,9 @@ IdP scopes, operator oversight and retention are optional separately measured
 costs, not hidden in the successful-fetch price. Key fetches remain the usage
 unit; an “enterprise volume” fetch bundle does not grant group/fleet management.
 The intended UI/API/CLI/SDK/MCP share scoped rules, but expose only actually
-implemented, reachable and authorized operations. Custom UI implementation
-remains deferred and no fleet/provider action is authorized by this design.
+implemented, reachable and authorized operations. Production custom UI operation remains unapproved and no fleet/provider action
+is authorized by this design. Synthetic/mock frontend previews retain the same
+no-backend, no-provider, no-key and no-account boundary.
 
 ## Restricted remotely hosted operator administration
 
@@ -658,9 +995,11 @@ landing, customer billing portal or client configuration SPA. It is a confirmed
 design for customer/account metadata, safe database operations, support/root-cause
 investigation, service monitoring, infrastructure maintenance and telemetry.
 Reuse existing hosting, payment, helpdesk and monitoring consoles before building
-duplicate screens. Custom console implementation remains deferred until the
-baseline is stable; this design authorizes no live customer-data access,
-production mutation, deployment, purchase or account connection.
+duplicate screens. A separate frontend checkout may preview the console with
+synthetic/mock data and loopback simulations; production console operation
+remains unapproved until the baseline is stable. This design authorizes no live
+customer-data access, production mutation, deployment, purchase or account
+connection.
 
 | Operator view/action | Allowed boundary |
 | --- | --- |
@@ -684,7 +1023,9 @@ Netlify/hosting/helpdesk role/audit/SSO entitlements before claiming them.
 The [database protection and compromise contract](credential-boundaries.md#hosted-database-protection-and-compromise-boundaries)
 maps Cloudflare or Netlify native controls, configuration, plan/cost limits and
 required tests for key custody **and account/CRM/admin data**. Select one provider
-against the actual profile; reuse its services first, with no new KMS by default.
+against the actual profile; the authorized launch uses protected software keys
+outside DB plus vetted crypto, not paid external KMS. The runtime/shared-key risk
+is explicit; future managed/HSM custody needs a separate funded qualification.
 Provider at-rest encryption plus correctly implemented application envelope
 encryption is the proposed protection for covered stored fields; it is not yet
 verified in a hosted implementation. An application/operator compromise with unwrap authority can
@@ -697,7 +1038,11 @@ been implemented by documenting this design.
 
 ## Profile utilization and fair metering
 
-A use is one **hosted age-key access event attributed to a profile**. It is not
+A use in the original age-retrieval meter is one **hosted age-key access event
+attributed to a profile**. Genuine KMS operations now need separately typed
+logical usage and an explicit quota/tariff decision; automatic dual association
+creation is not automatically either billable event. Do not equate native KMS
+API attempts with customer logical uses. The original age unit is not
 a profile, key slot, configured machine or local decrypt. One daily hosted fetch
 is one use that day; twenty hosts making twenty independent hosted fetches are
 twenty uses. Reusing an already held local key without contacting the hosted
@@ -728,8 +1073,9 @@ not a new configuration backend or UI. For the long-term enterprise profile, qua
 infrastructure/entitlements, least-privilege deployment credentials,
 headless-compatible abuse controls, encrypted durable state, consistency,
 recovery and geography. No plan label, global CDN or published SLA proves this
-application meets its objectives. Custom UI stays deferred/unapproved and all
-configuration remains client-side.
+application meets its objectives. Production custom UI remains unapproved;
+synthetic/mock previews retain their no-backend/no-provider/no-key boundary,
+and all configuration remains client-side.
 
 | Control | Required behavior and platform evidence |
 | --- | --- |
@@ -773,396 +1119,179 @@ interchangeable production guarantees.
 
 ## Hosting economics and capacity assumptions
 
-This is the **existing forecast revised around hosted uses**, checked against
-current official Cloudflare/Netlify documentation on **4 November 2026**, in USD.
-The baseline remains minimal registration, identity verification, mapping/window
-checks, protected private-key retrieval, durable usage/idempotency/required
-records and safe operational logging. Enterprise orchestration/remote-unlock,
-SCIM/scanners/posture/OPA and provider remediation are separately selected costs.
-No scenario is measured capacity, traction, a selected vendor or a product tariff.
+This is **out-of-pocket Cloudflare/Netlify hosting only**, in USD, checked
+4 November 2026. **Labor is removed entirely.** No AWS/external KMS, CRM/helpdesk,
+payment fees, profit margin or customer tariff is embedded. Prior labor-loaded
+review prices are not hosting costs and are superseded. The SAME existing
+forecast-calculation.json, plan-proposal-calculation.json and verify-forecast.py
+now contain this analysis; historical receipts preserve earlier work only.
 
-### Sourced platform rates
+Personal, Business and Enterprise below are **customer product-tier workload
+examples**, not hosting plans. An Enterprise customer does not require Netlify
+Enterprise or a Cloudflare Enterprise contract merely because of its name.
+Product limits/prices are not approved here. Actual existing paid tier/project,
+remaining included allowances and customer/workload identity are unverified:
+these are conditional public-plan examples, not your observed bill or permission
+to buy packs, change plans, connect accounts or deploy.
 
-| Input | Published rate/allowance | Forecast boundary |
+### Hosting-only answer for the three product workloads
+
+One paying customer plus one free owner fits the illustrated $5 Workers Paid
+base or $9 Netlify Personal base at 15 active DB unit-hours/month for **all three
+product workloads**. If those plans are already paid and sufficient allowances
+remain, incremental spend is $0. The key variable on Netlify is how long the DB
+stays active, not whether the customer is called Personal or Enterprise.
+
+For a useful scale comparison, this table is **100 paying customers all on the
+same product tier, plus 100 free owners**. Per payer: Personal 300, Business
+3,000, Enterprise 20,000 combined successful software wrap/unwrap and age fetches
+per month; 1/3/10 profiles. Free owner: one profile and 30 combined successes.
+Illustrative mix is 75% software crypto, 25% age fetches. Each wrap or unwrap is
+one logical operation; creation/retry/local reuse is not automatically another
+billable success. These are sizing inputs, not an approved subscription offer.
+
+| Product workload, 100 payers + 100 free | CF total allocated / extra above already-paid $5 | Netlify Personal: total / extra above already-paid $9 | Netlify Pro: total / extra above already-paid $20 |
+| --- | --- | --- | --- |
+| Personal; DB 15 active unit-hours | $5.00 / $0.00 | $9 / $0 | $20 / $0 |
+| Personal; DB 720 active unit-hours | $5.00 / $0.00 | $74 / $65 | $50 / $30 |
+| Business; DB 15 active unit-hours | $5.00 / $0.00 | $9 / $0 | $20 / $0 |
+| Business; DB 720 active unit-hours | $5.00 / $0.00 | $74 / $65 | $50 / $30 |
+| Enterprise product; DB 15 active unit-hours | $5.33 / $0.33 | $19 / $10 | $20 / $0 |
+| Enterprise product; DB 720 active unit-hours | $5.33 / $0.33 | $89 / $80 | $60 / $40 |
+
+**All Netlify figures above must add its actual database-storage charge**, whose
+current numeric tariff was not supplied on the checked official page. It is
+unknown, not assumed free and not replaced with a made-up rate. CF includes D1
+and the illustrated encrypted R2 recovery/archive overage. The app is assumed to
+have the entire published included allowances unused; other apps' consumption
+can increase incremental spend. This is a shared hosting bill for the cohort,
+not a per-customer hosting subscription. Do not multiply the $5/$9 base fee by
+customer count.
+
+Netlify live storage in the 100-payer examples is **0.058902528 GB Personal,
+0.491339264 GB Business, 3.195472384 GB Enterprise product**. The official
+[DB billing page](https://docs.netlify.com/build/data-and-storage/netlify-database/billing-and-usage/)
+still says storage billing starts no earlier than 1 July 2026 and rates will be
+announced, but supplies no current numeric storage rate on this checked date.
+The Netlify totals are therefore **bounded partial meter totals**, not all-in
+figures. If a later verified quote is r USD/GB-month, the storage sensitivity is
+r × those quantities; for example hypothetical r=$1 adds $0.06/$0.49/$3.20.
+That $1 is an illustration, **not a Netlify rate**. If storage instead consumes
+credits, add its actual credits before pack rounding rather than blindly adding
+USD. This unknown must be resolved from authorized official/account evidence.
+
+The 15-hour branch means bursty/scheduled use keeping one DB compute unit active
+for 15 hours in the month. The 720-hour branch means one unit continuously active
+for a 30-day month. [Netlify DB sleep](https://docs.netlify.com/build/data-and-storage/netlify-database/configure-sleep-on-inactivity/)
+defaults to five idle minutes; regular requests or background jobs can keep it
+awake. Measure active unit-hours; do not claim the cheap bursty branch for steady
+traffic. Other credit plans/legacy terms, actual region/currency and feature
+requirements can differ. No exchange-rate conversion is used.
+
+### Current official rates and included limits
+
+| Meter | Published rate/input used | Inflection |
 | --- | --- | --- |
-| Cloudflare Workers Standard | $5 monthly minimum; 10M requests and 30M CPU-ms included, then $0.30/M requests and $0.02/M CPU-ms. No Workers bandwidth/egress charge. | [Official pricing](https://developers.cloudflare.com/workers/platform/pricing/); Free has 100,000 requests/day and 10 ms CPU/invocation, not reserved production capacity. |
-| D1 Paid | 25B row reads, 50M row writes and 5 GB included monthly; then $0.001/M reads, $1/M writes, $0.75/GB-month. | [Official D1 rates](https://developers.cloudflare.com/d1/platform/pricing/). Indexed changes add physical rows written. Free read/write/storage limits are daily/capped, not equivalent monthly service guarantees. |
-| Workers Logs on this model date | 20M events/month included on Paid, then $0.60/M; seven-day retention. | Same [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/). This is operational logging, not the separate required audit store. The [announced observability change](https://developers.cloudflare.com/observability/pricing/) begins 1 December 2026 and requires repricing then. |
-| Netlify credit accounting | 2 credits/10,000 requests; 10/GB-hour function compute; 20/GB web or database bandwidth; 15/successful production deploy. | [Official credit meters](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/). Function elapsed time × allocated memory is not Workers CPU time. |
-| Netlify plans/packs | Free 300 credits with hard limit; Personal $9/1,000 credits; Pro starts $20/3,000. Pro additional packs: $10/1,500 credits. | [Official plans](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/). The comparison uses Pro plus whole packs, not necessarily the cheapest tier; no recharge/purchase is authorized. Legacy/Enterprise terms differ. |
-| Netlify Database | Compute and database egress add credits; documented examples use 10 credits/compute-unit-hour and 20/GB database egress. | [Database billing](https://docs.netlify.com/build/data-and-storage/netlify-database/billing-and-usage/). The page still says storage billing starts no earlier than July 2026 without a current storage tariff; **storage cost is unresolved, not assumed free**. Reconfirm its actual billing conversion/plan before purchase. |
+| [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) | $5/month, 10M requests + 30M CPU-ms included; excess $0.30/M requests and $0.02/M CPU-ms; no Workers bandwidth egress fee. | CPU or requests can add usage charges without buying a higher named hosting tier. |
+| [D1 Paid](https://developers.cloudflare.com/d1/platform/pricing/) | 25B reads, 50M writes, 5 GB included; excess $0.001/M reads, $1/M writes, $0.75/GB-month. No hourly DB compute bill. | Physical index writes count; no scans-as-one-read shortcut. 10 GB/database cap needs a qualified sharding design, not just paying storage overage. |
+| Workers Logs | On this model date 20M events included, then $0.60/M; operational retention is bounded. | [Announced observability pricing](https://developers.cloudflare.com/observability/pricing/) changes from 1 December 2026; rerun then. Logs do not replace durable required audit. |
+| [R2 Standard](https://developers.cloudflare.com/r2/pricing/) | If unused: 10 GB-month, 1M Class A writes, 10M Class B reads included. Excess $0.015/GB-month, $4.50/M Class A, $0.36/M Class B; upward billing-unit rounding, no egress fee. | Included allowance assumed available **only for this conditional example**. Unknown already-used allowance is not free capacity. |
+| [Netlify public plans](https://www.netlify.com/pricing/) | USD examples: Personal $9/1,000 credits, extra $5/500; Pro $20/3,000, extra $10/1,500. | Actual existing plan/currency/features must be read back. Packs/auto-recharge/upgrade are not authorized by this model. |
+| [Netlify credit meters](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/) | 2 credits/10,000 requests; 10/GB-hour Functions compute; 20/GB web + database egress; 15/successful production deploy. Four production deploys/month = 60 credits. | Requests, compute, bandwidth, DB and deployments all consume the same allowance. Published public-plan examples are not actual unused account credits. |
+| [Netlify DB](https://docs.netlify.com/build/data-and-storage/netlify-database/billing-and-usage/) | 10 credits/active compute-unit-hour; minimum 1 unit when awake. 20 credits/GB DB egress. Current storage tariff unresolved on checked page. | 720 hours = 7,200 credits **before app traffic**; one unit at 100 h exhausts Personal's 1,000 credits before other uses, 300 h exhausts Pro's 3,000. Personal/Pro DB limits and backup retention still apply. |
+| [Netlify Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/plans-and-pricing/) | Included on eligible credit plans, no separate paid IdP assumed. CF requires an actually qualified existing/free issuer. | Validate machine/human/sender/MFA and scoped grants; a dashboard account is not customer key access. Missing entitlement/identity makes a branch unavailable. |
 
-[Netlify Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/plans-and-pricing/)
-is documented as included on credit-based plans with unlimited active users;
-its Pro features and protocol fit still need qualification. Using another IdP
-or running on Cloudflare does not automatically inherit that entitlement.
-[Netlify function logs](https://docs.netlify.com/build/functions/logs/) have
-plan-bound retention; external drains/long retention add separately verified
-cost and cannot replace durable required records. No custom dashboard is
-assumed or approved by these platform comparisons.
+### Inflection points to watch
 
-Authentication is not priced as “free” merely because JWT validation is local.
-The selected IdP's active-user/machine/token/step-up allowances, required external
-KMS/wrapping, database storage not quoted above, backups, durable audit retention,
-SIEM export, support, security operations and tax remain separately measured cost
-inputs. Existing subscriptions may cover some usage but do not establish unused
-capacity or authority to spend. Read/write/retention and denied-traffic costs
-remain real even when the customer meter records no use.
+**Netlify:** under these public pack prices, Personal is cheaper up through
+2,000 credits; above 2,000, base Pro plus packs is cheaper than Personal plus
+packs, assuming both are feature-eligible. That is a cost comparison, not upgrade
+permission; higher Pro credit bundles may alter the cheapest purchase choice.
+At 720 active DB unit-hours the minimum starts around **$74 on Personal or $50
+on Pro** before significant request traffic and unknown storage. Sleep behavior
+can therefore change the bill much more than a few thousand crypto calls.
+A minimum-tier launch must bound admission at its actual credit/feature limits;
+no automatic recharge or purchase is implied.
 
-### Explicit traffic and resource assumptions
+**Cloudflare:** first included-allowance crossings under the exact homogeneous
+product/cohort assumptions above (one free owner per payer; all unused allowance
+assigned to this app) are:
 
-These synthetic distributions reuse the earlier 1,000/10,000/100,000 scale
-points, with no acquisition or paying-conversion claim. In a 30-day month,
-profiles are distributed among 1, 5 and 20 independent daily hosted fetches.
-A profile with twenty fetching hosts has twenty uses/day, not one profile unit.
-Low batches traffic into a daily window; base/high distribute it throughout the
-day. Peak concurrency, jitter, outages and abuse need load tests.
-
-| Assumed input/output | Low | Base | High |
+| First crossing, paying product customers | Personal | Business | Enterprise product |
 | --- | ---: | ---: | ---: |
-| Profiles (context, not billing units) | 1,000 | 10,000 | 100,000 |
-| Mix at 1 / 5 / 20 daily accesses | 90% / 9% / 1% | 70% / 25% / 5% | 30% / 40% / 30% |
-| Unique successful hosted uses, N | 46,500 | 885,000 | 24,900,000 |
-| Provider requests, Q = 1.06N | 49,290 | 938,100 | 26,394,000 |
-| D1 indexed row reads including strict admission, 6Q | 295,740 | 5,628,600 | 158,364,000 |
-| D1 physical rows written including strict admission, 8.16N | 379,440 | 7,221,600 | 203,184,000 |
-| Stored records + key/limit metadata, GB | 0.054 | 0.866 | 20.982 |
-| Netlify DB compute-unit-hours | 15 | 720 | 1,440 |
+| R2 archive/recovery exceeds 10 GB | 1,903 | 213 | 33 |
+| Workers CPU exceeds 30M ms | 6,058 | 667 | 102 |
+| D1 live storage exceeds 5 GB | 8,489 | 1,018 | 157 |
+| D1 physical writes exceed 50M | 14,815 | 1,623 | 246 |
+| Workers requests exceed 10M | 27,592 | 3,049 | 462 |
+| Operational log events exceed 20M | 28,550 | 3,138 | 476 |
+| One D1 database exceeds 10 GB; needs sharding | 16,978 | 2,036 | 313 |
 
-Common assumptions: 2% retry attempts, 1% denied requests and 3% registration/authentication/account/history/support/webhook traffic on top of successful accesses; denied/failed calls
-are not customer uses. Each attempt takes 7 ms Workers CPU; the Netlify function
-case uses the documented default [1 GB allocation](https://docs.netlify.com/build/functions/usage-and-billing/)
-for an assumed 100 ms elapsed. Each response averages 2 KiB
-of web egress, and database results total 6 KiB per unique access. Assume four
-production deploys/month. Required records/usage/idempotency use three logical
-writes plus index effects, modeled as six physical rows/access; denial/admin
-adds 0.04N writes and strict admission adds two reads/writes per attempt (2Q),
-for total 6Q reads and 8.16N writes. Storage assumes 768 bytes/access retained 30 days plus
-2 KiB/profile plus 160 bytes/profile for limiter counters and 16 KiB/profile
-of account/subscription/invoice/ticket-ID metadata (not card fields or config). These are tunable sizing assumptions, not verified per-request
-measurements or an instruction to retain secret responses.
+A first crossing usually adds small metered charges, **not an Enterprise-plan
+upgrade**. In particular R2's first extra billed GB is $0.015. Storage caps,
+identity/role/organization-private-repo needs and required security features can
+force architectural/plan changes independently of the bill. Required controls
+cannot be dropped to keep a price; unsupported strict/HSM requirements remain
+unavailable in the authorized software launch.
 
-Low assumes 15 DB active hours/month, including wake/sleep and admin activity;
-base one minimum compute unit all month (720 hours); high two tenant-partitioned
-units/databases. High needs at least three D1 shards by size alone because the aggregate retained
-20.9824 GB exceeds a [single D1 database limit](https://developers.cloudflare.com/d1/platform/limits/).
-The separately assumed two-way Netlify split keeps database egress per shard below the
-listed Pro per-database cap. Partition routing, transaction boundaries, maximum
-tenant size, compute-unit interpretation and the operational capacity of these
-assumptions require implementation and qualification; arithmetic does not prove
-that two shards suffice for every workload.
+### Explicit workload formulas and cost uncertainty
 
-### Recomputed baseline platform subtotals
+For a cohort, P = payers × (included product profiles + one free profile),
+N = payers × (product successes + 30 free successes), A = twice payers. New
+profile budget = ceil(10%P); migration assets = 10 × ceil(5%P); rewrap assets =
+ceil(2%P). Q = ceil(1.08 × (N + 4 new profiles + migration assets + 2 rewrap assets)
++ 2A). Software crypto work C = ceil(1.02 × (N + 2 new profiles + migration assets
++ 2 rewrap assets)) + 12 restore-drill work items. These include lifecycle/denied/
+retry overhead rather than pretending every request is a paid success.
 
-| Modeled subtotal/output | Low | Base | High |
-| --- | ---: | ---: | ---: |
-| Cloudflare Workers request/CPU minimum + excess | $5.00 | $5.00 | $13.01 |
-| D1 excess read/write/storage | $0.00 | $0.00 | $165.17 |
-| Workers operational-log excess | $0.00 | $0.00 | $3.84 |
-| **Cloudflare listed-platform subtotal** | **$5.00** | **$5.00** | **$182.02** |
-| Netlify requests/function compute/web+DB egress/deploy/DB compute credits | 241.28 | 7,855.38 | 31,211.28 |
-| **Netlify Pro + whole-pack subtotal** | **$20.00** | **$60.00** | **$210.00** |
+CPU = 9Q + 5C ms. D1 reads = 8Q; physical writes = 8N + 2Q + 20 new profiles
++ 6 migration assets + 6 rewrap assets. Live DB bytes = 1,024N + 32,768P + 512Q;
+web egress = 2,048Q bytes; DB egress = 8,192 × (N + migration assets + rewrap
+assets). Netlify Functions use 0.075 seconds × 1 GB/request. R2 holds two live DB
+copies plus 12 months of 1 KiB logical/control audit events; backup writes =
+30 × (D1-sized shards + 1), recovery reads = 2 × shards. DB minimum shard count
+uses ceil(live GB/10). This is a sizing model, not a benchmark or actual retention
+policy/qualified backup report. Real query/index/payload and identity traffic,
+foreground/background frequency, retries/abuse, archives, CPU and memory may differ.
 
-Netlify subtotals exclude the unresolved storage tariff and both subtotals
-exclude unselected identity/custody, additional required-record retention,
-backup/export and operating costs. They are **not all-in bills or profits**.
-Free-tier fit is conditional: low's modeled Netlify credits/DB active hours and
-Cloudflare daily requests/row writes fit the referenced free usage ceilings,
-but do not establish custody, availability or production qualification. Base's
-D1 writes already exceed its daily Free allowance, and its modeled Netlify
-always-active database cannot be treated as a free suspended instance.
-
-The formulas are:
-
-```text
-N = profiles * 30 * weighted_daily_accesses
-Q = 1.06 * N
-CF = 5 + .30*max(Q-10M,0)/M + .02*max(7Q-30M,0)/M
-     + .001*max(6Q-25B,0)/M + max(8.16N-50M,0)/M
-     + .75*max((768N+18592*profiles)/1e9-5,0) + .60*max(Q-20M,0)/M
-credits = 2Q/10000 + 10*(Q*1*.10/3600)
-          + 20*(2048Q/1e9 + 6144N/1e9) + 10*DB_unit_hours + 15*4
-Netlify_Pro = 20 + 10*ceil(max(credits-3000,0)/1500)
-all_in_cost = listed_platform + identity + custody + unresolved_storage
-              + extra_logging_audit_backup_export + support_security_operations + tax
-```
-
-Cloudify remains an evaluated, unpriced alternative, not another name for
-Cloudflare. Its official [Manager setup](https://docs.cloudify.co/latest/trial_getting_started/set_trial_manager/),
-[sizing](https://docs.cloudify.co/latest/install_maintain/installation/prerequisites/)
-and [Premium licensing](https://docs.cloudify.co/latest/install_maintain/installation/manager-license/)
-describe orchestration plus underlying infrastructure. No comparable current
-per-retrieval quote was established; adding a Manager to the minimal subscription
-needs its own justified cost, rather than replacing the API bill with zero.
-No vendor/account/trial/recharge has been selected or connected.
-
-### Production protection costs and the unit model
-
-The preceding $5/$5/$182.02 and Pro $20/$60/$210 figures are **compute/storage
-comparison subtotals**, not the enterprise production configuration. The
-[Cloudflare zone plans](https://www.cloudflare.com/plans/) list Pro at $25/month
-and Business at $250/month on monthly billing. The costed production candidate
-uses a **Business zone ($250)** plus Workers/D1 and a consistent limiter; neither
-Pro nor that zone's SLA is automatically a Workers/application SLA. Enterprise
-Bot Management, advanced rule characteristics, extra residency/retention,
-authentication and key-wrapping entitlements may need an additional quote.
-
-For an explicit limiter sensitivity, assume two authoritative Durable Object
-admissions per provider attempt, each active 100 ms including waits, 128 MB
-memory, bounded state and two physical counter writes/attempt. [DO pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
-includes 1M requests and 400,000 GB-seconds/month, then $0.15/M requests and
-$12.50/M GB-seconds; storage operations add their published charges. Use its
-published upward billing-unit rounding. This is a conservative optional limiter sensitivity, not implemented capacity.
-The lean calculation already budgets D1 limiter rows; migrating those counters
-to DO replaces that part of D1 cost. The table retains both as an upper-budget
-sensitivity rather than claiming two simultaneous limiter stores are required.
-Request/duration behavior and the actual atomic ledger design require tests.
-
-| Candidate production budget component | Low | Base | High |
-| --- | ---: | ---: | ---: |
-| Previously computed Cloudflare subtotal | $5.00 | $5.00 | $182.02 |
-| Business zone for protection | $250.00 | $250.00 | $250.00 |
-| DO limiter request/duration/write allowance estimate | $0.00 | $0.15 | $23.30 |
-| **Conservative premium candidate budget** | **$255.00** | **$255.15** | **$455.32** |
-
-Limiter high estimate is $7.80 requests + $12.50 duration + $3 physical writes;
-actual storage/idle behavior may differ. This excludes quoted/unmeasured
-key wrapping, required retention/backup/residency, incident response and any
-additional WAF/bot/rate-limit entitlement. Paid-zone selection itself is not
-authorization to provision or a passing protection/availability test.
-
-For Netlify, **Enterprise + High-Performance Edge WAF/full-limit pricing is
-unquoted**. Its Enterprise credit and storage terms may also differ from Pro.
-Do not advertise a protected production baseline at the Pro subtotal or assume
-“Pro + a known small add-on.” Obtain the actual protection/compute/storage/
-auth/log/export/backup quote before a like-for-like cost comparison. No quote,
-account or deployment has been requested here. A no-charge included Identity
-feature does not establish the required machine-identity protocol by itself.
-
-The premium candidate is a long-term upgrade comparison, not the near-term
-launch spend floor. Plan sensitivities below instead use the lean candidate
-budgets and explicitly separate per-use/operations/free-user reserves. These
-are **budget assumptions**, not all-in verified bills or Netlify quotes. Every unpriced component must fit those reserves or the proposed
-allowance/price must change. Production abuse/request amplification, failed
-requests, denied attempts and monitoring traffic increase provider cost even
-when customer successful-fetch usage stays unchanged.
-
-### Near-term lean launch and explicit upgrade triggers
-
-The near-term priority is the leanest viable **secure** minimal service; some
-premium enterprise functionality is deferred until customer demand and revenue
-justify it. The long-term design above remains intact. Do not claim that
-omitting a premium product means authentication, tenant isolation, protected
-key custody, accurate durable metering or basic abuse controls can be omitted.
-
-| Lean candidate | Minimum/comparison costs | Required limitations and fundamental controls |
-| --- | --- | --- |
-| Workers Paid + D1, no premium zone/bot purchase | $5 monthly Workers minimum; modeled listed costs $5/$5/$182.02 for low/base/high, including transactional admission row budget. | Platform DDoS/available basic rules, bounded per-IP abuse limits and authoritative per-identity/profile/tenant admission in the same transactional state as usage. No indiscriminate headless challenges. No paid-zone SLA, advanced bot score/WAF or multi-region guarantee is claimed. Key wrapping/backup/IdP/retention must fit measured explicit reserves. |
-| Netlify Free for a bounded pilot | Modeled low 240.80 credits fits 300 and 15 DB active hours fits the cited 48-unit Free limit, subject to other limits/storage tariff. | Hard caps can pause service; no production availability promise. Must still prove correct auth/custody/tenant/meters/abuse controls. Never silently recharge or weaken checks at the cap. |
-| Netlify Personal or Pro when usage requires | Personal $9 includes 1,000 credits; under these cases Personal + packs is $9/$79/$314. Pro + packs is $20/$60/$210. | Use actual account terms and measured billing before selection; Pro becomes cheaper than Personal in base/high under the quoted pack assumptions. No Enterprise WAF or HP Edge entitlement is implied. |
-
-For the lean profile, use an initial monitored **99.5% monthly authorized-fetch
-objective**, not an SLA or achieved result; dependency failures and accidental
-blocking of valid headless clients count. Track cold starts and warm/cross-ocean
-latencies separately; publish observed geography percentiles before promising
-a latency target. Region-local authoritative checks may be slower than a public
-CDN read and are preferable to stale authorization. Recovery remains fail-closed
-for uncertain revocations/usage, with the actual backup RPO/RTO disclosed.
-
-Upgrade when measured request/CPU/database/credit usage approaches its actual
-hard allowance or the current budget, bursts trigger valid-client throttling,
-backup/residency/latency objectives cannot be met, or a customer explicitly
-requires a quoted WAF/bot/SLA/identity/geographic entitlement. The operator
-reviews that evidence, customer commitment and funded cost before approving a
-purchase. Those are measurement/customer requirements, not fabricated current
-customer counts or preapproved thresholds. Use a new exact profile/cost receipt;
-do not represent the basic profile as full enterprise functionality.
-
-The release record must name the bounded lean profile, deferred protections,
-known limitations and actual tests separately from the complete intended v1
-contract. It cannot turn a design change into a passing quality/security gate.
-All client config remains local, the host remains profile-to-key, UI remains
-deferred and no account connection/provisioning/purchase is authorized here.
-
-### Customer-service and operator cost delta
-
-The [native protection mapping](credential-boundaries.md#native-provider-control-mapping)
-uses one selected host's included encryption, secrets, database access, backups
-and monitoring first. It does not add a second host or an external KMS by
-default. Crypto CPU, enforced isolation boundaries and recovery/export work
-must still fit measured reserves; unsupported custody or row-isolation needs
-require an explicit design/cost decision before a secure-service claim.
-
-Customer billing/support does not come free with Cloudflare or Netlify hosting.
-The updated traffic model includes **3% account/auth/history/support/webhook
-traffic** rather than 1% admin traffic, and 16 KiB/profile of necessary account/
-provider-reference metadata. This is a sizing assumption, not a billing unit or
-a recommendation to keep raw webhook/card/ticket/config payloads. Measure real
-query counts, history pagination, event bursts and retention, and add support/
-operator audit export/SSO costs where the selected entitlements require them.
-
-The chosen billing portal remains unselected. A Stripe candidate reuses its
-customer portal and the sourced Payments + Billing fees already in the model;
-it does not require another custom billing UI. A provider's portal, supported
-API/version, quotas, tax, SSO and machine-action scope still need qualification.
-Only the selected provider's features are exposed to customers, never hosting
-admin tokens or operator billing APIs.
-
-For lean support, reuse an existing **authorized** private channel and public
-synthetic-only GitHub support where suitable; actual mailbox/labor cost is not
-assumed zero. Optional [Freshdesk Growth](https://www.freshworks.com/freshdesk/pricing/)
-currently lists **$19/agent/month billed annually** for ticketing/shared inbox
-and customer portal/knowledge base. One seat is a **$228 annual commitment**,
-not permission for a $19 monthly purchase. Its higher role/SSO/audit/SLA and API
-automation requirements must be checked independently. The page also lists
-vendor MCP-action and connector-task add-ons: do not treat unattended support
-as unlimited/free or assume our CLI/MCP operation is a vendor-billed MCP action.
-No AI/connector add-on is selected; quote actual automation volumes before use.
-
-| Listed platform + optional one helpdesk seat | Low | Base | High |
-| --- | ---: | ---: | ---: |
-| Cloudflare comparison + annual-equivalent support seat | $24.00 | $24.00 | $201.02 |
-| Netlify Pro comparison + annual-equivalent support seat | $39.00 | $79.00 | $229.00 |
-
-These are still partial costs, not invoices: encrypted storage/custody,
-identity, history/retention, operator permissions/audit/monitoring, tax, support
-labor and provider automation may add unquoted charges. Reuse entitled operator
-consoles where practical; a custom admin console is not implemented or costed
-as “free,” and remains deferred. Add an actual new seat/SSO/monitoring quote to
-the release cost receipt before purchase. Financial operations remain subject
-to explicit user authority and applicable confirmation, regardless of plan.
+There is **no invented monetary uncertainty/labor reserve in the hosting bill**.
+Uncertainty is exposed through workload assumptions, sleeping/continuously active
+DB branches, unknown Netlify storage and actual unused allowance/entitlement.
+Read back actual meters and replace assumptions before a spend commitment.
+The observed price might be lower within existing free allowances or higher
+with other apps, larger payloads, more DB units, functions memory or retention.
+The existing model includes both 1-payer and 100-payer cases for every product
+workload and both DB-active branches; it is not a customer tariff or margin model.
 
 ## Free allowance and subscription opportunity
 
-Profile utilization is the hosted access event defined above. The **free event
-allowance**, period, paid package/usage rate, threshold, payment provider and
-hosting choice remain undecided. Earlier five/100-unit quantities and $5/$10/$20
-monthly prices were exploratory; they are not settled allowances, key slots or
-profile-count tariffs. Registration and local key reuse are not paying conversions.
-
-Use the confirmed CLI/text flow or existing entitled platform surfaces for
-usage/upgrade information; expanded custom admin UI remains deferred/unapproved.
-Show usage and remaining allowance, then a clear subscription opportunity when
-the eventual event allowance is exceeded. No automatic charge, paid enrollment,
-trial conversion or provider auto-recharge follows from authentication or excess
-usage. Tenant controls govern who may subscribe. Insufficient entitlement returns
-an actionable outcome without widening access/windows; security offboarding,
-revocation and safe usage inspection remain available. Opted-out/self-hosted/
-offline clients do not create a hosted subscription or submit utilization by
-implication. Independent host fetches count separately, while retries of one
-logical access reconcile the same event and cannot be overcharged.
+Thirty combined successful hosted software crypto/age operations per verified
+free owner is a demand assumption, not an enabled product grant. Metadata,
+identity, encrypted storage, abuse admission and required audit still consume
+hosting resources. One free owner per payer is explicit; more free owners or
+abuse moves the breakpoints. Association creation, software wrap/unwrap, age
+fetch and retries retain separate typed usage/idempotency. Local/offline reuse
+adds no hosted use. No automatic charge, paid plan or quota downgrade follows.
 
 ## Illustrative revenue model
 
-Replace the earlier flat per-account price/conversion forecast with event-based
-unit economics. No demand, paying fraction or actual margin is claimed. Let
-`b` be the fraction of successful uses left billable after the eventual free
-allowance, `U=b*N`, `p` the realized revenue per billable use, `B` monthly payment
-transactions, and `C` the **all-in** cost above. For an explicitly hypothetical USD domestic-card subscription, current
-[Stripe Payments pricing](https://stripe.com/pricing) shows 2.9% + $0.30 and
-[Billing pay-as-you-go](https://stripe.com/billing/pricing) shows 0.7% of Billing
-volume. Together these support `f=3.6%` plus `$0.30/payment` for that specific
-scenario, not a universal rate or a selected provider/account. International
-cards, FX, refunds/disputes, tax and actual merchant-country terms add costs;
-reconfirm them before any launched tariff.
+Customer prices and margins are **outside this hosting-only forecast**. Previous
+age-only/native-key/labor-loaded price proposals are superseded for this question.
+No payment fee, CRM or external KMS is hidden in the hosting subtotal. If later
+needed, customer billing, optional paid managed SOFTWARE/HSM custody, payment
+fees or premium services require a separate explicit cost/entitlement decision;
+they are not launch dependencies and no price is approved here.
 
-```text
-revenue R = p * U
-contribution = (1-f)*R - .30*B - C
-contribution_margin = contribution/R
-required_p = (C + .30*B) / (U * (1-f-target_margin))
-```
-
-An 80% contribution target with `f=.036` leaves `.164*R` for costs and fixed
-payment fees. A 60% target leaves `.364*R`. These are planning targets, not
-promised profit. With an illustrative **20% of uses billable**, the 80% target
-implies the following **platform-only lower bounds per 1,000 billable uses**:
-
-| Lower bound, not a customer price | Low | Base | High |
-| --- | ---: | ---: | ---: |
-| Cloudflare listed subtotal only | $3.2783 | $0.1722 | $0.2229 |
-| Netlify listed Pro subtotal only | $13.1130 | $2.0670 | $0.2571 |
-
-These bounds deliberately omit unmeasured costs and fixed payment transactions;
-charging at them cannot be described as profitable. For base traffic, every
-additional $100/month of real operating cost adds **$3.4449 per 1,000 billable
-uses** to that 80%-target floor; monthly minimums and payment batch size matter.
-A different billable fraction changes the floor inversely: a generous free tier
-must be funded by paid utilization, not hidden in the profile count. Select the
-allowance and subscription units/rate only after measuring full costs, burst/
-abuse budgets and retention, then verify actual margin. Optional enterprise
-features require their own incremental cost model and explicit enrollment.
-
-### Plan proposals from costs
-
-These are **proposals for review, not launched tariffs, entitlements or
-purchase authorization**. They cover only the minimal hosted key service, not
-enterprise configuration/UI/orchestration features. They are derived from the
-preceding costs plus explicit reserves; measured costs must fit the reserves
-before they can be treated as sustainable prices. Do not ask a user to pick an
-arbitrary threshold or assume profile count is consumption.
-
-A free allowance of **30 successful hosted fetches per month** supports one
-hosted fetch/day in this 30-day model, with unlimited local reuse adding no
-hosted events. Attribute usage to profiles but pool the allowance under a
-verified owner so creating more profiles cannot multiply free entitlement.
-The free-owner cost assumption is $0.10/month: $0.03 for 30 uses at an extra
-$0.001/use reserve plus $0.07 identity/storage/idle/abuse reserve. This is a
-budget assumption, not a vendor price. Quotas and measured abuse must bound
-it; the paid service funds free utilization explicitly.
-
-For paid proposals, assume 100 paying owners and 100 free owners, one authorized
-payment/paid owner/month, a **$29/month lean Cloudflare/support budget** (the prior $10 infrastructure
-reserve plus a $19 annual-equivalent support seat), or **$79/month Netlify/support
-comparison budget**. Allocate $0.29 or $0.79/paid owner respectively, plus $0.10 to fund one free owner.
-Larger measured usage/costs must use the recomputed scenario, not those startup
-budgets. Add **$0.001/successful paid fetch** as
-an incremental unquoted-cost reserve for key custody/auth/storage/records; it
-is added to the platform budget rather than pretending those items are free.
-Allow per-paid-owner operations reserves of $0.50/$2/$7 for the three proposals.
-These cover no promised support SLA; insurance/engineering/security effort and
-actual vendor costs may require larger allocations. The 100/100 cohort is a
-sensitivity input, not customers, conversion or traction.
-
-| Proposal for review | Successful hosted fetches/month | Proposed USD/month | CF cost / contribution / margin | Netlify cost / contribution / margin | Payment/Billing fees |
-| --- | ---: | ---: | --- | --- | ---: |
-| Personal | 300 | $5 | $1.19 / $3.33 / 66.6% | $1.69 / $2.83 / 56.6% | $0.48 |
-| Business | 3,000 | $15 | $5.39 / $8.77 / 58.5% | $5.89 / $8.27 / 55.1% | $0.84 |
-| Enterprise volume | 20,000 | $65 | $27.39 / $34.97 / 53.8% | $27.89 / $34.47 / 53.0% | $2.64 |
-
-The allowances correspond to 10/100/about 667 hosted fetches/day, not numbers
-of profiles or key slots. For example, 20 hosts fetching four times/day consume
-2,400 monthly events and fit the business proposal; 100 hosts fetching six
-times/day consume 18,000 and fit the enterprise-volume proposal. Neither plan
-authorizes remote unlocking, custom UI, server-side configuration or premium
-support. Access/windows and offboarding are independent of plan names.
-
-The model uses full included utilization. Margins are before excluded costs
-outside the reserves, taxes and acquisition; they are not actual net profits.
-At full included usage and one free owner/payer, a 50% contribution target
-under the $29 Cloudflare/support budget needs at least **26 personal, 19 business
-or 11 enterprise-volume paying owners** in a single-tier cohort; the $79
-Netlify/support budget needs **71, 51 or 29** respectively. Mixed cohorts use aggregate costs.
-These are arithmetic funding requirements, not traction or guaranteed margins.
-The platform budget must actually fit the chosen usage: if a single large
-customer exceeds it, recalculate rather than treating a minimum as a flat bill.
-
-More free owners per payer reduce margin. Ten free owners/payer add $0.90 to
-each paid-owner cost beyond this one-to-one model; in personal that reduces
-CF margin from 66.6% to 48.6% and Netlify margin from 56.6% to 38.6%. At 100
-free owners/payer, the personal proposal loses money. Free growth needs its own
-funded budget and abuse controls, not assumed paying conversion.
-Actual authentication, storage, retention or support exceeding reserves also
-reduces margin. Measure and reprice the allowance before launch when a reserve
-fails. Exceeding an allowance offers explicit upgrade/prepayment choices; no
-automatic overage charge, paid conversion or recharge is proposed. Enterprise
-volume is a fetch bundle, not a silently expanded enterprise control plane.
-
-[Payment validation](integration-testing.md#payment-provider-validation-layers)
-uses the existing synthetic harness and a future selected official SDK; mocks,
-contract fixtures and any separately authorized provider sandbox are not
-production qualification. No provider account or live payment is required by
-this documentation pass.
+Recommendation: use the existing Cloudflare $5-plan branch first **if** its
+actual entitlements and a qualified existing/free customer issuer are verified.
+Otherwise evaluate existing Netlify included Identity without buying anything,
+with DB active-hours and missing storage tariff made explicit. No current
+account/project/issuer facts establish a qualified selected deployment. The
+software KEK/runtime/shared-domain risk remains the user's explicit launch
+tradeoff; keep keys outside DB and enforce fundamental auth/isolation/audit/
+recovery/tests. Funded managed/HSM migration stays versioned and staged, not a
+silent assumption of present non-exportability. Synthetic/mock previews remain
+separate from unapproved production UI.
 
 ## Runtime, SDK and agent integration
 

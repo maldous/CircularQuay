@@ -169,6 +169,9 @@ func (audit *auditRun) bindMandatoryTools(tools *qualifiedTools) error {
 
 func (audit *auditRun) recordChecks(ctx context.Context, tools *qualifiedTools, format Check, scope goSourceScope) {
 	audit.report.Checks = append(audit.report.Checks, format)
+	if check, required := taggedIntegrationQualificationCheck(scope); required {
+		audit.report.Checks = append(audit.report.Checks, check)
+	}
 	coveragePath := filepath.Join(audit.output, "coverage.out")
 	testArguments := append([]string{"test", "-count=1", "-covermode=atomic", "-coverpkg=" + strings.Join(scope.coverage, ","), "-coverprofile=" + coveragePath}, scope.packages...)
 	goCheck := goSourceCheckSpec{name: "unit_tests", binary: audit.options.GoBinary, arguments: testArguments, directory: audit.root, environment: audit.environment, scope: scope, source: audit.report.Source}
@@ -330,7 +333,7 @@ func addExternalChecks(ctx context.Context, tools *qualifiedTools, root string, 
 	}
 	checks := []externalToolCheck{
 		{"staticcheck", "staticcheck", append([]string{"-checks=all"}, scope.packages...)},
-		{"gosec", "gosec", append([]string{"-quiet", "-nosec"}, sourcePackageArguments(report.Source)...)},
+		{"gosec", "gosec", append([]string{"-quiet", "-nosec"}, sourcePackageArguments(scope)...)},
 		{"govulncheck", "govulncheck", scope.packages},
 		{"secret_scan", "gitleaks", []string{"git", "--redact=100", "--no-banner", "--ignore-gitleaks-allow", "."}},
 		{"workflow_lint", "actionlint", nil},

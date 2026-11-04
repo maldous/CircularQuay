@@ -52,6 +52,13 @@ or model-visible bootstrap credentials. Retain the exact installed-byte,
 deployment, backup/restore and independent review receipts; no profile name
 establishes certification or replaces missing qualification.
 
+Retain the [whole-product control register and release decision](docs/security-profiles.md#whole-product-release-admission)
+for the exact candidate, including the default/strict capability matrix.
+Required profile controls have implemented and independently qualified
+enforcement; a configuration field or capability advertisement cannot stand in
+for it. Missing, stale, skipped, cancelled, unreadable or failed required checks
+block promotion. Do not combine incompatible revisions' passing results.
+
 For a lean launch, record the explicitly selected secure baseline and deferred
 enterprise capabilities in the release scope/evidence. Do not advertise strict
 mode, premium WAF/bot services, contractual availability or geographic guarantees
@@ -128,9 +135,11 @@ Use the standalone [managed-service contract](docs/managed-key-service.md) for
 identity/key mappings, administration, custody limits, and the separate financial
 model. Prefer already available paid Netlify/Cloudflare identity and management
 interfaces; verify plan entitlements, seats, credits, and retention before
-choosing a deployment. Custom key-specific administration screens are deferred
-and unapproved for implementation; this operator guide does not authorize
-building them. The minimal hosted API and CLI/text authentication flow keep
+choosing a deployment. Synthetic user/account and operator/admin frontend
+development/previews and a loopback local client dashboard are authorized.
+That authorization excludes real backend integration and production deployment;
+preview data stays synthetic and client configuration stays local. The minimal
+hosted API and CLI/text authentication flow keep
 their separately approved scope. Deployment and preview identities are separate;
 previews contain synthetic keys only. Platform-account roles, site protection,
 application identity, mapping/grant administration, and key reads are separate
@@ -147,6 +156,32 @@ keys or old ciphertext. Capacity, hosting costs, paid plans, release gates, and
 native/hardware acceptance require their own actual receipts; no purchase or
 production deployment follows from documentation.
 
+Qualify both automatically provisioned associations: real remote key-service
+wrap/unwrap and authenticated age-private-key retrieval. Record the selected
+provider connection, key/version/algorithm, allowed operations, association
+generation, protected authentication references and required provider context.
+Prove independent disable/revocation, idempotent provisioning, partial/uncertain
+outcome reconciliation, rotation and safe provider error classification.
+Enrollment does not download an offline key or enable fallback. Online-only
+has no local bypass; hybrid uses its separately approved finite snapshot path
+only after a positively classified availability failure. Denial, trust failure,
+malformed response, expiry, cancellation and unknown errors must block it.
+Preserve existing copied-key/plaintext limits and never claim provider custody
+from a key-service interface or SOPS metadata parser alone.
+
+The [authorized launch profile](docs/security-profiles.md#authorized-launch-custody)
+uses software custody within the verified existing paid Cloudflare or Netlify
+allocation. It requires no paid external KMS or plan upgrade. Qualify the actual
+host's runtime/secret/database/identity entitlement and CQ-specific capacity
+before selection; a paid plan label alone does not establish included credits,
+database allowance, spare capacity or zero incremental cost. Do not change
+shared-account limits or pause unrelated applications to enforce CQ's budget.
+Keep the runtime wrapping key outside the database, use independently random
+profile data keys and vetted authenticated encryption, and publish the shared
+runtime/KEK compromise boundary. A strict non-exportability/independent-custody
+requirement must reject this software profile. Stronger native KMS/HSM remains
+an explicit qualified migration destination, not a mandatory launch charge.
+
 Configuration remains entirely client-side, including retrieval through the
 operator's VPN/network, credentials, composition, validation and local save.
 Never send configuration bodies, source credentials or protected references
@@ -156,6 +191,45 @@ opt-outs before any hosted registration/network access; a disabled hosted
 service supports fully client-only use. Hosted metering records successful
 logical profile/key access events, deduplicates retries, and cannot charge
 local reuse or turn a denied/precommit failure into a successful fetch.
+
+### Local-to-managed custody migration
+
+Migration is an authorized, recoverable operation rather than a mode flag.
+Inventory and validation run client-side under the existing key owner's
+identity. Record the selected local age identities/public recipients, protected
+OS or self-hosted KMS references, asset and key versions, association mappings,
+offline windows and recovery dependencies. Do not scan unrelated credentials,
+upload inventory/configuration or infer permission to export a key. Dry-run
+output uses safe metadata and describes exactly which protected operations
+require separate authority.
+
+Classify each asset against actual source/destination provider capabilities:
+
+| Existing custody | Permitted migration mechanism | Required proof |
+| --- | --- | --- |
+| Exportable local age identity | Explicitly authorized protected import where supported, or a new hosted identity followed by re-encryption for its public recipient. | Ownership, import protection, recipient match, encrypted recovery and independently verified new-identity decrypt. No implicit private-key upload during enrollment. |
+| Existing envelope-encrypted data key | Native rewrap/re-encrypt-key operation where supported, or approved decrypt-and-wrap under the destination key. | Exact source/destination versions, authenticated context and successful destination unwrap; data-key retention and previous ciphertext copies remain risks. |
+| Non-exportable OS/HSM/KMS key | Keep an authorized source connection, or decrypt on the qualified source host/provider and encrypt with a new destination data key. | Real export/import constraints, required source access, complete asset verification and supported algorithm/context conversion. A key reference is not portable key material. |
+| Leaked/retired key or compromised data key | New independent key material and full asset re-encryption, plus issuer-native containment where applicable. | Rewrap alone does not repair prior plaintext/data-key exposure; retained old copies cannot be recalled. |
+
+Bind the approved migration intent to asset/profile identities, source and
+destination versions, target custody/availability policy and recovery plan.
+Use idempotent operations, conditional revisions and a durable progress/audit
+record. Handle interrupted writes, partial provisioning and uncertain provider
+outcomes by reconciliation; never mark an asset migrated from a successful
+association lookup alone. Preserve originals and provenance until verified
+destination decryption, application activation and a tested recovery point.
+Retirement and old-copy handling are separate approved actions.
+
+For online-only activation, new accepted ciphertext cannot retain an offline
+age recipient or another unintended OR path. A historical local key/copy
+cannot be erased remotely. Explicit hybrid activation prepares compatible
+encrypted fallback under its separately approved key/version/window, and tests
+availability-only admission without widening permissions. Independent windows
+or custody domains may require separate data keys and artifacts. Verify every
+supported algorithm, provider import/export profile, native host, SDK/CLI path
+and restart/recovery schedule before advertising migration support. A mock
+or successful remote wrap alone is not end-to-end migration qualification.
 
 ### Managed-service validation and promotion
 

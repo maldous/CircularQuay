@@ -232,7 +232,7 @@ func (c Client) doRequest(req *http.Request, out any) error {
 	}
 	resp, err := transport.RoundTrip(request)
 	if err != nil {
-		return classifyTransport(err)
+		return classifyTransport(req.Context(), request.Context(), err)
 	}
 	if resp == nil || resp.Body == nil {
 		return fault.New(fault.Trust, "provider_transport")
@@ -294,7 +294,10 @@ func responseReadFailure(err error) error {
 	if errors.Is(err, ErrResponseTooLarge) {
 		return fault.New(fault.Trust, "response_size")
 	}
-	return fault.New(fault.Unavailable, "response_read")
+	// A body error occurs after the endpoint supplied a response. A truncation,
+	// malformed record, or attacker-controlled stream cannot prove a provider
+	// outage and therefore must not authorize an offline fallback.
+	return fault.New(fault.Trust, "response_read")
 }
 
 // EndpointWithoutQuery validates an already constructed request without discarding selectors.
@@ -321,23 +324,46 @@ func Status(status int) error {
 	}
 }
 
-func classifyTransport(err error) error {
+func classifyTransport(caller, bounded context.Context, err error) error {
+	if caller.Err() != nil {
+		return fault.New(fault.Denied, "provider_cancelled")
+	}
 	if errors.Is(err, ErrResponseTooLarge) {
 		return fault.New(fault.Trust, "provider_response_size")
 	}
+	if tlsTransportFailure(err) {
+		return fault.New(fault.Trust, "provider_tls")
+	}
+	if boundedRequestTimeout(bounded, err) {
+		return fault.New(fault.Unavailable, "provider_timeout")
+	}
+	if positiveConnectionFailure(err) {
+		return fault.New(fault.Unavailable, "provider_connection")
+	}
+	return fault.New(fault.Trust, "provider_transport")
+}
+
+func tlsTransportFailure(err error) bool {
 	var cert x509.CertificateInvalidError
 	var unknown x509.UnknownAuthorityError
 	var host x509.HostnameError
 	var verify *tls.CertificateVerificationError
-	if errors.As(err, &cert) || errors.As(err, &unknown) || errors.As(err, &host) || errors.As(err, &verify) {
-		return fault.New(fault.Trust, "provider_tls")
+	var record tls.RecordHeaderError
+	var alert tls.AlertError
+	return errors.As(err, &cert) || errors.As(err, &unknown) || errors.As(err, &host) || errors.As(err, &verify) || errors.As(err, &record) || errors.As(err, &alert)
+}
+
+func boundedRequestTimeout(bounded context.Context, err error) bool {
+	return bounded.Err() == context.DeadlineExceeded && errors.Is(err, context.DeadlineExceeded)
+}
+
+func positiveConnectionFailure(err error) bool {
+	var dns *net.DNSError
+	if errors.As(err, &dns) {
+		return dns.Timeout() || dns.Temporary()
 	}
 	var op *net.OpError
-	var dns *net.DNSError
-	if errors.As(err, &op) || errors.As(err, &dns) || errors.Is(err, context.DeadlineExceeded) {
-		return fault.New(fault.Unavailable, "provider_connection")
-	}
-	return fault.New(fault.Trust, "provider_transport")
+	return errors.As(err, &op) && (op.Timeout() || knownConnectionErrno(err))
 }
 
 // ReadCredentialFile reads a bounded private regular file, never a symlink.

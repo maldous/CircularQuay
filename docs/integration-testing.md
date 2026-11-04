@@ -1,5 +1,20 @@
 # Integration testing
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 The complete v1 contract is tested at distinct boundaries: deterministic core
 and adapter cases, disposable process/emulator fixtures, installed SDK/client
 conformance, and separately authorized native/provider/recovery acceptance.
@@ -66,6 +81,63 @@ errors or CI artifacts.
 GitHub Actions downloads the same pinned JAR, verifies its digest, and runs the
 same command on Linux, macOS, and Windows. This is synthetic protocol evidence,
 not a claim about a live OpenBao deployment or production credentials.
+
+## User-profile KMS and hybrid validation
+
+The [profile custody contract](managed-key-service.md#per-profile-age-and-kms-custody)
+is required work; the current adapter rejects cloud-KMS recipients/key groups.
+Existing age/Transit/resolver test source is evidence of established contracts,
+not a cloud-KMS test pass. No new runtime tests were run under the resource hold.
+When an actual adapter exists, reuse the established harness and synthetic
+fixtures; provider sandbox access requires separate authorization.
+
+| Case | Required evidence |
+| --- | --- |
+| Profile validation/parity | Exact provider/key/version/region/account/auth identity and scoped operations; unknown/conflicting/unsupported fields rejected consistently in CLI/API/SDK/MCP. Local age, hosted age and KMS remain distinct. Synthetic/mock frontend previews may validate only fabricated data and loopback local configuration; they do not qualify UI parity, a backend, provider access or deployment. |
+| Automatic dual enrollment | Authorized enrollment provisions BOTH genuine native-backed KMS and age associations; retries/concurrency/partial failure/uncertain responses reconcile the same resources. Report ready only after both exist; enforce provider budgets/quotas and prevent orphan duplicate keys. No offline private key download or hybrid activation during association creation. |
+| Launch software crypto operation | Actual maintained Web Crypto/library wrap/unwrap with protected KEK outside DB, independently random profile DEKs, unique nonce and exact server-resolved tenant/profile/purpose/version/window context; wrong context/tenant/ciphertext/tag denied. Secret storage or returning an age key cannot satisfy this crypto-service test. No config/variables/source credentials or key bytes in logs. Runtime/shared-KEK compromise remains an admitted launch risk, not a passing independent-custody test. |
+| Future managed/HSM operation | Only for a separately funded selected profile, actual native SDK/provider/module, identity/key/version/context/custody and recovery evidence; mocks or the software launch do not qualify it. |
+| Online-only | KMS outage, denial, missing identity, wrong key/tenant, TLS/trust, malformed output and revoked access all fail without age/snapshot/ambient-credential substitution. |
+| Authorized hybrid | Qualifying availability failure restores only a complete approved encrypted snapshot within window and matching policy/scope, with permitted bindings and audit compatibility. No partial mixed generation or silent mode change. |
+| Prohibited hybrid downgrade | Denial, TLS/trust failure, malformed response, expired/stale/future/mismatched snapshot, denial fence or audit requirement rejects fallback; retry/restart cannot erase a persisted denial fence. |
+| Recipient and recovery semantics | Detect undeclared age/other alternative unlock recipients. Ordinary recipients are OR; only claim AND/quorum after actual group/threshold and recovery-path tests. No KMS-required online claim with an offline bypass. |
+| Hybrid transition and compatible artifacts | Explicit activation verifies or generates compatible KMS/age recipient wrapping or approved snapshot, exact artifact/data-key/key-version/window binding and independent key domains where required. No assumed cross-format KMS-to-age decrypt. Online-only artifact has no offline recipient; switching back cannot recall previously retained material. |
+| First run and cost | Hosted opt-outs/locks resolve before network; authorized implemented enrollment provisions both associations, but is not live setup permission here. Separately meter association creation, KMS operations and age fetches; retries reconcile logical usage while provider calls can cost more. Measure actual wraps/unwraps/rotation/audit/network/latency before pricing. |
+| Residual risk | Demonstrate that authorized clients obtain data keys/plaintext and can retain them; documentation must not promise remote expiry or mandatory future KMS contact. No real key bytes in fixtures/logs. |
+
+## Local-to-managed migration and KMS assurance evidence
+
+The [migration contract](managed-key-service.md#end-to-end-local-to-managed-migration)
+inherits the existing [assurance contract](assurance.md) and applicable existing
+control IDs; it does not introduce a lower security standard. These cases are
+**unexecuted requirements**, not a real backend test pass. Use synthetic fixture
+keys/assets and actual pinned adapters; obtaining a provider sandbox, inspecting
+operational key stores, importing/exporting real keys and running live migration
+require separate scope/authority. Missing authorized backend is unqualified.
+
+| Case | Required positive/negative evidence |
+| --- | --- |
+| Inventory/reconcile | Explicit selected metadata sources, public recipients, source/destination provenance and ciphertext/key versions; duplicates/aliases, unknown owner and missing key deny before migration. No unrelated key-store scan, private-key hash or config/value upload. |
+| Provider/custody capabilities | Verified export/import algorithms and formats; non-exportable hardware/provider key cannot be extracted. Exercise supported source unwrap/rewrap and unsupported/missing-permission paths; a copied opaque DPAPI/provider ciphertext is not a successful migration. |
+| Rewrap versus re-encrypt | Exact cleartext equivalence after authorized destination decrypt, recipient/version/domain changes and new data key where required. Removing an old recipient without rotating a retained data key is not revocation; ordinary recipient alternatives cannot masquerade as quorum. |
+| Auth and replay | Cross-tenant/profile/purpose, wrong/old/revoked key versions, expired approval, duplicate/altered operation ID and revoked permission during a wait deny before unauthorized upstream access/effect. All actual interfaces share the ceiling. |
+| Interrupted migration | Crash/cancel/timeouts at every state, concurrent revision, partial provider creation and uncertain response resume/reconcile the same resource/asset. No duplicate paid keys, partial-generation activation, plaintext intermediate/log leak or forged ready state. |
+| Online/hybrid activation | Online-only has no age offline recipient; explicit hybrid transition verifies compatible artifact/key versions/window and complete eligible snapshot. Availability-only permitted fallback succeeds; denial/TLS/trust/malformed/expiry never downgrade. Restart/restore preserves denial fences. |
+| Audit, recovery and retirement | Required audit unavailable/full/corrupt prevents protected effect. Restore original/staged/destination state with protected recovery and accepted generations; deletion/retirement only separately authorized after dependencies verified. Retained old copies remain an explicit residual risk. |
+| Native integration/assurance | Record exact provider/account/region/key algorithm/runtime/artifact and existing control/test IDs. Real wrapping/unwrapping, authenticated context, scoped grants, custody/non-exportability and recovery observed separately from mocks. Apply existing issue/complexity/coverage/mutation/independent-review gates without exclusions manufactured for this feature. |
+| Cost reconciliation | Count source/destination unwrap/wrap, key/rotation lifetime, duplicate provider attempts, temporary double storage, local conversion, required evidence, free owners and billing separately. Validate full dual-service cost inputs against authorized actual billing readback before a profit claim. |
+
+The existing administration control IDs provide this planning map; each still
+needs its exact enforcement/test/source/artifact/provider receipt, not a checkmark
+from this document:
+
+| Existing control | KMS/local-adapter/migration application |
+| --- | --- |
+| ADMIN-01 / ADMIN-02 | Independent trust/custody ceremony, actual non-exportability and immutable crypto profile; strict format/key/purpose validation without library-default downgrade. |
+| ADMIN-03 / ADMIN-04 | Key/version rotation, accepted generations and freshness; exact authenticated identity/sender, replay and old-context rejection through interruption/recovery. |
+| ADMIN-05 / ADMIN-06 | Source read/export, target import/wrap, activation, offline export and retirement are distinct scoped/approved effects; all actual interfaces and local file/OS boundaries enforce them. |
+| ADMIN-07 | Required durable secret-free audit before effects; uncertain creation/release, interrupted migration, backups and denial fences reconcile safely. |
+| ADMIN-08 / ADMIN-09 / ADMIN-10 | Customer financial authority, restricted operator operations and scoped roles remain distinct; migration/resource creation does not grant billing consent, global key disclosure or all-tenant access. |
 
 ## Hosted database security validation
 

@@ -16,6 +16,7 @@ import (
 	"github.com/maldous/CircularQuay/internal/fault"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/observability"
+	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/source"
 	"github.com/maldous/CircularQuay/internal/state"

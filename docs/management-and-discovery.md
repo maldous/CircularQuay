@@ -1,5 +1,20 @@
 # Discovery and management
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 CircularQuay provides one v1 management contract across self-hosted and managed
 deployments. Operators, applications and approved agents can find their service,
 manage declared access and inspect the resulting decisions. Client enrollment
@@ -16,10 +31,14 @@ interoperability evidence belongs in [qualification](qualification.md).
 The mandatory trust controls are defined in [administration security](administration-security.md)
 and the product-wide [security profiles](security-profiles.md).
 
-Interface parity below describes the intended authorization contract, not
-approval to implement custom web screens. Expanded custom administration UI is
-deferred/unapproved while the baseline stabilizes; reuse existing platform
-services. Confirmed CLI/text onboarding and authentication remain in scope.
+Interface parity below describes the intended authorization contract. A separate
+frontend checkout may build synthetic/mock functional user, account, operator and
+administrator previews and loopback dashboard local-configuration simulations.
+Those previews cannot call a real backend or host proxy, use operational keys,
+connect to providers/accounts, deploy to production, purchase services or create
+a new suite. Production custom administration UI remains unapproved while the
+baseline stabilizes; reuse existing platform services. Confirmed CLI/text
+onboarding and authentication remain in scope.
 
 ## Client ownership and hosted service boundary
 
@@ -37,9 +56,18 @@ protects key values without displaying/logging them. Typed administration parity
 means client-side config operations share validation and authorization across
 interfaces; remote hosted operations act on the permitted association metadata,
 not uploaded user config. Optional separately approved features retain this
-boundary. Custom UI remains deferred/unapproved design, not delivered software.
+boundary. Synthetic/mock previews and loopback local-configuration simulations
+are separately authorized; production custom UI remains unapproved and not
+delivered software.
 
 ## First-run and minimal managed registration
+
+Automatic dual KMS/age association provisioning does not migrate existing local
+keys or encrypted assets. The [local-to-managed workflow](managed-key-service.md#end-to-end-local-to-managed-migration)
+requires selected client-local metadata inventory, capability/import checks and
+an approved staged migration with recovery/idempotency and compatible artifact
+versions. A mode flag, login or enrollment is not authority to read/export/upload
+local keys. Preserve originals and local config/source-credential custody.
 
 The intended product starts after installing an authenticated binary and running
 it: inspect the selected existing configuration first; otherwise use enrolled,
@@ -68,11 +96,13 @@ profile remains limited to that profile's approved endpoints.
 Resolve the service/profile and identity authority from the effective policy
 before sending registration data. Authenticate through the exact resolved issuer,
 resource and client profile. In the default managed profile, register the
-minimal user/client/tenant association immediately after successful
-resource-specific authentication and its server-side enrollment checks. This is
-the simple [identifier-to-age-private-key subscription](managed-key-service.md),
-not default configuration orchestration, remote unlocking or enterprise access
-administration. Managed key-release windows are enabled by default; registration
+user/client/tenant profile immediately after successful resource-specific
+authentication and enrollment checks. The latest explicit requirement provisions
+both [hosted software crypto and authenticated age-key associations](managed-key-service.md#authorized-software-launch-custody-and-provider-choice),
+not configuration orchestration or enterprise access administration. Association
+creation is not offline-key download, hybrid activation or automatic charging.
+Reconcile each resource idempotently and report readiness only when both required
+associations exist; no live provisioning has been performed here. Managed key-release windows are enabled by default; registration
 precedes the first permitted key fetch. No window duration is invented here.
 Registration creates no arbitrary mapping, tenant-admin role, production grant
 or permission to retrieve a key absent its current owner-authorized mapping.
@@ -89,9 +119,10 @@ to the public hosted service as fallback. Standalone personal use remains valid.
 Only the minimal authorized identifier/client/tenant enrollment metadata and
 possession proof reach the selected service. No personal configuration, include
 contents, provider values, private/decryption keys, environment dump or local
-provenance uploads by default. Key generation/import/storage is separately
-owner-authorized; registration must not scan local key files to populate a
-mapping. Protect enrollment credentials and retain only safe status locally.
+provenance uploads by default. Authorized product enrollment provisions the
+service-managed KMS/age associations under its bounded resource policy, not an
+import of local keys. Separate key import/release requires its own owner grant;
+registration must not scan local key files to populate a mapping. Protect enrollment credentials and retain only safe status locally.
 
 CI uses its declared workload identity and preapproved trust, never a browser
 prompt or human-session credential. Bind enrollment idempotency to the verified
@@ -124,7 +155,8 @@ same tenant/field authorization, validation, idempotency/reconciliation and
 audit; future unattended financial actions need explicit user boundaries and
 applicable confirmation. No automatic charge/upgrade, card custody, provider
 admin credential exposure or hosted config upload follows from capability.
-Provider-hosted portals are candidates; custom UI implementation stays deferred.
+Provider-hosted portals are candidates; synthetic/mock portal previews may be
+developed separately, while production custom UI remains unapproved.
 
 [Account RBAC](managed-key-service.md#account-rbac-and-scoped-authority) binds role
 permissions separately to tenant/org/customer/group/environment/fleet/key-

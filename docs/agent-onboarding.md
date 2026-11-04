@@ -1,5 +1,20 @@
 # Agent orientation
 
+The user explicitly authorized initial hosted SOFTWARE crypto + age using only
+existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
+DB, independently random profile DEKs and scoped auth/tenant isolation/required
+audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
+independent non-exportable/HSM custody. Stronger required profiles are unavailable
+here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
+monitor/helpdesk/upgrade or account connection is a launch prerequisite or
+authorized now. Actual existing tiers/issuer metadata is unverified; conditional
+CF-first versus Netlify-included-Identity must be qualified, not invented. The
+current forecast is hosting-only, with product tiers distinct from provider plans,
+allocated versus already-paid incremental spend and allowance/DB-active inflections;
+no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
+frontend previews may be developed separately; real backend tests remain
+separate from static design evidence.
+
 CircularQuay (`cquay`, pronounced “see-key”) connects existing secret providers
 to approved workloads. Start at the [product guide](product-guide.md) for the
 North Star; the [implementation plan](implementation-plan.md) defines the full
@@ -144,18 +159,20 @@ explicit domain policy; unavailable corporate input grants no production access.
 
 ### First-run evidence and hosted-service boundary
 
-The established [hosted key service](managed-key-service.md) is simple
-authenticated identifier-to-age-private-key registration/storage/retrieval,
+The latest explicit [hosted key service](managed-key-service.md) decision
+supersedes age-only baseline: genuine hosted KMS plus authenticated age-private-key
+service, with BOTH associations automatically provisioned by authorized enrollment,
 with minimal safe metering/free allowance and an explicit upgrade opportunity.
-Enterprise orchestration, remote unlocking and optional integrations are not
+Enterprise orchestration, exact-bundle remote authorization and optional integrations are not
 assumed base-subscription requirements or costs. The
 [first-run contract](management-and-discovery.md#first-run-and-minimal-managed-registration)
 initializes it after config/discovery/manual selection and authentication unless
 disabled via CLI or config. Both opt-outs must be resolved before any hosted
 network call; validate enterprise locks and fail before network on a conflict.
 
-Repository/source review found no `KVM` mode/enum; it is the user's supplied
-label, not a verified `--mode` value or a term to silently rename. Current
+The user clarified spoken KVM/PVM meant KMS, configured in the user profile.
+Read the [custody and hybrid contract](managed-key-service.md#per-profile-age-and-kms-custody);
+hosted KMS/dual provisioning is required but not established by the current adapter. Current
 bootstrap/usage source does not prove this full initialization behavior, hosted
 endpoint or opt-out tooling. Implementers must supply actual schema/command and
 runtime test evidence. Do not connect accounts, upload personal material or
@@ -178,23 +195,40 @@ browser/native client, through the user's VPN/network/source credentials.
 Never upload content/source credentials to the hosted backend/proxy/analytics/
 logs, even for corporate sources. Browser CORS/file permissions are not solved
 with a server proxy; use permitted native CLI/SDK/local client integration.
-Hosted state is only profile-to-age-key association/retrieval and necessary
+Hosted state is only profile-to-KMS/age association/retrieval and necessary
 enrollment/window/usage/billing. No key values are logged/displayed. CLI/config
-disable resolves before hosted network for fully client-only use. The user also
-said PVM; neither PVM nor KVM has a verified source enum/flag. Keep the naming
-uncertainty explicit rather than inventing support. This remains design and
-adds no authorization for deferred custom UI.
+disable resolves before hosted network for fully client-only use. KMS profile
+configuration stays client-side, distinct from hosted age-key registration.
+Automatic dual association provisioning is required product behavior once
+authorized and implemented, not permission for live paid setup in this assignment.
+It does not download offline keys or activate hybrid. No invented flag follows.
+This remains design and adds no authorization beyond separately bounded
+synthetic/mock previews and loopback local-configuration simulations.
+
+### Migration and full-service economics
+
+Local-to-managed migration and hosted KMS inherit the project's existing
+SECURITY/threat-model/security-profile/administration/assurance definitions.
+Read the [complete migration contract](managed-key-service.md#end-to-end-local-to-managed-migration)
+before changes; mode/enrollment is not migration or key-upload permission.
+Actual backend/hardware/import/format and interrupted recovery evidence must
+exist separately from mocks. The revised full KMS+age forecast replaces earlier
+age-only/native-KMS/labor-loaded prices for this question. It now shows hosting
+only, product-tier workloads, total allocated versus already-paid incremental
+cost, active-DB and allowance inflections. No labor, paid external KMS, CRM/
+payment or customer margins are embedded. Unknown controls cannot be waived.
 
 ### UI authorization boundary
 
-Expanded custom administration UI implementation remains deferred while the
-baseline stabilizes. Earlier authored screen proposals were not human-approved.
-The user has now explicitly confirmed the narrow [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-implementation-deferred),
-which is design confirmation only, not implementation approval. Do not
-start a UI workstream or describe those proposals as human-agreed/built. Reuse
-Cloudflare/Netlify services where appropriate and retain the confirmed CLI/text
-first-run authentication flow. This does not cancel other explicitly approved
-CircularQuay capabilities.
+Production custom administration UI remains unapproved while the baseline
+stabilizes. The confirmed [landing/client-SPA design](managed-key-service.md#explicitly-confirmed-ui-design-and-bounded-preview-work)
+authorizes a separate frontend checkout for synthetic/mock functional user,
+account, operator and administrator previews, plus loopback dashboard
+local-configuration edits and simulations. It does not authorize a real backend
+or host proxy, operational keys, provider/account access, production deployment,
+purchase or a new suite. Do not describe preview work as a delivered service.
+Reuse Cloudflare/Netlify services where appropriate and retain the CLI/text
+first-run authentication flow.
 
 ### Customer service versus provider administration
 
@@ -207,14 +241,16 @@ payment-card fields. Reuse actually entitled customer portals/support services.
 Machine financial actions require explicit user-approved boundaries and any
 applicable confirmation; no automatic charge/upgrade follows from enablement.
 Current docs establish no implemented billing command or connected provider.
-Configuration remains local and custom UI implementation remains deferred.
+Configuration remains local. Synthetic/mock account previews may be developed
+separately; production account UI remains unapproved.
 
 The [restricted operator console design](managed-key-service.md#restricted-remotely-hosted-operator-administration)
 is not the customer billing portal or local config SPA. Scoped support may see
 public key metadata, activity/utilization and justified coarse geography, never
 routine plaintext private keys or client config. Read-only defaults, strong
 operator auth, privacy/retention, independent maintenance authority and audit
-apply. Reuse provider consoles; custom UI remains deferred. ISO27001 alignment
+apply. Reuse provider consoles; synthetic/mock operator previews remain
+separate from unapproved production UI. ISO27001 alignment
 is not certification. No live customer-data access follows from this design.
 
 [Server account RBAC](managed-key-service.md#account-rbac-and-scoped-authority)

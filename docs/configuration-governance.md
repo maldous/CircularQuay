@@ -41,20 +41,23 @@ personal includes, source credentials or protected reference details enter a
 CircularQuay hosted backend, server proxy, analytics or logs. Local validation
 cannot silently become remote configuration administration.
 
-The hosted key service accepts only the authenticated profile-to-age-key
-association and retrieval contract, with necessary enrollment, metering and
-billing metadata. It does not store configuration or resolve providers on the
-client's behalf. A configuration digest/provenance view is local diagnostic
-state, not additional hosted request metadata. Optional external identity or
+The hosted key service accepts the authenticated profile's separate KMS and
+age-key associations, bounded remote key wrap/unwrap and permitted
+age-private-key retrieval, with necessary enrollment, metering and billing
+metadata. Authorized enrollment provisions both associations without downloading
+an offline key or approving fallback. It does not store configuration or resolve
+secret providers on the client's behalf. A configuration digest/provenance view
+is local diagnostic state, not additional hosted request metadata. Optional external identity or
 policy decisions use their separately approved minimal metadata contract;
 they do not authorize sending configuration bodies or source credentials.
 
 Browser CORS and file-permission limits are real compatibility boundaries.
 A browser uses an explicitly permitted source or approved local native
 CLI/SDK bridge; it never routes the configuration through a hosted proxy to
-work around those limits. Custom administration screens remain deferred and
-unapproved for implementation. This client-side design does not authorize
-building or deploying them.
+work around those limits. Authorized frontend development uses synthetic
+account/operator previews and a loopback local client dashboard. It does not
+authorize a backend or production deployment. Configuration remains local;
+preview adapters cannot upload it or contact operational key providers.
 
 A corporate signed repository and a protected personal local file can
 contribute to the same environment without sharing custody. Personal values,

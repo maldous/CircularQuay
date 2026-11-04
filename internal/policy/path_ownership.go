@@ -101,6 +101,9 @@ func credentialPaths(policy model.Policy) map[string]bool {
 
 func protectedReferenceInMutableLocation(path, policyPath, repository string) bool {
 	canonical := canonicalPath(path)
+	if canonical == "" {
+		return false
+	}
 	return canonical == policyPath || withinPath(repository, canonical)
 }
 
