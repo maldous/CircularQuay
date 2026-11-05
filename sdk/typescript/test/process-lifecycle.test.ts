@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import fsPromises, { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
@@ -92,12 +92,25 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       await assertProcessCategory(() => client.providers(), harness, '{"error":"access_denied"}', "denied", sdk);
       await assertProcessCategory(() => client.updateCheck(), harness, "malformed", "protocol", sdk);
       await assertProcessCategory(() => client.doctor(), harness, "", "process", sdk);
+      for (const response of ['{}', '{"error":1}', '{"error":"access_denied","detail":"synthetic"}', '{"error":"invented"}']) {
+        await assertProcessCategory(() => client.providers(), harness, response, "protocol", sdk);
+      }
+    });
+
+    await t.test("rejects nonportable parsed JSON from a successful child", async () => {
+      const client = await createClient(sdk, harness);
+      for (const response of ['{"number":1e400}', '{"number":9007199254740992}']) {
+        harness.enqueue(child => queueMicrotask(() => finish(child, response, 0)));
+        await assert.rejects(client.providers(), category(sdk, "protocol"));
+      }
     });
 
     await t.test("preserves an explicit effectful nonzero exit result", async () => {
       const client = await createClient(sdk, harness);
       harness.enqueue(child => queueMicrotask(() => child.emit("close", 7)));
       assert.deepEqual(await client.run("api"), { exitCode: 7, stdout: "" });
+      harness.enqueue(child => queueMicrotask(() => child.emit("close", null)));
+      assert.deepEqual(await client.run("api"), { exitCode: 1, stdout: "" });
     });
 
     await t.test("uses public config-init and flow-run contracts", async () => {
@@ -156,10 +169,110 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       const directory = await mkdtemp(join(tmpdir(), "cq-sdk-missing-"));
       try {
         await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: join(directory, "missing") }), category(sdk, "integrity"));
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: directory }), category(sdk, "integrity"));
+        const empty = join(directory, "empty");
+        await writeFile(empty, "");
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: empty }), category(sdk, "integrity"));
       } finally {
         await rm(directory, { force: true, recursive: true });
       }
       assert.equal(harness.children.length, before);
+    });
+
+    await t.test("refuses symlinks and unsafe opened-file metadata before process start", async childTest => {
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      const originalLstat = fsPromises.lstat;
+      const originalOpen = fsPromises.open;
+      childTest.mock.method(fsPromises, "lstat", async (path: string) => {
+        const stat = await originalLstat(path);
+        childTest.mock.method(stat, "isSymbolicLink", () => true);
+        return stat;
+      });
+      syncBuiltinESMExports();
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create(options), category(sdk, "integrity"));
+      } finally {
+        childTest.mock.restoreAll();
+        syncBuiltinESMExports();
+      }
+      for (const metadata of [{ isFile: false, size: 1 }, { isFile: true, size: 256 * 1024 * 1024 + 1 }]) {
+        childTest.mock.method(fsPromises, "open", async (...args: Parameters<typeof originalOpen>) => {
+          const handle = await originalOpen(...args);
+          childTest.mock.method(handle, "stat", async () => ({ isFile: () => metadata.isFile, size: metadata.size }));
+          return handle;
+        });
+        syncBuiltinESMExports();
+        try {
+          await assert.rejects(sdk.LocalCLIClient.create(options), category(sdk, "integrity"));
+        } finally {
+          childTest.mock.restoreAll();
+          syncBuiltinESMExports();
+        }
+      }
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("refuses an executable truncated during digest verification", async childTest => {
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      const originalOpen = fsPromises.open;
+      childTest.mock.method(fsPromises, "open", async (...args: Parameters<typeof originalOpen>) => {
+        const handle = await originalOpen(...args);
+        childTest.mock.method(handle, "read", async () => ({ bytesRead: 0 }));
+        return handle;
+      });
+      syncBuiltinESMExports();
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create(options), category(sdk, "integrity"));
+        assert.equal(harness.children.length, before);
+      } finally {
+        childTest.mock.restoreAll();
+        syncBuiltinESMExports();
+      }
+    });
+
+    await t.test("cancellation during executable verification prevents process creation", async childTest => {
+      const client = await createClient(sdk, harness);
+      const controller = new AbortController();
+      const before = harness.children.length;
+      const originalOpen = fsPromises.open;
+      childTest.mock.method(fsPromises, "open", async (...args: Parameters<typeof originalOpen>) => {
+        const handle = await originalOpen(...args);
+        const originalClose = handle.close.bind(handle);
+        childTest.mock.method(handle, "close", async () => { await originalClose(); controller.abort(); });
+        return handle;
+      });
+      syncBuiltinESMExports();
+      try {
+        await assert.rejects(client.plan({ signal: controller.signal }), category(sdk, "cancelled"));
+        assert.equal(harness.children.length, before);
+      } finally {
+        childTest.mock.restoreAll();
+        syncBuiltinESMExports();
+      }
+    });
+
+    await t.test("repeated lifecycle failures preserve the first bounded cleanup", async childTest => {
+      childTest.mock.timers.enable({ apis: ["setTimeout"] });
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => {
+        child.onKill = () => { throw new Error("synthetic kill failure"); };
+        queueMicrotask(() => {
+          child.stdin.emit("error", new Error("synthetic stdin"));
+          child.emit("error", new Error("synthetic child"));
+        });
+      });
+      const expectedChildCount = harness.children.length + 1;
+      const pending = client.plan();
+      await harness.waitFor(expectedChildCount);
+      childTest.mock.timers.tick(6000);
+      await assert.rejects(pending, category(sdk, "process"));
+      const child = harness.latest();
+      assert.deepEqual(child.signals, ["SIGTERM", "SIGKILL"]);
+      child.emit("close", 0);
+      child.stdout.emit("data", "x".repeat(1024 * 1024 + 1));
+      assert.deepEqual(child.signals, ["SIGTERM", "SIGKILL"]);
     });
 
     await t.test("cancellation reaps an unresponsive child through the bounded fallback", async childTest => {
