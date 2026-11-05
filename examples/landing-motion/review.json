@@ -1,0 +1,146 @@
+{
+  "scope": "Local landing-page animation proof of concept; review readiness only",
+  "recordedAt": "2026-11-05T05:39:16.206508+00:00",
+  "authority": "Direct human exemption: prepare a responsive localhost landing POC, plan and commit on the current branch without creating a Linear issue. Subsequent instruction preserves existing branding, colours, themes and fonts.",
+  "branch": "feature/initial-implementation",
+  "parent": "b30f1308bd384b04201df6d637fe016f8c8ba029",
+  "context": {
+    "study": "https://circularquay-motion-study.matthewaldous.chatgpt.site/",
+    "linearReadOnly": "https://linear.app/maldous/issue/UIF-170/integrate-and-complete-client-account-and-operator-interfaces",
+    "design": "../../web/DESIGN.md",
+    "paletteAndFonts": "../../web/style.css"
+  },
+  "result": "Ready for human localhost review; independent static source/visual review disposition ship; subsequent elapsed-time correction reviewed ship.",
+  "implemented": [
+    "Manual work becomes a coordinated local-policy route",
+    "Denied requests have no outgoing delivery or approval mark",
+    "Horizontal and separately authored compact SVG layouts",
+    "System/light/dark with existing tokens and font stack",
+    "Pause, replay, keyboard chapter selection, reduced motion and static no-JavaScript content"
+  ],
+  "source": {
+    "index.html": {
+      "bytes": 12987,
+      "sha256": "762c0aac26ee9a6d04a986464d74454e2320f50326e8cd517e6b0cbc0294c90d"
+    },
+    "style.css": {
+      "bytes": 14107,
+      "sha256": "cc6b10bed7b383f08fcf5cc5902453b8e176fb91d6f3ed745d3cf4a2014a6de5"
+    },
+    "motion.js": {
+      "bytes": 7615,
+      "sha256": "493aef4f41a60fca2d2928fbd67385d393c20537f92684bbfaddbc8da2cf8644"
+    },
+    "preference-bootstrap.js": {
+      "bytes": 327,
+      "sha256": "ed5e3697cd475ffcd8dd750c49213f870eb86a1b1db3162c23a0b6b9eeeb8278"
+    },
+    "assets/logo-light.svg": {
+      "bytes": 360,
+      "sha256": "4223e91d2d4bb298fec6f8a1e2840235f5404c033f52cfa74ebc88124969df25"
+    },
+    "assets/logo-dark.svg": {
+      "bytes": 360,
+      "sha256": "e3c6d2b5a0c928ec3c7256314eb3c8936272946339185bbe20f7608f87010cd6"
+    },
+    "server.mjs": {
+      "bytes": 3121,
+      "sha256": "14d0d55b7286821743158761c18dc8582ad434d68cea209d1bb9928370ee4395"
+    }
+  },
+  "publicAssetBytes": 35756,
+  "verification": {
+    "syntax": "Node v24.16.0 --check passed for all three JavaScript modules",
+    "http": "11 bounded route/asset/privacy/method checks passed",
+    "layouts": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "contentWidth": 1425,
+        "contentHeight": 1846
+      },
+      {
+        "name": "tablet",
+        "width": 820,
+        "height": 1180,
+        "contentWidth": 805,
+        "contentHeight": 1959
+      },
+      {
+        "name": "foldable-open",
+        "width": 673,
+        "height": 841,
+        "contentWidth": 673,
+        "contentHeight": 2102
+      },
+      {
+        "name": "foldable-closed",
+        "width": 360,
+        "height": 800,
+        "contentWidth": 360,
+        "contentHeight": 2075
+      },
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844,
+        "contentWidth": 390,
+        "contentHeight": 2120
+      },
+      {
+        "name": "narrow-phone",
+        "width": 320,
+        "height": 740,
+        "contentWidth": 320,
+        "contentHeight": 2145
+      }
+    ],
+    "pause": "Visible packet coordinates identical before/after pause",
+    "keyboard": "Enter selected denied chapter and aria-pressed=true",
+    "denied": "Only denied packet visible; approval opacity 0",
+    "autoplay": {
+      "chapter": "flow",
+      "elapsedMs": 14239.90000000596,
+      "playing": "false",
+      "reason": "settled",
+      "visibility": "visible"
+    },
+    "reducedMotion": "Static coordinated scene, no packet movement; explicit chapter exploration available",
+    "noJavaScript": "Full route, explanation and workbench links rendered; inert controls disabled",
+    "consoleErrors": 0,
+    "designHook": "Small-text finding fixed; no suppressions; later hook scan reported no deterministic issues"
+  },
+  "evidence": {
+    "desktop.jpg": "ce4e38ba1b9c77df2c4c10dd32b2ebc540c50fbfe8e5a07ffa29a0e65fc01f52",
+    "tablet.jpg": "4267cfd35e6a56d73e6ae442353f09793fb3824ddfed6def04237984a7347180",
+    "foldable-open.jpg": "23cd107af21d5ad91dc1ac05209009870795fd17fadbac0e9ec2e9fa6a4b4e5a",
+    "foldable-closed.jpg": "b40f9e15dd0077104dbe69eaaf97c42e56b18028956d96936266fb80d7e60bb6",
+    "mobile.jpg": "d6d47f362e55ccede4570ea73b28509a66af59a07e00eac820c384e68020247a",
+    "narrow-phone.jpg": "f16db750bf9fa8d836807c523d00460722a5838a4d19624edabfdedb3ce8df1b",
+    "dark-manual.jpg": "9287c28b568082a62d5731f75a71900868223a2a6bc9352707d58c84a0d13128",
+    "no-javascript.jpg": "f387f03e9cab880a5a9599c4ec577576a7f587dda7812599188289a8612b3b74"
+  },
+  "preservation": {
+    "preexistingSourceFiles": 1156,
+    "allPreexistingBytesUnchanged": true,
+    "existingPreviewPid": 1094745,
+    "existingPreviewPorts": [
+      5180,
+      5181
+    ],
+    "ownedPreview": "127.0.0.1:5182"
+  },
+  "limits": [
+    "Chromium viewport emulation, not physical tablet/foldable/mobile acceptance",
+    "Actual hinges, touch hardware, Safari/Firefox, RTL, forced-colours and CPU/frame profiling remain for integration",
+    "Hidden/offscreen scheduling is source-reviewed, not independently instrumented as device qualification",
+    "No native execution, real provider or backend exercised"
+  ],
+  "nextAction": "Matt reviews localhost and selects/revises the attractor; existing frontend/source owner integrates any adopted treatment later.",
+  "holds": [
+    "No new Linear issue or mutation",
+    "CIX and BAU execution remain paused",
+    "No production deployment, push, release, new controller, ownership transfer or workbench modification"
+  ]
+}
