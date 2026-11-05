@@ -51,6 +51,7 @@ export const assets = new Map([
   ['/explore-navigation.js', 'explore-navigation.js'],
   ['/explore-navigation.css', 'explore-navigation.css'],
   ['/landing-explore.js', 'landing-explore.js'],
+  ['/landing-navigation.js', 'landing-navigation.js'],
   ['/appearance.js', 'appearance.js'],
   ['/locale.js', 'locale.js'],
   ['/browser-services.js', 'browser-services.js'],
