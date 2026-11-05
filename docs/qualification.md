@@ -191,9 +191,9 @@ manifest digest and byte length in the trusted release module before decoding
 or fetching children; per-article hashes alone are insufficient. Local fulltext
 search, progressive article loading and bounded caching use query-free
 same-origin requests. F1 control context admits only static schema identifiers,
-normalizes declared map/list paths and restores focus on Escape. Root has not
-run Node or a browser; actual hosted, accessibility, relevance, device and
-performance acceptance remain separate. This pin does not defend a compromised
+normalizes declared map/list paths and restores focus on Escape. Independent
+Node/browser execution is not recorded for this source package; hosted,
+accessibility, relevance, device and performance acceptance remain separate. This pin does not defend a compromised
 trusted application bundle or host.
 
 The English authoring JSON is compacted to 957,833 bytes with parsed content
@@ -232,7 +232,7 @@ Static review covers 253 Go files using the pinned formatter, 67 Markdown files,
 666 local links, 27 JSON documents, six JSON examples and three embedded Python
 AST snippets. These checks are not compilation, executed tests, coverage or a
 security audit. No local application/build/analyzer runtime was run for this
-publication. Root browser source is unchanged from e103; the separate frontend
+publication. Browser source is unchanged from e103; the separate frontend
 correction candidate has not been integrated or qualified by this checkpoint.
 
 Automatic hosted runs are
@@ -305,9 +305,10 @@ schedules and canonical cleanup. Its separate 70-test discovery includes 33
 historical snapshot tests; that is not seventy distinct current tests. Live
 checks cover ten asset byte/MIME/security-header results, four prior boundary
 denials and eight raw-query denials on the same owned loopback ports. Node
-24.16.0 producer evidence is not the hosted runtime/platform matrix. Root
-copied and hash-verified the immutable packet and reviewed its static source
-and screenshot; no root Node/browser execution occurred.
+24.16.0 producer evidence is not the hosted runtime/platform matrix. The immutable
+packet was copied and hash-verified; its static source and screenshot were
+reviewed. No independent Node/browser execution is recorded for this acceptance
+checkpoint.
 
 The candidate also retains all command-preflight/target checks while separating
 cohesive request validation from engine construction, preserves both matching
@@ -1548,11 +1549,10 @@ request checks, private state, verified JAR copying and bounded process cleanup.
 Its Linux/macOS/Windows workflow and local instructions use the same suite.
 The exact 208bfe0 receipt above records all three hosted synthetic suites
 passing; that does not qualify other providers or a later source revision.
-Historically, an agent's two
-compile-only/vet batches ran despite the local resource hold; they executed no
-test bodies, had no retained exact-source/environment fence, and are not an
-integration pass. The root stopped further local execution. Retain the private
-`wiremock-compile-only-execution-20261104.json` receipt.
+Two historical compile-only/vet batches ran without the required shared-host
+resource release. They executed no test bodies, retained no exact-source or
+environment binding, and do not establish integration qualification. The private
+`wiremock-compile-only-execution-20261104.json` receipt records those runs.
 
 The ephemeral hosted Sonar workflow is a producer with strict coverage,
 warning, issue, hotspot and current-analysis checks. It uses a fresh isolated
