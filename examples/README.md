@@ -1,6 +1,6 @@
 # Synthetic examples
 
-`mcp-local.json` is an additional fabricated local MCP policy. Replace its placeholder `local:uid:1000` with `cquay doctor`'s kernel-derived `local_subject` (a SID on Windows). Its grant permits only discovery/status and explicit disclosure of the fabricated `DEMO_MESSAGE`; it does not permit executing actions. Protect the resulting policy and audit directory.
+`mcp-local.json` is an additional fabricated local MCP policy. Replace its placeholder `local:uid:1000` with `cq doctor`'s kernel-derived `local_subject` (a SID on Windows). Its grant permits only discovery/status and explicit disclosure of the fabricated `DEMO_MESSAGE`; it does not permit executing actions. Protect the resulting policy and audit directory.
 
 `linux-deployment.json` is a structurally and semantically valid, fully
 declared Linux reference for a fabricated SOPS/age hybrid workload, systemd
@@ -25,9 +25,9 @@ These values are deliberately fabricated. No example grants access to an actual 
 From the repository root:
 
 ```sh
-cquay --config examples/demo.json config validate
-cquay --config examples/demo.json plan
-cquay --config examples/demo.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+cq --config examples/demo.json config validate
+cq --config examples/demo.json plan
+cq --config examples/demo.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
 ```
 
 The command uses only a synthetic fixture and does not print delivered values.

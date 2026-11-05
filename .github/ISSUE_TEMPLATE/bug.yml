@@ -9,8 +9,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: cquay version or commit
-      description: Include the exact version and commit from cquay version.
+      label: cq version or commit
+      description: Include the exact version and commit from cq version.
     validations:
       required: true
   - type: input

@@ -70,8 +70,8 @@ GitHub CLI is available:
 
 ```sh
 tag=v1.0.0-rc.1 # Replace only with an existing selected release tag.
-asset=cquay_1.0.0-rc.1_linux_amd64.tar.gz
-checksums=cquay_1.0.0-rc.1_checksums.txt
+asset=cq_1.0.0-rc.1_linux_amd64.tar.gz
+checksums=cq_1.0.0-rc.1_checksums.txt
 
 gh release download "$tag" --repo maldous/CircularQuay \
   --pattern "$asset" --pattern "$checksums"

@@ -21,7 +21,7 @@ func TestRunnerHelpDoesNotLoadConfiguration(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("help returned status %d", code)
 			}
-			if !strings.HasPrefix(out.String(), "cquay [--config PATH]") {
+			if !strings.HasPrefix(out.String(), "cq [--config PATH]") {
 				t.Fatalf("help did not print usage: %q", out.String())
 			}
 			if diagnostics.Len() != 0 {

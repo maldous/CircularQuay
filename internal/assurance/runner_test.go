@@ -331,7 +331,7 @@ func TestBoundedOutput(t *testing.T) {
 }
 
 func TestRunCommandMissing(t *testing.T) {
-	result := runCommand(context.Background(), "cquay-nonexistent-audit-tool", nil, t.TempDir(), auditEnvironment(t.TempDir()))
+	result := runCommand(context.Background(), "cq-audit-nonexistent-tool", nil, t.TempDir(), auditEnvironment(t.TempDir()))
 	if !result.missing || result.exitCode != 127 {
 		t.Fatal("missing command not classified")
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestCoverageSummary(t *testing.T) {
-	profile := "mode: atomic\n" + modulePrefix + "internal/policy/policy.go:1.1,3.2 3 8\n" + modulePrefix + "internal/policy/policy.go:4.1,5.2 1 0\n" + modulePrefix + "cmd/cquay/main.go:1.1,2.1 4 1\n"
+	profile := "mode: atomic\n" + modulePrefix + "internal/policy/policy.go:1.1,3.2 3 8\n" + modulePrefix + "internal/policy/policy.go:4.1,5.2 1 0\n" + modulePrefix + "cmd/cq/main.go:1.1,2.1 4 1\n"
 	result, err := ParseCoverage(strings.NewReader(profile))
 	if err != nil {
 		t.Fatal(err)
