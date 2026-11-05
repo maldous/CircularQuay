@@ -75,7 +75,7 @@ test('optional steps are sparse, can be absent, and all feature copies remain re
   assert.ok(optionalWorkloads / 600 < .5);
   const none = createScenarioSession({ variantPools: variants, random: () => .9 });
   assert.equal(none.clauses.some(clause => clause.legs[0].route.startsWith('optional-')), false);
-  assert.deepEqual([...seen].sort(), [
+  assert.deepEqual([...seen].sort((left, right) => left.localeCompare(right, 'en')), [
     'check signing', 'limit MCP access', 'log an audit event',
     'read SCIM groups', 'request KMS access', 'use an age key',
   ]);
@@ -85,7 +85,7 @@ test('the balanced optional schedule leads with one visible feature and covers e
   const next = createOptionalSchedule({ random: seeded(41) });
   const first = [next(), next(), next(), next()];
   assert.ok(first[0].length === 1);
-  assert.deepEqual(first.map(mask => mask.join()).sort(), ['', '0', '0,1', '1']);
+  assert.deepEqual(first.map(mask => mask.join()).sort((left, right) => left.localeCompare(right, 'en')), ['', '0', '0,1', '1']);
   const following = Array.from({ length: 8 }, next);
   assert.equal([...first, ...following].flat().length, 12);
   const sequence = seed => Array.from({ length: 12 }, createOptionalSchedule({ random: seeded(seed) }), mask => mask.join());

@@ -80,11 +80,11 @@ function initialise() {
   input.addEventListener('input', () => { invalidateForInput(); if (input.value.trim()) timer = setTimeout(search, 100); else status.textContent = ''; });
   input.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); results = []; completed = null; close({ invalidate: true }); status.textContent = ''; return; }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (results.length && !popup.hidden) setActive(active + (event.key === 'ArrowDown' ? 1 : -1)); else search().then(() => { if (results.length) setActive(event.key === 'ArrowDown' ? 0 : results.length - 1); }); return; }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (results.length && !popup.hidden) setActive(active + (event.key === 'ArrowDown' ? 1 : -1)); else void search().then(() => { if (results.length) setActive(event.key === 'ArrowDown' ? 0 : results.length - 1); }).catch(() => {}); return; }
     if (event.key === 'Tab' && !event.shiftKey && !popup.hidden && results.length && !tabCompletion) { event.preventDefault(); completed = results[active < 0 ? 0 : active]; input.value = completed.title; tabCompletion = true; close(); return; }
-    if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); if (completed) open(completed); else if (results.length) open(active); else search().then(() => { if (results.length) open(0); }); }
+    if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); if (completed) open(completed); else if (results.length) open(active); else void search().then(() => { if (results.length) open(0); }).catch(() => {}); }
   });
-  form.addEventListener('submit', event => { event.preventDefault(); if (completed) open(completed); else if (results.length) open(active); else search().then(() => { if (results.length) open(0); }); });
+  form.addEventListener('submit', event => { event.preventDefault(); if (completed) open(completed); else if (results.length) open(active); else void search().then(() => { if (results.length) open(0); }).catch(() => {}); });
   list.addEventListener('mousemove', event => { const option = event.target.closest('[data-index]'); if (option) setActive(Number(option.dataset.index)); });
   list.addEventListener('pointerdown', event => { if (event.target.closest('[data-index]')) event.preventDefault(); });
   list.addEventListener('click', event => { const option = event.target.closest('[data-index]'); if (option) open(Number(option.dataset.index)); });

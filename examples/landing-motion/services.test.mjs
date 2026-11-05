@@ -50,7 +50,7 @@ test('configured state alone is not a verified service capability', () => {
 
 test('unknown properties and error text are dropped from adapter payloads', () => {
   const config = normaliseBrowserServiceConfig(qualifiedSentry);
-  assert.deepEqual(Object.keys(config.services.sentry.config).sort(), ['origin', 'projectId', 'release']);
+  assert.deepEqual(Object.keys(config.services.sentry.config).sort((left, right) => left.localeCompare(right, 'en')), ['origin', 'projectId', 'release']);
   const events = [];
   const api = initialiseBrowserServices({ surface: 'public-landing', config: qualifiedSentry });
   assert.equal(api.registerAdapter('sentry', { start: event => events.push(event), event: event => events.push(event) }), false);

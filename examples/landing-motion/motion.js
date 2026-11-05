@@ -121,8 +121,9 @@ function refreshGeometry() {
   geometryDirty = false;
 }
 
-function setStory(activeIndex, complete, refs = { story, prefix: storyPrefix, clauses: storyClauses, alternative: storyAlternative }, candidate = session, live = true) {
+function setStory(activeIndex, complete, suppliedRefs, candidate = session, live = true) {
   if (!candidate) return;
+  const refs = suppliedRefs ?? { story, prefix: storyPrefix, clauses: storyClauses, alternative: storyAlternative };
   const key = `${candidate.id}:${activeIndex}:${complete}`;
   if (live && key === renderedStoryKey) return;
   if (live) renderedStoryKey = key;
@@ -132,7 +133,7 @@ function setStory(activeIndex, complete, refs = { story, prefix: storyPrefix, cl
   if (refs.alternative) { refs.alternative.textContent = candidate.suffix; refs.alternative.dataset.state = complete ? 'complete' : 'pending'; }
   if (!refs.clauses) return;
   const renderedWords = [];
-  const normalise = value => value.toLocaleLowerCase().replaceAll(/^[^\p{L}\p{N}/]+|[^\p{L}\p{N}/]+$/gu, '');
+  const normalise = value => value.toLocaleLowerCase().replace(/^[^\p{L}\p{N}/]+/gu, '').replace(/[^\p{L}\p{N}/]+$/gu, '');
   const clauseIndex = new Map(candidate.clauses.map((item, index) => [item, index]));
   refs.clauses.replaceChildren(...candidate.tasks.map((task, workloadIndex) => {
     const taskElement = document.createElement('span');
@@ -393,7 +394,7 @@ function tick(timestamp) {
   sessionElapsed += lastTime === null ? 0 : timestamp - lastTime; lastTime = timestamp;
   if (geometryDirty) refreshGeometry();
   if (timestamp - lastPaint >= 1000 / 30) { paintSession(); lastPaint = timestamp; }
-  if (session && sessionElapsed >= session.duration) { queueNextSession(); return; }
+  if (session && sessionElapsed >= session.duration) { void queueNextSession().catch(() => { story?.classList.remove('is-transitioning'); preparingSession = false; updateFrame(); }); return; }
   if (motionEnabled()) frame = requestAnimationFrame(tick);
 }
 
@@ -424,12 +425,12 @@ async function prepareFirstScene() {
   preparingSession = false;
   updateFrame();
 }
-prepareFirstScene();
+void prepareFirstScene().catch(() => { journey?.setAttribute('aria-busy', 'false'); preparingSession = false; updateFrame(); });
 journey?.addEventListener('focusin', () => { pausedByFocus = true; updateFrame(); });
 journey?.addEventListener('focusout', () => { pausedByFocus = false; updateFrame(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !event.defaultPrevented) { pausedByEscape = !pausedByEscape; updateFrame(); } });
 document.addEventListener('visibilitychange', updateFrame);
-window.addEventListener('appearance:reduced-motion', () => { if (root.dataset.layoutReady !== 'true') return; if (isReducedMotion()) { const staticSession = staticScenario(variantPools()); preload(staticSession.selection).then(ready => { if (ready) { beginSession(staticSession, true); paintSession(); } updateFrame(); }); } else updateFrame(); });
+window.addEventListener('appearance:reduced-motion', () => { if (root.dataset.layoutReady !== 'true') return; if (isReducedMotion()) { const staticSession = staticScenario(variantPools()); void preload(staticSession.selection).then(ready => { if (ready) { beginSession(staticSession, true); paintSession(); } updateFrame(); }).catch(() => updateFrame()); } else updateFrame(); });
 window.addEventListener('resize', scheduleStoryReservation, { passive: true });
 window.addEventListener('localechange', () => { storyReservationKey = ''; scheduleStoryReservation(); });
 document.fonts?.addEventListener('loadingdone', () => { storyReservationKey = ''; scheduleStoryReservation(); });

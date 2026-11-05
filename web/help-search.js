@@ -4,7 +4,7 @@ const maximumQueryTerms = 32;
 // Preserve whole identifiers and their word components so ordinary language,
 // CLI flags, snake_case and camelCase names all address the same local corpus.
 export function searchTerms(text) {
-  const normalized = String(text).normalize('NFKC').replace(/[\u0610-\u061a\u0640\u064b-\u065f\u0670\u06d6-\u06ed]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي');
+  const normalized = String(text).normalize('NFKC').replace(/[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]|\u0640/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي');
   const identifier = /^[\p{L}\p{N}]+(?:[._/][\p{L}\p{N}]+)+$/u.test(normalized) ? [normalized.toLowerCase().replace(/[._/]/g, '')] : [];
   const complete = normalized.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
   const components = normalized.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];

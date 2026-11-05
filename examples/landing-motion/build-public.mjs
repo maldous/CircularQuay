@@ -3,13 +3,13 @@ import { createHash } from 'node:crypto';
 import { dirname, extname, relative, resolve } from 'node:path';
 
 process.env.CQ_EXPORT_ROUTE_MAP = '1';
-const { assets, contentTypes, root } = await import('./server.mjs');
+const { assets, canonicalHelpSources, contentTypes, root } = await import('./server.mjs');
 
 const output = resolve(root, '.public-dist');
 const local = resolve(root, '.local');
 const modulePath = resolve(local, 'worker-routes.mjs');
 const manifestPath = resolve(local, 'public-upload-manifest.json');
-const expectedRouteCount = 900;
+const expectedRouteCount = 904;
 const routes = [...assets.entries()]
   .map(([route, file]) => ({ route, file }))
   .sort((left, right) => left.route.localeCompare(right.route));
@@ -20,12 +20,15 @@ if (routes.length !== expectedRouteCount) {
 
 const isInsideRoot = file => file === root || file.startsWith(`${root}/`);
 const resolveSource = file => {
+  const canonical = canonicalHelpSources.get(file);
+  if (canonical) return canonical;
   const source = resolve(root, file);
   if (!isInsideRoot(source)) throw new Error(`Unsafe public source path: ${file}`);
   return source;
 };
 const sha256 = buffer => createHash('sha256').update(buffer).digest('hex');
 const routeType = file => contentTypes[extname(file)] || 'application/octet-stream';
+const compareCodeUnits = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 const entriesByFile = new Map();
 for (const entry of routes) {
   const source = resolveSource(entry.file);
@@ -54,7 +57,7 @@ async function manifest() {
       bytes: details.size,
       sha256: sha256(sourceBytes),
       mime: routeType(file),
-      routes: [...entry.routes].sort(),
+      routes: [...entry.routes].sort(compareCodeUnits),
     });
   }
   return {

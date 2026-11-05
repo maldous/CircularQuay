@@ -40,7 +40,7 @@
         <span id="site-search-hint" class="visually-hidden">Use arrow keys to choose a result, Tab to complete its title, and Enter to open it.</span>
         <div id="site-search-popup" class="search-suggestions" hidden>
           <ul id="site-search-results" role="listbox" aria-label="Search suggestions"></ul>
-          <p id="site-search-status" role="status" aria-live="polite"></p>
+          <p id="site-search-status" aria-live="polite"></p>
         </div>
       </form>
     </div>
@@ -50,7 +50,7 @@
   <main id="main" class="login-main page-width">
     <div class="login-layout" aria-label="Login options">
     <section class="provider-panel" aria-label="Identity providers">
-      <p id="provider-status" class="provider-status" role="status" aria-live="polite"></p>
+      <p id="provider-status" class="provider-status" aria-live="polite"></p>
       <fieldset class="provider-grid" aria-label="Identity provider choices" disabled>
         <button type="button" class="provider-choice" data-provider="Google Workspace"><img src="assets/integrations/google.svg" alt="" width="24" height="24">Google Workspace</button>
         <button type="button" class="provider-choice" data-provider="GitHub"><img src="assets/integrations/github.svg" alt="" width="24" height="24">GitHub</button>
@@ -86,10 +86,10 @@
     </section>
 
     <aside class="account-reserved" aria-label="Account access">
-      <div class="account-actions" role="group" aria-label="Account actions"><button type="button" data-mode="create" aria-pressed="true" data-i18n-login="createMode">New account</button><button type="button" data-mode="reset" aria-pressed="false" data-i18n-login="resetMode">Reset password</button></div>
+      <div class="account-actions"><button type="button" data-mode="create" aria-pressed="true" data-i18n-login="createMode">New account</button><button type="button" data-mode="reset" aria-pressed="false" data-i18n-login="resetMode">Reset password</button></div>
       <form id="account-form" novalidate>
         <fieldset disabled aria-label="Account email form"><label for="email" data-i18n-login="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required><button id="account-submit" type="submit">Create account</button></fieldset>
-        <p id="account-status" role="status" aria-live="polite"></p>
+        <p id="account-status" aria-live="polite"></p>
       </form>
     </aside>
     </div>

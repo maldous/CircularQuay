@@ -31,8 +31,7 @@ async function validateLoginProviders() {
   const login = await readFile(new URL('login.html', directory), 'utf8');
   const fieldset = login.match(/<fieldset\b(?=[^>]*\bclass="provider-grid")(?=[^>]*\bdisabled\b)[^>]*>([\s\S]*?)<\/fieldset>/);
   if (!fieldset) throw new Error('Missing disabled provider-grid fieldset in login.html');
-  const providers = [...fieldset[1].matchAll(/<button\b[^>]*\bclass="provider-choice"[^>]*\bdata-provider="([^"]+)"[^>]*>\s*<img\b[^>]*\bsrc="([^"]+)"[^>]*>\s*([^<]+?)<\/button>/g)]
-    .map(([, name, asset, text]) => ({ name, asset, text: text.trim() }));
+  const providers = providerChoices(fieldset[1]);
   const identity = catalog.groups.find(group => group.id === 'identity').items;
   if (providers.length !== 30) throw new Error(`Expected 30 login providers, found ${providers.length}`);
   identity.forEach((item, index) => {
@@ -41,6 +40,30 @@ async function validateLoginProviders() {
       throw new Error(`Login provider ${index + 1} does not match ${item.name}`);
     }
   });
+}
+
+function providerChoices(markup) {
+  return markup.split('</button>').flatMap(fragment => {
+    const buttonStart = fragment.indexOf('<button');
+    const buttonEnd = buttonStart < 0 ? -1 : fragment.indexOf('>', buttonStart);
+    const button = buttonEnd < 0 ? '' : fragment.slice(buttonStart, buttonEnd + 1);
+    if (!button || !button.includes('class="provider-choice"')) return [];
+    const imageStart = fragment.indexOf('<img', buttonEnd + 1);
+    const imageEnd = imageStart < 0 ? -1 : fragment.indexOf('>', imageStart);
+    const name = attribute(button, 'data-provider');
+    const asset = imageEnd < 0 ? undefined : attribute(fragment.slice(imageStart, imageEnd + 1), 'src');
+    if (!name || !asset) return [];
+    return [{ name, asset, text: fragment.slice(imageEnd + 1).trim() }];
+  });
+}
+
+function attribute(markup, name) {
+  const marker = `${name}="`;
+  const start = markup.indexOf(marker);
+  if (start < 0) return undefined;
+  const valueStart = start + marker.length;
+  const valueEnd = markup.indexOf('"', valueStart);
+  return valueEnd < 0 ? undefined : markup.slice(valueStart, valueEnd);
 }
 
 const inventory = await validateInventory();

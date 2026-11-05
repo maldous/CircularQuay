@@ -13,7 +13,19 @@ const mobileTopic = document.querySelector('#mobile-topic-link');
 let active = null;
 const moduleCache = new Map();
 const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-const repositoryBase = () => String(documentation.repository || '').replace(/\/$/, '').replace(/\.git$/, '').startsWith('http') ? String(documentation.repository).replace(/\/$/, '').replace(/\.git$/, '') : `https://github.com/${String(documentation.repository || '').replace(/^\/+|\/+$/g, '')}`;
+const withoutTrailingSlash = value => value.endsWith('/') ? value.slice(0, -1) : value;
+const withoutGitSuffix = value => value.endsWith('.git') ? value.slice(0, -4) : value;
+const withoutOuterSlashes = value => {
+  let result = value;
+  while (result.startsWith('/')) result = result.slice(1);
+  while (result.endsWith('/')) result = result.slice(0, -1);
+  return result;
+};
+const repositoryBase = () => {
+  const repository = String(documentation.repository || '');
+  const normalized = withoutGitSuffix(withoutTrailingSlash(repository));
+  return normalized.startsWith('http') ? normalized : `https://github.com/${withoutOuterSlashes(repository)}`;
+};
 const snapshotId = () => String(documentation.sourceFreezeManifestSha256 || documentation.snapshotSha || documentation.snapshotHash || documentation.revision || 'local');
 const snapshotShort = () => snapshotId().slice(0, 12);
 const repositoryBranch = () => String(documentation.repositoryBranch || documentation.branch || documentation.sourceBranch || 'feature/initial-implementation');
@@ -53,6 +65,6 @@ function neighbors(item, part) { const entries = documentation.documents.flatMap
 function partNavigation(item, part) { const [previous, next] = neighbors(item, part); const link = (entry, label) => entry ? `<a href="#doc=${encodeURIComponent(entry.doc.id)}&part=${encodeURIComponent(entry.chapter.id)}">${label}: ${escapeHtml(entry.chapter.title)}</a>` : ''; return `<nav class="part-navigation" aria-label="Document navigation">${link(previous, 'Previous')}${link(next, 'Next')}</nav>`; }
 function scroll(anchor) { article.scrollTop = 0; if (anchor) requestAnimationFrame(() => content.querySelector(`#${CSS.escape(anchor)}`)?.scrollIntoView({ block: 'start', inline: 'nearest' })); }
 async function documentView(next, focus = false) { active = next; setMode('document'); renderRail(next.group, next.document); const group = next.group; const groupHref = `/explore#group=${encodeURIComponent(group?.id || '')}`; topicsBack.href = groupHref; mobileTopic.href = groupHref; mobileTopic.textContent = group?.title || 'Topic'; status.hidden = false; status.dataset.state = ''; status.textContent = 'Loading documentation…'; content.hidden = true; try { const loaded = await loadPart(next.document, next.part); if (active !== next) return; const title = (next.document.parts.length > 1 ? next.part.title : next.document.title).replaceAll('`', ''); content.innerHTML = `<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/explore">Explore</a><span aria-hidden="true">/</span><a href="${groupHref}">${escapeHtml(group?.title || 'Documentation')}</a><span aria-hidden="true">/</span><span>${escapeHtml(next.document.title)}</span></nav>${guideContents(next.document, next.part)}${recordNotice(next.document)}${loaded.html}`; if (!content.querySelector('h1')) content.insertAdjacentHTML('afterbegin', `<h1 tabindex="-1">${escapeHtml(title)}</h1>`); if (next.recovery) content.insertAdjacentHTML('afterbegin', '<p class="document-recovery" role="status">That document location was not found. Showing the nearest available document instead.</p>'); content.insertAdjacentHTML('beforeend', `<p class="document-provenance"><a href="${sourceHref(next.document)}" rel="noreferrer">Repository source (may differ from this local snapshot)</a></p>${partNavigation(next.document, next.part)}`); resetReader(); renderContents(next.document, next.part); scroll(next.anchor); if (focus) content.querySelector('h1, h2, h3, h4')?.focus({ preventScroll: true }); } catch (error) { status.hidden = false; status.dataset.state = 'error'; status.textContent = `This document could not be loaded. Choose another document or return to the topic overview. (${error.message})`; contentsList.replaceChildren(); } }
-function render(focus = false) { const next = route(); if (next.type === 'home') home(); else if (next.type === 'group') groupOverview(next.group); else documentView(next, focus); }
+function render(focus = false) { const next = route(); if (next.type === 'home') home(); else if (next.type === 'group') groupOverview(next.group); else void documentView(next, focus); }
 function initialise() { if (!documentation?.documents?.length) throw new Error('Documentation manifest is empty.'); const assigned = new Set(navigationGroups.flatMap(group => group.documents)); if (assigned.size !== documentation.documents.length || documentation.documents.some(item => !assigned.has(item.id))) throw new Error('Documentation navigation is incomplete.'); document.querySelector('#rail-revision').textContent = `Local working-tree snapshot · ${documentation.snapshotDate} · ${snapshotShort()}`; document.querySelector('#revision-stamp').textContent = `Local working-tree snapshot ${snapshotShort()} · ${documentation.snapshotDate}`; document.querySelector('#repository-link').href = `${repositoryBase()}/tree/${encodeURIComponent(repositoryBranch())}`; search.addEventListener('input', () => renderRail(active?.group || route().group, active?.document)); addEventListener('hashchange', () => render(true)); render(false); }
 initialise();

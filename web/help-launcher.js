@@ -1,7 +1,10 @@
 // IDs mirror the reviewed authoring producer's public-schema naming rule.
 // This receives a public schema pattern, never a user's concrete map key.
+const isSchemaSegment = value => value === '{id}' || value === '*' || /^[a-z0-9_]+$/.test(value);
+const isSchemaPointer = value => value === '/' || (typeof value === 'string' && value.startsWith('/') && value.slice(1).split('/').every(isSchemaSegment));
+
 export async function schemaHelpTopic(pointer) {
-  if (typeof pointer !== 'string' || !/^\/(?:[a-z0-9_]+|\{id\}|\*)(?:\/(?:[a-z0-9_]+|\{id\}|\*))*$/.test(pointer) && pointer !== '/') return null;
+  if (!isSchemaPointer(pointer)) return null;
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pointer)))].map(value => value.toString(16).padStart(2, '0')).join('');
   const slug = pointer.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return `control-schema-${slug}-${hash.slice(0, 12)}`;
@@ -31,12 +34,12 @@ export function installHelp() {
     } catch { status.textContent = 'Help could not load. Your workspace is unchanged. Try Help & search again.'; }
     finally { launcher.disabled = false; }
   }
-  launcher.onclick = () => open(currentTopic(), launcher);
+  launcher.onclick = () => { void open(currentTopic(), launcher); };
   document.addEventListener('click', event => {
     const trigger = event.target.closest('[data-help-topic]');
-    if (trigger) { event.preventDefault(); open(trigger.dataset.helpTopic, trigger); }
+    if (trigger) { event.preventDefault(); void open(trigger.dataset.helpTopic, trigger); }
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'F1' && !document.querySelector('.help-dialog[open]')) { event.preventDefault(); open(document.activeElement?.dataset.helpTopic || currentTopic(), document.activeElement, document.activeElement?.closest('[data-help-schema]')?.dataset.helpSchema); }
+    if (event.key === 'F1' && !document.querySelector('.help-dialog[open]')) { event.preventDefault(); void open(document.activeElement?.dataset.helpTopic || currentTopic(), document.activeElement, document.activeElement?.closest('[data-help-schema]')?.dataset.helpSchema); }
   });
 }

@@ -21,7 +21,13 @@ const appIntent = {
   'github-actions': ['run with', 'run a pipeline'], 'gitlab-ci-cd': ['run with', 'run a pipeline'], jenkins: ['run with', 'run a pipeline'], circleci: ['run with', 'run a pipeline'], 'argo-cd': ['deploy with', 'deploy a release'], flux: ['deploy with', 'deploy a release'],
   jupyter: ['run in', 'run a notebook'], temporal: ['run with', 'run a workflow'], n8n: ['run with', 'run an automation'], mcp: ['connect to', 'connect an AI tool']
 };
-function shortName(item) { return config.shortNames[item.id] || item.name.replace(/\s+(OAuth|Login|identity|Authentication|repositories|Object Storage)$/i, ''); }
+const removableNameSuffixes = ['OAuth', 'Login', 'identity', 'Authentication', 'repositories', 'Object Storage'];
+function shortName(item) {
+  if (config.shortNames[item.id]) return config.shortNames[item.id];
+  const name = item.name.trimEnd();
+  const suffix = removableNameSuffixes.find(candidate => name.toLocaleLowerCase().endsWith(` ${candidate.toLocaleLowerCase()}`));
+  return suffix ? name.slice(0, -suffix.length).trimEnd() : item.name;
+}
 function appDescriptor(item, pool) { const [verb, intent] = appIntent[item.id] || (pool === 'shell' ? ['run with', 'run a command'] : ['use', 'run an application']); const name = shortName(item); return { id:item.id, group:'applications', name, fullName:item.name, asset:item.asset, role:appRole[item.id] || appRole[pool], intent, action:`${verb} ${name}` }; }
 function sourceDescriptor(item) { const name = shortName(item); return { id:item.id, group:'sources', name, fullName:item.name, asset:item.asset, role:'Encrypted', intent:'read an encrypted source', action:`read from ${name}` }; }
 function identityDescriptor(item) { const name = shortName(item); return { id:item.id, group:'identity', name, fullName:item.name, asset:item.asset, role:'Authentication', intent:'sign in with an identity provider', action:`sign in with ${name}` }; }

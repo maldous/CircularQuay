@@ -22,6 +22,22 @@ const listeners = new Set();
 const maximumAssetBytes = 4 * 1024 * 1024;
 const maximumReloadListeners = 32;
 
+function acceptsBrotliEncoding(header) {
+  return String(header || '').split(',').some(value => {
+    const [coding, ...parameters] = value.trim().split(';');
+    if (coding.toLowerCase() !== 'br' || parameters.length > 1) return false;
+    if (!parameters.length) return true;
+    const quality = parameters[0].trim();
+    if (quality.slice(0, 2).toLowerCase() !== 'q=') return false;
+    const value = quality.slice(2);
+    if (value === '0' || value === '1') return value === '1';
+    const [whole, fraction, ...rest] = value.split('.');
+    if (rest.length || !fraction || fraction.length > 3) return false;
+    if (whole === '0') return /^[0-9]{1,3}$/.test(fraction) && /[1-9]/.test(fraction);
+    return whole === '1' && /^0{1,3}$/.test(fraction);
+  });
+}
+
 function isContained(directory, path) {
   const remainder = relative(directory, path);
   return remainder !== '' && remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder);
@@ -182,10 +198,7 @@ export function createPreview(plane, sourceRoot = root) {
     if (!shared.has(name) && !assets[plane].has(name)) return reject(404);
     try {
       const immutableHelp = /^help\/generated\/.+-[a-f0-9]{64}\.json$/.test(name);
-      const acceptsBrotli = String(request.headers['accept-encoding'] || '').split(',').some(part => {
-        const match = /^\s*br\s*(?:;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?\s*$/i.exec(part);
-        return match && (match[1] === undefined || Number(match[1]) > 0);
-      });
+      const acceptsBrotli = acceptsBrotliEncoding(request.headers['accept-encoding']);
       let bytes = immutableHelp && acceptsBrotli ? await readTrustedAsset(directory, name + '.br') : null;
       if (bytes) headers['Content-Encoding'] = 'br';
       else bytes = await readTrustedAsset(directory, name);

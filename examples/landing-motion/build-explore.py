@@ -156,7 +156,18 @@ def github_slug(title: str, seen: Counter[str]) -> str:
     return value if suffix == 0 else f"{value}-{suffix}"
 
 
-HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+HEADING = re.compile(r"^(#{1,6})[ \t]+(.+)$")
+
+
+def heading_text(value: str) -> str:
+    """Normalize an ATX heading without a backtracking expression."""
+    title = value.strip()
+    closing_start = title.rfind(" #")
+    if closing_start >= 0:
+        closing = title[closing_start + 1 :]
+        if closing == "#" * len(closing):
+            title = title[:closing_start].rstrip()
+    return title
 
 
 def headings_and_parts(source: str, path: str) -> tuple[list[dict], list[dict]]:
@@ -173,7 +184,7 @@ def headings_and_parts(source: str, path: str) -> tuple[list[dict], list[dict]]:
         if not in_fence:
             match = HEADING.match(line.rstrip("\n"))
             if match:
-                title = match.group(2).strip()
+                title = heading_text(match.group(2))
                 item = {"id": github_slug(title, seen), "title": title, "level": len(match.group(1)), "line": index}
                 headings.append(item)
                 if item["level"] == 2 and words > 2500:
@@ -216,9 +227,8 @@ def repository_context_url(path: str, directory: bool) -> str:
 
 def title_from_source(source: str, fallback: str) -> str:
     for line in source.splitlines():
-        match = re.match(r"^#\s+(.+?)\s*$", line)
-        if match:
-            return match.group(1).strip()
+        if line.startswith("#") and len(line) > 1 and line[1] in " \t":
+            return line[2:].strip()
     return fallback
 
 
@@ -300,8 +310,38 @@ class SafeHtml(HTMLParser):
 
 def flatten_details(source: str) -> str:
     """A details block is information, not UI state in the static reader."""
-    pattern = re.compile(r"<details(?:\s[^>]*)?>\s*<summary>(.*?)</summary>(.*?)</details>", re.I | re.S)
-    return pattern.sub(lambda match: f'<section class="explore-details"><h3>{match.group(1)}</h3>{match.group(2)}</section>', source)
+    lowered = source.lower()
+    output: list[str] = []
+    cursor = 0
+    while True:
+        details_start = lowered.find("<details", cursor)
+        if details_start < 0:
+            output.append(source[cursor:])
+            return "".join(output)
+        details_open_end = lowered.find(">", details_start)
+        if details_open_end < 0:
+            output.append(source[cursor:])
+            return "".join(output)
+        summary_start = lowered.find("<summary>", details_open_end + 1)
+        if summary_start < 0 or source[details_open_end + 1 : summary_start].strip():
+            output.append(source[cursor : details_open_end + 1])
+            cursor = details_open_end + 1
+            continue
+        summary_end = lowered.find("</summary>", summary_start + len("<summary>"))
+        details_end = (
+            lowered.find("</details>", summary_end + len("</summary>"))
+            if summary_end >= 0
+            else -1
+        )
+        if summary_end < 0 or details_end < 0:
+            output.append(source[cursor : details_open_end + 1])
+            cursor = details_open_end + 1
+            continue
+        output.append(source[cursor:details_start])
+        title = source[summary_start + len("<summary>") : summary_end]
+        body = source[summary_end + len("</summary>") : details_end]
+        output.append(f'<section class="explore-details"><h3>{title}</h3>{body}</section>')
+        cursor = details_end + len("</details>")
 
 
 def replace_remote_images(rendered: str, current: str, external_images: list[dict]) -> str:
@@ -310,18 +350,71 @@ def replace_remote_images(rendered: str, current: str, external_images: list[dic
     Keep its meaningful alternate label and target while preventing a live badge
     request or an accidental current-status claim in this fixed snapshot.
     """
-    paired = re.compile(r'<a\s+href="([^"]+)"[^>]*>\s*<img\s+[^>]*?src="(https?://[^"]+)"[^>]*?alt="([^"]*)"[^>]*?/?>\s*</a>', re.I)
-    def paired_substitute(match):
-        target, uri, alt = match.group(1), match.group(2), match.group(3) or "external image"
-        external_images.append({"document": current, "uri": uri, "alt": alt})
-        return f'<a href="{escape(target, quote=True)}">{escape(alt)}</a>'
-    rendered = paired.sub(paired_substitute, rendered)
-    image = re.compile(r'<img\s+[^>]*?src="(https?://[^"]+)"[^>]*?alt="([^"]*)"[^>]*?/?>', re.I)
-    def substitute(match):
-        uri, alt = match.group(1), match.group(2) or "external image"
-        external_images.append({"document": current, "uri": uri, "alt": alt})
-        return f'<a href="{escape(uri, quote=True)}">{escape(alt)}</a>'
-    return image.sub(substitute, rendered)
+    class RemoteImageRewriter(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=False)
+            self.out: list[str] = []
+            self.anchor_open: str | None = None
+            self.anchor_content: list[str] = []
+
+        def emit(self, value: str) -> None:
+            target = self.anchor_content if self.anchor_open is not None else self.out
+            target.append(value)
+
+        def handle_starttag(
+            self, tag: str, attrs: list[tuple[str, str | None]]
+        ) -> None:
+            raw = self.get_starttag_text()
+            if tag == "a" and self.anchor_open is None:
+                self.anchor_open = raw
+                self.anchor_content = []
+                return
+            if tag != "img":
+                self.emit(raw)
+                return
+            values = dict(attrs)
+            uri = values.get("src", "")
+            if urlparse(uri).scheme.lower() not in {"http", "https"}:
+                self.emit(raw)
+                return
+            alt = values.get("alt") or "external image"
+            external_images.append({"document": current, "uri": uri, "alt": alt})
+            if self.anchor_open is not None:
+                self.emit(escape(alt))
+            else:
+                self.emit(f'<a href="{escape(uri, quote=True)}">{escape(alt)}</a>')
+
+        def handle_startendtag(
+            self, tag: str, attrs: list[tuple[str, str | None]]
+        ) -> None:
+            self.handle_starttag(tag, attrs)
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "a" and self.anchor_open is not None:
+                self.out.extend((self.anchor_open, *self.anchor_content, "</a>"))
+                self.anchor_open = None
+                self.anchor_content = []
+                return
+            self.emit(f"</{tag}>")
+
+        def handle_data(self, data: str) -> None:
+            self.emit(data)
+
+        def handle_entityref(self, name: str) -> None:
+            self.emit(f"&{name};")
+
+        def handle_charref(self, name: str) -> None:
+            self.emit(f"&#{name};")
+
+        def handle_comment(self, data: str) -> None:
+            self.emit(f"<!--{data}-->")
+
+    rewriter = RemoteImageRewriter()
+    rewriter.feed(rendered)
+    rewriter.close()
+    if rewriter.anchor_open is not None:
+        rewriter.out.extend((rewriter.anchor_open, *rewriter.anchor_content))
+    return "".join(rewriter.out)
 
 
 class RenderedHtmlSanitizer(HTMLParser):

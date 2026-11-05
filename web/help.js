@@ -97,15 +97,15 @@ export function mountHelp(root, { topic = '', close, standalone = false } = {}) 
   input.oninput = () => { clearTimeout(timer); queryGeneration += 1; timer = setTimeout(updateSearch, 100); };
   input.onkeydown = event => {
     if (event.key === 'ArrowDown') { event.preventDefault(); results.querySelector('[data-topic]')?.focus(); }
-    if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); updateSearch(); }
+    if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); void updateSearch(); }
   };
   root.onclick = event => {
     if (event.target.closest('[data-help-close]')) close?.();
     const topicButton = event.target.closest('[data-topic]');
-    if (topicButton) showArticle(topicButton.dataset.topic, true);
-    if (event.target.closest('[data-help-clear]')) { input.value = ''; input.focus(); updateSearch(); }
-    if (event.target.closest('[data-help-retry]')) showArticle(selected, true);
-    if (event.target.closest('[data-help-reload]')) updateSearch();
+    if (topicButton) void showArticle(topicButton.dataset.topic, true);
+    if (event.target.closest('[data-help-clear]')) { input.value = ''; input.focus(); void updateSearch(); }
+    if (event.target.closest('[data-help-retry]')) void showArticle(selected, true);
+    if (event.target.closest('[data-help-reload]')) void updateSearch();
   };
   results.onkeydown = event => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -116,7 +116,13 @@ export function mountHelp(root, { topic = '', close, standalone = false } = {}) 
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
     buttons[next]?.focus();
   };
-  updateSearch().then(() => { if (topic && !disposed) showArticle(topic); });
+  void updateSearch().then(() => {
+    if (topic && !disposed) return showArticle(topic);
+    return undefined;
+  }).catch(error => {
+    if (!disposed) reportError();
+    console.error('Initial help search failed', error);
+  });
   return { focus: () => input.focus(), dispose: () => { disposed = true; generation += 1; queryGeneration += 1; clearTimeout(timer); } };
 }
 

@@ -7,6 +7,13 @@ import { readFile } from 'node:fs/promises';
 const host = '127.0.0.1';
 const port = 5182;
 export const root = resolve(import.meta.dirname);
+const canonicalHelpRoot = resolve(root, '../../web');
+const canonicalHelpNames = Object.freeze(['help-release.js', 'help-search.js', 'help-store.js', 'help-contract.js', 'help.js']);
+
+// The landing preview exposes only these fixed canonical aliases. The landing
+// facades remain Node-valid and import these aliases in the browser; the exporter
+// materializes both paths for standalone use.
+export const canonicalHelpSources = new Map(canonicalHelpNames.map(name => [`web/${name}`, resolve(canonicalHelpRoot, name)]));
 
 // This preview is deliberately a closed, static asset set. Keep documents,
 // evidence and repository files outside this allowlist.
@@ -89,12 +96,14 @@ for (const file of documentationManifest.publicFiles) {
   assets.set(`/${file.path}`, file.path);
 }
 
-// Reuse the client distribution at its pinned absolute paths. No directory serving.
+// Reuse fixed canonical aliases, landing facades, and the generated distribution
+// at pinned absolute paths. No directory serving.
 const helpDirectory = new URL('client-help/', import.meta.url);
 const helpManifest = JSON.parse(await readFile(new URL('generated/manifest.json', helpDirectory), 'utf8'));
 const helpCatalog = JSON.parse(await readFile(new URL(`generated/${helpManifest.catalog.path.split('/').pop()}`, helpDirectory), 'utf8'));
-for (const name of ['help-release.js', 'help-search.js', 'help-store.js', 'help-contract.js', 'help.js', 'help-catalog.js']) {
+for (const name of canonicalHelpNames) {
   assets.set(`/client-help/${name}`, `client-help/${name}`);
+  assets.set(`/web/${name}`, `web/${name}`);
 }
 for (const path of ['/help/generated/manifest.json', helpManifest.catalog.path, helpManifest.search.path, ...helpCatalog.documents.map(item => item.article.path)]) {
   if (!/^\/help\/generated\/(?:manifest|(?:catalog|search|article-[a-z][a-z0-9.-]{0,100})-[a-f0-9]{64})\.json$/.test(path)) throw new Error('Invalid public help asset path');
@@ -142,8 +151,9 @@ const server = http.createServer(async (request, response) => {
   const asset = assets.get(pathname);
   if (!asset) return reply(response, 404, 'Not Found');
 
-  const file = resolve(root, normalize(asset));
-  if (!file.startsWith(`${root}/`)) return reply(response, 403, 'Forbidden');
+  const canonicalFile = canonicalHelpSources.get(asset);
+  const file = canonicalFile || resolve(root, normalize(asset));
+  if (!canonicalFile && !file.startsWith(`${root}/`)) return reply(response, 403, 'Forbidden');
 
   try {
     const details = await stat(file);
