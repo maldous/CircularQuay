@@ -1,553 +1,398 @@
-const root = document.documentElement;
-const stage = document.querySelector('.journey');
-const ecosystem = document.querySelector('.ecosystem');
-const chapters = [...document.querySelectorAll('[data-chapter-button]')];
-const pauseButton = document.querySelector('#pause');
-const pauseLabel = document.querySelector('#pause-label');
-const replayButton = document.querySelector('#replay');
-const startMotionButton = document.querySelector('#start-motion');
-const copy = document.querySelector('#story-copy');
-const position = document.querySelector('#story-position');
-const note = document.querySelector('#motion-note');
-const status = document.querySelector('#interaction-status');
-const theme = document.querySelector('#theme');
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const coarsePointer = matchMedia('(pointer: coarse)');
+import { createScenarioSession, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
-const story = {
-  manual: { number: '01', copy: 'Find the right integration. Check access. Prepare each app. Then do it all again.' },
-  flow: { number: '02', copy: 'CircularQuay coordinates authenticated access and local policy before preparing an approved app.' },
-  denied: { number: '03', copy: 'No matching grant? The request stops at local policy. Nothing is delivered to an app.' },
-};
-const groups = ['identity', 'sources', 'applications'];
-const duration = 14000;
-const tokens = [];
-const selections = new Map();
+const root = document.documentElement;
+const journey = document.querySelector('.journey');
+const ecosystem = document.querySelector('.ecosystem');
+const svg = document.querySelector('.journey-connections');
+const hub = document.querySelector('.hub-disc');
+const nodes = [...document.querySelectorAll('.flow-node')];
+const story = document.querySelector('#session-story');
+const storyPrefix = document.querySelector('[data-story-prefix]');
+const storyClauses = document.querySelector('[data-story-clauses]');
+const storyAlternative = document.querySelector('[data-story-alternative]');
 const routes = [];
-let chapter = 'flow';
-let elapsed = 0;
-let playing = false;
+const iconStates = new Map();
 let inView = false;
+let pausedByFocus = false;
+let pausedByEscape = false;
+let geometryDirty = true;
 let frame = 0;
 let lastTime = null;
 let lastPaint = 0;
-let lastLabelChange = 0;
-let geometryDirty = true;
-let bounds = { width: 0, height: 0, protected: [] };
+let sessionElapsed = 0;
+let session = null;
+let preparingSession = false;
+let renderedStoryKey = '';
+let storyWords = [];
+let activeRouteId = '';
+let deliveredSessionId = '';
+let storyReservationKey = '';
+let reservationFrame = 0;
 
-function hash(value) {
-  let valueHash = 2166136261;
-  for (const character of value) valueHash = Math.imul(valueHash ^ character.charCodeAt(0), 16777619);
-  return (valueHash >>> 0) / 4294967296;
-}
+function isReducedMotion() { return root.dataset.reducedMotion === 'true'; }
+function motionEnabled() { return !isReducedMotion() && inView && !document.hidden && !pausedByFocus && !pausedByEscape; }
+function updateMotionState() { root.dataset.playing = String(motionEnabled() && !preparingSession); }
+function parseVariants(node) { try { return JSON.parse(node.dataset.variants || '[]').filter(item => item?.name && item?.asset); } catch { return []; } }
 
-function announce(message) { status.textContent = message; }
-function clamp(value, minimum, maximum) { return Math.min(maximum, Math.max(minimum, value)); }
-function easeOut(value) { return 1 - Math.pow(1 - clamp(value, 0, 1), 4); }
-
-function setChapter(value, announceChange = false) {
-  if (!Object.hasOwn(story, value)) return;
-  if (value === 'flow' && chapter === 'manual' && playing) {
-    tokens.forEach(token => {
-      token.flowX = token.x;
-      token.flowY = token.y;
-    });
-  }
-  chapter = value;
-  root.dataset.chapter = value;
-  ecosystem?.querySelector('.hub-disc')?.classList.toggle('is-denied', value === 'denied');
-  copy.textContent = story[value].copy;
-  position.textContent = `${story[value].number} / 03`;
-  chapters.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.chapterButton === value)));
-  if (announceChange) announce(story[value].copy);
-}
-
-function initialiseTokens() {
-  document.querySelectorAll('.integration-token').forEach((element, index) => {
-    const group = element.dataset.group;
-    if (!groups.includes(group)) return;
-    const image = element.querySelector('img');
-    const id = element.dataset.integrationId || `integration-${index}`;
-    tokens.push({ element, group, id, index, name: element.dataset.name || image?.alt || id, seed: hash(id), radius: 20, x: NaN, y: NaN, vx: 0, vy: 0, homeX: 0, homeY: 0, manualX: 0, manualY: 0, flowX: 0, flowY: 0 });
-  });
-  groups.forEach(group => {
-    selections.set(group, document.querySelector(`.scene-examples [data-selection="${group}"]`) || document.querySelector(`[data-selection="${group}"]`));
+function initialiseNodes() {
+  nodes.forEach(node => {
+    const current = node.querySelector('[data-icon-current]');
+    const next = node.querySelector('[data-icon-next]');
+    if (!current || !next) return;
+    iconStates.set(node.dataset.node, { node, current, next, name: node.querySelector('.node-name'), variants: parseVariants(node) });
   });
 }
 
 function initialiseRoutes() {
-  document.querySelectorAll('.journey-connections [data-route]').forEach(path => {
-    const svg = path.ownerSVGElement;
-    let packets = svg.querySelector('.packets');
-    if (!packets) {
-      packets = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      packets.classList.add('packets');
-      svg.append(packets);
-    }
-    const packet = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    packet.setAttribute('r', '4');
-    packets.append(packet);
-    routes.push({ name: path.dataset.route, path, packet, samples: [] });
+  svg?.querySelectorAll('[data-route], [data-optional-route]').forEach(path => {
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    marker.classList.add('flow-marker'); marker.setAttribute('aria-hidden', 'true');
+    ring.setAttribute('r', '9'); label.setAttribute('dominant-baseline', 'central'); label.setAttribute('text-anchor', 'middle');
+    marker.append(ring, label); svg.querySelector('.packets')?.append(marker);
+    routes.push({ id: path.dataset.route || `optional-${path.dataset.optionalRoute}`, path, packet: marker, markerLabel: label, kind: path.dataset.kind || 'optional', samples: [], hubProgress: .5 });
   });
 }
 
-function isProtected(x, y, radius) {
-  return bounds.protected.some(rect => x + radius > rect.left && x - radius < rect.right && y + radius > rect.top && y - radius < rect.bottom);
-}
-
-function constrainToken(token) {
-  token.x = clamp(token.x, token.radius, bounds.width - token.radius);
-  token.y = clamp(token.y, token.radius, bounds.height - token.radius);
-  bounds.protected.forEach(rect => {
-    const radius = token.radius + 1;
-    if (!(token.x + radius > rect.left && token.x - radius < rect.right && token.y + radius > rect.top && token.y - radius < rect.bottom)) return;
-    const exits = [
-      { x: rect.left - token.radius - 1, y: token.y },
-      { x: rect.right + token.radius + 1, y: token.y },
-      { x: token.x, y: rect.top - token.radius - 1 },
-      { x: token.x, y: rect.bottom + token.radius + 1 },
-    ].map(point => ({ ...point, distance: Math.hypot(point.x - token.x, point.y - token.y) }))
-      .filter(point => point.x >= token.radius && point.x <= bounds.width - token.radius && point.y >= token.radius && point.y <= bounds.height - token.radius)
-      .sort((left, right) => left.distance - right.distance);
-    if (exits[0]) Object.assign(token, exits[0]);
-  });
-}
-
-function createSlotPool(radius) {
-  const step = radius * 2 + 5;
-  const slots = [];
-  for (let y = radius + 4; y <= bounds.height - radius - 4; y += step) {
-    for (let x = radius + 4; x <= bounds.width - radius - 4; x += step) {
-      if (!isProtected(x, y, radius + 1)) slots.push({ x, y });
-    }
-  }
-  return slots;
-}
-
-function refreshGeometry() {
-  if (!ecosystem || !tokens.length) return;
-  // Transforms are the animation layer; clear them before measuring the stable grid.
-  tokens.forEach(token => { token.element.style.transform = 'none'; });
-  const area = ecosystem.getBoundingClientRect();
-  const protectedElements = [
-    ecosystem.querySelector('.local-hub'),
-    ecosystem.querySelector('.device-label'),
-  ].filter(Boolean);
-  bounds = {
-    width: area.width,
-    height: area.height,
-    protected: protectedElements.map(element => {
-      const rect = element.getBoundingClientRect();
-      const padding = element.matches('.local-hub') ? 7 : 2;
-      return { left: rect.left - area.left - padding, right: rect.right - area.left + padding, top: rect.top - area.top - padding, bottom: rect.bottom - area.top + padding };
-    }),
-  };
-  tokens.forEach(token => {
-    const rect = token.element.getBoundingClientRect();
-    token.homeX = rect.left - area.left + rect.width / 2;
-    token.homeY = rect.top - area.top + rect.height / 2;
-    token.radius = Math.max(rect.width, rect.height) / 2;
-  });
-  // A broad, unique slot pool lets every group roam the full ecosystem safely.
-  const homes = [...tokens].sort((left, right) => left.id.localeCompare(right.id));
-  const radius = Math.max(...tokens.map(token => token.radius));
-  let slots = createSlotPool(radius).sort((left, right) => hash(`${left.x}:${left.y}`) - hash(`${right.x}:${right.y}`));
-  if (slots.length < tokens.length) slots = homes.map(token => ({ x: token.homeX, y: token.homeY }));
-  tokens.forEach((token, index) => {
-    const slot = slots[index];
-    token.manualX = slot.x;
-    token.manualY = slot.y;
-    if (!Number.isFinite(token.x)) {
-      token.x = token.manualX;
-      token.y = token.manualY;
-    }
-  });
-  refreshRoutes(area);
-  if (!playing && chapter !== 'manual') {
-    tokens.forEach(token => {
-      token.x = token.homeX;
-      token.y = token.homeY;
-      token.vx = 0;
-      token.vy = 0;
-    });
-  }
-  geometryDirty = false;
-}
-
-function applyPositions() {
-  tokens.forEach(token => {
-    token.element.style.transform = `translate3d(${(token.x - token.homeX).toFixed(2)}px, ${(token.y - token.homeY).toFixed(2)}px, 0)`;
-  });
-}
-
-function setSettled(refresh = true) {
-  if (refresh) refreshGeometry();
-  tokens.forEach(token => {
-    token.x = token.homeX;
-    token.y = token.homeY;
-    token.vx = 0;
-    token.vy = 0;
-  });
-  applyPositions();
-}
-
-function cacheRoute(route, start, end) {
-  const deltaX = end.x - start.x;
-  const deltaY = end.y - start.y;
-  const bend = Math.min(100, Math.hypot(deltaX, deltaY) * .4);
-  const directionX = Math.abs(deltaX) > Math.abs(deltaY) ? Math.sign(deltaX) : 0;
-  const directionY = directionX ? 0 : Math.sign(deltaY);
-  const first = { x: start.x + directionX * bend, y: start.y + directionY * bend };
-  const second = { x: end.x - directionX * bend, y: end.y - directionY * bend };
+function pointFor(rect, area) { return { left: rect.left - area.left, right: rect.right - area.left, top: rect.top - area.top, bottom: rect.bottom - area.top }; }
+function cachePath(route, start, end, vertical = false) {
+  const dx = end.x - start.x, dy = end.y - start.y;
+  const bend = Math.min(90, Math.max(30, (vertical ? Math.abs(dy) : Math.abs(dx)) * .42));
+  const first = vertical ? { x: start.x, y: start.y + Math.sign(dy || 1) * bend } : { x: start.x + Math.sign(dx || 1) * bend, y: start.y };
+  const second = vertical ? { x: end.x, y: end.y - Math.sign(dy || 1) * bend } : { x: end.x - Math.sign(dx || 1) * bend, y: end.y };
   route.path.setAttribute('d', `M${start.x} ${start.y} C${first.x} ${first.y} ${second.x} ${second.y} ${end.x} ${end.y}`);
   const length = route.path.getTotalLength();
   route.samples = Array.from({ length: 81 }, (_, index) => route.path.getPointAtLength(length * index / 80));
 }
 
-function refreshRoutes(area) {
-  const hub = ecosystem.querySelector('.hub-disc')?.getBoundingClientRect();
-  if (!hub) return;
-  const hubRect = { left: hub.left - area.left, right: hub.right - area.left, top: hub.top - area.top, bottom: hub.bottom - area.top };
+function refreshGeometry() {
+  if (!ecosystem || !svg || !hub) return;
+  const area = ecosystem.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${area.width} ${area.height}`);
+  const hubRect = pointFor(hub.getBoundingClientRect(), area);
   const hubCenter = { x: (hubRect.left + hubRect.right) / 2, y: (hubRect.top + hubRect.bottom) / 2 };
-  const edgeToward = (rect, target) => {
-    const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
-    const deltaX = target.x - center.x;
-    const deltaY = target.y - center.y;
-    if (Math.abs(deltaX) > Math.abs(deltaY)) return { x: deltaX > 0 ? rect.right : rect.left, y: center.y };
-    return { x: center.x, y: deltaY > 0 ? rect.bottom : rect.top };
-  };
-  const cloudEdge = group => {
-    const cloud = tokens.filter(token => token.group === group);
-    if (!cloud.length) return null;
-    const rect = cloud.reduce((box, token) => ({
-      left: Math.min(box.left, token.homeX - token.radius),
-      right: Math.max(box.right, token.homeX + token.radius),
-      top: Math.min(box.top, token.homeY - token.radius),
-      bottom: Math.max(box.bottom, token.homeY + token.radius),
-    }), { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
-    return edgeToward(rect, hubCenter);
-  };
-  const hubEdge = target => edgeToward(hubRect, target);
-  const identity = cloudEdge('identity');
-  const sources = cloudEdge('sources');
-  const applications = cloudEdge('applications');
+  const sidePorts = [.15, .38, .62, .85];
+  const topPorts = ['age', 'kms', 'signed'];
+  const bottomPorts = ['directory', 'clients', 'audit'];
   routes.forEach(route => {
-    route.path.ownerSVGElement.setAttribute('viewBox', `0 0 ${area.width} ${area.height}`);
-    if (route.name === 'identity' && identity) cacheRoute(route, identity, hubEdge(identity));
-    if (route.name === 'sources' && sources) cacheRoute(route, sources, hubEdge(sources));
-    if (['apps', 'applications'].includes(route.name) && applications) cacheRoute(route, hubEdge(applications), applications);
-    // Denial reaches the policy boundary from a source and never draws delivery to an app.
-    if (route.name === 'denied' && sources) cacheRoute(route, sources, hubEdge(sources));
-  });
-}
-
-function resetFlock() {
-  refreshGeometry();
-  tokens.forEach(token => {
-    token.x = token.manualX;
-    token.y = token.manualY;
-    token.vx = (token.seed - .5) * 10;
-    token.vy = (hash(`${token.id}-velocity`) - .5) * 10;
-  });
-  applyPositions();
-}
-
-function flock(delta) {
-  const cellSize = 72;
-  const grid = new Map();
-  const key = (x, y) => `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
-  tokens.forEach(token => {
-    const cell = key(token.x, token.y);
-    if (!grid.has(cell)) grid.set(cell, []);
-    grid.get(cell).push(token);
-  });
-  tokens.forEach(token => {
-    let separateX = 0;
-    let separateY = 0;
-    let alignX = 0;
-    let alignY = 0;
-    let cohesionX = 0;
-    let cohesionY = 0;
-    let neighbors = 0;
-    const column = Math.floor(token.x / cellSize);
-    const row = Math.floor(token.y / cellSize);
-    for (let x = column - 1; x <= column + 1; x += 1) for (let y = row - 1; y <= row + 1; y += 1) {
-      (grid.get(`${x}:${y}`) || []).forEach(other => {
-        if (other === token) return;
-        const dx = token.x - other.x;
-        const dy = token.y - other.y;
-        const distance = Math.hypot(dx, dy) || .01;
-        const minimum = token.radius + other.radius + 4;
-        if (distance < minimum) {
-          separateX += dx / distance * (minimum - distance) / minimum;
-          separateY += dy / distance * (minimum - distance) / minimum;
-        }
-        if (distance < 82 && other.group === token.group) {
-          alignX += other.vx;
-          alignY += other.vy;
-          cohesionX += other.x;
-          cohesionY += other.y;
-          neighbors += 1;
-        }
-      });
+    if (route.kind === 'incoming' || route.kind === 'outgoing') {
+      const nodeKey = route.kind === 'incoming' ? route.path.dataset.from : route.path.dataset.to;
+      const node = nodes.find(item => item.dataset.node === nodeKey);
+      if (!node) return;
+      const card = pointFor(node.getBoundingClientRect(), area);
+      const primaryIndex = routes.filter(item => item.kind === route.kind).indexOf(route);
+      const portY = hubRect.top + (hubRect.bottom - hubRect.top) * sidePorts[primaryIndex];
+      const cardAnchor = primaryIndex === 0 ? .95 : primaryIndex === 3 ? .05 : .5;
+      const cardY = card.top + (card.bottom - card.top) * cardAnchor;
+      const start = route.kind === 'incoming' ? { x: card.right, y: cardY } : { x: hubRect.right, y: portY };
+      const end = route.kind === 'incoming' ? { x: hubRect.left, y: portY } : { x: card.left, y: cardY };
+      route.hubProgress = route.kind === 'incoming' ? 1 : 0;
+      cachePath(route, start, end);
+      return;
     }
-    const phase = elapsed / 1000 + token.seed * Math.PI * 2;
-    token.vx += separateX * .28 + (neighbors ? (alignX / neighbors - token.vx) * .014 + (cohesionX / neighbors - token.x) * .0025 : 0) + Math.cos(phase) * .035;
-    token.vy += separateY * .28 + (neighbors ? (alignY / neighbors - token.vy) * .014 + (cohesionY / neighbors - token.y) * .0025 : 0) + Math.sin(phase * .8) * .035;
+    const optional = route.path.dataset.optionalRoute;
+    const optionalNode = document.querySelector(`.optional-node[data-optional="${optional}"]`);
+    const face = optionalNode?.querySelector('.optional-face');
+    if (!optionalNode || !face) return;
+    const nodeRect = pointFor(optionalNode.getBoundingClientRect(), area);
+    const faceRect = pointFor(face.getBoundingClientRect(), area);
+    const top = (nodeRect.top + nodeRect.bottom) / 2 < hubCenter.y;
+    const optionIndex = (top ? topPorts : bottomPorts).indexOf(optional);
+    const portX = hubRect.left + (hubRect.right - hubRect.left) * [.2, .5, .8][optionIndex];
+    const gap = 6;
+    const start = top ? { x: (nodeRect.left + nodeRect.right) / 2, y: nodeRect.bottom + gap } : { x: portX, y: hubRect.bottom };
+    const end = top ? { x: portX, y: hubRect.top } : { x: (faceRect.left + faceRect.right) / 2, y: faceRect.top - gap };
+    route.hubProgress = top ? 1 : 0;
+    cachePath(route, start, end, true);
   });
-  tokens.forEach(token => {
-    token.vx *= .91;
-    token.vy *= .91;
-    const nextX = clamp(token.x + token.vx * delta / 16, token.radius, bounds.width - token.radius);
-    const nextY = clamp(token.y + token.vy * delta / 16, token.radius, bounds.height - token.radius);
-    if (isProtected(nextX, nextY, token.radius + 1)) {
-      token.vx *= -.45;
-      token.vy *= -.45;
-    } else {
-      token.x = nextX;
-      token.y = nextY;
-    }
-  });
-  resolveCollisions();
+  geometryDirty = false;
 }
 
-function resolveCollisionPass() {
-  const cellSize = Math.max(...tokens.map(token => token.radius * 2 + 4));
-  const grid = new Map();
-  const key = (x, y) => `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
-  tokens.forEach(token => {
-    const cell = key(token.x, token.y);
-    if (!grid.has(cell)) grid.set(cell, []);
-    grid.get(cell).push(token);
-  });
-  tokens.forEach(token => {
-    const column = Math.floor(token.x / cellSize);
-    const row = Math.floor(token.y / cellSize);
-    for (let x = column - 1; x <= column + 1; x += 1) for (let y = row - 1; y <= row + 1; y += 1) {
-      (grid.get(`${x}:${y}`) || []).forEach(other => {
-        if (other.index <= token.index) return;
-        let dx = other.x - token.x;
-        let dy = other.y - token.y;
-        let distance = Math.hypot(dx, dy);
-        if (distance < .01) {
-          const angle = hash(`${token.id}:${other.id}`) * Math.PI * 2;
-          dx = Math.cos(angle);
-          dy = Math.sin(angle);
-          distance = 1;
+function setStory(activeIndex, complete, refs = { story, prefix: storyPrefix, clauses: storyClauses, alternative: storyAlternative }, candidate = session, live = true) {
+  if (!candidate) return;
+  const key = `${candidate.id}:${activeIndex}:${complete}`;
+  if (live && key === renderedStoryKey) return;
+  if (live) renderedStoryKey = key;
+  if (live) { root.dataset.session = candidate.id; root.dataset.step = String(activeIndex); }
+  if (refs.story) { refs.story.dataset.session = candidate.id; refs.story.dataset.step = String(activeIndex); }
+  if (refs.prefix) refs.prefix.textContent = candidate.prefix;
+  if (refs.alternative) { refs.alternative.textContent = candidate.suffix; refs.alternative.dataset.state = complete ? 'complete' : 'pending'; }
+  if (!refs.clauses) return;
+  const renderedWords = [];
+  const normalise = value => value.toLocaleLowerCase().replaceAll(/^[^\p{L}\p{N}/]+|[^\p{L}\p{N}/]+$/gu, '');
+  const clauseIndex = new Map(candidate.clauses.map((item, index) => [item, index]));
+  refs.clauses.replaceChildren(...candidate.tasks.map((task, workloadIndex) => {
+    const taskElement = document.createElement('span');
+    taskElement.className = 'story-task'; taskElement.dataset.workloadIndex = String(workloadIndex);
+    if (workloadIndex) taskElement.append(' ');
+    task.forEach((clauseData, taskClauseIndex) => {
+      const index = clauseIndex.get(clauseData);
+      const clause = document.createElement('span');
+      clause.className = 'story-clause';
+      clause.dataset.state = complete || index < activeIndex ? 'complete' : index === activeIndex ? 'active' : 'pending';
+      if (taskClauseIndex) clause.append(taskClauseIndex === task.length - 1 ? ' and ' : ', ');
+      const stepNumber = document.createElement('span');
+      stepNumber.className = 'story-step-number'; stepNumber.setAttribute('aria-label', `Step ${index + 1}`); stepNumber.textContent = String(index + 1);
+      clause.append(stepNumber, ' ');
+      const rawWords = clauseData.text.split(/\s+/);
+      const references = clauseData.references.map(reference => reference.split(/\s+/).map(normalise)).sort((left, right) => right.length - left.length);
+      let offset = 0;
+      const records = [];
+      for (let wordIndex = 0; wordIndex < rawWords.length;) {
+        const match = references.find(reference => reference.every((part, partIndex) => normalise(rawWords[wordIndex + partIndex] || '') === part));
+        const count = match?.length || 1;
+        if (wordIndex) clause.append(' ');
+        const container = match ? document.createElement('span') : clause;
+        if (match) container.className = 'story-product';
+        for (let part = 0; part < count; part++) {
+          const word = rawWords[wordIndex + part];
+          const wrapper = document.createElement('span');
+          const base = document.createElement('span');
+          const reveal = document.createElement('span');
+          wrapper.className = 'story-word'; base.className = 'story-word-base'; reveal.className = 'story-word-reveal';
+          base.textContent = word; reveal.textContent = word; reveal.setAttribute('aria-hidden', 'true');
+          if (part) container.append(' ');
+          wrapper.append(base, reveal); container.append(wrapper);
+          records.push({ reveal, start: offset, length: word.length });
+          offset += word.length + 1;
         }
-        const minimum = token.radius + other.radius + 4;
-        if (distance >= minimum) return;
-        const move = (minimum - distance) / 2;
-        const unitX = dx / distance;
-        const unitY = dy / distance;
-        const first = { x: clamp(token.x - unitX * move, token.radius, bounds.width - token.radius), y: clamp(token.y - unitY * move, token.radius, bounds.height - token.radius) };
-        const second = { x: clamp(other.x + unitX * move, other.radius, bounds.width - other.radius), y: clamp(other.y + unitY * move, other.radius, bounds.height - other.radius) };
-        Object.assign(token, first);
-        Object.assign(other, second);
-        constrainToken(token);
-        constrainToken(other);
-      });
-    }
-  });
+        if (match) clause.append(container);
+        wordIndex += count;
+      }
+      renderedWords[index] = { words: records, length: clauseData.text.length };
+      taskElement.append(clause);
+    });
+    const lastWord = [...taskElement.querySelectorAll('.story-word')].at(-1);
+    lastWord?.querySelectorAll('.story-word-base, .story-word-reveal').forEach(word => {
+      word.textContent += workloadIndex === 0 ? ';' : ',';
+    });
+    return taskElement;
+  }));
+  if (live) storyWords = renderedWords;
 }
 
-function resolveCollisions() {
-  for (let pass = 0; pass < 24; pass += 1) {
-    resolveCollisionPass();
-    tokens.forEach(constrainToken);
+function reserveStoryHeight() {
+  if (!story || !session) return;
+  const styles = [story, storyPrefix, storyClauses, storyAlternative].filter(Boolean).map(node => {
+    const value = getComputedStyle(node);
+    return [value.font, value.lineHeight, value.letterSpacing, value.maxWidth, value.paddingInline, value.marginBlock].join('/');
+  });
+  const key = [story.clientWidth, document.documentElement.lang, document.documentElement.dir, ...styles].join('|');
+  if (key === storyReservationKey) return;
+  storyReservationKey = key;
+  const probe = story.cloneNode(true);
+  probe.removeAttribute('id'); probe.setAttribute('aria-hidden', 'true');
+  Object.assign(probe.style, { position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden', pointerEvents: 'none', width: `${story.getBoundingClientRect().width}px`, height: 'auto', minHeight: '0', maxHeight: 'none', overflow: 'visible', zIndex: '-1' });
+  document.body.append(probe);
+  const refs = { story: probe, prefix: probe.querySelector('[data-story-prefix]'), clauses: probe.querySelector('[data-story-clauses]'), alternative: probe.querySelector('[data-story-alternative]') };
+  const measure = item => {
+    const token = document.createElement('span');
+    token.className = item.name ? 'story-product' : 'story-word'; token.textContent = item.name || item.text; token.style.whiteSpace = 'nowrap'; token.style.position = 'absolute';
+    if (item.text) token.style.fontWeight = '720';
+    refs.clauses.append(token); const width = token.getBoundingClientRect().width; token.remove(); return width;
+  };
+  let maximum = 0;
+  for (const candidate of storyReservationSessions(variantPools(), measure)) {
+    setStory(candidate.clauses.length - 1, false, refs, candidate, false);
+    maximum = Math.max(maximum, probe.getBoundingClientRect().height);
+    refs.alternative.style.animation = 'none'; refs.alternative.style.fontWeight = '850';
+    setStory(candidate.clauses.length - 1, true, refs, candidate, false);
+    maximum = Math.max(maximum, probe.getBoundingClientRect().height);
+    refs.alternative.style.fontWeight = '650';
   }
+  probe.remove();
+  const actionStyle = getComputedStyle(storyClauses);
+  const actionLineHeight = Number.parseFloat(actionStyle.lineHeight) || Number.parseFloat(actionStyle.fontSize) * 1.45;
+  const reserved = `${Math.ceil(maximum + actionLineHeight)}px`;
+  story.style.setProperty('--story-reserved-height', reserved);
+  story.style.height = reserved; story.style.minHeight = reserved;
+  geometryDirty = true;
+  refreshGeometry();
 }
 
-function organise(progress) {
-  const eased = easeOut(progress);
-  tokens.forEach(token => {
-    token.x = token.flowX + (token.homeX - token.flowX) * eased;
-    token.y = token.flowY + (token.homeY - token.flowY) * eased;
-    token.vx = 0;
-    token.vy = 0;
-    if (progress >= .99) {
-      token.x = token.homeX;
-      token.y = token.homeY;
-      token.vx = 0;
-      token.vy = 0;
+function scheduleStoryReservation() {
+  cancelAnimationFrame(reservationFrame);
+  reservationFrame = requestAnimationFrame(() => { reservationFrame = 0; reserveStoryHeight(); });
+}
+
+function updateWordReveals(activeIndex, progress, complete) {
+  storyWords.forEach((group, index) => group.words.forEach(word => {
+    const characters = complete || index < activeIndex ? group.length : index === activeIndex ? progress * group.length : 0;
+    const reveal = Math.max(0, Math.min(100, (characters - word.start) / word.length * 100));
+    word.reveal.style.setProperty('--reveal', `${reveal}%`);
+  }));
+}
+
+function setActiveRoute(route) {
+  const nextId = route?.id || '';
+  if (nextId === activeRouteId) return;
+  document.querySelectorAll('.flow-node.is-session-active, .optional-node.is-session-active').forEach(node => node.classList.remove('is-session-active'));
+  if (route) {
+    const nodeKey = route.kind === 'incoming' ? route.path.dataset.from : route.kind === 'outgoing' ? route.path.dataset.to : null;
+    const node = nodeKey ? nodes.find(item => item.dataset.node === nodeKey) : document.querySelector(`.optional-node[data-optional="${route.path.dataset.optionalRoute}"]`);
+    node?.classList.add('is-session-active');
+  }
+  activeRouteId = nextId;
+}
+
+function nodeForRoute(route) {
+  const nodeKey = route.kind === 'incoming' ? route.path.dataset.from : route.kind === 'outgoing' ? route.path.dataset.to : null;
+  return nodeKey ? nodes.find(item => item.dataset.node === nodeKey) : document.querySelector(`.optional-node[data-optional="${route.path.dataset.optionalRoute}"]`);
+}
+
+function clearDelivered() {
+  deliveredSessionId = '';
+  journey?.classList.remove('is-delivered');
+  routes.forEach(route => { delete route.path.dataset.delivered; });
+  document.querySelectorAll('.flow-node.is-session-delivered, .optional-node.is-session-delivered').forEach(node => node.classList.remove('is-session-delivered'));
+}
+
+function showDelivered() {
+  if (!session || deliveredSessionId === session.id) return;
+  deliveredSessionId = session.id;
+  journey?.classList.add('is-delivered');
+  const used = new Set(session.legs.map(leg => leg.route));
+  routes.filter(route => used.has(route.id)).forEach(route => {
+    route.path.dataset.delivered = 'true';
+    nodeForRoute(route)?.classList.add('is-session-delivered');
+  });
+}
+
+function preload(selection) {
+  return Promise.all(Object.values(selection).filter(item => item.asset).map(item => new Promise(resolve => {
+    const image = new Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = item.asset;
+  }))).then(results => results.every(Boolean));
+}
+
+function applySelection(selection, animate = false) {
+  const changes = Object.entries(selection).map(([nodeKey, variant]) => {
+    const state = iconStates.get(nodeKey);
+    if (!state || !variant.asset) return Promise.resolve(true);
+    const commit = () => {
+      state.current.src = variant.asset; state.current.alt = variant.name;
+      state.next.src = variant.asset; state.next.alt = '';
+      if (state.name) state.name.textContent = variant.name;
+      state.node.classList.remove('is-changing', 'is-committing');
+    };
+    if (!animate || state.current.src === new URL(variant.asset, document.baseURI).href) {
+      commit();
+      return Promise.resolve(true);
     }
+    return new Promise(resolve => {
+      let revealed = false;
+      const revealIncoming = () => {
+        if (revealed) return;
+        revealed = true; state.next.onload = null; state.next.onerror = null;
+        state.node.classList.add('is-changing');
+        window.setTimeout(() => {
+          commit(); state.node.classList.add('is-committing');
+          window.setTimeout(() => state.node.classList.remove('is-committing'), 0);
+          resolve(true);
+        }, 460);
+      };
+      state.next.onload = revealIncoming;
+      state.next.onerror = () => { state.next.onload = null; state.next.onerror = null; resolve(false); };
+      state.next.src = variant.asset; state.next.alt = '';
+      if (state.next.complete && state.next.naturalWidth > 0) revealIncoming();
+    });
   });
-  resolveCollisions();
+  return Promise.all(changes).then(results => results.every(Boolean));
 }
 
-function paintRoutes(time) {
-  routes.forEach((route, index) => {
-    const incoming = ['identity', 'sources'].includes(route.name);
-    const outgoing = ['apps', 'applications'].includes(route.name);
-    const denied = route.name === 'denied';
-    const visible = !reducedMotion.matches && ((chapter === 'flow' && (incoming || outgoing)) || (chapter === 'denied' && denied));
-    route.path.dataset.active = String(visible);
-    route.packet.style.display = visible ? '' : 'none';
-    if (!visible || !route.samples.length) return;
-    const deniedStep = Math.min(1, Math.max(0, (time - 9000) / 900));
-    const step = denied ? deniedStep * 80 : ((time / 2400 + index * .31) % 1) * 80;
-    const lower = Math.floor(step);
-    const upper = Math.min(80, lower + 1);
-    const fraction = step - lower;
-    const start = route.samples[lower];
-    const end = route.samples[upper];
-    route.packet.setAttribute('cx', String(start.x + (end.x - start.x) * fraction));
-    route.packet.setAttribute('cy', String(start.y + (end.y - start.y) * fraction));
-  });
+function variantPools() { return Object.fromEntries([...iconStates].map(([key, state]) => [key, state.variants])); }
+function beginSession(next, complete = false, animate = false, applyIcons = true) {
+  clearDelivered();
+  session = next; sessionElapsed = 0; renderedStoryKey = '';
+  if (applyIcons) applySelection(session.selection, animate);
+  setStory(complete ? session.clauses.length - 1 : 0, complete);
+  if (complete) { updateWordReveals(session.clauses.length - 1, 1, true); showDelivered(); }
+}
+async function queueNextSession() {
+  if (preparingSession) return;
+  preparingSession = true;
+  clearDelivered();
+  const next = createScenarioSession({ variantPools: variantPools(), previous: session });
+  story?.classList.add('is-transitioning');
+  updateFrame();
+  if (!(await preload(next.selection))) {
+    story?.classList.remove('is-transitioning'); preparingSession = false; updateFrame(); return;
+  }
+  if (!(await applySelection(next.selection, true))) {
+    story?.classList.remove('is-transitioning'); preparingSession = false; updateFrame(); return;
+  }
+  beginSession(next, false, false, false);
+  story?.classList.remove('is-transitioning');
+  await new Promise(resolve => window.setTimeout(resolve, 220));
+  preparingSession = false;
+  updateFrame();
 }
 
-function rotateSelections() {
-  groups.forEach(group => {
-    const element = selections.get(group);
-    const options = tokens.filter(token => token.group === group);
-    if (!element || !options.length) return;
-    const selected = options[Math.floor(elapsed / 2500) % options.length];
-    element.dataset.selectedId = selected.id;
-    element.textContent = selected.name;
-    tokens.filter(token => token.group === group).forEach(token => token.element.classList.toggle('is-highlighted', token === selected));
-  });
+function pointAt(route, progress) {
+  const position = Math.min(80, Math.max(0, progress * 80));
+  const lower = Math.floor(position), upper = Math.min(80, lower + 1), fraction = position - lower;
+  const start = route.samples[lower], end = route.samples[upper];
+  return { x: start.x + (end.x - start.x) * fraction, y: start.y + (end.y - start.y) * fraction };
 }
 
-function renderPlayback() {
-  root.dataset.playing = String(playing);
-  const label = playing ? 'Pause' : elapsed >= duration ? 'Play again' : 'Play';
-  pauseLabel.textContent = label;
-  pauseButton.setAttribute('aria-label', playing ? 'Pause animation' : 'Play animation');
-  pauseButton.disabled = reducedMotion.matches;
-  replayButton.disabled = reducedMotion.matches;
-  note.textContent = reducedMotion.matches ? 'Reduced motion · complete grouped view.' : '14 seconds · plays once. Pause or choose a chapter.';
+function easeInOut(progress) {
+  const clamped = Math.min(1, Math.max(0, progress));
+  return clamped * clamped * (3 - 2 * clamped);
 }
 
-function stopFrame() { cancelAnimationFrame(frame); frame = 0; lastTime = null; }
-function canAnimate() { return playing && inView && !document.hidden && !reducedMotion.matches; }
-
-function renderScene(delta = 16) {
-  if (geometryDirty) refreshGeometry();
-  if (!playing || reducedMotion.matches) {
-    if (chapter !== 'manual') setSettled(false);
-    else applyPositions();
+function paintSession() {
+  routes.forEach(route => { route.packet.style.display = 'none'; route.path.dataset.active = 'false'; });
+  if (!session || isReducedMotion()) { setActiveRoute(null); hub?.style.setProperty('--activity', '0'); return; }
+  const state = sessionStep(session, sessionElapsed);
+  setStory(state.clauseIndex, state.settled);
+  const route = routes.find(item => item.id === state.leg.route);
+  if (!route?.samples.length || state.settled) {
+    updateWordReveals(state.clauseIndex, state.clauseProgress, state.settled);
+    setActiveRoute(null);
+    if (state.settled) showDelivered();
+    hub?.style.setProperty('--activity', '.1');
     return;
   }
-  if (chapter === 'manual') flock(delta);
-  else if (chapter === 'flow') organise((elapsed - 4000) / 5000, delta);
-  else setSettled(false);
-  applyPositions();
+  setActiveRoute(route);
+  route.path.dataset.active = 'true'; route.packet.style.display = '';
+  route.packet.dataset.step = String(state.clauseIndex + 1); route.markerLabel.textContent = String(state.clauseIndex + 1);
+  const phase = easeInOut(state.progress);
+  const clauseProgress = Math.min(1, (state.leg.clauseLegIndex + phase) / state.leg.clauseLegCount);
+  updateWordReveals(state.clauseIndex, clauseProgress, false);
+  const progress = state.leg.direction === 'reverse' ? 1 - phase : phase;
+  const point = pointAt(route, progress);
+  route.packet.setAttribute('transform', `translate(${point.x} ${point.y})`);
+  hub?.style.setProperty('--activity', String(.1 + Math.max(0, 1 - Math.abs(progress - route.hubProgress) * 5) * .7));
 }
 
 function tick(timestamp) {
   frame = 0;
-  if (!canAnimate()) return;
-  const delta = lastTime === null ? 0 : timestamp - lastTime;
-  if (lastTime !== null) elapsed = Math.min(duration, elapsed + delta);
-  lastTime = timestamp;
-  const next = elapsed < 4000 ? 'manual' : elapsed < 9000 ? 'flow' : elapsed < 12000 ? 'denied' : 'flow';
-  if (next !== chapter) setChapter(next);
-  const maximumFps = coarsePointer.matches ? 20 : 30;
-  if (timestamp - lastPaint >= 1000 / maximumFps) {
-    const physicsDelta = Math.min(32, Math.max(0, timestamp - lastPaint));
-    renderScene(physicsDelta);
-    paintRoutes(elapsed);
-    if (elapsed - lastLabelChange >= 2500) {
-      rotateSelections();
-      lastLabelChange = elapsed;
-    }
-    lastPaint = timestamp;
-  }
-  if (elapsed >= duration) {
-    playing = false;
-    setChapter('flow');
-    setSettled();
-    paintRoutes(elapsed);
-    renderPlayback();
-    return;
-  }
-  frame = requestAnimationFrame(tick);
+  if (!motionEnabled()) return;
+  sessionElapsed += lastTime === null ? 0 : timestamp - lastTime; lastTime = timestamp;
+  if (geometryDirty) refreshGeometry();
+  if (timestamp - lastPaint >= 1000 / 30) { paintSession(); lastPaint = timestamp; }
+  if (session && sessionElapsed >= session.duration) { queueNextSession(); return; }
+  if (motionEnabled()) frame = requestAnimationFrame(tick);
 }
 
-function updateFrame() { stopFrame(); if (canAnimate()) frame = requestAnimationFrame(tick); }
-function replay() {
-  if (reducedMotion.matches) return;
-  elapsed = 0;
-  lastLabelChange = 0;
-  resetFlock();
-  rotateSelections();
-  playing = true;
-  setChapter('manual');
-  renderPlayback();
-  announce('Playing the journey from manual work to coordinated delivery.');
-  updateFrame();
-}
-function chooseChapter(value) {
-  playing = false;
-  stopFrame();
-  elapsed = { manual: 0, flow: 8000, denied: 10000 }[value];
-  setChapter(value, true);
-  if (value === 'manual') resetFlock(); else setSettled();
-  paintRoutes(elapsed);
-  renderPlayback();
+function updateFrame() {
+  cancelAnimationFrame(frame); frame = 0; lastTime = null; updateMotionState();
+  if (motionEnabled() && !preparingSession) frame = requestAnimationFrame(tick);
 }
 
-initialiseTokens();
-initialiseRoutes();
-chapters.forEach(button => {
-  button.disabled = false;
-  button.addEventListener('click', () => chooseChapter(button.dataset.chapterButton));
-});
-pauseButton.addEventListener('click', () => {
-  if (elapsed >= duration) return replay();
-  playing = !playing;
-  renderPlayback();
-  paintRoutes(elapsed);
-  announce(playing ? 'Animation playing.' : 'Animation paused.');
-  updateFrame();
-});
-replayButton.addEventListener('click', replay);
-if (startMotionButton) startMotionButton.disabled = false;
-startMotionButton?.addEventListener('click', () => {
-  if (reducedMotion.matches) {
-    playing = false;
-    setChapter('flow');
-    setSettled();
-    announce('Reduced motion is on. The grouped route is shown without animation.');
-    return;
-  }
-  replay();
-});
-theme.disabled = false;
-theme.value = root.dataset.theme || 'light';
-theme.addEventListener('change', () => {
-  const value = theme.value;
-  root.dataset.theme = value;
-  try {
-    localStorage.setItem('circularquay-motion-theme', value);
-  } catch { announce('Theme changed for this visit. This browser is blocking saved preferences.'); }
-});
-const resizeObserver = new ResizeObserver(() => { geometryDirty = true; if (!playing) renderScene(); });
-if (ecosystem) resizeObserver.observe(ecosystem);
-document.querySelectorAll('.integration-grid').forEach(grid => resizeObserver.observe(grid));
+initialiseNodes(); initialiseRoutes();
+const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools() });
+preparingSession = true;
+preload(firstSession.selection).then(ready => { preparingSession = false; if (ready) { beginSession(firstSession, isReducedMotion(), false); reserveStoryHeight(); } updateFrame(); });
+journey?.addEventListener('focusin', () => { pausedByFocus = true; updateFrame(); });
+journey?.addEventListener('focusout', () => { pausedByFocus = false; updateFrame(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { pausedByEscape = !pausedByEscape; updateFrame(); } });
 document.addEventListener('visibilitychange', updateFrame);
-reducedMotion.addEventListener('change', () => {
-  playing = false;
-  stopFrame();
-  setChapter('flow');
-  setSettled();
-  paintRoutes(elapsed);
-  renderPlayback();
-});
-if ('IntersectionObserver' in window) {
-  const observer = new IntersectionObserver(entries => { inView = entries[0].isIntersecting; updateFrame(); }, { threshold: .15 });
-  observer.observe(stage);
-} else inView = true;
-document.querySelector('.playback').hidden = false;
-if (reducedMotion.matches) {
-  playing = false;
-  setChapter('flow');
-  setSettled();
-} else {
-  resetFlock();
-  playing = true;
-  setChapter('manual');
-}
-renderPlayback();
-paintRoutes(elapsed);
-updateFrame();
+window.addEventListener('appearance:reduced-motion', () => { if (isReducedMotion()) { const staticSession = staticScenario(variantPools()); preload(staticSession.selection).then(ready => { if (ready) { beginSession(staticSession, true); paintSession(); } updateFrame(); }); } else updateFrame(); });
+window.addEventListener('resize', scheduleStoryReservation, { passive: true });
+window.addEventListener('localechange', () => { storyReservationKey = ''; scheduleStoryReservation(); });
+document.fonts?.ready?.then(() => { storyReservationKey = ''; scheduleStoryReservation(); });
+const resizeObserver = new ResizeObserver(() => { geometryDirty = true; if (!motionEnabled()) refreshGeometry(); });
+if (ecosystem) resizeObserver.observe(ecosystem);
+if ('IntersectionObserver' in window) new IntersectionObserver(entries => { inView = entries[0].isIntersecting; updateFrame(); }, { threshold: .15 }).observe(journey); else inView = true;
+refreshGeometry(); paintSession(); updateFrame();

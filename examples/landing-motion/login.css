@@ -1,0 +1,26 @@
+body.page-login{min-width:320px;background:var(--paper,#f2f0e8);color:var(--ink,#142a25)}
+.login-main{padding-block:24px 56px}
+.login-intro{max-width:none;margin-bottom:24px}
+.preview-qualifier{margin:12px 0 0;color:var(--secondary,#536862);font-size:12px;font-weight:400;letter-spacing:0}
+.login-intro h1{max-width:none;margin:0;font-size:clamp(32px,4vw,44px);line-height:1.08;letter-spacing:-.035em;font-weight:600;text-wrap:balance}
+.login-intro>p:not(.preview-qualifier){max-width:57ch;margin:12px 0 0;color:var(--secondary,#536862);font-size:16px;line-height:1.5}
+.provider-panel{border-top:1px solid var(--rule,#d4d7cf);padding-top:20px}
+.provider-heading{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:12px}
+.provider-heading h2{margin:0;font-size:20px;line-height:1.2;letter-spacing:-.02em;font-weight:600}.account-reserved h2{margin:0;font-size:24px;line-height:1.2;letter-spacing:-.03em;font-weight:600}
+.provider-heading p,.account-reserved p{margin:9px 0 0;color:var(--secondary,#536862);font-size:14px;line-height:1.65}
+.provider-search{width:min(100%,285px)}
+.provider-search input,.account-reserved input{width:100%;min-height:44px;border:0;border-bottom:1px solid var(--rule,#d4d7cf);border-radius:0;background:transparent;color:inherit;font:inherit}
+.provider-search input::placeholder{color:var(--secondary,#536862)}
+.provider-status{margin:0 0 14px;color:var(--secondary,#536862);font-size:13px}.provider-status:empty{display:none}
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(182px,1fr));gap:9px;margin:0;padding:0;border:0;min-inline-size:0}
+.provider-choice{display:flex;align-items:center;gap:12px;min-height:78px;padding:14px;border:1px solid var(--rule,#d4d7cf);border-radius:12px;background:transparent;color:inherit;font:inherit;font-weight:650;text-align:start;line-height:1.25;transition:border-color 160ms var(--ease,ease),background 160ms var(--ease,ease),transform 160ms var(--ease,ease)}
+.provider-choice img{width:32px;height:32px;padding:4px;border-radius:8px;background:#f2f0e8;object-fit:contain;flex:0 0 auto}.provider-choice[hidden]{display:none}
+.provider-choice:hover{border-color:var(--accent,#286c5d);background:var(--surface,#e8ebe3);transform:translateY(-1px)}
+.provider-choice:focus-visible,.account-actions button:focus-visible,.account-reserved input:focus-visible{outline:3px solid var(--focus,#286c5d);outline-offset:3px}
+.no-providers{margin:20px 0 0;color:var(--secondary,#536862);font-size:14px}
+.account-reserved{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px 48px;align-items:start;margin-top:40px;padding-top:24px;border-top:1px solid var(--rule,#d4d7cf)}
+.account-reserved>div:first-child{max-width:55ch}.account-actions{display:flex;gap:8px;flex-wrap:wrap}.account-actions button{min-height:44px;padding:0 14px;border:0;border-bottom:1px solid var(--rule,#d4d7cf);border-radius:0;background:transparent;color:inherit;font:inherit;font-weight:700;font-size:13px}.account-actions button[aria-pressed="true"]{border-color:var(--action,#286c5d);color:var(--action,#286c5d)}
+.account-reserved form{grid-column:1/-1;max-width:520px}.account-reserved fieldset{display:grid;grid-template-columns:1fr auto;gap:10px 16px;margin:0;padding:0;border:0}.account-reserved legend{grid-column:1/-1;margin-bottom:4px;font-weight:700}.account-reserved label{grid-column:1/-1;font-size:13px;font-weight:700}.account-reserved input{min-width:0}.account-reserved form button[type="submit"]{align-self:end;min-height:44px;padding:0 17px;border:0;border-radius:8px;background:var(--action,#286c5d);color:var(--action-text,#fff);font:inherit;font-size:13px;font-weight:700}.account-reserved form p{margin:12px 0 0;font-size:13px}
+@media(max-width:780px){.login-main{padding-block:28px 52px}.provider-heading{align-items:stretch;flex-direction:column}.provider-search{width:100%}.account-reserved{grid-template-columns:1fr;gap:18px;margin-top:40px}.account-reserved form{grid-column:auto}}
+@media(max-width:520px){.login-page .site-header nav{display:none}.provider-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.provider-choice{min-height:78px;padding:11px;gap:9px;font-size:12px}.provider-choice img{width:32px;height:32px}.account-reserved fieldset{grid-template-columns:1fr}.account-reserved form button[type="submit"]{justify-self:start}}
+@media(prefers-reduced-motion:reduce){.provider-choice{transition:none}.provider-choice:hover{transform:none}}

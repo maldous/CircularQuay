@@ -1,0 +1,75 @@
+# Rotation, backup and recovery
+
+## Separate rotations
+
+Provider credentials, bootstrap identities, age recipients, SOPS data keys and OpenBao wrapping keys have different lifetimes. For a normal credential rotation, deliver and verify the replacement before revoking the old value when the issuer supports overlap. An incident may require revocation first.
+
+Removing an age recipient does not invalidate historical ciphertext. Rotating a wrapping key does not rotate the actual provider credential. A backend denial cannot erase plaintext already delivered to a running process or MCP client.
+
+## Managed-key recovery and revocation
+
+Follow the [managed-key custody contract](../managed-key-service.md). Revoke the
+compromised principal/client mapping to stop future service fetches, then assess
+all recipients, data keys, and plaintext already released. A shared organization
+key needs recipient/data-key replacement for future bundles; an old key plus an
+old ciphertext remains usable. Rotate exposed application credentials at their
+issuer. Recovery recipients are separately held and never an unreviewed bypass
+for ordinary clients. Restore current deny state and policy versions before
+re-enabling fetches; restoring a backup must not resurrect revoked grants.
+
+## Backups
+
+Back up canonical encrypted artifacts, protected policy/trust anchors, required native store state and independently protected OpenBao data/configuration/seal material. Machine-bound credential blobs alone are not sufficient.
+
+Export upstream manager values only when explicitly permitted. Native upstream backup responsibility stays with that manager's operator; CQ does not silently clone every secret store.
+
+Keep recovery authority off ordinary workload hosts. Recovery shares do not replace permanently lost auto-unseal key material. Verify both backup integrity and an isolated decryption/restore before relying on retention.
+
+The default objective is daily backup plus restore qualification before operational enrollment and after material recovery changes. Actual capacity, retention and custody must be recorded by the operator.
+
+## Configuration, client and exporter recovery
+
+Retain versioned policy/schema, SDK and native runtime identities, reviewed
+migration inputs, collector trust references and required audit state with the
+selected backup profile. Reconstruct collector/update credentials through their
+owner; do not copy tokens into support or recovery reports. Required audit
+outage and best-effort telemetry outage have different failure policies.
+
+After restore, revalidate local minimum-version requirements and artifact
+compatibility before sensitive effects. Verify Go linked-core and
+Python/TypeScript native-digest selection, MCP resource/authority association
+and agent/plugin configuration. An update notice, stale metadata cache or
+removed registry listing cannot authorize a downgraded or unauthenticated binary.
+
+For [canonical governance and lifecycle changes](../credential-lifecycle.md#forward-migrations-and-complete-delivery),
+apply the necessary reviewed versioned migrations and fix forward through a
+corrected authenticated revision. Preserve locks, authority generations,
+directory disable/delete history, exposure blocks, revoked versions and pending
+issuer-operation state. Backup restoration must reconcile those facts against
+current authority before effects; it cannot restore a permissive old policy or
+act as a rollback-first substitute for completing the v1 contract.
+
+## Replacement host
+
+1. Install authenticated native artifacts.
+2. Recover protected policy/trust and approved encrypted releases.
+3. Generate/select a fresh host identity.
+4. On a trusted recovery station, re-encrypt or grant only its required workloads.
+5. Restore OpenBao with the independent seal/data/configuration material when applicable.
+6. Regenerate native systemd/DPAPI projections; do not require old TPM/DPAPI master state.
+7. Prove synthetic startup, denial, rotation and offline behavior before operation.
+
+## Rollback
+
+Use a retained verified executable and known-good projection or a new authenticated forward release restoring prior configuration. Do not weaken downgrade protection or reuse published versions. No rollback may reactivate known revoked, expired or compromised material.
+
+Persisted workload state also carries a fallback fence. A provider refresh must
+record that fence before reading values; a denial, trust failure, expired value,
+or interrupted refresh keeps cached material ineligible across process restart.
+A qualifying availability failure restores prior eligibility only after a
+successful durable write. A complete, freshly validated generation can clear
+the fence; reading one key cannot clear a whole workload's denial. Preserve this
+state with recovery data and use an authorized full refresh to recover. Deleting
+state or editing the fence is not a recovery procedure.
+
+Native cloud stores and deployment revisions have their own update/rollback behavior. Preserve complete generation/version receipts, and report partial destination failure rather than inventing cross-system atomicity.

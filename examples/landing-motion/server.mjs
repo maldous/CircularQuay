@@ -11,11 +11,46 @@ const root = resolve(import.meta.dirname);
 // This preview is deliberately a closed, static asset set. Keep documents,
 // evidence and repository files outside this allowlist.
 const assets = new Map([
+  ['/login', 'login.html'],
+  ['/login.html', 'login.html'],
+  ['/about', 'about.html'],
+  ['/about.html', 'about.html'],
+  ['/contact', 'contact.html'],
+  ['/contact.html', 'contact.html'],
+  ['/privacy', 'privacy.html'],
+  ['/privacy.html', 'privacy.html'],
+  ['/terms', 'terms.html'],
+  ['/terms.html', 'terms.html'],
+  ['/cookies', 'cookies.html'],
+  ['/cookies.html', 'cookies.html'],
+  ['/accessibility', 'accessibility.html'],
+  ['/accessibility.html', 'accessibility.html'],
+  ['/security', 'security.html'],
+  ['/security.html', 'security.html'],
+  ['/status', 'status.html'],
+  ['/status.html', 'status.html'],
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/style.css', 'style.css'],
-  ['/formations.css', 'formations.css'],
   ['/motion.js', 'motion.js'],
+  ['/scenario-flow.js', 'scenario-flow.js'],
+  ['/explore', 'explore.html'],
+  ['/explore.html', 'explore.html'],
+  ['/explore.js', 'explore.js'],
+  ['/explore.css', 'explore.css'],
+  ['/explore-navigation.js', 'explore-navigation.js'],
+  ['/explore-navigation.css', 'explore-navigation.css'],
+  ['/landing-explore.js', 'landing-explore.js'],
+  ['/appearance.js', 'appearance.js'],
+  ['/locale.js', 'locale.js'],
+  ['/browser-services.js', 'browser-services.js'],
+  ['/service-config.js', 'service-config.js'],
+  ['/site-services.js', 'site-services.js'],
+  ['/login.js', 'login.js'],
+  ['/login.css', 'login.css'],
+  ['/robots.txt', 'robots.txt'],
+  ['/sitemap.xml', 'sitemap.xml'],
+  ['/ads.txt', 'ads.txt'],
   ['/preference-bootstrap.js', 'preference-bootstrap.js'],
   ['/assets/logo-light.svg', 'assets/logo-light.svg'],
   ['/assets/logo-dark.svg', 'assets/logo-dark.svg'],
@@ -34,12 +69,22 @@ for (const group of catalog.groups) {
   }
 }
 
+// Documentation modules are a revision-bound public snapshot, never a file browser.
+const documentationManifest = JSON.parse(await readFile(new URL('explore-content/manifest.json', import.meta.url), 'utf8'));
+for (const file of documentationManifest.publicFiles) {
+  if (!/^(?:explore-manifest\.js|explore-content\/[a-z0-9-]+\.js|explore-content\/assets\/[a-f0-9]{64}\.(?:svg|png|jpg|webp))$/.test(file.path)) {
+    throw new Error('Invalid public documentation asset path');
+  }
+  assets.set(`/${file.path}`, file.path);
+}
+
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 const securityHeaders = {
@@ -48,6 +93,7 @@ const securityHeaders = {
   'Referrer-Policy': 'no-referrer',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
+  'X-Robots-Tag': 'noindex, nofollow, noarchive',
 };
 
 function reply(response, status, body = '') {

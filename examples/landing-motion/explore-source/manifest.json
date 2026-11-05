@@ -1,0 +1,302 @@
+{
+  "sourceState": "working-tree-dirty",
+  "baseRevision": "b0abadd71347bfba98dd043aa946d5c937f6d807",
+  "snapshotDate": "2026-11-05",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "2848deed3387ea2158c40d6d6c86fefcec494e1e4639f272fb761df626da0cff",
+      "bytes": 12686
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "sha256": "3f7d0d2c435a4ba5261d8ed5cefaa2a4347852145964c31d08b7a1491afbd9e1",
+      "bytes": 1113
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "6a533b3c229abdc174c13f844f6a933988bc6b68e6cd1e15d7ebe367ed7b7acc",
+      "bytes": 5654
+    },
+    {
+      "path": "docs/administration-security.md",
+      "sha256": "e908b2b180e57bbceb0c6965526288b7be6868585fe6270fe589984544cf96f4",
+      "bytes": 26429
+    },
+    {
+      "path": "docs/adr/0001-language-and-assurance.md",
+      "sha256": "971342cd1ef12277dd89d977f0ee3897c9e621d211b057a6c7a4466089ef9357",
+      "bytes": 2031
+    },
+    {
+      "path": "docs/agent-integrations.md",
+      "sha256": "a79bfc8da3e924481af57172c5e13996027ab45e58aff2c71df33ed59f63094f",
+      "bytes": 16771
+    },
+    {
+      "path": "docs/agent-onboarding.md",
+      "sha256": "bdfddda0278420f64a5ade071340d7e31c3672681a5837a5c47435d9ac5249bc",
+      "bytes": 25430
+    },
+    {
+      "path": "docs/architecture.md",
+      "sha256": "019d8b6c82efa4748daa98de494c6611bb03a02b66a46ff407ad1c5f454f346d",
+      "bytes": 7839
+    },
+    {
+      "path": "docs/assets/README.md",
+      "sha256": "c3bb2f6bf16338394427770a780b478316fb8003e162495adff1200b57fe5b7b",
+      "bytes": 557
+    },
+    {
+      "path": "docs/assurance.md",
+      "sha256": "35d2d6efa5ff5d645754098a006e53851c16e9ad9b7ad287822d00e33f0dfe58",
+      "bytes": 14026
+    },
+    {
+      "path": "docs/commands.md",
+      "sha256": "7c384e3fe8ff9317df4557e7f61b5a5af414789fc314ac0908ead55d1330b2ed",
+      "bytes": 14252
+    },
+    {
+      "path": "docs/comparison.md",
+      "sha256": "e1d2ac28873cd2f262651fdda3c04cce78a51471ed9c3867f6bf8420947d615a",
+      "bytes": 9367
+    },
+    {
+      "path": "docs/composition-reference.md",
+      "sha256": "31dcaf6b88da6be6c4b4174b4da68131cc331608f66513c552344e081e24e80b",
+      "bytes": 6904
+    },
+    {
+      "path": "docs/configuration-governance.md",
+      "sha256": "4f1323b9f9dc524b6083d20d0e5157c3ed931c51d6080a2eb973089c015ca8b1",
+      "bytes": 23626
+    },
+    {
+      "path": "docs/configuration-repositories.md",
+      "sha256": "5fc814bea350af6fe61e3ffad109dc33ab61df6e7a5b1fb5f9074ac182288d36",
+      "bytes": 15302
+    },
+    {
+      "path": "docs/configuration.md",
+      "sha256": "99a361a489b701f53f8c40a11852b3a0ea052d4c6c6b221930e9a6ed78ed7a0c",
+      "bytes": 39218
+    },
+    {
+      "path": "docs/credential-boundaries.md",
+      "sha256": "8ff715add51058f5571ad3b9925e1646c55a55e5f025cd34a14db1f528b30804",
+      "bytes": 25728
+    },
+    {
+      "path": "docs/credential-lifecycle.md",
+      "sha256": "12fb8cbc519f3f6d5bfd57bcef99d4da4c9fa2e707772d275e9c2dce53b14a92",
+      "bytes": 19954
+    },
+    {
+      "path": "docs/enterprise-integration.md",
+      "sha256": "d2b8c6be46131936e83c23b903bab11bcfa73c905d3a1fe1879ec55c61b9933e",
+      "bytes": 26548
+    },
+    {
+      "path": "docs/getting-started.md",
+      "sha256": "422e9724622ccdc6d9c9fa9e8f7b35751c0347406c7f4fd3c35193eb983635c3",
+      "bytes": 7931
+    },
+    {
+      "path": "docs/hosted-identity.md",
+      "sha256": "b055b7161af0ed640d8923c6802a95d2a2831618e8c84298c299feb74a57278d",
+      "bytes": 13968
+    },
+    {
+      "path": "docs/identity-and-expiry.md",
+      "sha256": "ee5775ea466323b8fe68a25fd3a29319b9a1cdc6e702cda90cb2b05822afa3d2",
+      "bytes": 8540
+    },
+    {
+      "path": "docs/implementation-plan.md",
+      "sha256": "2809520c427d1279aef53b6647e158aaf9287bb563cd61214a4a4f456ed0fb82",
+      "bytes": 48913
+    },
+    {
+      "path": "docs/integration-testing.md",
+      "sha256": "7172454bc330f8aed2e2f29ccf51876f790834f11c14bee8902fa342afc028a2",
+      "bytes": 20370
+    },
+    {
+      "path": "docs/integrations.md",
+      "sha256": "e81b1382ed1ce67d6e6eb0845b5f74da2566783236d6ed31d628e295f869a098",
+      "bytes": 23001
+    },
+    {
+      "path": "docs/integrations/cloud-provider-validation.md",
+      "sha256": "6a218ed294d9bef02df7028f9cfb18960ad2e543476c946d219af4d070d9db29",
+      "bytes": 17815
+    },
+    {
+      "path": "docs/integrations/compatibility-gateway.md",
+      "sha256": "985e73bf0d2a9d25550caf692191a19efcbe576621b982c696572b8a5c8fb96c",
+      "bytes": 7828
+    },
+    {
+      "path": "docs/integrations/identity-and-provider-fixtures.md",
+      "sha256": "43b5d970a2b2121cce0de66636349747bf2cf36464e0608ea2d6deeb7d25500c",
+      "bytes": 11649
+    },
+    {
+      "path": "docs/integrations/supply-chain.md",
+      "sha256": "0ee6d77e3e590f06857fc050f715f6d4f236ffb0e7090a1c3cf4a6afec60e43d",
+      "bytes": 7874
+    },
+    {
+      "path": "docs/managed-key-service.md",
+      "sha256": "f603e6592c28f5f4fd196118a5eb75cef34196a54db44761ec0a5ad1cd823c94",
+      "bytes": 106416
+    },
+    {
+      "path": "docs/management-and-discovery.md",
+      "sha256": "7e3c89f4434fdca79190319d95d1169236f2e45615e9338e3a24034717497800",
+      "bytes": 30239
+    },
+    {
+      "path": "docs/operational-configuration.md",
+      "sha256": "c64abd6236f65ffbbd65edcf144c56741b3d5d39666dd16355e62b3fc0ef8169",
+      "bytes": 8314
+    },
+    {
+      "path": "docs/operators/incident-response.md",
+      "sha256": "d7a24991a1185cb183373b7e3746d51c17a2c68b04530343d83883f9f80c02b9",
+      "bytes": 4190
+    },
+    {
+      "path": "docs/operators/installation.md",
+      "sha256": "51c637b616bbbc21041e4cbaf33f83ceeb9a529cf4011b5ff433ba6517f49f50",
+      "bytes": 6538
+    },
+    {
+      "path": "docs/operators/mcp.md",
+      "sha256": "a38fcd410b9f2f2cf9dc3ce243c85b3dc1efb101eea34e78394cfc76bff6cb56",
+      "bytes": 9924
+    },
+    {
+      "path": "docs/operators/providers.md",
+      "sha256": "e2a1cea86a0555e9a0201118dda3eb062c3afdfa6b83bb62d90e7b66a798371f",
+      "bytes": 6051
+    },
+    {
+      "path": "docs/operators/recovery.md",
+      "sha256": "890333cad45dd257c6c0ec3c0b45931a3a09f9936d62a97c385d9563d13da32d",
+      "bytes": 5134
+    },
+    {
+      "path": "docs/platform-support.md",
+      "sha256": "35fd8a03f66ed86b5e5aa761b939fff85f05f32836041972825450e4f67457c8",
+      "bytes": 2913
+    },
+    {
+      "path": "docs/product-guide.md",
+      "sha256": "4866399f01ed1566c8fa6f693b638a64734b2c2ad520f845ac19d4fcc9554a80",
+      "bytes": 16403
+    },
+    {
+      "path": "docs/providers.md",
+      "sha256": "6e4eaf1dc8925145ec17a4d8fca3c010ef20d35c96dcf399e09f602aa368c89f",
+      "bytes": 4503
+    },
+    {
+      "path": "docs/qualification.md",
+      "sha256": "9e60a79c02aa8a44b5d814e0a8dfcd72fbc7388efd5f367aa55aeeb25244082b",
+      "bytes": 136073
+    },
+    {
+      "path": "docs/README.md",
+      "sha256": "4bedbdd0b85a89fcadd502a4e32e30f6edd777bcf049c2c1d92cf2768620679e",
+      "bytes": 3875
+    },
+    {
+      "path": "docs/runtime-boundaries.md",
+      "sha256": "23ae9a4ae48fad8132fb7406e7946a0594e721f923f73b4f75365dd0d116686e",
+      "bytes": 3610
+    },
+    {
+      "path": "docs/sdks.md",
+      "sha256": "288eda1252b883a387eae6f4edd4a3f119e3ddd8bfc0a293cff1ba2692b44162",
+      "bytes": 13848
+    },
+    {
+      "path": "docs/security-profiles.md",
+      "sha256": "227884e0d4a35223dd88010857456493992840643e030e696c881c39997448b6",
+      "bytes": 33658
+    },
+    {
+      "path": "docs/session-handoff.md",
+      "sha256": "c26dc66eb157808a1f12004ffad146f8edb88440c42a264ed339653c9886986b",
+      "bytes": 163547
+    },
+    {
+      "path": "docs/threat-model.md",
+      "sha256": "9531356581d27c8049043bc024e9749eb825ca459e8e6e78c3517020f8c9059d",
+      "bytes": 12733
+    },
+    {
+      "path": "docs/verification.md",
+      "sha256": "053610c4fd2d7dea8f99b51bced83b8496f0942c56537221b728e29697c24902",
+      "bytes": 4789
+    },
+    {
+      "path": "RELEASE.md",
+      "sha256": "e22dd873320d5d44be561665cb26828b226ff933905ab8d89620cdd03054c99f",
+      "bytes": 77712
+    },
+    {
+      "path": "sdk/conformance/README.md",
+      "sha256": "27bbbc50ccc108e252ffa138c1140776c5d541257dab8da08e6fdf22178a36ff",
+      "bytes": 787
+    },
+    {
+      "path": "sdk/go/README.md",
+      "sha256": "0790dbcf969a4e0abaed68db541643c53d0de3836543a85ed3aa79219850b859",
+      "bytes": 4593
+    },
+    {
+      "path": "sdk/python/README.md",
+      "sha256": "8205bff1b65e8b6a6499e3f620a69c665e42ce7d61d528a9a64c933bdad5b402",
+      "bytes": 7660
+    },
+    {
+      "path": "sdk/typescript/README.md",
+      "sha256": "5310726893950f95a82fe8e7068df12dc7d2c9fe725918444e8ab1bb99314c3a",
+      "bytes": 4783
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "272a178af621900796a9526812541a643dc405c390def1e1c52cf3ea1a1dea02",
+      "bytes": 6066
+    },
+    {
+      "path": "SUPPORT.md",
+      "sha256": "0ec6e9228201c3c135c855a41ca126cbbbc904ce3b96e0be1bf04780510abefb",
+      "bytes": 3529
+    },
+    {
+      "path": "docs/assets/architecture-overview-dark.svg",
+      "sha256": "8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2",
+      "bytes": 4479
+    },
+    {
+      "path": "docs/assets/architecture-overview-light.svg",
+      "sha256": "70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375",
+      "bytes": 4479
+    },
+    {
+      "path": "docs/assets/environment-evolution-dark.svg",
+      "sha256": "ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c",
+      "bytes": 1943
+    },
+    {
+      "path": "docs/assets/environment-evolution-light.svg",
+      "sha256": "2b81a2ebbc44bb3983e05b2a20fc5b1bc0c4fad6fe9ea62ddd7738265ae41720",
+      "bytes": 1943
+    }
+  ]
+}
