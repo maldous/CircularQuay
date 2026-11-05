@@ -66,15 +66,15 @@ jobs:
           go install github.com/uudashr/gocognit/cmd/gocognit@v1.3.0
           mapfile -d '' go_sources < <(git ls-files -z '*.go')
           "$GOBIN/gocyclo" -over 10 "${go_sources[@]}"
-          cquay_cognitive_log="$RUNNER_TEMP/cquay-cognitive.log"
+          cq_cognitive_log="$RUNNER_TEMP/cq-cognitive.log"
           # Type-aware analysis loads each native package once per owning
           # directory. Treat warnings/fallback diagnostics as a failed check.
-          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd sdk/go >"$cquay_cognitive_log" 2>&1; then
-            cat "$cquay_cognitive_log"
+          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd sdk/go >"$cq_cognitive_log" 2>&1; then
+            cat "$cq_cognitive_log"
             exit 1
           fi
-          if test -s "$cquay_cognitive_log"; then
-            cat "$cquay_cognitive_log"
+          if test -s "$cq_cognitive_log"; then
+            cat "$cq_cognitive_log"
             exit 1
           fi
   native-macos:
@@ -176,8 +176,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .local/build
-          go build -p 1 -trimpath -o .local/build/cquay ./cmd/cquay
-          go build -p 1 -trimpath -o .local/build/cquay-audit ./cmd/cquay-audit
+          go build -p 1 -trimpath -o .local/build/cq ./cmd/cq
+          go build -p 1 -trimpath -o .local/build/cq-audit ./cmd/cq-audit
   cross-build-gate:
     name: Cross-build matrix
     needs: cross-build
@@ -189,10 +189,10 @@ jobs:
       - name: Require every cross-build
         shell: bash
         env:
-          CQUAY_CROSS_BUILD_RESULT: ${{ needs.cross-build.result }}
+          CQ_CROSS_BUILD_RESULT: ${{ needs.cross-build.result }}
         run: |
           set -euo pipefail
-          test "$CQUAY_CROSS_BUILD_RESULT" = success
+          test "$CQ_CROSS_BUILD_RESULT" = success
   assurance:
     name: Source assurance gate
     runs-on: ubuntu-24.04
@@ -214,54 +214,54 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          cquay_audit_dir=''
-          cquay_audit_dir=$(mktemp -d "${HOME}/cquay-source-audit.XXXXXX")
-          chmod 0700 "$cquay_audit_dir"
-          cquay_tool_dir="$cquay_audit_dir/tools"
-          cquay_home_dir="$cquay_audit_dir/home"
-          cquay_tmp_dir="$cquay_audit_dir/tmp"
-          cquay_cache_dir="$cquay_audit_dir/cache"
-          mkdir -m 0700 "$cquay_tool_dir" "$cquay_home_dir" "$cquay_tmp_dir" "$cquay_cache_dir"
-          mkdir -m 0700 "$cquay_cache_dir/build" "$cquay_cache_dir/mod"
-          CQUAY_SELECTED_GIT=''
-          CQUAY_SELECTED_SSH_KEYGEN=''
-          CQUAY_SELECTED_GOROOT=''
-          CQUAY_SELECTED_GO=''
-          CQUAY_SELECTED_GIT="$(realpath -e /usr/bin/git)"
-          CQUAY_SELECTED_SSH_KEYGEN="$(realpath -e /usr/bin/ssh-keygen)"
-          CQUAY_SELECTED_GO="$(realpath -e "$(command -v go)")"
-          CQUAY_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQUAY_SELECTED_GO")/..")"
-          test "$CQUAY_SELECTED_GO" = "$CQUAY_SELECTED_GOROOT/bin/go"
-          test "$(env GOROOT="$CQUAY_SELECTED_GOROOT" "$CQUAY_SELECTED_GO" env GOVERSION)" = go1.27.3
-          test -x "$CQUAY_SELECTED_GIT"
-          test -x "$CQUAY_SELECTED_SSH_KEYGEN"
-          test -x "$CQUAY_SELECTED_GO"
-          test -x "$CQUAY_SELECTED_GOROOT/bin/gofmt"
-          test ! -L "$CQUAY_SELECTED_GIT"
-          test ! -L "$CQUAY_SELECTED_SSH_KEYGEN"
-          test -z "$(find "$CQUAY_SELECTED_GOROOT" -type l -print -quit)"
-          install -m 0700 "$CQUAY_SELECTED_GIT" "$cquay_tool_dir/git"
-          install -m 0700 "$CQUAY_SELECTED_SSH_KEYGEN" "$cquay_tool_dir/ssh-keygen"
-          cp -R "$CQUAY_SELECTED_GOROOT" "$cquay_tool_dir/go"
-          test -z "$(find "$cquay_tool_dir" -type l -print -quit)"
-          chmod -R go-rwx "$cquay_tool_dir"
-          CQUAY_GIT=''
-          CQUAY_GIT="$(realpath -e "$cquay_tool_dir/git")"
-          CQUAY_GO="$(realpath -e "$cquay_tool_dir/go/bin/go")"
-          CQUAY_GOFMT="$(realpath -e "$cquay_tool_dir/go/bin/gofmt")"
-          CQUAY_SSH_KEYGEN="$(realpath -e "$cquay_tool_dir/ssh-keygen")"
-          test -x "$CQUAY_GIT"
-          test -x "$CQUAY_GO"
-          test -x "$CQUAY_GOFMT"
-          test -x "$CQUAY_SSH_KEYGEN"
-          CQUAY_TOOL_MANIFEST="$cquay_tool_dir/manifest.json"
-          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
-            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
-            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 "$CQUAY_GO" build -p 1 -trimpath -o "$cquay_audit_dir/cquay-audit" ./cmd/cquay-audit
-          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
-            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
-            CQUAY_GIT="$CQUAY_GIT" CQUAY_GO="$CQUAY_GO" CQUAY_GOFMT="$CQUAY_GOFMT" \
-            CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" CQUAY_SSH_KEYGEN="$CQUAY_SSH_KEYGEN" python3 - <<'PY'
+          cq_audit_dir=''
+          cq_audit_dir=$(mktemp -d "${HOME}/cq-source-audit.XXXXXX")
+          chmod 0700 "$cq_audit_dir"
+          cq_tool_dir="$cq_audit_dir/tools"
+          cq_home_dir="$cq_audit_dir/home"
+          cq_tmp_dir="$cq_audit_dir/tmp"
+          cq_cache_dir="$cq_audit_dir/cache"
+          mkdir -m 0700 "$cq_tool_dir" "$cq_home_dir" "$cq_tmp_dir" "$cq_cache_dir"
+          mkdir -m 0700 "$cq_cache_dir/build" "$cq_cache_dir/mod"
+          CQ_SELECTED_GIT=''
+          CQ_SELECTED_SSH_KEYGEN=''
+          CQ_SELECTED_GOROOT=''
+          CQ_SELECTED_GO=''
+          CQ_SELECTED_GIT="$(realpath -e /usr/bin/git)"
+          CQ_SELECTED_SSH_KEYGEN="$(realpath -e /usr/bin/ssh-keygen)"
+          CQ_SELECTED_GO="$(realpath -e "$(command -v go)")"
+          CQ_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQ_SELECTED_GO")/..")"
+          test "$CQ_SELECTED_GO" = "$CQ_SELECTED_GOROOT/bin/go"
+          test "$(env GOROOT="$CQ_SELECTED_GOROOT" "$CQ_SELECTED_GO" env GOVERSION)" = go1.27.3
+          test -x "$CQ_SELECTED_GIT"
+          test -x "$CQ_SELECTED_SSH_KEYGEN"
+          test -x "$CQ_SELECTED_GO"
+          test -x "$CQ_SELECTED_GOROOT/bin/gofmt"
+          test ! -L "$CQ_SELECTED_GIT"
+          test ! -L "$CQ_SELECTED_SSH_KEYGEN"
+          test -z "$(find "$CQ_SELECTED_GOROOT" -type l -print -quit)"
+          install -m 0700 "$CQ_SELECTED_GIT" "$cq_tool_dir/git"
+          install -m 0700 "$CQ_SELECTED_SSH_KEYGEN" "$cq_tool_dir/ssh-keygen"
+          cp -R "$CQ_SELECTED_GOROOT" "$cq_tool_dir/go"
+          test -z "$(find "$cq_tool_dir" -type l -print -quit)"
+          chmod -R go-rwx "$cq_tool_dir"
+          CQ_GIT=''
+          CQ_GIT="$(realpath -e "$cq_tool_dir/git")"
+          CQ_GO="$(realpath -e "$cq_tool_dir/go/bin/go")"
+          CQ_GOFMT="$(realpath -e "$cq_tool_dir/go/bin/gofmt")"
+          CQ_SSH_KEYGEN="$(realpath -e "$cq_tool_dir/ssh-keygen")"
+          test -x "$CQ_GIT"
+          test -x "$CQ_GO"
+          test -x "$CQ_GOFMT"
+          test -x "$CQ_SSH_KEYGEN"
+          CQ_TOOL_MANIFEST="$cq_tool_dir/manifest.json"
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 "$CQ_GO" build -p 1 -trimpath -o "$cq_audit_dir/cq-audit" ./cmd/cq-audit
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" CQ_GOFMT="$CQ_GOFMT" \
+            CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" CQ_SSH_KEYGEN="$CQ_SSH_KEYGEN" python3 - <<'PY'
           import hashlib
           import json
           import os
@@ -278,23 +278,23 @@ jobs:
                       "version": declared_version or version.decode("ascii").strip(),
                       "version_output_sha256": hashlib.sha256(version).hexdigest()}
 
-          go_tool = entry("go", os.environ["CQUAY_GO"], ["version"])
-          with open(os.environ["CQUAY_SSH_KEYGEN"], "rb") as helper:
+          go_tool = entry("go", os.environ["CQ_GO"], ["version"])
+          with open(os.environ["CQ_SSH_KEYGEN"], "rb") as helper:
               helper_digest = hashlib.file_digest(helper, "sha256").hexdigest()
           manifest = {"version": 1, "platform": "linux/amd64",
-                      "helpers": [{"id": "ssh-keygen", "path": os.environ["CQUAY_SSH_KEYGEN"],
+                      "helpers": [{"id": "ssh-keygen", "path": os.environ["CQ_SSH_KEYGEN"],
                                    "sha256": helper_digest}], "tools": [
-              entry("git", os.environ["CQUAY_GIT"], ["--version"]),
+              entry("git", os.environ["CQ_GIT"], ["--version"]),
               go_tool,
-              entry("gofmt", os.environ["CQUAY_GOFMT"], ["-h"], 0,
+              entry("gofmt", os.environ["CQ_GOFMT"], ["-h"], 0,
                     declared_version="gofmt from " + go_tool["version"]),
           ]}
-          with open(os.environ["CQUAY_TOOL_MANIFEST"], "x", encoding="utf-8") as output:
+          with open(os.environ["CQ_TOOL_MANIFEST"], "x", encoding="utf-8") as output:
               json.dump(manifest, output, separators=(",", ":"))
-          os.chmod(os.environ["CQUAY_TOOL_MANIFEST"], 0o600)
+          os.chmod(os.environ["CQ_TOOL_MANIFEST"], 0o600)
           PY
-          env HOME="$cquay_home_dir" TMPDIR="$cquay_tmp_dir" GOTMPDIR="$cquay_tmp_dir" \
-            GOCACHE="$cquay_cache_dir/build" GOMODCACHE="$cquay_cache_dir/mod" GOROOT="$cquay_tool_dir/go" \
-            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQUAY_GIT="$CQUAY_GIT" CQUAY_GO="$CQUAY_GO" \
-            CQUAY_GOFMT="$CQUAY_GOFMT" CQUAY_TOOL_MANIFEST="$CQUAY_TOOL_MANIFEST" \
-            "$cquay_audit_dir/cquay-audit" run --profile source --tool-manifest "$CQUAY_TOOL_MANIFEST" --go "$CQUAY_GO" --output "$cquay_audit_dir/evidence"
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" \
+            CQ_GOFMT="$CQ_GOFMT" CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" \
+            "$cq_audit_dir/cq-audit" run --profile source --tool-manifest "$CQ_TOOL_MANIFEST" --go "$CQ_GO" --output "$cq_audit_dir/evidence"

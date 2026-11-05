@@ -31,7 +31,7 @@ func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Val
 	if err != nil {
 		return model.Value{}, err
 	}
-	home, err := os.MkdirTemp("", "cquay-vendor-")
+	home, err := os.MkdirTemp("", "cq-vendor-")
 	if err != nil {
 		return model.Value{}, fault.New(fault.Apply, "vendor_state")
 	}

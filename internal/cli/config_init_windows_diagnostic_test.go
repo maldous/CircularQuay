@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const configInitDiagnosticRoot = "CQUAY_CONFIG_INIT_DIAGNOSTIC_ROOT"
+const configInitDiagnosticRoot = "CQ_CONFIG_INIT_DIAGNOSTIC_ROOT"
 
 var errConfigInitDiagnosticChildExists = errors.New("diagnostic child exists")
 
@@ -88,14 +88,14 @@ func runConfigInitDiagnosticCase(t *testing.T, root, name string, create diagnos
 		emitConfigInitDiagnostic(t, configInitDiagnosticRecord{Case: name, Stage: configInitDiagnosticChildStage(name, err), Category: configInitDiagnosticCategory(err)})
 		return
 	}
-	policy := filepath.Join(child, "cquay.json")
+	policy := filepath.Join(child, "cq.json")
 	app := application{config: policy, runner: Runner{In: strings.NewReader(""), Out: io.Discard, Err: io.Discard}}
 	_, err = app.initialize([]string{"--output", policy})
 	emitConfigInitDiagnostic(t, configInitDiagnosticRecord{Case: name, Stage: configInitDiagnosticStage(err), Category: configInitDiagnosticCategory(err)})
 }
 
 func createOrdinaryDiagnosticChild(root string) (string, error) {
-	child := filepath.Join(root, "cquay-init-diagnostic-ordinary")
+	child := filepath.Join(root, "cq-init-diagnostic-ordinary")
 	if diagnosticChildExists(child) {
 		return "", errConfigInitDiagnosticChildExists
 	}
@@ -106,7 +106,7 @@ func createOrdinaryDiagnosticChild(root string) (string, error) {
 }
 
 func createPreparedDiagnosticChild(root string) (string, error) {
-	child := filepath.Join(root, "cquay-init-diagnostic-prepared")
+	child := filepath.Join(root, "cq-init-diagnostic-prepared")
 	if diagnosticChildExists(child) {
 		return "", errConfigInitDiagnosticChildExists
 	}

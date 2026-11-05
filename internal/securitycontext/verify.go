@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	contextType    = "cquay-security-context+jws"
-	contextCTY     = "application/cquay-security-context+json;v=1"
+	contextType    = "cq-security-context+jws"
+	contextCTY     = "application/cq-security-context+json;v=1"
 	contextPurpose = "security_context_v1"
 )
 
@@ -346,9 +346,10 @@ func canonicalPublicKey(key TrustedKey) ([]byte, bool) {
 }
 func canonicalECDSAKey(value crypto.PublicKey, curve elliptic.Curve) ([]byte, bool) {
 	key, ok := value.(*ecdsa.PublicKey)
-	if !ok || key == nil || key.Curve != curve || key.X == nil || key.Y == nil {
+	if !ok || key == nil || key.Curve != curve || !(&jose.JSONWebKey{Key: key}).Valid() {
 		return nil, false
 	}
+	// Structural validation rejects missing components before Bytes validates the point.
 	encoded, err := key.Bytes()
 	if err != nil || len(encoded) == 0 {
 		return nil, false

@@ -1,4 +1,4 @@
-package cquay
+package cq
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 func TestNewLocalRequiresExplicitAbsolutePaths(t *testing.T) {
 	options := localTestOptions(t)
-	if _, err := NewLocal(LocalOptions{ConfigPath: "cquay.json", StateDirectory: options.StateDirectory}); category(err) != CategoryInvalid {
+	if _, err := NewLocal(LocalOptions{ConfigPath: "cq.json", StateDirectory: options.StateDirectory}); category(err) != CategoryInvalid {
 		t.Fatalf("relative config accepted: %v", err)
 	}
 	if _, err := NewLocal(LocalOptions{ConfigPath: options.ConfigPath, StateDirectory: "state"}); category(err) != CategoryInvalid {
@@ -125,7 +125,7 @@ func TestBootstrapAndFlowRejectUnsafeConfigurationSources(t *testing.T) {
 	request := BootstrapRequest{
 		SourceURL: "https://github.com/maldous/CircularQuay",
 		Ref:       "0123456789abcdef0123456789abcdef01234567",
-		Path:      "examples/cquay.json",
+		Path:      "examples/cq.json",
 		SHA256:    strings.Repeat("a", 64),
 	}
 	if !validConfigSource(request.SourceURL) {
@@ -263,8 +263,8 @@ func localTestOptions(t *testing.T) LocalOptions {
 		t.Fatal(err)
 	}
 	return LocalOptions{
-		ConfigPath:     filepath.Join(root, "policy", "cquay.json"),
-		StateDirectory: filepath.Join(root, "state", "cquay"),
+		ConfigPath:     filepath.Join(root, "policy", "cq.json"),
+		StateDirectory: filepath.Join(root, "state", "cq"),
 	}
 }
 

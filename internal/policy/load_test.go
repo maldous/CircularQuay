@@ -24,7 +24,7 @@ func privatePolicyDirectory(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory, err := os.MkdirTemp(base, "cquay-policy-test-")
+	directory, err := os.MkdirTemp(base, "cq-policy-test-")
 	if err != nil {
 		t.Fatal(err)
 	}

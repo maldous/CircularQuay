@@ -30,7 +30,7 @@ func TestPrincipalValidAtSeparatesHTTPAndLocalLifetimes(t *testing.T) {
 func TestHTTPPrincipalExpiryFencesDisclosure(t *testing.T) {
 	now := time.Date(2026, time.November, 4, 0, 0, 0, 0, time.UTC)
 	expires := now.Add(time.Minute)
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:read"}, ExpiresAt: expires}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:read"}, ExpiresAt: expires}
 	backend := &fakeBackend{value: model.Value{Data: "MUST-NOT-DISCLOSE"}, onRead: func() { now = expires }}
 	audit := &memoryAudit{}
 	service := makeService(t, testPolicy(t), backend, Options{Audit: audit})
@@ -44,7 +44,7 @@ func TestHTTPPrincipalExpiryFencesDisclosure(t *testing.T) {
 func TestHTTPPrincipalExpiryFencesDisclosureAfterAudit(t *testing.T) {
 	now := time.Date(2026, time.November, 4, 0, 0, 0, 0, time.UTC)
 	expires := now.Add(time.Minute)
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:read"}, ExpiresAt: expires}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:read"}, ExpiresAt: expires}
 	backend := &fakeBackend{value: model.Value{Data: "MUST-NOT-DISCLOSE"}}
 	audit := &memoryAudit{onRecord: func() { now = expires }}
 	service := makeService(t, testPolicy(t), backend, Options{Audit: audit})
@@ -60,7 +60,7 @@ func TestExpiredHTTPPrincipalDoesNotReachProvider(t *testing.T) {
 	backend := &fakeBackend{value: model.Value{Data: "MUST-NOT-READ"}}
 	service := makeService(t, testPolicy(t), backend, Options{Audit: &memoryAudit{}})
 	service.now = func() time.Time { return now }
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:read"}, ExpiresAt: now}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:read"}, ExpiresAt: now}
 	if _, err := service.ReadSecret(context.Background(), principal, "alpha", "SERVICE_KEY"); !fault.Is(err, fault.Denied) || backend.reads != 0 {
 		t.Fatalf("expired principal result = %v, reads=%d", err, backend.reads)
 	}
@@ -73,7 +73,7 @@ func TestHTTPPrincipalExpiryFencesAction(t *testing.T) {
 	audit := &memoryAudit{onRecord: func() { now = expires }}
 	service := makeService(t, testPolicy(t), backend, Options{Audit: audit, ActionAllowed: func(string) bool { return true }})
 	service.now = func() time.Time { return now }
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:run"}, ExpiresAt: expires}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:run"}, ExpiresAt: expires}
 	if _, err := service.RunWorkload(context.Background(), principal, "alpha"); !fault.Is(err, fault.Denied) || backend.runs != 0 {
 		t.Fatalf("expired action result = %v, runs=%d", err, backend.runs)
 	}
@@ -92,7 +92,7 @@ func TestHTTPPrincipalExpiryFencesActionAfterTrustCheck(t *testing.T) {
 		return true
 	}})
 	service.now = func() time.Time { return now }
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:run"}, ExpiresAt: expires}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:run"}, ExpiresAt: expires}
 	if _, err := service.RunWorkload(context.Background(), principal, "alpha"); !fault.Is(err, fault.Denied) || backend.runs != 0 || checks != 2 {
 		t.Fatalf("post-trust expiry result = %v, runs=%d, checks=%d", err, backend.runs, checks)
 	}
@@ -113,7 +113,7 @@ func TestHTTPPrincipalExpiryFencesStatus(t *testing.T) {
 	backend := &fakeBackend{status: Status{State: "ready"}, onStatus: func() { now = expires }}
 	service := makeService(t, testPolicy(t), backend, Options{})
 	service.now = func() time.Time { return now }
-	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:status"}, ExpiresAt: expires}
+	principal := Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:status"}, ExpiresAt: expires}
 	if _, err := service.GetStatus(context.Background(), principal, "alpha"); !fault.Is(err, fault.Denied) || backend.statuses != 1 {
 		t.Fatalf("expired status result = %v, statuses=%d", err, backend.statuses)
 	}

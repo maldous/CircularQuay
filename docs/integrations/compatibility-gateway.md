@@ -23,8 +23,8 @@ authorize a deployment or prove an endpoint is qualified.
 
 ```mermaid
 flowchart LR
-    C[Legacy application] -->|Gateway access token<br/>for CircularQuay audience| G[Compatibility gateway]
-    G -->|verified identity + exact namespace/name mapping| P[CircularQuay policy core]
+    C[Legacy application] -->|Gateway access token<br/>for CQ audience| G[Compatibility gateway]
+    G -->|verified identity + exact namespace/name mapping| P[CQ policy core]
     P -->|explicit workload provider identity| S[Selected secret provider]
     P -->|redacted release decision| A[Durable audit]
     S -->|declared value/version only| P

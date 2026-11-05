@@ -19,8 +19,8 @@ const (
 	softwareAlgorithm = "A256KW+A256GCM"
 	softwareKeyBytes  = 32
 	softwareCipherMax = 512 << 10
-	softwareHeaderKV  = "cquay_key_version"
-	softwareHeaderCA  = "cquay_configuration_attestation"
+	softwareHeaderKV  = "cq_key_version"
+	softwareHeaderCA  = "cq_configuration_attestation"
 )
 
 // SoftwareKEK is one resolver-owned software key-encryption key. Ownership of
@@ -198,7 +198,7 @@ func validSoftwareDEK(value []byte) bool { return len(value) == softwareKeyBytes
 func softwareAAD(binding AssociationContext) []byte {
 	fields := []string{binding.Tenant, binding.Profile, binding.Application, binding.Principal, binding.Generation, binding.Purpose, binding.ArtifactID, binding.ArtifactVersion}
 	var value strings.Builder
-	value.WriteString("cquay-keyservice-software-jwe-v1")
+	value.WriteString("cq-keyservice-software-jwe-v1")
 	for _, field := range fields {
 		value.WriteString("|")
 		value.WriteString(strconv.Itoa(len(field)))

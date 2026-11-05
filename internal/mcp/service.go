@@ -299,7 +299,7 @@ func legacyScopeAllows(p Principal, operation string) bool {
 		return true
 	}
 	for _, scope := range p.Scopes {
-		if scope == "cquay:"+operation {
+		if scope == "cq:"+operation {
 			return true
 		}
 	}

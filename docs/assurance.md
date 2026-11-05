@@ -108,7 +108,7 @@ workflow-token and immutable action-reference settings. A heuristic
 result complements that evidence; unreadable or denied administrative settings
 are unknown, not proof of protection.
 
-Every `cquay-audit run` needs a protected v1 [tool manifest](../internal/assurance/tool_manifest.schema.json) outside both the
+Every `cq-audit run` needs a protected v1 [tool manifest](../internal/assurance/tool_manifest.schema.json) outside both the
 source checkout and audit output. The portable schema describes structure;
 the strict decoder also requires the integer spelling `1` and bounds paths to
 4,096 UTF-8 bytes. Native loading enforces the host platform, protected local

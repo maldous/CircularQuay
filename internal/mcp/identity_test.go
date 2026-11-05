@@ -107,7 +107,7 @@ func newPrivateCAIssuer(t *testing.T) (*issuerFixture, []byte) {
 	}
 	now := time.Now()
 	rootTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "cquay test replacement root"},
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "cq test replacement root"},
 		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), IsCA: true,
 		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 	}

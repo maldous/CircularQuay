@@ -1,4 +1,4 @@
-"""Caller-owned MCP client adapter for the four CircularQuay v1 tools."""
+"""Caller-owned MCP client adapter for the four CQ v1 tools."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ class MCPClientSessionAdapter:
 
 
 class CircularQuayClient:
-    """Typed access to non-disclosure CircularQuay MCP operations.
+    """Typed access to non-disclosure CQ MCP operations.
 
     The client does not retry, cache, discover credentials, or derive a profile
     from its environment.  Cancellation propagates to the caller-owned MCP

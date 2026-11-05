@@ -1,20 +1,18 @@
 # Implementation and qualification plan
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Production
-custom UI remains outside deployment authorization; the separately authorized
-synthetic frontend work proceeds in its isolated checkout. Real backend tests
-remain separate from static design and preview evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
+
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
 
 This is the durable engineering contract, not a completion report. Implementation and qualification use explicitly selected, isolated development environments; verify the actual executor and checkout for each session. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
 
@@ -34,7 +32,7 @@ release/qualification records.
 
 ## Accepted product decisions
 
-- Public project `maldous/CircularQuay`; Apache-2.0; native `cquay` and independent `cquay-audit` commands.
+- Public project `maldous/CircularQuay`; Apache-2.0; native `cq` and independent `cq-audit` commands.
 - One Go module with idiomatic package/file/asset names; native runtime distribution without requiring a language runtime.
 - Explicit read-through interoperability; one authority per value and exact source/destination identity selection.
 - SOPS/age offline, optional OpenBao Transit online, explicitly authorized hybrid snapshots, and separately labeled native deployed snapshots.
@@ -93,8 +91,8 @@ automatically provisioned on authorized profile enrollment. This supersedes the
 earlier age-only baseline, with explicit window checks, usage classes and an
 opt-in subscription opportunity. It does not include enterprise config
 orchestration or every optional integration by default. Preserve those as separately selected
-CircularQuay capabilities and independently costed deployments. The user
-clarified KVM/PVM meant **KMS**, configured per user profile. Implement the
+CircularQuay capabilities and independently costed deployments. **KMS** is
+configured per user profile. Implement the
 [separate custody contract](managed-key-service.md#per-profile-age-and-kms-custody);
 current source does not yet establish cloud-KMS support.
 
@@ -203,7 +201,7 @@ integration, never a server proxy or silent unsupported options. Save locally.
 Hosted state includes authenticated profile→KMS/age associations, crypto operations
 and necessary enrollment/window/metering/billing. Protect keys without display
 or logging. CLI/config disable before network supports fully client-only use.
-The user clarified PVM/KVM meant KMS. Per-profile KMS is a required capability,
+Per-profile KMS is a required capability,
 not an existing enum/flag or permission for live key provisioning here.
 Qualify compatible KMS/age ciphertext, recipient/key versions and independent
 key IDs/windows for separately protected domains before hybrid activation.
@@ -643,7 +641,7 @@ Actual outcomes are machine-readable audit reports and [qualification receipts](
 
 ## Agent packaging and documentation acceptance
 
-The portable cquay skill, skill UI metadata and client-plugin instructions share
+The portable cq skill, skill UI metadata and client-plugin instructions share
 one capability vocabulary with CLI, SDK and optional MCP. Package only contained,
 versioned references and verified runtime connections; no manifest or skill can
 create authority. [Agent integration](agent-integrations.md) defines installation,

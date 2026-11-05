@@ -159,7 +159,7 @@ func blobID(data []byte, length int) string {
 		hash := sha256.Sum256(append(header, data...))
 		return hex.EncodeToString(hash[:])
 	}
-	directory, err := os.MkdirTemp("", "cquay-blob-")
+	directory, err := os.MkdirTemp("", "cq-blob-")
 	if err != nil {
 		panic(err)
 	}

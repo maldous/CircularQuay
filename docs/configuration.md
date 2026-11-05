@@ -106,7 +106,7 @@ can remain fully client-only under its actual local grants and key custody.
 
 ## Loading and filesystem boundary
 
-`cquay --config PATH` loads JSON or YAML. Relative references are resolved
+`cq --config PATH` loads JSON or YAML. Relative references are resolved
 against the policy's directory, not the caller's working directory. The policy
 file must be a regular file that is not writable by group or others; keep its
 directory controlled by the operator. Bootstrap and identity files are checked
@@ -115,12 +115,12 @@ no symlinks/reparse points, owner-only Unix secret permissions, and protected
 Windows DACLs. See [credential and identity boundaries](credential-boundaries.md)
 for the native-storage and identity-profile boundaries.
 
-Unless `--state-dir PATH` is supplied, cquay stores its private runtime
+Unless `--state-dir PATH` is supplied, cq stores its private runtime
 metadata below the operating system's user configuration directory, in
-`cquay/state` (that is, `os.UserConfigDir()/cquay/state`). This location is
+`cq/state` (that is, `os.UserConfigDir()/cq/state`). This location is
 separate from the policy and from repository state declared in the policy. The
 default fails closed when the legacy `circularquay/state` directory exists or
-cannot be inspected; cquay neither deletes nor migrates it. Select and protect
+cannot be inspected; cq neither deletes nor migrates it. Select and protect
 an explicit `--state-dir` to retain the intended isolation boundary.
 
 The policy itself records names, locations, resource selectors, and grants. A
@@ -130,10 +130,10 @@ access boundaries differ.
 
 ## Editing a policy locally
 
-`cquay.json` is the default configuration name. `cquay config init [--output
+`cq.json` is the default configuration name. `cq config init [--output
 PATH]` creates a protected JSON policy and its synthetic JSON fixture, refusing
 to overwrite either. The older top-level `init` command remains equivalent.
-Use `cquay --config PATH config validate` to strict-decode and semantically
+Use `cq --config PATH config validate` to strict-decode and semantically
 validate a protected JSON policy without provider access.
 
 `get --pointer RFC6901` returns the selected JSON value and the SHA-256 of the
@@ -142,10 +142,10 @@ indexes and the same digest. Use that digest with `--expect-sha256` for a
 compare-and-swap write:
 
 ```sh
-cquay --config cquay.json config get --pointer /workloads/demo
-cquay --config cquay.json config set --pointer /workloads/demo --value-file - --expect-sha256 "<sha256 from get>"
-cquay --config cquay.json config delete --pointer /grants/0 --expect-sha256 "<sha256 from get>"
-cquay --config cquay.json config replace --file complete-policy.json --expect-sha256 "<sha256 from get>"
+cq --config cq.json config get --pointer /workloads/demo
+cq --config cq.json config set --pointer /workloads/demo --value-file - --expect-sha256 "<sha256 from get>"
+cq --config cq.json config delete --pointer /grants/0 --expect-sha256 "<sha256 from get>"
+cq --config cq.json config replace --file complete-policy.json --expect-sha256 "<sha256 from get>"
 ```
 
 `set` accepts exactly one JSON value through `--value-json` or `--value-file
@@ -165,7 +165,7 @@ they are command-line-visible. Put them in a declared provider and use
 `--value-file -` for non-secret structured declarations when standard input is
 the safer transport.
 
-`cquay --config PATH doctor` checks the selected declaration and declared
+`cq --config PATH doctor` checks the selected declaration and declared
 executables without retrieving values, networking, or changing services. A
 missing or unsafe configuration returns non-zero. `doctor --identity-only`
 returns the local kernel-derived grant subject without checking configuration.
@@ -372,7 +372,7 @@ authority. Neither an IdP role nor a scope creates a local workload grant.
 `not_before` and `expires_at` are optional RFC3339 local authorization bounds
 on a grant. A grant is active from `not_before` inclusively until `expires_at`
 exclusively; when both are present, `not_before` must precede `expires_at`.
-They bound only cquay's policy decision. They do not change remote identity
+They bound only cq's policy decision. They do not change remote identity
 claim validation, provider credential validity, or schedule work. Grants are
 additive: an active unbounded grant can authorize an operation even when a
 separate matching grant is not yet active or has expired.
@@ -405,7 +405,7 @@ a final expiry, revocation, or cancellation check can still withhold the respons
 | --- | --- | --- |
 | `resource` | HTTPS resource URL | Public MCP resource identifier with a non-root path, independent of the token audience. Used with `authorities`. Loopback HTTP is allowed for the local resource only. |
 | `authorities` | named object, 1–8 entries | Explicit access-token issuers and permission mappings described below. Cannot be mixed with the single-issuer fields. |
-| `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cquay:mcp` plus `cquay:list`, `cquay:status`, `cquay:run`, or `cquay:read`. Prefer named authorities for custom audiences or roles. |
+| `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cq:mcp` plus `cq:list`, `cq:status`, `cq:run`, or `cq:read`. Prefer named authorities for custom audiences or roles. |
 | `address` | `host:port` string | Optional listener address. Bind and exposure decisions remain operator-controlled. |
 | `origins` | unique HTTPS URL array | Request `Origin` allowlist for HTTP mode. It is an origin check, not a CORS implementation: this profile does not emit browser CORS permission headers. |
 | `hosts` | unique string array | Allowed Host values, without wildcard/URL syntax. |
@@ -522,13 +522,13 @@ revocation and [qualification](qualification.md) for actual tested scope.
 
 ## Pinned configuration bootstrap
 
-`cquay bootstrap` creates a protected JSON configuration from an immutable
+`cq bootstrap` creates a protected JSON configuration from an immutable
 public GitHub tree, blob or raw URL. Supply `--config-ref` with the full 40-hex
 commit and `--config-sha256` with a digest obtained through a trusted maintainer
 channel. The URL's commit marker must equal the ref. `--config-path` is the
 repository-relative file path. Equivalent environment settings are
-`CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH` and
-`CQUAY_CONFIG_SHA256`; explicit flags take precedence.
+`CQ_CONFIG_SOURCE`, `CQ_CONFIG_REF`, `CQ_CONFIG_PATH` and
+`CQ_CONFIG_SHA256`; explicit flags take precedence.
 
 Retrieval denies redirects, bounds the response to 1 MiB, verifies the digest,
 strictly validates the policy for its destination, and creates it exclusively.

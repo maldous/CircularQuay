@@ -4,7 +4,7 @@
 
 It wraps a session you create with the official [MCP Go SDK](https://pkg.go.dev/github.com/modelcontextprotocol/go-sdk/mcp) v1.8.0 dependency pinned by this repository.
 
-The SDK never finds credentials, reads shell profiles, starts `cquay`, creates a network transport, retries calls, or caches secrets. Your application owns the session, transport, authentication, TLS policy, and lifecycle.
+The SDK never finds credentials, reads shell profiles, starts `cq`, creates a network transport, retries calls, or caches secrets. Your application owns the session, transport, authentication, TLS policy, and lifecycle.
 
 ## MCP client
 
@@ -12,12 +12,12 @@ Construct and authenticate an official MCP session using your explicit transport
 
 ```go
 session, err := mcp.NewClient(&mcp.Implementation{Name: "example", Version: "1"}, nil).Connect(ctx, &mcp.StreamableClientTransport{
-    Endpoint: "https://cquay.example.invalid/mcp", HTTPClient: configuredHTTPClient, MaxRetries: 0,
+    Endpoint: "https://cq.example.invalid/mcp", HTTPClient: configuredHTTPClient, MaxRetries: 0,
 }, nil)
 if err != nil { /* handle connection error */ }
 defer session.Close()
 
-client, err := cquay.New(session)
+client, err := cq.New(session)
 status, err := client.GetStatus(ctx, "payments")
 ```
 
@@ -33,9 +33,9 @@ run, err := client.RunWorkload(ctx, "payments")
 Plaintext is intentionally separate and visible in review. It still requires a server-side identity, policy grant, and audited disclosure:
 
 ```go
-disclosure := client.Disclosure(cquay.AllowPlaintext{})
+disclosure := client.Disclosure(cq.AllowPlaintext{})
 secret, err := disclosure.ReadSecret(ctx, "payments", "DATABASE_PASSWORD")
-if err != nil { /* inspect only the safe cquay.Error category */ }
+if err != nil { /* inspect only the safe cq.Error category */ }
 password := secret.Value() // plaintext; avoid logging or serializing it
 ```
 
@@ -46,8 +46,8 @@ password := secret.Value() // plaintext; avoid logging or serializing it
 `NewLocal` calls the linked CircularQuay core in-process rather than spawning a subprocess or accepting a generic command string. It requires absolute configuration and state paths, so it cannot silently use a user's ambient default state:
 
 ```go
-local, err := cquay.NewLocal(cquay.LocalOptions{
-    ConfigPath: "/srv/cquay/cquay.json", StateDirectory: "/srv/cquay/state",
+local, err := cq.NewLocal(cq.LocalOptions{
+    ConfigPath: "/srv/cq/cq.json", StateDirectory: "/srv/cq/state",
 })
 version, err := local.AssertRuntimeCompatibility(ctx)
 plan, err := local.Plan(ctx)
@@ -59,7 +59,7 @@ The local client provides typed entry points for configuration CRUD and validati
 
 ## Observability
 
-`cquay.WithObserver` and `cquay.WithLocalObserver` receive only operation name, safe outcome category, and duration. They never receive tool arguments, workload IDs, aliases, endpoints, tokens, or secret values, and an observer panic cannot change an operation's result. `cquay.Error` uses the v1 categories `invalid`, `denied`, `trust`, `unavailable`, `expired`, `unsupported`, `protocol`, `cancelled`, `integrity`, and `process`; it never retains remote diagnostic text.
+`cq.WithObserver` and `cq.WithLocalObserver` receive only operation name, safe outcome category, and duration. They never receive tool arguments, workload IDs, aliases, endpoints, tokens, or secret values, and an observer panic cannot change an operation's result. `cq.Error` uses the v1 categories `invalid`, `denied`, `trust`, `unavailable`, `expired`, `unsupported`, `protocol`, `cancelled`, `integrity`, and `process`; it never retains remote diagnostic text.
 
 ## Versions and installation
 

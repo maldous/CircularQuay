@@ -26,7 +26,7 @@ const (
 )
 
 // PersistentStore is a protected single-replica replay and nonce store. It
-// survives restart but must never be shared by independently running cquay
+// survives restart but must never be shared by independently running cq
 // processes; clustered deployments need an atomic shared store before DPoP is
 // enabled.
 type PersistentStore struct {

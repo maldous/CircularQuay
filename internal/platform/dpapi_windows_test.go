@@ -130,7 +130,7 @@ func daclGrantsRead(t *testing.T, path, sid string) bool {
 
 func assertNoDPAPIStages(t *testing.T, directory string) {
 	t.Helper()
-	stages, err := filepath.Glob(filepath.Join(directory, ".cquay-stage-*"))
+	stages, err := filepath.Glob(filepath.Join(directory, ".cq-stage-*"))
 	if err != nil || len(stages) != 0 {
 		t.Fatalf("DPAPI staging files = %v, %v", stages, err)
 	}

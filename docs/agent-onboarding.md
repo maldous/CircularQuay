@@ -5,7 +5,7 @@
 1. Verify the assigned host, checkout, branch, HEAD and dirty tree using the
    commands below. Read the current assignment, repository instructions,
    handoff, contribution rules and security policy; agree paths with the active
-   owner before writes. Do not restart a completed workstream from an old chat.
+   owner before writes. Do not restart a completed workstream from stale task context.
 2. Read the [product guide](product-guide.md) for the complete v1 result, then
    only the contracts and source relevant to the assigned boundary. The
    [implementation plan](implementation-plan.md) is acceptance criteria, not
@@ -28,7 +28,7 @@
 
 Treat UIF as the general shared harness and CircularQuay as its own product/
 profile, not an OffMenu alias. Enhanced multi-project capability is required/
-planned until actual cross-project verification. Continue CQ migration in
+planned until actual cross-project verification. Continue CircularQuay migration in
 parallel with OffMenu config/data/BAU work; enforce only real affected-unit
 dependencies, not a global completion gate in either direction.
 
@@ -36,20 +36,20 @@ Before using a shared route, recover the authoritative coordinator and accepted
 source/tree from the current assignment and single canonical migration/impact
 record. Checkout HEAD, a stale pointer, installed adapter or job admission alone
 does not establish accepted execution or pickup. Owner-confirmed shared references
-are UIF `P-UIF-16`, OffMenu `P-UIF-14` and [CQ `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c).
-The existing [CQ handoff migration checklist](session-handoff.md#uif-migration-and-delivery-closure)
+are UIF `P-UIF-16`, OffMenu `P-UIF-14` and [CircularQuay `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c).
+The existing [CircularQuay handoff migration checklist](session-handoff.md#uif-migration-and-delivery-closure)
 now records obligations, ownership and actual harness gaps. Dynamic view/filter
 IDs are still unverified. Project records do not create execution selectors, admission or
 implemented support. The source owner is this assignment's sole Linear writer. Do not
 create a substitute tracker or guess a project association.
 
 For scope, read the [explicit subproject descriptions](product-guide.md#required-general-uif-harness-and-project-migration):
-CQ is the secret/configuration/workload and crypto/age product; OffMenu is the
+CircularQuay is the secret/configuration/workload and crypto/age product; OffMenu is the
 household product/food/stock/meal/consumption/planning loop with source-data and
 private household/profile constraints. UIF supplies general harness governance,
 not either product's business semantics. Follow each canonical repository and
 selected accepted tree, toolchain, permissions, data/privacy, reviewer and
-publication route. CQ migration is active as an authorized workstream, not a
+publication route. CircularQuay migration is active as an authorized workstream, not a
 claim that a multi-project runtime profile is installed; OffMenu BAU/data fixes
 continue independently.
 
@@ -70,7 +70,7 @@ authorization, storage and provisioning. It is **not** a hosted endpoint or
 integrated public CLI/SDK/MCP enrollment route; do not invent one. The browser
 workbench/account/operator surfaces simulate those workflows separately.
 
-Phone access has been user-confirmed through the existing frontend route. Reuse
+Phone reachability is recorded for the existing frontend route. Reuse
 that owner's process and authenticated forwarding; this does not authorize a
 new public tunnel, firewall change or competing server. Device/origin browser
 storage is separate, so phone reachability does not transfer desktop drafts.
@@ -79,22 +79,21 @@ vector/logo deliverable. Use the selected reference, not a guessed replacement.
 
 ## Launch and evidence boundaries
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
 
-CircularQuay (`cquay`, pronounced “c-key”) connects existing secret providers
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
+
+CircularQuay (CLI `cq`, the letters C,Q) connects existing secret providers
 to approved workloads. Start at the [product guide](product-guide.md) for the
 North Star; the [implementation plan](implementation-plan.md) defines the full
 v1 acceptance contract. This guide routes development work to existing sources
@@ -119,7 +118,7 @@ do not assume a host, path, branch, clean tree or uncommitted patch ownership.
 Follow [Gitflow](../CONTRIBUTING.md#gitflow). The current assignment and
 [session handoff](session-handoff.md) identify the implementation owner,
 publication coordination and pending work. Agree file ownership before shared
-writes and preserve other contributors' changes. If chat inspection is
+writes and preserve other contributors' changes. If prior-task context is
 unavailable, the handoff and existing local receipts still provide bounded
 context; do not interpret missing context as permission to overwrite work.
 
@@ -133,14 +132,14 @@ context; do not interpret missing context as permission to overwrite work.
 
 Local receipts may be ignored development evidence. They do not replace the
 committed qualification record or qualify a later HEAD/dirty tree. Do not copy
-full chat histories, invent project/issue associations or create a parallel
+full task histories, invent project/issue associations or create a parallel
 controller, status database or qualification ledger.
 
 ## Navigate the implementation
 
 | Source | Responsibility |
 | --- | --- |
-| [`cmd/`](../cmd/) and [`internal/cli/`](../internal/cli/) | Native `cquay` / independent `cquay-audit` entry points, command parsing and dispatch. |
+| [`cmd/`](../cmd/) and [`internal/cli/`](../internal/cli/) | Native `cq` / independent `cq-audit` entry points, command parsing and dispatch. |
 | [`internal/policy/`](../internal/policy/), [`internal/model/`](../internal/model/), [`internal/jsondocument/`](../internal/jsondocument/) | Policy loading/schema, typed declarations and conditional JSON editing. |
 | [`internal/bootstrap/`](../internal/bootstrap/), [`internal/repository/`](../internal/repository/) | Pinned GitHub configuration retrieval and repository trust. |
 | [`internal/source/`](../internal/source/), [`internal/resolve/`](../internal/resolve/) | Provider adapters and complete workload resolution. |
@@ -149,7 +148,7 @@ controller, status database or qualification ledger.
 | [`internal/identity/`](../internal/identity/), [`internal/mcp/`](../internal/mcp/), [`internal/dpop/`](../internal/dpop/), [`internal/transport/`](../internal/transport/) | Identity verification, filtered MCP operations, sender constraints and client trust. |
 | [`internal/observability/`](../internal/observability/), [`internal/update/`](../internal/update/) | Bounded telemetry and advisory release checks, separate from required audit and installation. |
 | [`internal/assurance/`](../internal/assurance/), [`formal/`](../formal/), [workflows](../.github/workflows/) | Evidence generation, bounded models and hosted qualification. |
-| [`sdk/`](../sdk/) and [`integrations/skills/cquay/`](../integrations/skills/cquay/) | Official application adapters and portable agent instructions. |
+| [`sdk/`](../sdk/) and [`integrations/skills/cq/`](../integrations/skills/cq/) | Official application adapters and portable agent instructions. |
 
 Read [architecture](architecture.md), [threat model](threat-model.md),
 [runtime boundaries](runtime-boundaries.md) and [the language ADR](adr/0001-language-and-assurance.md)
@@ -163,11 +162,11 @@ key, so revocation cannot promise recall.
 ## Usable commands and prerequisites
 
 These are source-backed routes, not a claim that an executable is installed or
-that an artifact passed qualification. Inspect `cquay help` / `cquay version`
+that an artifact passed qualification. Inspect `cq help` / `cq version`
 only after selecting and authenticating the executable. The
 [command reference](commands.md) defines flags and protected paths.
 
-- Local inspection: `cquay --config PATH config validate`, `doctor`, `plan`
+- Local inspection: `cq --config PATH config validate`, `doctor`, `plan`
   and `status --workload ID --json`. Use synthetic policy; configuration reads
   can expose literal declarations and should not become general diagnostic logs.
 - Remote bootstrap: `bootstrap --config-source URL --config-ref FULL_COMMIT
@@ -186,7 +185,7 @@ only after selecting and authenticating the executable. The
   and `read_secret`, filtered by authorization. Discover the actual selected
   server. Managed-key mapping/grant CRUD, remote config administration and
   agent delegation are design requirements, not extra tools in that catalog.
-- Updates: `cquay --config PATH update check --json` is explicit advisory
+- Updates: `cq --config PATH update check --json` is explicit advisory
   inspection. Startup notices continue without reading input; SDK/MCP/CI never
   prompt or install updates. A separate minimum-version policy can deny runtime
   effects independently of the feed.
@@ -250,7 +249,7 @@ initializes it after config/discovery/manual selection and authentication unless
 disabled via CLI or config. Both opt-outs must be resolved before any hosted
 network call; validate enterprise locks and fail before network on a conflict.
 
-The user clarified spoken KVM/PVM meant KMS, configured in the user profile.
+KMS configuration is defined per profile.
 Read the [custody and hybrid contract](managed-key-service.md#per-profile-age-and-kms-custody);
 hosted KMS/dual provisioning is required but not established by the current adapter. Current
 bootstrap/usage source does not prove this full initialization behavior, hosted
@@ -265,8 +264,8 @@ local reuse counts zero, and a logical access/retry sequence is charged at most
 once after durable release commit. Denied/precommit failures are not retrieval
 uses. Do not equate profile count/key slots to consumption or present conditional
 forecast margin floors or conditional plan proposals as launched prices/profit.
-The user authorized cost-derived proposals; actual account/payment/vendor setup
-and an unsupported mode remain unauthorized by documentation alone.
+Cost models are planning inputs. They do not authorize account, payment, vendor
+or deployment changes, and they do not establish an unsupported mode.
 
 ### Client-only configuration and hosted state
 
@@ -357,7 +356,7 @@ dependencies merely to orient yourself.
 While it applies, use read-only/source/static checks and owner-coordinated hosted
 evidence. Builds, dependency resolution, full test/audit runs and containers are
 not orientation steps. When the owner releases the hold for an isolated synthetic
-change, the documented native build is `go build -o ./cquay ./cmd/cquay`;
+change, the documented native build is `go build -o ./cq ./cmd/cq`;
 a focused package test uses `go test ./internal/NAME` for the affected package,
 with the selected toolchain, protected temporary files and Unix `umask 077`.
 These are not substitutes for the full required gates.

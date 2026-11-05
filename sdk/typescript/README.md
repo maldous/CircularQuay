@@ -1,8 +1,8 @@
 # CircularQuay TypeScript SDK
 
-`@maldous/cquay-sdk` is the v1 typed client boundary for CircularQuay. It has
+`@maldous/cq-sdk` is the v1 typed client boundary for CircularQuay. It has
 two explicit adapters: a caller-owned connected MCP client session for the
-policy-approved MCP tools, and a verified local `cquay` executable for the full
+policy-approved MCP tools, and a verified local `cq` executable for the full
 implemented command interface. It does not discover credentials, load shell
 profiles, create a connection, install a binary, retry work, cache results or
 start a service.
@@ -12,7 +12,7 @@ start a service.
 Select the exact qualified v1 release for your application:
 
 ```sh
-npm install --save-exact @maldous/cquay-sdk@1.0.0
+npm install --save-exact @maldous/cq-sdk@1.0.0
 ```
 
 The local adapter needs no MCP dependency. For an MCP connection, install the
@@ -32,18 +32,18 @@ connect its client using the transport you selected, then adapt that session:
 
 ```ts
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import { CquayClient, officialMCPAdapter } from "@maldous/cquay-sdk";
+import { CqClient, officialMCPAdapter } from "@maldous/cq-sdk";
 
-const cquay = new CquayClient(officialMCPAdapter(session, CallToolResultSchema));
-const workloads = await cquay.listWorkloads({ signal: abortController.signal });
-const status = await cquay.getStatus(workloads[0]!);
+const client = new CqClient(officialMCPAdapter(session, CallToolResultSchema));
+const workloads = await client.listWorkloads({ signal: abortController.signal });
+const status = await client.getStatus(workloads[0]!);
 ```
 
 `discoverTools`, `listWorkloads`, `getStatus`, and `runWorkload` return only
 bounded, validated protocol data. `read_secret` is deliberately separate:
 
 ```ts
-const disclosure = cquay.disclosure();
+const disclosure = client.disclosure();
 const secret = await disclosure.readSecret("api", "SERVICE_TOKEN");
 useSecret(secret.reveal()); // plaintext is available only here
 ```
@@ -65,13 +65,13 @@ does not inherit the parent environment. Use it only for values that the
 operator intends to give the local process.
 
 ```ts
-import { LocalCLIClient } from "@maldous/cquay-sdk";
+import { LocalCLIClient } from "@maldous/cq-sdk";
 
 const cli = await LocalCLIClient.create({
-  executablePath: "/opt/cquay/cquay",
+  executablePath: "/opt/cq/cq",
   expectedSHA256: "<64 lower-case hex characters>",
-  configPath: "/srv/cquay/cquay.json",
-  stateDirectory: "/srv/cquay/state",
+  configPath: "/srv/cq/cq.json",
+  stateDirectory: "/srv/cq/state",
   environment: { LANG: "C" }
 });
 

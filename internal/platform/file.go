@@ -266,7 +266,7 @@ func stageProtectedFile(dir string, data []byte) (string, error) {
 }
 
 func stageProtectedFileWithWriter(dir string, data []byte, write func(*os.File, []byte) error) (string, error) {
-	file, err := os.CreateTemp(dir, ".cquay-stage-*")
+	file, err := os.CreateTemp(dir, ".cq-stage-*")
 	if err != nil {
 		return "", fault.New(fault.Apply, "stage protected file")
 	}

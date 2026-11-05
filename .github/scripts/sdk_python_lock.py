@@ -194,7 +194,7 @@ def atomic_write(path: Path, contents: bytes) -> None:
     temporary: str | None = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary = tempfile.mkstemp(prefix=".cquay-", dir=path.parent)
+        descriptor, temporary = tempfile.mkstemp(prefix=".cq-", dir=path.parent)
         with os.fdopen(descriptor, "wb") as output:
             output.write(contents)
             output.flush()
@@ -217,7 +217,7 @@ def receipt(
     if not re.fullmatch(r"[0-9a-f]{40,64}", revision):
         raise ValidationError("revision is invalid")
     lines = [
-        "format=cquay-python-lock-v1",
+        "format=cq-python-lock-v1",
         f"revision={revision}",
         f"report_sha256={report_digest}",
         f"packages={packages}",

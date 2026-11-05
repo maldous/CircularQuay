@@ -11,10 +11,10 @@ import (
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
-func TestDefaultStatePathUsesCQuayWhenLegacyStateIsAbsent(t *testing.T) {
+func TestDefaultStatePathUsesCQWhenLegacyStateIsAbsent(t *testing.T) {
 	configDirectory := syntheticUserConfigDirectory(t)
 	legacy := filepath.Join(configDirectory, "circularquay", "state")
-	preferred := filepath.Join(configDirectory, "cquay", "state")
+	preferred := filepath.Join(configDirectory, "cq", "state")
 	requireMissingPath(t, legacy)
 	requireMissingPath(t, preferred)
 
@@ -29,7 +29,7 @@ func TestDefaultStatePathUsesCQuayWhenLegacyStateIsAbsent(t *testing.T) {
 func TestDefaultStatePathRejectsLegacyFenceWithoutMutatingEitherStore(t *testing.T) {
 	configDirectory := syntheticUserConfigDirectory(t)
 	legacy := filepath.Join(configDirectory, "circularquay", "state")
-	preferred := filepath.Join(configDirectory, "cquay", "state")
+	preferred := filepath.Join(configDirectory, "cq", "state")
 	legacyStore := state.Store{Directory: legacy}
 	if err := legacyStore.Write(state.Record{Workload: "demo", State: "blocked", Mode: "hybrid", FallbackFence: true}); err != nil {
 		t.Fatal(err)
@@ -53,6 +53,34 @@ func TestDefaultStatePathRejectsLegacyFenceWithoutMutatingEitherStore(t *testing
 	requireMissingPath(t, preferred)
 }
 
+func TestRenamedDefaultStateCannotBypassPreviousNamespaceFence(t *testing.T) {
+	configDirectory := syntheticUserConfigDirectory(t)
+	previous := filepath.Join(configDirectory, "cquay", "state")
+	preferred := filepath.Join(configDirectory, "cq", "state")
+	previousStore := state.Store{Directory: previous}
+	if err := previousStore.Write(state.Record{Workload: "demo", State: "blocked", Mode: "hybrid", FallbackFence: true}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(previous, "demo.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, selected := range []string{"", preferred, preferred + string(filepath.Separator) + "."} {
+		if _, err := (application{directory: selected}).store(); !fault.Is(err, fault.Trust) {
+			t.Fatalf("previous namespace fence was bypassed for %q: %v", selected, err)
+		}
+	}
+	after, err := os.ReadFile(filepath.Join(previous, "demo.json"))
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("previous record changed during refusal: %v", err)
+	}
+	record, err := previousStore.Read("demo")
+	if err != nil || !record.FallbackFence {
+		t.Fatalf("previous denial fence was lost: %#v, %v", record, err)
+	}
+	requireMissingPath(t, preferred)
+}
+
 func TestExplicitLegacyStatePathRemainsAvailableWithoutMigration(t *testing.T) {
 	configDirectory := syntheticUserConfigDirectory(t)
 	legacy := filepath.Join(configDirectory, "circularquay", "state")
@@ -69,7 +97,7 @@ func TestExplicitLegacyStatePathRemainsAvailableWithoutMigration(t *testing.T) {
 	if err != nil || !record.FallbackFence {
 		t.Fatalf("explicit legacy fence was not retained: %#v, %v", record, err)
 	}
-	requireMissingPath(t, filepath.Join(configDirectory, "cquay", "state"))
+	requireMissingPath(t, filepath.Join(configDirectory, "cq", "state"))
 }
 
 func TestDefaultStatePathRejectsAmbiguousLegacyPath(t *testing.T) {
@@ -85,7 +113,7 @@ func TestDefaultStatePathRejectsAmbiguousLegacyPath(t *testing.T) {
 	if _, err := (application{}).store(); !fault.Is(err, fault.Trust) {
 		t.Fatalf("ambiguous legacy path did not fail closed: %v", err)
 	}
-	requireMissingPath(t, filepath.Join(configDirectory, "cquay", "state"))
+	requireMissingPath(t, filepath.Join(configDirectory, "cq", "state"))
 }
 
 func TestDefaultStatePathRejectsUnreadableLegacyLookup(t *testing.T) {

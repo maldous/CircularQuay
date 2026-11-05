@@ -8,7 +8,7 @@ import (
 )
 
 func TestEnvironmentSourcesRejectProtectedInputAliases(t *testing.T) {
-	for _, resource := range []string{"VAULT_TOKEN", "vault_token", "Cquay_Bootstrap", "Ld_Preload"} {
+	for _, resource := range []string{"VAULT_TOKEN", "vault_token", "Cq_Bootstrap", "Ld_Preload"} {
 		t.Run(resource, func(t *testing.T) {
 			policy := validPolicy()
 			policy.Sources["fixture"] = model.Source{Type: "env", Resources: []string{resource}}
@@ -24,7 +24,7 @@ func TestEnvironmentSourcesRejectProtectedInputAliases(t *testing.T) {
 }
 
 func TestProtectedEnvironmentNamesAreCaseInsensitive(t *testing.T) {
-	for _, name := range []string{"vault_token", "cQuAy_bootstrap", "lD_preload", "Path"} {
+	for _, name := range []string{"vault_token", "cQ_bootstrap", "lD_preload", "Path"} {
 		if !IsProtectedEnvironmentName(name) {
 			t.Fatalf("protected environment name %q was accepted", name)
 		}

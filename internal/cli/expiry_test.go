@@ -31,7 +31,7 @@ func TestMCPRunRejectsExpiredPrincipalAfterResolution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	principal := cqmcp.Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:run", "cquay:read"}, ExpiresAt: expires}
+	principal := cqmcp.Principal{Subject: "local:alice", HTTP: true, Scopes: []string{"cq:run", "cq:read"}, ExpiresAt: expires}
 	if _, err := service.RunWorkload(context.Background(), principal, "demo"); !fault.Is(err, fault.Denied) {
 		t.Fatalf("expired action error = %v", err)
 	}

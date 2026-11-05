@@ -1,7 +1,7 @@
 {
-  "realm": "cquay-it",
+  "realm": "cq-it",
   "enabled": true,
-  "displayName": "CircularQuay synthetic interoperability fixture",
+  "displayName": "CQ synthetic interoperability fixture",
   "sslRequired": "external",
   "registrationAllowed": false,
   "registrationEmailAsUsername": false,
@@ -16,10 +16,10 @@
   "roles": {
     "realm": [],
     "client": {
-      "cquay-mcp-resource": [
+      "cq-mcp-resource": [
         {
           "name": "read-access",
-          "description": "Synthetic fixture role for the CircularQuay read operation",
+          "description": "Synthetic fixture role for the CQ read operation",
           "clientRole": true,
           "composite": false
         }
@@ -28,8 +28,8 @@
   },
   "clients": [
     {
-      "clientId": "cquay-fixture-client",
-      "name": "CircularQuay fixture service client",
+      "clientId": "cq-fixture-client",
+      "name": "CQ fixture service client",
       "description": "FIXTURE ONLY: client credentials are synthetic and must never be used outside the disposable interoperability test.",
       "enabled": true,
       "protocol": "openid-connect",
@@ -51,24 +51,24 @@
       ],
       "protocolMappers": [
         {
-          "name": "cquay fixture audience",
+          "name": "cq fixture audience",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.custom.audience": "cquay-fixture-audience",
+            "included.custom.audience": "cq-fixture-audience",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "introspection.token.claim": "true"
           }
         },
         {
-          "name": "cquay fixture roles",
+          "name": "cq fixture roles",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-client-role-mapper",
           "consentRequired": false,
           "config": {
-            "usermodel.clientRoleMapping.clientId": "cquay-mcp-resource",
+            "usermodel.clientRoleMapping.clientId": "cq-mcp-resource",
             "claim.name": "roles",
             "jsonType.label": "String",
             "multivalued": "true",
@@ -80,19 +80,19 @@
         }
       ],
       "serviceAccountUser": {
-        "username": "service-account-cquay-fixture-client",
+        "username": "service-account-cq-fixture-client",
         "enabled": true,
         "clientRoles": {
-          "cquay-mcp-resource": [
+          "cq-mcp-resource": [
             "read-access"
           ]
         }
       }
     },
     {
-      "clientId": "cquay-mcp-resource",
-      "name": "CircularQuay fixture resource",
-      "description": "Fixture resource role container; it is not a CircularQuay authorization-server configuration.",
+      "clientId": "cq-mcp-resource",
+      "name": "CQ fixture resource",
+      "description": "Fixture resource role container; it is not a CQ authorization-server configuration.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -108,7 +108,7 @@
   "clientScopes": [
     {
       "name": "cq.read",
-      "description": "Synthetic fixture scope for a CircularQuay read operation",
+      "description": "Synthetic fixture scope for a CQ read operation",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",

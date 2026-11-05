@@ -1,15 +1,13 @@
 # Managed key service
 
-The latest authorized launch provides **a hosted SOFTWARE crypto/key service
-and authenticated age-private-key retrieval**, using only existing minimum-cost
-paid Cloudflare/Netlify resources. It does not require paid AWS/GCP/Azure KMS,
+The launch profile specifies **a hosted software key service and authenticated
+age-private-key retrieval** on Cloudflare or Netlify. It does not require paid AWS/GCP/Azure KMS,
 new paid identity, upgrades or external services at launch. Authorized profile
 enrollment provisions both crypto and age associations; this does not release
 an offline key, activate hybrid or grant arbitrary decrypt/billing authority.
-Spoken KVM/PVM meant KMS, but the launch custody claim is explicitly **software**.
+KMS is configured per profile; the launch custody claim is explicitly **software**.
 
-The user has explicitly accepted the launch tradeoff: a versioned software
-wrapping key stays in protected host secrets **outside the database**, with
+The software custody profile uses a versioned wrapping key held in protected host secrets **outside the database**, with
 independently random per-profile DEKs. Vetted maintained crypto performs the
 actual wrap/unwrap operations. A secrets store alone is not a key service.
 The runtime can access/use its software key; shared KEK or authorized-runtime
@@ -21,7 +19,7 @@ Profiles requiring stronger hardware/non-exportability remain unavailable here.
 
 Future managed/HSM custody is retained as an explicit funded migration path,
 not silently claimed for the launch. Mode/first-run choices remain explicit;
-earlier remote-first recommendations are not a human-selected default. Synthetic/mock functional user, account, operator and administrator UI previews
+a remote-first mode is not inferred from configuration or provider availability. Synthetic/mock functional user, account, operator and administrator UI previews
 may be developed separately, including loopback dashboard local-configuration
 edits and simulations. They remain non-production: no real backend, operational
 key, provider or account access, deployment, purchase or account connection is
@@ -120,8 +118,7 @@ launch nor later migration can claim an earlier copied key never existed.
 
 ## Per-profile age and KMS custody
 
-The user explicitly corrected spoken KVM/PVM to **KMS** and requires it configured
-in the **user profile**. Treat custody choice and workload availability mode as
+**KMS** is configured in the **user profile**. Treat custody choice and workload availability mode as
 separate validated decisions. These names describe contracts, not invented
 runtime enum values. Both associations are provisioned by the required hosted enrollment behavior;
 selection of active custody/mode remains explicit. This capability is not yet
@@ -633,11 +630,9 @@ the managed login screen alone does not authorize a mapping mutation.
 <a id="explicitly-confirmed-ui-design-implementation-deferred"></a>
 ### Explicitly confirmed UI design and bounded preview work
 
-The following is the user's explicit design confirmation, distinct from earlier
-author-proposed administration screens. A separate frontend checkout is
-authorized to build synthetic/mock functional user, account, operator and
-administrator previews, plus loopback dashboard local-configuration edits and
-simulations. This does **not** authorize a real backend or host proxy,
+The frontend development boundary covers synthetic user, account, operator and
+administrator previews in a separate checkout, plus loopback dashboard
+configuration editing and simulations. This does **not** authorize a real backend or host proxy,
 operational keys, provider or account access, production deployment, purchase,
 account setup, or a new test suite. Production custom UI operation remains
 unapproved until the functional baseline and its qualification are complete.
@@ -1287,8 +1282,8 @@ actual entitlements and a qualified existing/free customer issuer are verified.
 Otherwise evaluate existing Netlify included Identity without buying anything,
 with DB active-hours and missing storage tariff made explicit. No current
 account/project/issuer facts establish a qualified selected deployment. The
-software KEK/runtime/shared-domain risk remains the user's explicit launch
-tradeoff; keep keys outside DB and enforce fundamental auth/isolation/audit/
+selected launch custody tradeoff retains software KEK/runtime/shared-domain
+risk; keep keys outside DB and enforce fundamental auth/isolation/audit/
 recovery/tests. Funded managed/HSM migration stays versioned and staged, not a
 silent assumption of present non-exportability. Synthetic/mock previews remain
 separate from unapproved production UI.

@@ -1,4 +1,4 @@
-// Command cquay-audit generates independently reproducible assurance evidence.
+// Command cq-audit generates independently reproducible assurance evidence.
 package main
 
 import (
@@ -38,7 +38,7 @@ func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int 
 		return runSonar(ctx, arguments, stdout, stderr)
 	}
 	if len(arguments) == 0 || arguments[0] != "run" {
-		_, _ = fmt.Fprintln(stderr, "usage: cquay-audit run --profile source|enterprise --output DIR --tool-manifest PATH")
+		_, _ = fmt.Fprintln(stderr, "usage: cq-audit run --profile source|enterprise --output DIR --tool-manifest PATH")
 		return 2
 	}
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
@@ -51,7 +51,7 @@ func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int 
 	flags.StringVar(&options.ToolManifest, "tool-manifest", "", "protected external tool manifest")
 	flags.StringVar(&options.SonarURL, "sonar-url", "", "qualified SonarQube URL")
 	flags.StringVar(&options.SonarTokenFile, "sonar-token-file", "", "protected scanner token file")
-	flags.StringVar(&options.SonarProjectKey, "sonar-project-key", "circularquay", "SonarQube project key")
+	flags.StringVar(&options.SonarProjectKey, "sonar-project-key", "cq", "SonarQube project key")
 	if flags.Parse(arguments[1:]) != nil || flags.NArg() != 0 || options.ToolManifest == "" {
 		_, _ = fmt.Fprintln(stderr, "invalid audit arguments")
 		return 2
@@ -79,7 +79,7 @@ func runSonar(ctx context.Context, arguments []string, stdout, stderr io.Writer)
 	flags.SetOutput(io.Discard)
 	directory := flags.String("directory", ".local/sonar", "private local bootstrap directory")
 	endpoint := flags.String("url", "http://127.0.0.1:9000", "dedicated loopback SonarQube server")
-	project := flags.String("project", "circularquay", "fresh audit project")
+	project := flags.String("project", "cq", "fresh audit project")
 	tokenValidityDays := 7
 	if arguments[0] == "sonar-bootstrap" {
 		flags.IntVar(&tokenValidityDays, "token-validity-days", 7, "ephemeral scanner token validity (7-30 days)")

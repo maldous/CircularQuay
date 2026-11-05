@@ -1,4 +1,4 @@
-"""Integrity-pinned adapter for the existing native ``cquay`` CLI."""
+"""Integrity-pinned adapter for the existing native ``cq`` CLI."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ _IJSON_SAFE_INTEGER = 9_007_199_254_740_991
 _MAX_IJSON_DEPTH = 32
 _MAX_IJSON_COLLECTION = 1024
 _MAX_IJSON_NODES = 16_384
-_DENIED_ENV_PREFIXES = ("AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQUAY_CONFIG_")
+_DENIED_ENV_PREFIXES = ("AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQ_CONFIG_")
 _RemotePinArguments = tuple[str, str, str, str, str, str, str, str]
 _T = TypeVar("_T")
 
@@ -237,7 +237,7 @@ class LocalCLIClient:
         """Use the CLI's pinned configuration bootstrap contract.
 
         A remote source requires all immutable pin fields.  The SDK does not read
-        ``CQUAY_CONFIG_*`` environment defaults or discover a repository.
+        ``CQ_CONFIG_*`` environment defaults or discover a repository.
         """
 
         args = ["bootstrap", "--non-interactive"]

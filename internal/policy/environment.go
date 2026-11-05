@@ -38,5 +38,5 @@ func forbiddenBindingName(name string) bool {
 }
 
 func bootstrapName(name string) bool {
-	return strings.HasPrefix(name, "SOPS_") || strings.HasPrefix(name, "CQUAY_") || name == "VAULT_TOKEN" || name == "BAO_TOKEN"
+	return strings.HasPrefix(name, "SOPS_") || strings.HasPrefix(name, "CQ_") || name == "VAULT_TOKEN" || name == "BAO_TOKEN"
 }

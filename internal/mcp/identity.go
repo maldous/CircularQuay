@@ -34,7 +34,7 @@ func configuredIssuers(config model.MCP) []string {
 
 func configuredScopes(config model.MCP) []string {
 	if config.Authorities == nil {
-		return []string{"cquay:mcp", "cquay:list", "cquay:status", "cquay:run", "cquay:read"}
+		return []string{"cq:mcp", "cq:list", "cq:status", "cq:run", "cq:read"}
 	}
 	scopes := make(map[string]bool)
 	for _, authority := range config.Authorities {
@@ -65,7 +65,7 @@ func requiredTransportScopes(config model.MCP) []string {
 		// A resource-wide hard-coded scope would reject valid role-only tokens.
 		return nil
 	}
-	return []string{"cquay:mcp"}
+	return []string{"cq:mcp"}
 }
 
 func principalFromToken(token *auth.TokenInfo, client string) Principal {

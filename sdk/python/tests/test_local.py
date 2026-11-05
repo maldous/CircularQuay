@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from cquay import CircularQuayError, ErrorCategory, LocalCLIClient, RunStdio, local
+from cq import CircularQuayError, ErrorCategory, LocalCLIClient, RunStdio, local
 
 
 class _OverflowReader:
@@ -72,8 +72,8 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         root = Path(self.directory.name)
-        self.executable = root / "cquay"
-        self.executable.write_bytes(b"synthetic-cquay-binary")
+        self.executable = root / "cq"
+        self.executable.write_bytes(b"synthetic-cq-binary")
         os.chmod(self.executable, 0o700)
         digest = hashlib.sha256(self.executable.read_bytes()).hexdigest()
         self.client = LocalCLIClient(
@@ -90,7 +90,7 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
     def test_requires_absolute_identity_pinned_paths(self) -> None:
         with self.assertRaises(CircularQuayError) as captured:
             LocalCLIClient(
-                "relative-cquay", "0" * 64, "/config.json", "/state", environment={}
+                "relative-cq", "0" * 64, "/config.json", "/state", environment={}
             )
         self.assertEqual(ErrorCategory.INVALID, captured.exception.category)
 
@@ -198,7 +198,7 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             mock.patch(
-                "cquay.local.asyncio.create_subprocess_exec", new=create_process
+                "cq.local.asyncio.create_subprocess_exec", new=create_process
             ),
             mock.patch.object(local, "_TERM_GRACE_SECONDS", 0.001),
         ):
@@ -217,7 +217,7 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
             calls.append((arguments, options))
             return process
 
-        with mock.patch("cquay.local.asyncio.create_subprocess_exec", new=create_process):
+        with mock.patch("cq.local.asyncio.create_subprocess_exec", new=create_process):
             code = await self.client._inherit("synthetic_inherit", ("run", "--workload", "alpha"))
 
         self.assertEqual(7, code)
@@ -249,25 +249,25 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         ref = "a" * 40
         digest = "b" * 64
         valid = local._pinned_config_arguments(
-            "https://github.com/acme/cquay-config", ref, "cquay.json", digest, "bootstrap_pins"
+            "https://github.com/acme/cq-config", ref, "cq.json", digest, "bootstrap_pins"
         )
         if valid is None:
             self.fail("complete remote pin unexpectedly omitted its arguments")
-        self.assertEqual("https://github.com/acme/cquay-config", valid[1])
+        self.assertEqual("https://github.com/acme/cq-config", valid[1])
         for source in (
-            "https://token@example.test/cquay.json",
-            "https://example.test/cquay.json?token=synthetic",
-            "https://example.test/cquay.json#token",
-            "https://example.test/cquay.json?",
-            "https://example.test/cquay.json#",
-            "http://example.test/cquay.json",
+            "https://token@example.test/cq.json",
+            "https://example.test/cq.json?token=synthetic",
+            "https://example.test/cq.json#token",
+            "https://example.test/cq.json?",
+            "https://example.test/cq.json#",
+            "http://example.test/cq.json",
         ):
             with self.subTest(source=source):
                 with self.assertRaises(CircularQuayError) as captured:
                     local._pinned_config_arguments(
                         source,
                         ref,
-                        "cquay.json",
+                        "cq.json",
                         digest,
                         "bootstrap_pins",
                     )

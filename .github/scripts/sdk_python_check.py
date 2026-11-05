@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 
-FORMAT = "cquay-sdk-python-check-v1"
+FORMAT = "cq-sdk-python-check-v1"
 MAX_CAPTURE_BYTES = 1_048_576
 MAX_DIAGNOSTICS = 1_024
 MAX_COVERAGE_ROWS = 1_024
@@ -27,6 +27,7 @@ MAX_COVERAGE_MISSING_ITEMS = 1_024
 MAX_MESSAGE_BYTES = 240
 MAX_LINE_BYTES = 16_384
 MAX_PROGRESS_EVENTS = 4_096
+MAX_TEST_FAILURES = 64
 HOOK_MAX_EVENTS = 1_024
 HOOK_MAX_TEST_ID_BYTES = 256
 MAX_TIMEOUT_SECONDS = 1_200
@@ -36,11 +37,11 @@ PYTHON_SDK_SOURCE = "sdk/python/src"
 # The fixed report may retain coverage only for tracked SDK modules, never a tool-supplied path.
 OWNED_COVERAGE_PATHS = frozenset(
     {
-        "sdk/python/src/cquay/__init__.py",
-        "sdk/python/src/cquay/client.py",
-        "sdk/python/src/cquay/errors.py",
-        "sdk/python/src/cquay/local.py",
-        "sdk/python/src/cquay/types.py",
+        "sdk/python/src/cq/__init__.py",
+        "sdk/python/src/cq/client.py",
+        "sdk/python/src/cq/errors.py",
+        "sdk/python/src/cq/local.py",
+        "sdk/python/src/cq/types.py",
     }
 )
 DIAGNOSTIC = re.compile(
@@ -52,6 +53,12 @@ BANDIT_LOCATION = re.compile(
     r"(?P<line>[1-9]\d{0,8})(?::(?P<column>0|[1-9]\d{0,8}))?$"
 )
 RULE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
+UNITTEST_RESULT = re.compile(
+    r"^test_[A-Za-z0-9_]{1,127} \((?P<test>[^\r\n()]{1,256})\) \.\.\. (?P<result>FAIL|ERROR)$"
+)
+UNITTEST_IDENTIFIER = re.compile(
+    r"^test_(?:boundaries|client|local)\.[A-Z][A-Za-z0-9_]{0,127}\.test_[a-z][A-Za-z0-9_]{0,127}$"
+)
 RUNTIME_ENVIRONMENT = (
     "LANG",
     "LC_ALL",
@@ -103,6 +110,13 @@ class Capture:
     bandit_message: str = ""
     pending: bytes = b""
     discarding_line: bool = False
+    unittest_failures: list[str] = field(default_factory=list)
+    unittest_started: bool = False
+    unittest_exit_code: int | None = None
+    unittest_timed_out: bool = False
+    coverage_report_started: bool = False
+    coverage_report_exit_code: int | None = None
+    coverage_report_timed_out: bool = False
 
     def consume(self, raw: bytes) -> None:
         """Consume a bounded read without allocating an unbounded output line."""
@@ -146,6 +160,10 @@ class Capture:
         self._consume_line(line)
 
     def _consume_line(self, line: str) -> None:
+        unittest = UNITTEST_RESULT.fullmatch(line)
+        if unittest is not None:
+            self._add_unittest_failure(unittest.group("test"))
+            return
         issue = _bandit_issue(line)
         if issue is not None:
             self.bandit_rule, self.bandit_message = issue
@@ -195,6 +213,12 @@ class Capture:
             self.malformed = True
             return
         self.diagnostics.append(Diagnostic(rule, path, line, column, safe))
+
+    def _add_unittest_failure(self, test: str) -> None:
+        if len(self.unittest_failures) >= MAX_TEST_FAILURES or _safe_test_identifier(test) is None:
+            self.malformed = True
+            return
+        self.unittest_failures.append(test)
 
 
 def _integer(value: str | None) -> int | None:
@@ -274,6 +298,12 @@ def _safe_sdk_path(value: str) -> bool:
         and all(character.isascii() and (character.isalnum() or character in "_.-") for character in part)
         for part in parts
     )
+
+
+def _safe_test_identifier(value: str) -> str | None:
+    if len(value.encode("utf-8")) > 256 or UNITTEST_IDENTIFIER.fullmatch(value) is None:
+        return None
+    return value
 
 
 def _coverage_row(line: str) -> CoverageRow | None:
@@ -488,7 +518,7 @@ def protected_json(path: Path, value: dict[str, Any]) -> None:
     if len(contents) > MAX_CAPTURE_BYTES:
         raise CheckError("report exceeds bound")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=".cquay-", dir=path.parent)
+    descriptor, temporary = tempfile.mkstemp(prefix=".cq-", dir=path.parent)
     try:
         with os.fdopen(descriptor, "wb") as output:
             output.write(contents)
@@ -515,13 +545,13 @@ def coverage_hook(directory: Path) -> Path:
     source = "\n".join(
         (
             "import json, os, tempfile, unittest",
-            "_path = os.environ['CQUAY_SDK_PYTHON_PROGRESS']",
+            "_path = os.environ['CQ_SDK_PYTHON_PROGRESS']",
             "_events = []",
             "_max_events = 1024",
             "_max_test_id_bytes = 256",
             "def _write():",
-            "    data = json.dumps({'format': 'cquay-sdk-python-progress-v1', 'events': _events}, sort_keys=True, separators=(',', ':')).encode()",
-            "    fd, temporary = tempfile.mkstemp(prefix='.cquay-', dir=os.path.dirname(_path))",
+            "    data = json.dumps({'format': 'cq-sdk-python-progress-v1', 'events': _events}, sort_keys=True, separators=(',', ':')).encode()",
+            "    fd, temporary = tempfile.mkstemp(prefix='.cq-', dir=os.path.dirname(_path))",
             "    with os.fdopen(fd, 'wb') as output:",
             "        output.write(data)",
             "        output.flush()",
@@ -570,7 +600,7 @@ def _child_environment(
         paths.insert(0, str(hook_directory))
     environment["PYTHONPATH"] = os.pathsep.join(paths)
     if progress is not None:
-        environment["CQUAY_SDK_PYTHON_PROGRESS"] = str(progress)
+        environment["CQ_SDK_PYTHON_PROGRESS"] = str(progress)
     if hook_directory is not None:
         environment["COVERAGE_FILE"] = str(hook_directory / ".coverage")
     return environment
@@ -622,23 +652,31 @@ def run_check(check: str, timeout_seconds: int, progress: Path | None) -> tuple[
     root = Path(__file__).parents[2]
     command = fixed_command(check)
     capture = Capture(check)
-    with tempfile.TemporaryDirectory(prefix="cquay-sdk-python-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="cq-sdk-python-") as temporary:
         hooks = Path(temporary) if check == "coverage" else None
         private_home = Path(temporary) / "home"
         private_home.mkdir(mode=0o700)
         if hooks is not None and progress is not None:
-            protected_json(progress, {"format": "cquay-sdk-python-progress-v1", "events": []})
+            protected_json(progress, {"format": "cq-sdk-python-progress-v1", "events": []})
             coverage_hook(hooks)
         environment = _child_environment(root, hooks, progress, private_home)
         started = time.monotonic()
+        if check == "coverage":
+            capture.unittest_started = True
         code, timed_out = _run_command(command, root, environment, capture, timeout_seconds)
+        if check == "coverage":
+            capture.unittest_exit_code = code
+            capture.unittest_timed_out = timed_out
         if check == "coverage" and progress is not None:
             _validate_progress(progress, capture, allow_open=timed_out)
         elapsed = int((time.monotonic() - started) * 1000)
         if check == "coverage":
             remaining = timeout_seconds - int((time.monotonic() - started))
             if remaining > 0:
+                capture.coverage_report_started = True
                 report_code, report_timeout = _run_command(coverage_report_command(), root, environment, capture, remaining)
+                capture.coverage_report_exit_code = report_code
+                capture.coverage_report_timed_out = report_timeout
                 if code == 0:
                     code = report_code
                 timed_out = timed_out or report_timeout
@@ -725,7 +763,7 @@ def _validate_progress(path: Path, capture: Capture, *, allow_open: bool) -> Non
         capture.malformed = True
         return
     events = value.get("events")
-    if value.get("format") != "cquay-sdk-python-progress-v1" or not isinstance(events, list):
+    if value.get("format") != "cq-sdk-python-progress-v1" or not isinstance(events, list):
         capture.malformed = True
         return
     if not events or len(events) > MAX_PROGRESS_EVENTS:
@@ -777,7 +815,10 @@ def report(check: str, code: int, capture: Capture, timed_out: bool, duration_ms
             "coverage_rows": len(capture.coverage_rows),
             "unparsed_sdk_lines": capture.unparsed_sdk_lines,
             "captured_bytes": min(capture.bytes_seen, MAX_CAPTURE_BYTES),
+            "unittest_failures": len(capture.unittest_failures),
         },
+        "phases": _phase_report(check, capture),
+        "unittest_failures": list(capture.unittest_failures),
         "diagnostics": [
             {"rule": item.rule, "path": item.path, "line": item.line, "column": item.column, "message": item.message}
             for item in capture.diagnostics
@@ -799,6 +840,29 @@ def report(check: str, code: int, capture: Capture, timed_out: bool, duration_ms
             for item in capture.coverage_rows
         ],
     }
+
+
+def _phase_report(check: str, capture: Capture) -> dict[str, str]:
+    if check != "coverage":
+        return {}
+    return {
+        "unittest": _phase_status(
+            capture.unittest_started, capture.unittest_exit_code, capture.unittest_timed_out
+        ),
+        "coverage_report": _phase_status(
+            capture.coverage_report_started, capture.coverage_report_exit_code, capture.coverage_report_timed_out
+        ),
+    }
+
+
+def _phase_status(started: bool, code: int | None, timed_out: bool) -> str:
+    if not started:
+        return "not_run"
+    if timed_out:
+        return "timed_out"
+    if code is None:
+        return "not_run"
+    return "passed" if code == 0 else "failed"
 
 
 def arguments() -> argparse.Namespace:

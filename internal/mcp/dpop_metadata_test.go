@@ -48,7 +48,7 @@ func dpopMetadataPolicy(t *testing.T, profile string) model.Policy {
 
 func assertDPoPMetadata(t *testing.T, handler http.Handler, profile string) {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodGet, "https://cquay.example.test/.well-known/oauth-protected-resource/mcp", nil)
+	request := httptest.NewRequest(http.MethodGet, "https://cq.example.test/.well-known/oauth-protected-resource/mcp", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	var metadata oauthex.ProtectedResourceMetadata

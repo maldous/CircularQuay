@@ -33,7 +33,7 @@ const (
 )
 
 // Options supplies process-local dependencies. StateDirectory is a protected
-// cquay state directory; it is never derived from an environment variable.
+// cq state directory; it is never derived from an environment variable.
 // client is test-only. Production callers cannot substitute the configured
 // no-proxy, redirect-denying, trust-bound transport.
 type Options struct {

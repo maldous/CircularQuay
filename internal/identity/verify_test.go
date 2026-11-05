@@ -69,7 +69,7 @@ func (fixture *authorityFixture) jwk() map[string]any {
 
 func (fixture *authorityFixture) authority(profile Profile) Authority {
 	issuer := fixture.server.URL
-	audience := "api://cquay"
+	audience := "api://cq"
 	if profile == ProfileMicrosoftEntraV2 {
 		issuer += "/" + tenantID + "/v2.0"
 		audience = audienceID
@@ -91,7 +91,7 @@ func (fixture *authorityFixture) tokenWithType(t *testing.T, authority Authority
 	claims := jwt.MapClaims{
 		"iss": authority.Issuer, "sub": "pairwise-subject", "aud": authority.Audience,
 		"exp": fixture.now.Add(time.Hour).Unix(), "iat": fixture.now.Unix(), "jti": "synthetic-token-id",
-		"client_id": "client-a", "scope": "cquay:mcp cquay:read",
+		"client_id": "client-a", "scope": "cq:mcp cq:read",
 	}
 	for name, value := range changes {
 		claims[name] = value
@@ -165,10 +165,10 @@ func TestRFC9068VerifierBindsSignedIdentityAndFilters(t *testing.T) {
 	authority := fixture.authority(ProfileRFC9068)
 	authority.Clients = []string{"client-b", "client-a"}
 	authority.Subjects = []string{authority.Issuer + "|other-subject", authority.Issuer + "|pairwise-subject"}
-	authority.RequiredScopes = []string{"cquay:read"}
-	authority.RequiredRoles = []string{"Cquay.Reader"}
+	authority.RequiredScopes = []string{"cq:read"}
+	authority.RequiredRoles = []string{"Cq.Reader"}
 	verifier := newFixtureVerifier(t, fixture, authority)
-	raw := fixture.token(t, authority, map[string]any{"roles": []string{"Cquay.Reader"}})
+	raw := fixture.token(t, authority, map[string]any{"roles": []string{"Cq.Reader"}})
 	principal, err := verifier(context.Background(), raw)
 	if err != nil || principal.Subject != authority.Issuer+"|pairwise-subject" || principal.Client != "client-a" || principal.Authority != authority.Name {
 		t.Fatalf("verified principal = %+v, %v", principal, err)
@@ -178,13 +178,13 @@ func TestRFC9068VerifierBindsSignedIdentityAndFilters(t *testing.T) {
 func TestRFC9068VerifierRejectsProfileAndPermissionViolations(t *testing.T) {
 	fixture := newAuthorityFixture(t)
 	authority := fixture.authority(ProfileRFC9068)
-	authority.RequiredScopes = []string{"cquay:read"}
+	authority.RequiredScopes = []string{"cq:read"}
 	verifier := newFixtureVerifier(t, fixture, authority)
 	for _, changes := range []map[string]any{
-		{"scope": "cquay:mcp"}, {"client_id": ""}, {"azp": "other-client"},
+		{"scope": "cq:mcp"}, {"client_id": ""}, {"azp": "other-client"},
 		{"cnf": map[string]any{"jkt": "unimplemented"}}, {"nonce": "id-token-only"},
 		{"iat": fixture.now.Add(time.Hour).Unix()}, {"nbf": fixture.now.Add(time.Hour).Unix()}, {"exp": fixture.now.Unix()},
-		{"scope": "cquay:read cquay:read"}, {"scope": "cquay:mcp\tcquay:read"}, {"scope": "cquay:readé"}, {"scope": strings.Repeat("x", maximumClaimText+1)}, {"roles": nil},
+		{"scope": "cq:read cq:read"}, {"scope": "cq:mcp\tcq:read"}, {"scope": "cq:readé"}, {"scope": strings.Repeat("x", maximumClaimText+1)}, {"roles": nil},
 		{"scope": testScopes(maximumClaimItems + 1)},
 	} {
 		if _, err := verifier(context.Background(), fixture.token(t, authority, changes)); err != ErrInvalidToken {
@@ -226,7 +226,7 @@ func TestNewVerifierUsesDefaultHardenedKeyClientOnLoopback(t *testing.T) {
 }
 
 func testScopes(count int) string {
-	return strings.TrimSpace(strings.Repeat("cquay:read ", count))
+	return strings.TrimSpace(strings.Repeat("cq:read ", count))
 }
 
 func TestVerifierRejectsAmbiguousJWTJSON(t *testing.T) {
@@ -241,7 +241,7 @@ func TestVerifierRejectsAmbiguousJWTJSON(t *testing.T) {
 		payload []byte
 	}{
 		{"duplicate header", []byte(`{"alg":"ES256","kid":"fixture","typ":"at+jwt","typ":"at+jwt"}`), payload},
-		{"duplicate claims", header, append(append([]byte{}, payload[:len(payload)-1]...), []byte(`,"scope":"cquay:mcp cquay:read"}`)...)},
+		{"duplicate claims", header, append(append([]byte{}, payload[:len(payload)-1]...), []byte(`,"scope":"cq:mcp cq:read"}`)...)},
 		{"trailing payload", header, append(append([]byte{}, payload...), []byte(`null`)...)},
 		{"invalid UTF-8 payload", header, []byte{'{', '"', 'i', 's', 's', '"', ':', '"', 0xff, '"', '}'}},
 	}
@@ -257,11 +257,11 @@ func TestMicrosoftEntraV2VerifierBindsTenantObjectAndPermissions(t *testing.T) {
 	authority := fixture.authority(ProfileMicrosoftEntraV2)
 	authority.Clients = []string{clientID}
 	authority.Subjects = []string{authority.Issuer + "|" + tenantID + "/" + objectID}
-	authority.RequiredScopes = []string{"cquay.read"}
-	authority.RequiredRoles = []string{"Cquay.Reader"}
+	authority.RequiredScopes = []string{"cq.read"}
+	authority.RequiredRoles = []string{"Cq.Reader"}
 	verifier := newFixtureVerifier(t, fixture, authority)
 	principal, err := verifier(context.Background(), fixture.token(t, authority, map[string]any{
-		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cquay.read", "roles": []string{"Cquay.Reader"},
+		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cq.read", "roles": []string{"Cq.Reader"},
 	}))
 	if err != nil || principal.Subject != authority.Issuer+"|"+tenantID+"/"+objectID || principal.Client != clientID {
 		t.Fatalf("verified Entra principal = %+v, %v", principal, err)
@@ -273,15 +273,15 @@ func TestMicrosoftEntraV2RejectsIDAndUnqualifiedTokenProfiles(t *testing.T) {
 	authority := fixture.authority(ProfileMicrosoftEntraV2)
 	verifier := newFixtureVerifier(t, fixture, authority)
 	for _, changes := range []map[string]any{
-		{"ver": "1.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cquay.read"},
-		{"ver": "2.0", "tid": "44444444-4444-4444-4444-444444444444", "oid": objectID, "azp": clientID, "scp": "cquay.read"},
+		{"ver": "1.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cq.read"},
+		{"ver": "2.0", "tid": "44444444-4444-4444-4444-444444444444", "oid": objectID, "azp": clientID, "scp": "cq.read"},
 		{"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID},
-		{"ver": "2.0", "tid": tenantID, "azp": clientID, "scp": "cquay.read"},
+		{"ver": "2.0", "tid": tenantID, "azp": clientID, "scp": "cq.read"},
 		{"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "roles": []string{""}},
-		{"ver": "2.0", "tid": tenantID, "oid": "not-a-guid", "azp": clientID, "scp": "cquay.read"},
-		{"ver": "2.0", "tid": tenantID, "oid": "22222222_2222-2222-2222-222222222222", "azp": clientID, "scp": "cquay.read"},
-		{"ver": "2.0", "tid": tenantID, "oid": "22222222-2222-2222-2222-22222222222g", "azp": clientID, "scp": "cquay.read"},
-		{"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": "not-a-guid", "scp": "cquay.read"},
+		{"ver": "2.0", "tid": tenantID, "oid": "not-a-guid", "azp": clientID, "scp": "cq.read"},
+		{"ver": "2.0", "tid": tenantID, "oid": "22222222_2222-2222-2222-222222222222", "azp": clientID, "scp": "cq.read"},
+		{"ver": "2.0", "tid": tenantID, "oid": "22222222-2222-2222-2222-22222222222g", "azp": clientID, "scp": "cq.read"},
+		{"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": "not-a-guid", "scp": "cq.read"},
 	} {
 		if _, err := verifier(context.Background(), fixture.token(t, authority, changes)); err != ErrInvalidToken {
 			t.Fatalf("accepted invalid Entra claims %v: %v", changes, err)
@@ -292,10 +292,10 @@ func TestMicrosoftEntraV2RejectsIDAndUnqualifiedTokenProfiles(t *testing.T) {
 func TestMicrosoftEntraV2AcceptsApplicationRoleWithoutDelegatedScope(t *testing.T) {
 	fixture := newAuthorityFixture(t)
 	authority := fixture.authority(ProfileMicrosoftEntraV2)
-	authority.RequiredRoles = []string{"Cquay.Application"}
+	authority.RequiredRoles = []string{"Cq.Application"}
 	verifier := newFixtureVerifier(t, fixture, authority)
 	_, err := verifier(context.Background(), fixture.token(t, authority, map[string]any{
-		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "roles": []string{"Cquay.Application"},
+		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "roles": []string{"Cq.Application"},
 	}))
 	if err != nil {
 		t.Fatalf("application role token rejected: %v", err)
@@ -329,12 +329,12 @@ func TestAuthorityValidationRejectsUnsafeKeysAndUnsupportedProfiles(t *testing.T
 	tooManyClients := testValues(maximumClaimItems + 1)
 	for _, authority := range append([]Authority{
 		{},
-		{Name: "bad", Issuer: "https://issuer.example", JWKSURL: "https://other.example/keys", Audience: "api://cquay", Profile: ProfileRFC9068},
-		{Name: "bad", Issuer: "http://issuer.example", JWKSURL: "http://issuer.example/keys", Audience: "api://cquay", Profile: ProfileRFC9068},
-		{Name: "bad/name", Issuer: "https://issuer.example", JWKSURL: "https://issuer.example/keys", Audience: "api://cquay", Profile: ProfileRFC9068},
-		{Name: "bad", Issuer: "https://%", JWKSURL: "https://issuer.example/keys", Audience: "api://cquay", Profile: ProfileRFC9068},
-		{Name: "bad", Issuer: fixture.server.URL, JWKSURL: fixture.server.URL + "/keys", Audience: "api://cquay", Profile: "unrecognized"},
-		{Name: "bad", Issuer: fixture.server.URL + "/tenant", JWKSURL: fixture.server.URL + "/keys", Audience: "api://cquay", Profile: ProfileMicrosoftEntraV2},
+		{Name: "bad", Issuer: "https://issuer.example", JWKSURL: "https://other.example/keys", Audience: "api://cq", Profile: ProfileRFC9068},
+		{Name: "bad", Issuer: "http://issuer.example", JWKSURL: "http://issuer.example/keys", Audience: "api://cq", Profile: ProfileRFC9068},
+		{Name: "bad/name", Issuer: "https://issuer.example", JWKSURL: "https://issuer.example/keys", Audience: "api://cq", Profile: ProfileRFC9068},
+		{Name: "bad", Issuer: "https://%", JWKSURL: "https://issuer.example/keys", Audience: "api://cq", Profile: ProfileRFC9068},
+		{Name: "bad", Issuer: fixture.server.URL, JWKSURL: fixture.server.URL + "/keys", Audience: "api://cq", Profile: "unrecognized"},
+		{Name: "bad", Issuer: fixture.server.URL + "/tenant", JWKSURL: fixture.server.URL + "/keys", Audience: "api://cq", Profile: ProfileMicrosoftEntraV2},
 		{Name: "bad", Issuer: fixture.server.URL + "/" + tenantID + "/v2.0", JWKSURL: fixture.server.URL + "/keys", Audience: "api://not-a-guid", Profile: ProfileMicrosoftEntraV2},
 	}, []Authority{
 		withClients(valid, []string{"client-a", "client-a"}),

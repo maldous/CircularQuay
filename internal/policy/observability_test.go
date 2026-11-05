@@ -15,7 +15,7 @@ func floatValue(value float64) *float64 { return &value }
 
 func validObservability() *model.Observability {
 	return &model.Observability{
-		Enabled: boolValue(true), ServiceName: "cquay", Environment: "production", DiagnosticLevel: "info",
+		Enabled: boolValue(true), ServiceName: "cq", Environment: "production", DiagnosticLevel: "info",
 		ResourceAttributes: &model.ResourceAttributes{ServiceNamespace: "platform", ServiceInstanceID: "instance-01"},
 		Metrics:            &model.MetricsSignal{Enabled: boolValue(true), IntervalSeconds: 60},
 		Traces:             &model.TracesSignal{Enabled: boolValue(true), SampleRatio: floatValue(0.1)},
@@ -34,7 +34,7 @@ func TestObservabilityPolicyContractRejectsInactiveOrIncompleteDeclarations(t *t
 		edit func(*model.Observability)
 	}{
 		{"missing enabled", func(value *model.Observability) { value.Enabled = nil }},
-		{"disabled options", func(value *model.Observability) { value.Enabled = boolValue(false); value.ServiceName = "cquay" }},
+		{"disabled options", func(value *model.Observability) { value.Enabled = boolValue(false); value.ServiceName = "cq" }},
 		{"service name", func(value *model.Observability) { value.ServiceName = "" }},
 		{"missing signals", func(value *model.Observability) { value.Metrics = nil }},
 		{"all signals disabled", func(value *model.Observability) {

@@ -295,7 +295,7 @@ func TestMalformedSnapshot(t *testing.T) {
 	e, m := fixture(t)
 	ctx := context.Background()
 	for _, data := range []string{"", `{"version":2}`, `{"version":1,"workload":"other"}`} {
-		m.saved = map[string]string{"circularquay_snapshot": data}
+		m.saved = map[string]string{"cq_snapshot": data}
 		if _, err := e.restore(ctx, "demo", e.Policy.Workloads["demo"]); err == nil {
 			t.Fatal("invalid snapshot accepted")
 		}
@@ -305,14 +305,14 @@ func TestMalformedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	var p snapshotPayload
-	if err := json.Unmarshal([]byte(m.saved["circularquay_snapshot"]), &p); err != nil {
+	if err := json.Unmarshal([]byte(m.saved["cq_snapshot"]), &p); err != nil {
 		t.Fatal(err)
 	}
 	v := p.Generation.Values["TOKEN"]
 	v.Leased = true
 	p.Generation.Values["TOKEN"] = v
 	b, _ := json.Marshal(p)
-	m.saved["circularquay_snapshot"] = string(b)
+	m.saved["cq_snapshot"] = string(b)
 	if _, err := e.restore(ctx, "demo", e.Policy.Workloads["demo"]); !fault.Is(err, fault.Denied) {
 		t.Fatal("leased cache accepted")
 	}
@@ -330,7 +330,7 @@ func TestSnapshotRejectsMismatchedPolicyFingerprint(t *testing.T) {
 	}
 
 	var payload snapshotPayload
-	if err = json.Unmarshal([]byte(snapshots.saved["circularquay_snapshot"]), &payload); err != nil {
+	if err = json.Unmarshal([]byte(snapshots.saved["cq_snapshot"]), &payload); err != nil {
 		t.Fatal(err)
 	}
 	payload.Policy = "different-valid-policy-fingerprint"
@@ -338,7 +338,7 @@ func TestSnapshotRejectsMismatchedPolicyFingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshots.saved["circularquay_snapshot"] = string(encoded)
+	snapshots.saved["cq_snapshot"] = string(encoded)
 
 	if _, err = e.restore(ctx, "demo", e.Policy.Workloads["demo"]); !fault.Is(err, fault.Trust) {
 		t.Fatalf("mismatched policy fingerprint accepted: %v", err)
@@ -408,7 +408,7 @@ func assertSnapshotValueRejected(t *testing.T, change func(*snapshotPayload, tim
 	}
 	payload := decodeSnapshotPayload(t, snapshots)
 	change(&payload, engine.now())
-	snapshots.saved["circularquay_snapshot"] = encodeSnapshotPayload(t, payload)
+	snapshots.saved["cq_snapshot"] = encodeSnapshotPayload(t, payload)
 	engine.Reader = unavailableReader()
 	if _, err = engine.Resolve(context.Background(), "demo"); !fault.Is(err, want) {
 		t.Fatalf("invalid snapshot result = %v, want %s", err, want)
@@ -418,7 +418,7 @@ func assertSnapshotValueRejected(t *testing.T, change func(*snapshotPayload, tim
 func decodeSnapshotPayload(t *testing.T, snapshots *memorySnapshot) snapshotPayload {
 	t.Helper()
 	var payload snapshotPayload
-	if err := json.Unmarshal([]byte(snapshots.saved["circularquay_snapshot"]), &payload); err != nil {
+	if err := json.Unmarshal([]byte(snapshots.saved["cq_snapshot"]), &payload); err != nil {
 		t.Fatal(err)
 	}
 	return payload
@@ -464,27 +464,27 @@ func TestSnapshotRejectsAmbiguityAndExtraScope(t *testing.T) {
 	}{
 		{"outer_fields", func(m map[string]string) { m["extra"] = "synthetic" }},
 		{"unknown", func(m map[string]string) {
-			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"version":1,"extra":true`, 1)
+			m["cq_snapshot"] = strings.Replace(m["cq_snapshot"], `"version":1`, `"version":1,"extra":true`, 1)
 		}},
 		{"duplicate", func(m map[string]string) {
-			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"version":1,"version":1`, 1)
+			m["cq_snapshot"] = strings.Replace(m["cq_snapshot"], `"version":1`, `"version":1,"version":1`, 1)
 		}},
 		{"case_alias", func(m map[string]string) {
-			m["circularquay_snapshot"] = strings.Replace(m["circularquay_snapshot"], `"version":1`, `"Version":1`, 1)
+			m["cq_snapshot"] = strings.Replace(m["cq_snapshot"], `"version":1`, `"Version":1`, 1)
 		}},
 		{"extra_receipt", func(m map[string]string) {
 			var p snapshotPayload
-			_ = json.Unmarshal([]byte(m["circularquay_snapshot"]), &p)
+			_ = json.Unmarshal([]byte(m["cq_snapshot"]), &p)
 			p.Generation.Receipts = append(p.Generation.Receipts, model.Receipt{Source: "unrelated"})
 			b, _ := json.Marshal(p)
-			m["circularquay_snapshot"] = string(b)
+			m["cq_snapshot"] = string(b)
 		}},
 		{"missing_timestamp", func(m map[string]string) {
 			var p snapshotPayload
-			_ = json.Unmarshal([]byte(m["circularquay_snapshot"]), &p)
+			_ = json.Unmarshal([]byte(m["cq_snapshot"]), &p)
 			p.Generation.RetrievedAt = time.Time{}
 			b, _ := json.Marshal(p)
-			m["circularquay_snapshot"] = string(b)
+			m["cq_snapshot"] = string(b)
 		}},
 	} {
 		t.Run(change.name, func(t *testing.T) {

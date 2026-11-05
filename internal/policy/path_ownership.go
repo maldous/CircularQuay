@@ -9,7 +9,7 @@ import (
 )
 
 // configLockDirectory must match the CLI's private sibling coordination store.
-const configLockDirectory = ".cquay-config-lock"
+const configLockDirectory = ".cq-config-lock"
 
 // validatePathOwnership prevents one policy-owned writer from replacing another
 // local input or writer. It operates on canonical paths after Load binds paths.
@@ -294,7 +294,7 @@ func targetBinding(target model.Target) string {
 	if target.Path != "" {
 		return target.Path
 	}
-	return "CQUAY_CONFIG"
+	return "CQ_CONFIG"
 }
 
 func endpointKey(endpoint, fallback string) string {

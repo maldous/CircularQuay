@@ -1,6 +1,6 @@
-# cquay support
+# CircularQuay support
 
-CircularQuay is the project; `cquay` (pronounced “see-key”) is its app, executable and operations skill.
+CircularQuay provides the `cq` and `cq-audit` commands and the `cq` operations skill.
 
 Use the selected version's qualified platform/provider/client matrix and
 release notes to determine support. Certification, response-time commitments

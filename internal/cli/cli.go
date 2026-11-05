@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/configuration"
@@ -60,9 +62,9 @@ func (r Runner) Run(ctx context.Context, args []string) int {
 	if r.Err == nil {
 		r.Err = os.Stderr
 	}
-	f := flag.NewFlagSet("cquay", flag.ContinueOnError)
+	f := flag.NewFlagSet("cq", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
-	config := f.String("config", "cquay.json", "protected policy path")
+	config := f.String("config", "cq.json", "protected policy path")
 	stateDir := f.String("state-dir", "", "private metadata directory")
 	if err := f.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -122,7 +124,7 @@ func (r Runner) failure(err error) int {
 }
 
 func (r Runner) usage() int {
-	fmt.Fprintln(r.Out, "cquay [--config PATH] [--state-dir PATH] <bootstrap|flow|init|config|doctor|plan|run|sync|snapshot|apply|status|update|providers|mcp|version>")
+	fmt.Fprintln(r.Out, "cq [--config PATH] [--state-dir PATH] <bootstrap|flow|init|config|doctor|plan|run|sync|snapshot|apply|status|update|providers|mcp|version>")
 	return 0
 }
 
@@ -316,18 +318,42 @@ func (a application) resolveParsedPolicy(ctx context.Context, data []byte, path 
 
 func (a application) store() (state.Store, error) {
 	dir := a.directory
+	home, configErr := os.UserConfigDir()
 	if dir == "" {
-		home, err := os.UserConfigDir()
-		if err != nil {
+		if configErr != nil {
 			return state.Store{}, fault.New(fault.Apply, "state directory")
 		}
-		legacy := filepath.Join(home, "circularquay", "state")
-		if _, err = os.Lstat(legacy); err == nil || !os.IsNotExist(err) {
-			return state.Store{}, fault.New(fault.Trust, "legacy state directory")
+		dir = filepath.Join(home, "cq", "state")
+	}
+	if configErr == nil {
+		if err := checkDefaultStateNamespace(home, dir); err != nil {
+			return state.Store{}, err
 		}
-		dir = filepath.Join(home, "cquay", "state")
 	}
 	return state.Store{Directory: dir}, nil
+}
+
+func checkDefaultStateNamespace(home, selected string) error {
+	absolute, err := filepath.Abs(selected)
+	if err != nil {
+		return fault.New(fault.Apply, "state directory")
+	}
+	preferred, err := filepath.Abs(filepath.Join(home, "cq", "state"))
+	if err != nil {
+		return fault.New(fault.Apply, "state directory")
+	}
+	if absolute != preferred && !(runtime.GOOS == "windows" && strings.EqualFold(absolute, preferred)) {
+		return nil
+	}
+	// Selecting the default explicitly must not bypass an existing denial
+	// fence. Inspect metadata only; never read, copy or convert old records.
+	for _, name := range []string{"cquay", "circularquay"} {
+		previous := filepath.Join(home, name, "state")
+		if _, err := os.Lstat(previous); err == nil || !os.IsNotExist(err) {
+			return fault.New(fault.Trust, "legacy state directory")
+		}
+	}
+	return nil
 }
 
 type snapshotBackend struct{}

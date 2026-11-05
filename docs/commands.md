@@ -4,7 +4,7 @@ The command reference covers configuration, workload delivery, CI automation
 and optional integrations. Revision-scoped testing and release qualification
 are recorded in the [qualification evidence](qualification.md).
 
-All commands accept `--config PATH` (default `cquay.json`) and `--state-dir
+All commands accept `--config PATH` (default `cq.json`) and `--state-dir
 PATH` before the command. `help`, `--help`, `-h`, `version`, and `providers`
 need no policy. `bootstrap` and `flow run` can retrieve explicitly pinned GitHub configuration
 before a local policy exists. Enrolled discovery and automatic sign-in are v1
@@ -12,16 +12,16 @@ requirements; see [bootstrap prerequisites](configuration-repositories.md#bootst
 
 | Command | Usage and behavior |
 | --- | --- |
-| Bootstrap | `cquay bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--config-sha256 SHA256] [--output PATH] [--non-interactive]` validates local configuration or materializes a pinned GitHub policy into a new protected file. Equivalent source settings are `CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH`, and `CQUAY_CONFIG_SHA256`. Every remote retrieval requires the full commit and configuration digest obtained through a trusted maintainer channel; interactive use does not waive either pin. |
-| CI flow | `cquay flow run --workload ID [--non-interactive]` detects the supported runner, selects local or pinned GitHub configuration, then executes the approved workload under its configured identity policy. Runner markers do not authenticate a workload. Explicit configuration-source options override discovery. |
-| Create | `cquay init [--output PATH]` or `cquay config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
-| Inspect configuration | `cquay config validate`; `cquay config get --pointer RFC6901`; `cquay config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |
-| Edit configuration | `cquay config set --pointer RFC6901 (--value-json JSON\|--value-file PATH\|-) [--expect-sha256 HEX]`; `cquay config delete --pointer RFC6901 [--expect-sha256 HEX]`; `cquay config replace --file PATH\|- [--expect-sha256 HEX]`. Values are JSON; `-` reads standard input; inputs are capped at 1 MiB. |
-| Doctor | `cquay doctor [--fix\|--identity-only]`. A missing or unsafe selected policy is non-zero. `--identity-only` reports the local kernel-derived subject without checking policy. `--fix` canonically formats a valid protected JSON policy only; it does not alter grants, provider settings, services, or deployment state. |
-| Plan and status | `cquay plan`; `cquay status --workload ID [--json]`. |
-| Workload lifecycle | `cquay run --workload ID [--target ID] [-- ABSOLUTE-PROGRAM ARGS…]`; `cquay snapshot --workload ID [--target ID]`; `cquay apply --workload ID --target ID`; `cquay sync --workload ID [--target ID] [--once]`. `apply` requires an explicit target; only `run` accepts arguments after `--`. |
-| Release awareness | `cquay update check --json` returns bounded, advisory release metadata using the selected policy. Startup notices are non-blocking; SDK, MCP and automation sessions never prompt. See [release awareness and minimum versions](operational-configuration.md#release-awareness). |
-| MCP | `cquay mcp serve [--transport stdio\|http] [--tls-cert PATH --tls-key PATH]`. HTTP uses the policy listener address (or loopback `127.0.0.1:8080`); a non-loopback listener requires both TLS paths. |
+| Bootstrap | `cq bootstrap [--config-source URL] [--config-ref REF] [--config-path PATH] [--config-sha256 SHA256] [--output PATH] [--non-interactive]` validates local configuration or materializes a pinned GitHub policy into a new protected file. Equivalent source settings are `CQ_CONFIG_SOURCE`, `CQ_CONFIG_REF`, `CQ_CONFIG_PATH`, and `CQ_CONFIG_SHA256`. Every remote retrieval requires the full commit and configuration digest obtained through a trusted maintainer channel; interactive use does not waive either pin. |
+| CI flow | `cq flow run --workload ID [--non-interactive]` detects the supported runner, selects local or pinned GitHub configuration, then executes the approved workload under its configured identity policy. Runner markers do not authenticate a workload. Explicit configuration-source options override discovery. |
+| Create | `cq init [--output PATH]` or `cq config init [--output PATH]` creates a protected synthetic JSON policy and fixture, refusing to overwrite either. |
+| Inspect configuration | `cq config validate`; `cq config get --pointer RFC6901`; `cq config list [--pointer RFC6901]`. `get` and `list` return the whole-document SHA-256. The returned policy literal is visible to an authorized configuration reader. |
+| Edit configuration | `cq config set --pointer RFC6901 (--value-json JSON\|--value-file PATH\|-) [--expect-sha256 HEX]`; `cq config delete --pointer RFC6901 [--expect-sha256 HEX]`; `cq config replace --file PATH\|- [--expect-sha256 HEX]`. Values are JSON; `-` reads standard input; inputs are capped at 1 MiB. |
+| Doctor | `cq doctor [--fix\|--identity-only]`. A missing or unsafe selected policy is non-zero. `--identity-only` reports the local kernel-derived subject without checking policy. `--fix` canonically formats a valid protected JSON policy only; it does not alter grants, provider settings, services, or deployment state. |
+| Plan and status | `cq plan`; `cq status --workload ID [--json]`. |
+| Workload lifecycle | `cq run --workload ID [--target ID] [-- ABSOLUTE-PROGRAM ARGS…]`; `cq snapshot --workload ID [--target ID]`; `cq apply --workload ID --target ID`; `cq sync --workload ID [--target ID] [--once]`. `apply` requires an explicit target; only `run` accepts arguments after `--`. |
+| Release awareness | `cq update check --json` returns bounded, advisory release metadata using the selected policy. Startup notices are non-blocking; SDK, MCP and automation sessions never prompt. See [release awareness and minimum versions](operational-configuration.md#release-awareness). |
+| MCP | `cq mcp serve [--transport stdio\|http] [--tls-cert PATH --tls-key PATH]`. HTTP uses the policy listener address (or loopback `127.0.0.1:8080`); a non-loopback listener requires both TLS paths. |
 
 When a workload has `command_sha256`, `run` uses its declared command and
 arguments. An explicit local command after `--` must match that complete
@@ -46,7 +46,7 @@ the same value produces the same canonical document; a repeated `delete` fails
 after the node is absent.
 
 The separate assurance binary is for evidence generation, not workload
-delivery: `cquay-audit run --profile source|enterprise --tool-manifest PATH --output DIR` with
+delivery: `cq-audit run --profile source|enterprise --tool-manifest PATH --output DIR` with
 optional `--source`, `--go`, `--sonar-url`, `--sonar-token-file`, and
 `--sonar-project-key`. Its enterprise inputs and evidence handling are
 documented in [RELEASE.md](../RELEASE.md).
@@ -88,8 +88,8 @@ used as an arbitrary file-concatenation or remote personal-file upload route.
 requires both CLI and configuration opt-outs to be supported and resolved before
 any hosted-service network, with explicit precedence and enterprise lock
 validation. This intended behavior does not establish current opt-out flags,
-registration commands or KMS profile tooling in the dispatcher. The user clarified
-KVM/PVM meant KMS. The new hosted product requires both real KMS and age-key
+registration commands or KMS profile tooling in the dispatcher. Per-profile
+KMS and age-key custody are distinct capabilities. Hosted enrollment requires both
 associations automatically on authorized enrollment, with distinct operations.
 No current command support, offline-key release or hybrid activation is implied.
 Use actual help/schema
@@ -104,7 +104,7 @@ service metadata; no new remote config CRUD command is implied.
 
 ## Operational inspection
 
-Use `cquay --config PATH update check --json` for advisory release metadata.
+Use `cq --config PATH update check --json` for advisory release metadata.
 `config get --pointer /observability` and `config get --pointer /updates`
 inspect their declarations; `doctor` validates protected settings without
 contacting a collector/feed to prove delivery. Configuration output may contain
@@ -119,25 +119,25 @@ start; `set` creates a missing object member or replaces an existing node.
 
 ```sh
 # Create a synthetic policy and validate it.
-cquay config init --output cquay.json
-cquay --config cquay.json config validate
+cq config init --output cq.json
+cq --config cq.json config validate
 
 # List workloads and read one declaration. Both responses include sha256.
-cquay --config cquay.json config list --pointer /workloads
-cquay --config cquay.json config get --pointer /workloads/demo
+cq --config cq.json config list --pointer /workloads
+cq --config cq.json config get --pointer /workloads/demo
 
 # Create or update a complete non-secret environment object.
-cquay --config cquay.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}'
+cq --config cq.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}'
 
 # Read a replacement node from stdin or a protected JSON file.
-printf '%s\n' '{"APP_MODE":"test"}' | cquay --config cquay.json config set --pointer /workloads/demo/environment --value-file -
-cquay --config cquay.json config set --pointer /workloads/demo/environment --value-file environment.json
+printf '%s\n' '{"APP_MODE":"test"}' | cq --config cq.json config set --pointer /workloads/demo/environment --value-file -
+cq --config cq.json config set --pointer /workloads/demo/environment --value-file environment.json
 
 # Delete that optional object; invalid or referenced-object deletions fail.
-cquay --config cquay.json config delete --pointer /workloads/demo/environment
+cq --config cq.json config delete --pointer /workloads/demo/environment
 
 # Replace the complete policy with a validated, operator-prepared document.
-cquay --config cquay.json config replace --file replacement-policy.json
+cq --config cq.json config replace --file replacement-policy.json
 ```
 
 Add `--expect-sha256` with the digest returned by the preceding `get` or `list`
@@ -145,8 +145,8 @@ to reject an edit based on an out-of-date document. For example, PowerShell can
 read the JSON response without another utility:
 
 ```powershell
-$review = .\cquay.exe --config cquay.json config get --pointer /workloads/demo | ConvertFrom-Json
-.\cquay.exe --config cquay.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}' --expect-sha256 $review.sha256
+$review = .\cq.exe --config cq.json config get --pointer /workloads/demo | ConvertFrom-Json
+.\cq.exe --config cq.json config set --pointer /workloads/demo/environment --value-json '{"APP_MODE":"development"}' --expect-sha256 $review.sha256
 ```
 
 An empty pointer selects the complete document; `~0` escapes `~` and `~1`
@@ -157,22 +157,22 @@ policy must remain valid. Errors do not replace the previous policy.
 ### Diagnostics, planning and execution
 
 ```sh
-cquay help
-cquay --help
-cquay version
-cquay providers
-cquay --config cquay.json doctor
-cquay --config cquay.json doctor --fix
-cquay doctor --identity-only
-cquay --config cquay.json plan
-cquay --config cquay.json --state-dir /absolute/private/state status --workload demo --json
-cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+cq help
+cq --help
+cq version
+cq providers
+cq --config cq.json doctor
+cq --config cq.json doctor --fix
+cq doctor --identity-only
+cq --config cq.json plan
+cq --config cq.json --state-dir /absolute/private/state status --workload demo --json
+cq --config cq.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
 ```
 
 `doctor --fix` only formats valid protected JSON; it does not choose identities
 or change permissions and grants. `doctor --identity-only` reports identity,
 not workload readiness. A configured command can also be run without an
-override: `cquay --config deployed-policy.json run --workload api`.
+override: `cq --config deployed-policy.json run --workload api`.
 
 ### Snapshots and native delivery
 
@@ -181,18 +181,18 @@ with eligible bindings and declared snapshots/targets. They write configured
 destinations; native activation occurs only when explicitly declared.
 
 ```sh
-cquay --config deployed-policy.json snapshot --workload reference-api
-cquay --config deployed-policy.json apply --workload reference-api --target systemd-credential
-cquay --config deployed-policy.json sync --workload reference-api --once
-cquay --config deployed-policy.json sync --workload reference-api --target systemd-credential --once
+cq --config deployed-policy.json snapshot --workload reference-api
+cq --config deployed-policy.json apply --workload reference-api --target systemd-credential
+cq --config deployed-policy.json sync --workload reference-api --once
+cq --config deployed-policy.json sync --workload reference-api --target systemd-credential --once
 ```
 
 ### Local and hosted MCP
 
 ```sh
-cquay --config local-mcp.json mcp serve --transport stdio
-cquay --config hosted-mcp.json mcp serve --transport http
-cquay --config hosted-mcp.json mcp serve --transport http --tls-cert /absolute/tls/server.crt --tls-key /absolute/private/server.key
+cq --config local-mcp.json mcp serve --transport stdio
+cq --config hosted-mcp.json mcp serve --transport http
+cq --config hosted-mcp.json mcp serve --transport http --tls-cert /absolute/tls/server.crt --tls-key /absolute/private/server.key
 ```
 
 Hosted HTTP requires the exact configured issuer, resource, client and grants.
@@ -202,10 +202,10 @@ A listener is not an IdP or a managed multi-tenant service. The
 ### Independent assurance
 
 ```sh
-cquay-audit run --profile source --source . --tool-manifest /absolute/private/tools.json --output audit-results/source --go /absolute/path/to/go
-cquay-audit run --profile enterprise --source . --tool-manifest /absolute/private/tools.json --output audit-results/enterprise --go /absolute/path/to/go --sonar-url http://127.0.0.1:9000 --sonar-token-file /absolute/private/scanner.token --sonar-project-key circularquay
-cquay-audit sonar-init --directory .local/sonar
-cquay-audit sonar-bootstrap --directory .local/sonar --url http://127.0.0.1:9000 --project circularquay
+cq-audit run --profile source --source . --tool-manifest /absolute/private/tools.json --output audit-results/source --go /absolute/path/to/go
+cq-audit run --profile enterprise --source . --tool-manifest /absolute/private/tools.json --output audit-results/enterprise --go /absolute/path/to/go --sonar-url http://127.0.0.1:9000 --sonar-token-file /absolute/private/scanner.token --sonar-project-key circularquay
+cq-audit sonar-init --directory .local/sonar
+cq-audit sonar-bootstrap --directory .local/sonar --url http://127.0.0.1:9000 --project circularquay
 ```
 
 The Sonar commands are for a new isolated audit instance. Follow the prerequisite,

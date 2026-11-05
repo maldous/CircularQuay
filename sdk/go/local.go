@@ -1,4 +1,4 @@
-package cquay
+package cq
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ var (
 	maxIJSONInteger = big.NewInt(9007199254740991)
 )
 
-// LocalOptions identifies one explicit local CircularQuay installation. Both
+// LocalOptions identifies one explicit local CQ installation. Both
 // paths are required and absolute: the SDK never selects an ambient config or
 // state directory.
 type LocalOptions struct {
@@ -49,7 +49,7 @@ type LocalOptions struct {
 	StateDirectory string
 }
 
-// LocalClient calls the in-process CircularQuay CLI runner. It is a bounded
+// LocalClient calls the in-process CQ CLI runner. It is a bounded
 // adapter, not a general command execution API. It never spawns a binary.
 type LocalClient struct {
 	configPath     string
@@ -88,7 +88,7 @@ func NewLocal(options LocalOptions, clientOptions ...LocalOption) (*LocalClient,
 	return client, nil
 }
 
-// Result is bounded JSON emitted by a non-interactive CircularQuay CLI
+// Result is bounded JSON emitted by a non-interactive CQ CLI
 // operation. It contains the CLI's public JSON DTO, never process output.
 type Result struct {
 	ExitCode int

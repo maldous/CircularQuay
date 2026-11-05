@@ -14,7 +14,7 @@ and `workloads`. This example selects all three OTLP/HTTP signals:
 ```json
 {
   "enabled": true,
-  "service_name": "cquay",
+  "service_name": "cq",
   "environment": "engineering",
   "diagnostic_level": "info",
   "resource_attributes": {
@@ -110,7 +110,7 @@ non-interactive sessions and no background download, installation or restart.
 Use the same check explicitly from automation:
 
 ```sh
-cquay --config cquay.json update check --json
+cq --config cq.json update check --json
 ```
 
 The default feed is the public CircularQuay GitHub releases API. An enterprise
@@ -164,13 +164,13 @@ identity. No browser or model receives key material as a configuration field.
 Read the current object and its document hash:
 
 ```sh
-cquay --config cquay.json config get --pointer /updates
-cquay --config cquay.json config set --pointer /updates --value-file updates.json --expect-sha256 "<document sha256>"
-cquay --config cquay.json config validate
-cquay --config cquay.json doctor
+cq --config cq.json config get --pointer /updates
+cq --config cq.json config set --pointer /updates --value-file updates.json --expect-sha256 "<document sha256>"
+cq --config cq.json config validate
+cq --config cq.json doctor
 ```
 
-Use the same commands from PowerShell with the selected `cquay.exe` path.
+Use the same commands from PowerShell with the selected `cq.exe` path.
 Keep the policy and referenced files protected. `doctor` checks declarations
 and local references; it does not contact a collector/feed or read a token's
 contents. After validation, use synthetic traffic to verify export and

@@ -75,7 +75,7 @@ func binding(t model.Target) string {
 	if t.Path != "" {
 		return t.Path
 	}
-	return "CQUAY_CONFIG"
+	return "CQ_CONFIG"
 }
 
 func cloudflare(ctx context.Context, c transport.Client, t model.Target, token, data string) error {

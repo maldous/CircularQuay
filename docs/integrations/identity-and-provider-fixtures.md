@@ -54,14 +54,14 @@ documentation](https://openbao.org/docs/configuration/listener/tcp/) and
 
 ## Keycloak RFC 9068 fixture
 
-`internal/integration/testdata/keycloak/cquay-it-realm.json` is a realm import
-for a disposable realm named `cquay-it`. It has no users, no interactive login,
+`internal/integration/testdata/keycloak/cq-it-realm.json` is a realm import
+for a disposable realm named `cq-it`. It has no users, no interactive login,
 and no administrator account. The harness supplies its own short-lived local
 administrator bootstrap outside the export. The only client secret in the export
 is the literal `fixture-only-not-a-production-secret`; it is public synthetic
 test material and must never be accepted by a non-fixture server.
 
-The export uses a service-account client, `cquay-fixture-client`, so a local
+The export uses a service-account client, `cq-fixture-client`, so a local
 client-credentials request has a stable client identity. It requires a Keycloak
 version that supports the per-client RFC 9068 access-token header option. The
 client attribute `access.token.header.type.rfc9068: true` produces `typ: at+jwt`;
@@ -75,16 +75,16 @@ attempts a CircularQuay request:
 | --- | --- | --- |
 | Header | `alg: RS256`, `typ: at+jwt`, nonempty `kid` | The RFC 9068 profile accepts only RS256/ES256 and rejects a generic JWT header. |
 | `iss` | Exact temporary Keycloak realm issuer | Named authorities pin the issuer. |
-| `aud` | Contains `cquay-fixture-audience` | The export's audience mapper adds this exact custom audience. |
+| `aud` | Contains `cq-fixture-audience` | The export's audience mapper adds this exact custom audience. |
 | `sub` | Nonempty Keycloak service-account subject | Principal identity is issuer-qualified with this subject. |
-| `client_id` | `cquay-fixture-client` | The service-account client-scope mapper supplies this claim for the client-credentials flow. |
+| `client_id` | `cq-fixture-client` | The service-account client-scope mapper supplies this claim for the client-credentials flow. |
 | `jti`, `iat`, `exp` | Present and internally consistent | The verifier requires a token identifier, issue time and unexpired lifetime. |
 | `scope` | Contains `cq.read` | The linked client scope explicitly enables inclusion in the access-token scope claim. |
 | `roles` | Array containing `read-access` | A dedicated client-role mapper exposes a flat top-level role array; Keycloak's default nested `resource_access` claim is not consumed by this profile. |
 
 The test policy declares one named `rfc9068` authority with the exact issuer,
-same-origin JWKS endpoint, `cquay-fixture-audience`, client allowlist
-`cquay-fixture-client`, and only the `read` permission. That permission requires
+same-origin JWKS endpoint, `cq-fixture-audience`, client allowlist
+`cq-fixture-client`, and only the `read` permission. That permission requires
 both `cq.read` and `read-access`, demonstrating the existing conjunctive
 scope-and-role rule. The local grant then names the same authority, exact
 issuer-qualified subject, client, workload, operation, key, and a short
@@ -125,12 +125,12 @@ accept `cnf` or a DPoP header.
 
 ## OpenBao KV v2 fixture
 
-The OpenBao fixture enables a KV v2 mount named `cquay-fixture` and writes one
+The OpenBao fixture enables a KV v2 mount named `cq-fixture` and writes one
 synthetic record at `workload/demo`. It creates a fixture-only policy with
 `read` capability on exactly:
 
 ```
-cquay-fixture/data/workload/demo
+cq-fixture/data/workload/demo
 ```
 
 It issues one short-lived synthetic token for that policy and writes it to a
@@ -140,7 +140,7 @@ private temporary token file. The equivalent CircularQuay declaration is:
 {
   "type": "openbao",
   "endpoint": "https://localhost:PORT",
-  "mount": "cquay-fixture",
+  "mount": "cq-fixture",
   "resources": ["workload/demo"],
   "identity": "token_file",
   "token_file": "/private-temporary-path/openbao-token"

@@ -17,7 +17,7 @@ qualification receipts are published.
 
 ```mermaid
 flowchart LR
-    I[Enterprise identity provider] -->|scoped access token| C[CircularQuay resource]
+    I[Enterprise identity provider] -->|scoped access token| C[CQ resource]
     C -->|exact policy decision| W[Declared workload]
     W -->|explicit workload identity| P[Secret provider]
     C -->|durable redacted decision| A[Audit store]
@@ -211,7 +211,7 @@ are the interoperability references.
 
 | SDK obligation | Contract |
 | --- | --- |
-| Distribution | Go: `github.com/maldous/CircularQuay/sdk/go`; npm: `@maldous/cquay-sdk`; PyPI: `cquay-sdk`, imported as `cquay`. These package coordinates identify the release targets; registry availability, signatures and provenance are separately qualified. |
+| Distribution | Go: `github.com/maldous/CircularQuay/sdk/go`; npm: `@maldous/cq-sdk`; PyPI: `cq-sdk`, imported as `cq`. These package coordinates identify the release targets; registry availability, signatures and provenance are separately qualified. |
 | Authentication | Accept explicit, resource-specific credentials supplied by the caller or selected platform identity integration. Do not scan shell profiles, default credential chains, browser sessions or unrelated cloud CLI caches. |
 | Authorization | Treat scopes/roles/claims as server-verified input only. SDK convenience methods cannot grant access or select a hidden tenant/workload. |
 | Observability hooks | Expose hooks for traces, metrics and structured logs with documented safe attributes and correlation propagation. Hooks are additive, bounded and disabled/no-op safely when no provider is configured. |
@@ -233,7 +233,7 @@ CircularQuay provides policy-controlled release awareness, independently of
 artifact installation and publisher verification. A release-feed response is
 advisory metadata; it cannot authenticate an executable or authorize its use.
 The [operational guide](operational-configuration.md#release-awareness) defines
-the policy fields, bounds and explicit `cquay update check --json` command.
+the policy fields, bounds and explicit `cq update check --json` command.
 
 | Operating mode | Update behaviour |
 | --- | --- |

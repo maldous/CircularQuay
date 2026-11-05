@@ -1,4 +1,4 @@
-"""Official-MCP conformance fixture for the Python CircularQuay SDK.
+"""Official-MCP conformance fixture for the Python CQ SDK.
 
 The harness supplies only synthetic policy paths through the three required
 environment variables.  The fixture requests an explicit empty environment
@@ -17,7 +17,7 @@ from typing import NoReturn
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from cquay import CircularQuayClient, CircularQuayError, ErrorCategory, MCPClientSessionAdapter
+from cq import CircularQuayClient, CircularQuayError, ErrorCategory, MCPClientSessionAdapter
 
 _TIMEOUT_SECONDS = 30
 _SYNTHETIC_VALUE = "synthetic-only-not-a-credential"
@@ -39,9 +39,9 @@ def _required_absolute_path(name: str, *, kind: str) -> str:
 
 
 async def _main() -> None:
-    command = _required_absolute_path("CQUAY_EXECUTABLE", kind="executable")
-    config = _required_absolute_path("CQUAY_CONFIG", kind="configuration")
-    state_directory = _required_absolute_path("CQUAY_STATE_DIRECTORY", kind="state directory")
+    command = _required_absolute_path("CQ_EXECUTABLE", kind="executable")
+    config = _required_absolute_path("CQ_CONFIG", kind="configuration")
+    state_directory = _required_absolute_path("CQ_STATE_DIRECTORY", kind="state directory")
     parameters = StdioServerParameters(
         command=command,
         args=["--config", config, "--state-dir", state_directory, "mcp", "serve", "--transport", "stdio"],

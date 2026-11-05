@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	envCQUAYConfigSource = "CQUAY_CONFIG_SOURCE"
-	envCQUAYConfigRef    = "CQUAY_CONFIG_REF"
-	envCQUAYConfigPath   = "CQUAY_CONFIG_PATH"
-	envCQUAYConfigSHA256 = "CQUAY_CONFIG_SHA256"
+	envCQConfigSource = "CQ_CONFIG_SOURCE"
+	envCQConfigRef    = "CQ_CONFIG_REF"
+	envCQConfigPath   = "CQ_CONFIG_PATH"
+	envCQConfigSHA256 = "CQ_CONFIG_SHA256"
 )
 
 type bootstrapFetch func(context.Context, bootstrap.Request) (bootstrap.Result, error)
@@ -70,10 +70,10 @@ func (a application) bootstrapWithFetcher(ctx context.Context, args []string, fe
 func (a application) bootstrapOptions(args []string) (bootstrapOptions, error) {
 	flags := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	sourceURL := flags.String("config-source", os.Getenv(envCQUAYConfigSource), "immutable GitHub configuration source")
-	ref := flags.String("config-ref", os.Getenv(envCQUAYConfigRef), "full immutable Git commit")
+	sourceURL := flags.String("config-source", os.Getenv(envCQConfigSource), "immutable GitHub configuration source")
+	ref := flags.String("config-ref", os.Getenv(envCQConfigRef), "full immutable Git commit")
 	path := flags.String("config-path", configPathDefault(), "configuration path in the repository")
-	digest := flags.String("config-sha256", os.Getenv(envCQUAYConfigSHA256), "required configuration SHA-256")
+	digest := flags.String("config-sha256", os.Getenv(envCQConfigSHA256), "required configuration SHA-256")
 	output := flags.String("output", a.config, "new protected configuration output")
 	_ = flags.Bool("non-interactive", false, "pinned retrieval never prompts")
 	if flags.Parse(args) != nil || flags.NArg() != 0 {
@@ -90,10 +90,10 @@ func (a application) materializedBootstrapReceipt(destination string, result boo
 }
 
 func configPathDefault() string {
-	if path := os.Getenv(envCQUAYConfigPath); path != "" {
+	if path := os.Getenv(envCQConfigPath); path != "" {
 		return path
 	}
-	return "cquay.json"
+	return "cq.json"
 }
 
 func (a application) validateLocalBootstrap(ctx context.Context, destination string) (int, error) {

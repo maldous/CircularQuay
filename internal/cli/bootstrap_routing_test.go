@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunnerRoutesBootstrapWithoutProviderAccess(t *testing.T) {
-	path := filepath.Join(privateCLIDirectory(t), "cquay.json")
+	path := filepath.Join(privateCLIDirectory(t), "cq.json")
 	if err := platform.CreateProtectedExclusive(path, bootstrapPolicy()); err != nil {
 		t.Fatal(err)
 	}

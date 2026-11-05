@@ -443,7 +443,7 @@ func validTransitContext(value AssociationContext) bool {
 func transitDerivedContext(value AssociationContext) []byte {
 	fields := []string{value.Tenant, value.Profile, value.Application, value.Principal, value.Generation, value.Purpose, value.ArtifactID, value.ArtifactVersion}
 	var result strings.Builder
-	result.WriteString("cquay-keyservice-transit-v1")
+	result.WriteString("cq-keyservice-transit-v1")
 	for _, field := range fields {
 		fmt.Fprintf(&result, "|%d:%s", len(field), field)
 	}

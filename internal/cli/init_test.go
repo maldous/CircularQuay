@@ -13,7 +13,7 @@ import (
 )
 
 func TestInitCreatesUsableProtectedPolicyAndFixture(t *testing.T) {
-	config := filepath.Join(privateCLIDirectory(t), "cquay.json")
+	config := filepath.Join(privateCLIDirectory(t), "cq.json")
 	var output, diagnostics bytes.Buffer
 	runner := Runner{Out: &output, Err: &diagnostics}
 	if code := runner.Run(context.Background(), []string{"init", "--output", config}); code != 0 {
@@ -38,7 +38,7 @@ func TestInitCreatesUsableProtectedPolicyAndFixture(t *testing.T) {
 }
 
 func TestInitPreservesEitherExistingOutput(t *testing.T) {
-	for _, existing := range []string{"cquay.json", "cquay.json.fixture.json"} {
+	for _, existing := range []string{"cq.json", "cq.json.fixture.json"} {
 		t.Run(existing, func(t *testing.T) {
 			assertInitPreservesExistingOutput(t, existing)
 		})
@@ -54,7 +54,7 @@ func assertInitPreservesExistingOutput(t *testing.T, existing string) {
 		t.Fatal(err)
 	}
 	var output, diagnostics bytes.Buffer
-	code := (Runner{Out: &output, Err: &diagnostics}).Run(context.Background(), []string{"init", "--output", filepath.Join(directory, "cquay.json")})
+	code := (Runner{Out: &output, Err: &diagnostics}).Run(context.Background(), []string{"init", "--output", filepath.Join(directory, "cq.json")})
 	if code == 0 || output.Len() != 0 {
 		t.Fatal("init reported success for an existing destination")
 	}

@@ -1,83 +1,175 @@
 # Development session handoff
 
-Status: CircularQuay v1 development is active and **not production qualified**.
+Status: CQ v1 development is active and **not production qualified**.
 No release, package-index publication, production deployment, system/service
 installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
-## Signed-context and commercialization continuation
+The final naming clarification is **Circular Quay** (long product name), **CQ**
+(short product name) and lowercase **`cq`** for owned technical names. Valid
+short-name copy remains valid. The real repository/module URL and existing
+registered/package/security identities require their actual consumer review;
+they are not silently renamed. Quick-start directory corrections change example
+clone/navigation strings, not the active checkout. Historical naming receipts
+retain their original bytes and meaning.
 
-The current published parent is `77435c34a8bce5b7f23f9577c8eeaaf5c98cd5ee`,
-tree `d884d7be255674a3c7877d50c8b6f57c9315a8c7`, on
-`feature/initial-implementation`, draft PR #1 to `develop`. The next reviewed
-source snapshot integrates six pure security-context verifier/schema files
-and project-specific service provisioning in the existing `RELEASE.md`.
-No protected compiler/runtime profile, provider account or production service
-is qualified by these additions. The [exact hosted observation](qualification.md#exact-77435c34-hosted-evidence)
-is for the parent only: source 83.13771518% and Sonar 63.9% fail required gates,
-despite nine Browser jobs, three WireMock jobs and zero Sonar issues/hotspots.
-Current individual Security/SDK results remain unknown in that bounded receipt.
+The infrastructure owner coordinates preparation of `circularquay.aldous.info` and `cq.aldous.info` for
+the future managed service. The retained evidence establishes no verified CircularQuay hosting site; the selected destination/site identity is unresolved. The bounded
+source read independently found no verified target in current operator records,
+receipt `checkpoint57/cq-netlify-target-readonly-identification.json`, SHA-256
+`04b0f270b65b7ec71ba89cf562ccd9c51ba740ddf0dfa75dd38295b82b979512`.
+This does not claim an external account inventory. No DNS, site, domain, proxy,
+deployment or paid mutation occurred here. Bind both names only to the same
+authorized verified target before applying provider-required DNS. Account/zone
+identifiers remain private; no placeholder records or unrelated-site reuse.
+Domain preparation does not gate the existing safe local developer review.
 
-`checkpoint56/securitycontext-source-integration.json` SHA-256
-`c4ac32fb8bfc1ca2bd16ea3f875fa89fc4384097e699140422ca8283b59c9756`
-binds the exact pure verifier, two independent behavior reviews, final comment
-review and pinned formatter. It preserves all 459 preceding tracked files.
-It returns an unadmitted value and safe routing summary, not an authorization
-proof. Actual-key distinctness, canonical generations, signed requirement
-lifetimes and maintained ECDSA public-key encoding are source-reviewed;
-compilation/tests/coverage/analyzers remain unrun for those bytes. A separate
-independently reviewed test file adds maintained ES384/Ed25519 and hostile signed
-wire vectors without changing those six files. Receipt
-`checkpoint56/securitycontext-adversarial-tests-integration.json` binds that
-unexecuted test source; no coverage claim follows. Preserve the
-original rejected packets, staging-drift correction and withdrawn mixed-byte
-acceptance. The original pre-drift bytes were not retained independently;
-their old hashes must not be described as retrievable source snapshots.
+## English help and verifier CI correction
 
-The graph/compiler design moves include acquisition behind independently
-protected approval of exact root bytes, captured configuration/installation
-identity, finite include/release authority and current generation/fences.
-Its independent revision review `05422a4f...` requires an opaque approved root
-or internal rebinding at `ResolveApproved` before any include/repository/token
-I/O; caller pairing is insufficient. Later top-level repository access needs
-the same approval. Generic parsing, explicit local bootstrap and quarantined
-public GitHub templates remain distinct from authority. Private implementation
-continues in its existing owner; no unprotected proof constructor or permissive
-fallback can stand in for the protected state/enrollment boundary.
+Latest GitHub approval is applied and independently read back. Active Gitflow
+rules now require eight Actions checks, including SonarQube and SDK
+qualification, with no bypass actors; immutable `v*` tag rules are active.
+Draft PR #1 now displays CQ and accurately distinguishes published b30f1308
+from the unpublished continuation. Exact receipt
+`checkpoint57/github-approved-hardening-pr-readback.json`, SHA-256
+`b8752510745fe719e15a2f728443ff7e812cea7f67103bf1d5a620fa99c6c7a5`,
+supersedes older pending-save/four-check descriptions below for this scope.
+Both screenshot attempts timed out; no screenshot evidence is claimed. API
+rules and the visible "Ruleset updated" confirmation are retained. No merge,
+tag, release or production action occurred.
 
-The actual confirmed initial locale set is `en` and one `ar` for RTL testing,
-without region variants. All initial product/schema commitments remain v1.
-The private incompatible schemaVersion 2 proposal is rejected and unconsumed.
-Separate same-shape v1 indexes and a closed locale manifest preserve source
-IDs/digests, but their initial packet is blocked for cross-file semantic
-validation and bounded consumer/fallback parity. Three Arabic drafts and
-330 missing entries, with zero reviewed translations, do not establish Arabic
-completion. Existing docs/frontend owners retain full content, UI/action,
-translation, accessibility and device acceptance.
+The existing Linear project is now named CQ. Full before/update/readback of
+the same eighteen issue descriptions and UIF-178 title preserves all status,
+assignee, lease and admission boundaries. The actual aggregate is **77 issue
+mutation calls**, plus **one separate project metadata update**. Two of those
+eighteen latest issue updates add the complete route/control/device feedback
+and performance acceptance to existing UIF-170/175. Receipt
+`checkpoint57/linear-cq-display-performance-readback.json`, SHA-256
+`bd0586db2070ae145ac28e15f992426c1159f5db1947d380fd0155cb0310d8d4`,
+retains exact descriptions and only documented provider self-link/entity-label
+normalization. Typed project labels still return the old label even though the
+native project name is CQ; no rendered-UI label result is inferred. The source
+integrator remains the only Linear writer; no new issue or shared UIF edit.
+Seven subsequent append-only updates to existing UIF-164/166/167/170/172/175/176
+record the complete automatic-startup and telemetry acceptance. Exact unchanged
+metadata and full description readback are retained in
+`checkpoint57/linear-startup-telemetry-readback.json`, SHA-256
+`e736b2fc13c052c9f926d02772bc8fe1d24bd891955d3932f1b359db7db70020`.
 
-The English 333-entry corpus contains sixteen guides, 187 schema-pattern and
-130 collection-field articles. Independent review `b4ee34de...` verifies source
-bindings but finds forty repeated double periods. The additive correction
-`5ae1df27...` is accepted by review `5294ca99...` for exactly those forty changes;
-source references and the other 293 entries remain unchanged. The 714-file
-local-help candidate and four-file field-context supplement remain separate
-private packets. Producer 47/48-test and browser/performance receipts are not
-root or hosted acceptance. Distribution-root pinning is a concrete integration
-blocker, independently confirmed; per-article hashes alone are insufficient.
-The first review receipt was overwritten by a second reviewer using the same
-filename. Retain its explicitly labelled reconstruction `7cbb81a4...` and the
-separate confirmation, not a claim that the original receipt bytes survive.
-Subsequent receipts use unique reviewer-specific names and frozen source.
+Native metrics currently default off, and disabled observability cannot retain
+an endpoint. The current initializer creates synthetic configuration/fixtures;
+it does not perform first authentication or profile/key provisioning. The new
+contract requires default-on bounded metrics without forced enrollment, explicit
+CLI/config disable before affected client/reference/exporter/store/network work,
+and one configured-integration readiness lifecycle with safe first-run,
+repeat-use, headless and partial/uncertain recovery behavior. Existing native
+owners are preparing the coherent v1 implementation. These are requirements
+and source audits, not implemented or qualified behavior; optional browser
+Sentry, logs/traces, analytics and ads retain separate configuration and consent.
+
+The reviewed six-file performance delta and two-file demo/landing regression
+addendum are integrated locally against the exact 720-file frontend snapshot.
+The original nested-main finding was retracted after review of the landing
+branch, which bypasses the shared shell; both receipts remain preserved.
+Integration receipts are `checkpoint57/frontend-performance-source-integration.json`
+(SHA-256 `b54d2aec77a65eb1b3a7fe2e8e3f9e15a3aa2225e3eb3a2936b2321dd72139c7`)
+and `checkpoint57/frontend-telemetry-demo-source-integration.json`
+(SHA-256 `723ecb2774057f7f80d77951d61e9261276167dae95883bb7dfe10bcfad20dea`).
+Producer tests, Lighthouse reports and limited browser journeys retain their
+exact scopes; root ran no frontend runtime. This continuation remains unpublished.
+
+The canonical executable names are now `cq` and `cq-audit`, with command
+directories `cmd/cq` and `cmd/cq-audit` and no old executable alias. Pending
+publication was stopped before tree/commit/ref creation when this instruction
+arrived. The 126 already staged content-addressed Brotli blobs and all original
+reviewed packets remain retained as historical source evidence. The branch
+has not advanced through those staging writes. Existing owners align command
+producers, consumers, generated help and tests before one reviewed publication.
+Package/import, configuration/state, environment/protocol, skill and release
+asset identities are separately classified; an old spelling there is not a
+command alias. The `.goreleaser.yaml` schema version is an external tool contract.
+
+The current published parent is `b30f1308bd384b04201df6d637fe016f8c8ba029`,
+tree `650214efd4727ad2bec42f508868ddbec22dc9cc`, on
+`feature/initial-implementation`, draft PR #1 to `develop`. Public readback
+verified eleven selected paths and all 466 working files, clean at publication.
+The following reviewed source snapshot integrates English local help and two
+security-context CI corrections. It establishes no production qualification.
+
+The [exact b30f1308 hosted observation](qualification.md#exact-b30f1308-hosted-evidence)
+records the expiry fixture failure and Staticcheck SA1019, a failing-test Go
+profile of 8,666/10,412 statements (83.23088744%), and Sonar gate ERROR at
+64.2% despite zero issues/hotspots/duplication. CodeQL analysis/upload, nine
+Browser jobs, three WireMock jobs and Dependency Review pass their recorded
+scopes. SDK qualification fails. These results do not qualify the following
+source bytes, release artifacts, provider accounts or strict enforcement.
+
+`checkpoint57/securitycontext-ci-correction-integration.json`, SHA-256
+`3e96d9cd1ba3cb6b5a776785f075f799805ed27ffa238e96c81fc359edc96890`,
+binds the two corrected files and final independent reviews. Expiry uses its
+own valid one-signer fixture; alias-threshold coverage remains. Maintained
+JOSE structure validation precedes maintained ECDSA `PublicKey.Bytes` to deny
+nil coordinates safely; separate test source covers non-nil off-curve points.
+No analyzer suppression is added. Pinned formatting passes; corrected test and
+analyzer execution have not run locally. Preserve rejected packets, staging
+drift, withdrawn mixed-byte acceptance and the documented primary-source
+correction to the earlier off-curve hypothesis. The pure verifier remains
+unadmitted, with no protected enrollment, authority store or profile enforcement.
+
+The graph/compiler remains private. The accepted bounded-read amendment
+`0f9c005f...` binds a shared 1 MiB admission/resolver limit and checks repository
+content before hashing, cloning or exposure. Native root capture, protected
+factory, CLI migration and authority integration remain absent. The aggregate
+store correction is also private under independent review; it must not be
+represented as strict custody, a trusted clock, an audit anchor or anti-restore
+protection. No raw path, permissive proof constructor or missing-capability
+fallback may stand in for protected admission.
+
+`checkpoint57/frontend-help-source-integration.json`, SHA-256
+`0fad0efa01bfe106cd68077982aad9f76fc11f1717853cc9453a02eeff27e9bd`,
+binds the integrated 715-file English web snapshot, 696 changed paths and all
+436 preserved non-web files before the separate two-path CI correction.
+Its 333 entries comprise sixteen guides, 187 schema-pattern and 130
+collection-field articles. The compact 957,833-byte authoring JSON is parsed
+content-equal to the corrected readable corpus; its actual byte digest is
+truthful. The source limits remain 1 MiB per general file, 32 MiB aggregate
+and 10,000 files, with only the existing selected contact-sheet PNG exception.
+The trusted release module pins the exact runtime manifest digest and size
+before decoding or fetching children. Local fulltext search, progressive
+articles and bounded cache use query-free same-origin requests. Static F1
+context rejects unknown identifiers and restores focus on Escape. Producer
+52-current-test evidence is separate from root/hosted/browser-device acceptance;
+root has not run Node or a browser. The original overwritten review receipt
+remains an honest reconstruction, not a claim of recoverable original bytes.
+
+The confirmed initial locale set is English `en` and one Arabic `ar` for RTL
+testing, without region variants. All 333 Arabic articles are drafts, with
+zero reviewed translations. Independent correction delta `ea8f407d...` accepts
+previously flagged field-language fixes only. The new bounded initial-v1 shard
+proposal remains private: review `abc03d07...` requires immutable bundle-root
+binding and `contentStage` parity before consumer/fallback/RTL acceptance.
+The existing frontend owner retains presentation preferences, pre-authentication
+accessibility and actual browser/device journeys; these are not in the integrated
+English-only snapshot. There is no actual profile API or coarse-country service.
+
+The current prelaunch contract requires one canonical active V1, directly authored
+current inputs and aligned producers/consumers/tests. No V2/V3 compatibility
+adapter, conversion or dual-version reader is authorized. Incompatible historical
+or rejected packets retain their original identity and are not consumed or
+relabelled. External API/dependency/standard versions remain unchanged. The
+frontend owner reports removing the private legacy-theme copy path; that
+presentation packet still needs its own frozen review/integration. Ordinary
+provider abstractions are not version conversion. Existing owners perform the
+scoped current/pending contract inventory; CQ does not mutate shared
+UIF contracts or create a second tracker.
 
 Existing UIF-170/171/172/174/175/176 descriptions now include confirmed en/ar,
 source-bound browser-service applicability and the SAME canonical go-live
-document, `RELEASE.md`. Its integrated SHA-256 is
-`0b3efcd57548be07daacfe269a78c758ee4545bec979df495e646cf5ff2ae89b`
-before the additive pre-authentication presentation acceptance paragraph;
-independent source/text review `e0dc3d35...` accepts that base operator procedure.
-The final paragraph requires its own exact source review before publication.
-The verified inventory `908c6da2...` observes historical local source, not fresh
+document, `RELEASE.md`. Its published SHA-256 is
+`ca16d5f454795fadb752bbc27a7ab7b9e12f8d1734316c56966d258275b7ed3e`;
+final independent review `21c63cba...` covers the exact release guide and
+pre-authentication presentation acceptance requirements. The verified inventory `908c6da2...` observes historical local source, not fresh
 accepted deployment/entitlement. No tenant IDs, DSNs or operational secrets were
 inspected/copied; no service was activated. Required and optional service states,
 owners, official routes, consent/CSP/privacy and post-deployment/withdrawal
@@ -108,6 +200,12 @@ in the existing private frontend copy, SHA-256 `ffe4ac5d...`; no OffMenu visual
 constraint or new design approval gate is introduced. All product lanes proceed
 in parallel; UI/help/i18n/review/publication do not gate BAU restoration.
 
+Two additional `go env` hold violations by the author and reviewer are
+retained in `checkpoint57/go-env-hold-deviation.json` and
+`checkpoint57/go-command-hold-deviation-release-awareness.json`. The hold was
+already active; neither event is a test/build/download result. Both stopped
+and reconfirmed the restriction. Do not claim zero historical Go invocations.
+
 Continue exact source review and bounded static checks under the existing
 resource hold: no local Go invocation/build/test/analyzer/resolver/install,
 Java/Docker or SDK application runtime. Pinned formatter, source/Git and Python
@@ -118,7 +216,7 @@ evidence; do not merge, tag, release, publish registries or deploy production.
 
 ## UIF migration and delivery closure
 
-This is CircularQuay's canonical migration/impact checklist, within the existing
+This is CQ's canonical migration/impact checklist, within the existing
 handoff rather than a second tracker. The complete accepted scope remains in
 [the implementation plan](implementation-plan.md), its nineteen acceptance
 scenarios and the linked product, management, identity, security, integration
@@ -132,7 +230,7 @@ obsolete fallback implementations or retreat to stale contracts. Required
 recovery, data protection, authorization and real resource/production holds
 remain in force.
 
-The current direction is to finish CircularQuay and prepare its controlled
+The current direction is to finish CQ and prepare its controlled
 adoption of the general **UIF** harness in parallel with OffMenu configuration,
 data and BAU corrections. Neither project's completion gates the other's
 independent work. Preserve immediate BAU priority on actual resource contention.
@@ -142,15 +240,15 @@ establish a selected USF manifest or permission to bypass its bindings.
 
 ### Authority and stable project identity
 
-The verified native owner route is **CircularQuay — Fix code and CI**, chat
+The verified native owner route is **CQ — Fix code and CI**, chat
 `01a1a102-5d55-7593-96ea-0c9ef716faa7`, parent of the existing `/root` subtask
 tree. Runtime thread metadata establishes that identity, not a model SKU.
-This owner coordinates integration and is the sole CircularQuay Linear writer.
+This owner coordinates integration and is the sole CQ Linear writer.
 Existing source, SDK, frontend and documentation ownership stays in place
 until a separately verified per-unit handover; no second planner or scheduler
 is introduced.
 
-[CircularQuay in Linear](https://linear.app/maldous/project/circularquay-656f1967b41c)
+[CQ in Linear](https://linear.app/maldous/project/circularquay-656f1967b41c)
 is project `P-UIF-17`, UUID `98c8070a-2fb0-438c-9358-634064bf3cca`, under
 Universal Infrastructure Foundation (`UIF`), team UUID
 `53f584e7-70a1-4b1e-b982-b815210e47d4`, in workspace
@@ -167,7 +265,7 @@ The dedicated project now has 18 product/handover issues, independently read
 back in Backlog with no assignee or dispatch. The provider responses and
 relations are retained in `checkpoint52/linear-created-issues-readback.json`.
 
-| Delivery scope | CircularQuay issue | Actual owner and source/evidence stage | Remaining gate and next owner |
+| Delivery scope | CQ issue | Actual owner and source/evidence stage | Remaining gate and next owner |
 | --- | --- | --- | --- |
 | Native policy, signed repositories and configuration | [UIF-162](https://linear.app/maldous/issue/UIF-162) | Source owner; three configuration readability corrections independently reviewed | Complete hierarchy/profile and exact source/repository/CRUD qualification; root retains integration before per-unit transfer |
 | Offline state and availability | [UIF-163](https://linear.app/maldous/issue/UIF-163) | Source owner; age-only snapshot implementation and prior synthetic evidence | Strict parsing, scope/expiry/replay/clock/revocation and native custody/provider evidence remain open |
@@ -230,7 +328,7 @@ secrets or private qualification records.
 UIF-175 also explicitly retains the reusable selected-project acceptance,
 exact-candidate CI/coverage evidence reconciliation and ordered frontend
 integration procedures, with shared-contract ownership in UIF-177/178 and
-qualification in UIF-170/171/174. Source packaging of `cquay` does not prove
+qualification in UIF-170/171/174. Source packaging of `cq` does not prove
 client catalog/install/invoke/update/remove support; UIF-173 retains those
 actual artifact/client gates. The previously updated user-supplied UIF diagram
 and its private structural/visual receipts are preserved without duplicate
@@ -457,16 +555,16 @@ not current runtime admission. Existing shared issue fits include UIF-120,
 UIF-140/141/142/159/161; verify their actual records before updates or dependencies.
 
 The existing UIF Root/122 owns the current-schema profile and shared corrections.
-This handoff supplies actual CircularQuay identity and requirements; it does
+This handoff supplies actual CQ identity and requirements; it does
 not invent a second profile schema or pretend the OffMenu-only policy accepts
-CircularQuay. Before admission, obtain the actual profile/schema/source
+CQ. Before admission, obtain the actual profile/schema/source
 revision and validate both project identities, disjoint paths, toolchains,
 authority, output privacy and review/publication routes. Wrong-project source,
 test, permission, publisher or result must deny before effects. Lost replies,
 recovery/refill and blocked-project isolation require separate observed proof.
 Classify application/fixture/toolchain defects separately from shared-contract
 defects; material shared changes require impact/regression evidence for both
-CircularQuay and OffMenu. No live queue migration or old-lease takeover occurs
+CQ and OffMenu. No live queue migration or old-lease takeover occurs
 from project creation or authored documentation.
 
 ### First controlled handover candidate
@@ -543,7 +641,7 @@ development-tool limitations, not product capability or production admission.
 After BAU restoration and a verified controlled handover, the existing UIF
 platform owns normal intake, admission, allocation, execution, review,
 integration/publication, result readback, recovery and successor/refill for
-the accepted UIF, OffMenu and CircularQuay profiles. Independent ready work
+the accepted UIF, OffMenu and CQ profiles. Independent ready work
 progresses in parallel within actual configured capacity, permissions and
 resource bounds. One project's completion is not a blanket prerequisite for
 another's ready work, and no unlimited concurrency or guaranteed worker
@@ -559,7 +657,7 @@ manually launched examples do not prove this operating model. Use existing
 ready issues and their real dependencies; do not manufacture work or weaken
 grants to demonstrate activity.
 
-Morgan/Gateway becomes purely supervisory after accepted handover: read
+The coordination role becomes supervisory after accepted handover: read
 progress, report exceptions and escalate actual blockers. That role does not
 routinely dispatch jobs or modify scheduling, policy, publisher or state;
 such an intervention requires new authority. Its normal operator surface is
@@ -571,7 +669,7 @@ source integration and active leases continue under their existing owners
 until the relevant per-unit transition is verified. No abrupt takeover,
 competing coordinator or replacement tracker follows from this target model.
 
-CircularQuay has not completed that handover. Its first read-only assessment
+CQ has not completed that handover. Its first read-only assessment
 still requires the actual project/source/read-only executor/evidence-return
 qualification above. Normal autonomous intake, accepted output and successor
 cycles have not been observed for it. Complete Go execution or publisher
@@ -1328,7 +1426,7 @@ records candid while product guides describe the complete v1 contract.
 
 ## Resumption and retained scope
 
-The user resumed CircularQuay delivery on 4 November 2026. The earlier pause
+The user resumed CQ delivery on 4 November 2026. The earlier pause
 for BAU priority is revoked for this isolated project. Preserve the saved
 source/security patch and existing task ownership. No BAU service,
 operational credential, system/service installation, production deployment,
@@ -1530,12 +1628,12 @@ prepared additional required checks and all-severity CodeQL rules still waits
 for GitHub's user-completed `Confirm access` authentication.
 
 Local heavy tests/scans/builds remain held for BAU disk reserve. Three exactly
-identified, completed CircularQuay Go build caches were cleared with pinned
+identified, completed CQ Go build caches were cleared with pinned
 `go clean -cache`, removing 3,018,936,320 allocated bytes (2.81 GiB). Every
 tracked source byte, module/toolchain cache and nonreproducible qualification
 artifact was preserved. At 2026-11-03 23:32:59 UTC, filesystem free space was
 35,657,736,192 bytes; the reported 70 GiB reserve was still short by
-39,504,191,488 bytes. Other host cleanup is not attributed to CircularQuay.
+39,504,191,488 bytes. Other host cleanup is not attributed to CQ.
 Retain `.local/qualification/resource-hold-latest-20261104.json` and its
 exact ownership, cleanup and source-integrity receipts. A later 23:41:09 UTC
 readback measured 618,975,252,480 available bytes (576.47 GiB), above the
@@ -1713,7 +1811,7 @@ The old shared writable tool layout was reproduced as `tool_manifest_invalid`
 with no coverage. A private copied full Go distribution/Git layout rebuilt
 the actual auditor with the copied compiler and passed a real poisoned-PATH
 tiny source audit (1/1 fixture statements). These are fixture receipts, not
-CircularQuay's coverage gate. Root also checked the pinned setup-go source:
+CQ's coverage gate. Root also checked the pinned setup-go source:
 for modern Go it adds PATH and does not export GOROOT. The workflow derives
 the canonical distribution from that PATH and passes copied GOROOT only to
 children. Selection tests pass with both absent and stale ambient GOROOT.
@@ -1841,9 +1939,8 @@ qualification only.
 
 ## Start here
 
-- Project/module: `CircularQuay` / `github.com/maldous/CircularQuay`. The app,
-  binary, release-asset prefix, and skill are `cquay` ("c-key");
-  `cquay-audit` is separate.
+- Product/module: **CQ** / `github.com/maldous/CircularQuay`. Commands
+  are `cq` and `cq-audit`; release assets use `cq` and the repository-owned skill identifier is `cq`.
 - Development branch: `feature/initial-implementation`. This continuation
   includes `4886fc8660706909376f3543ad7cab186d9256b9`; use `git rev-parse HEAD`
   and `git status` to establish the actual checkpoint and subsequent changes.
@@ -1859,13 +1956,13 @@ qualification only.
 ## Isolation and authorization
 
 Work only in an isolated developer checkout with synthetic fixtures. Do not
-install CircularQuay into service or system paths, restart services, alter
+install CQ into service or system paths, restart services, alter
 infrastructure or existing credentials, inspect operational secret values or
 shell-profile credentials, or interfere with OffMenu BAU recovery. Do not
 create broad persistent credentials to bypass an unavailable GitHub permission.
 
-The user authorized reversible development and free test tooling, not paid
-resources, production deployments, or a universal credential daemon. Keep
+The development scope permits reversible work and free test tooling. It excludes
+paid resources, production deployments and a universal credential daemon. Keep
 publishing, account, registry, and operator procedures in `RELEASE.md`; keep
 end-user/product material in `README.md`.
 

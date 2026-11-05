@@ -308,7 +308,7 @@ func privateSourceDirectory(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root, err := os.MkdirTemp(base, "cquay-source-test-")
+	root, err := os.MkdirTemp(base, "cq-source-test-")
 	if err != nil {
 		t.Fatal(err)
 	}

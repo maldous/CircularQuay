@@ -64,10 +64,10 @@ second table under the same all-powerful credential is not such a boundary.
 This host-internal custody choice is separate from an explicitly selected
 [user-profile KMS](managed-key-service.md#per-profile-age-and-kms-custody), which
 is now a required hosted capability with dual association provisioning in the
-authorized product flow. It does not authorize live provider setup in this task.
-The user now explicitly authorizes an initial SOFTWARE crypto service using
-protected host secrets outside DB plus vetted crypto and random profile DEKs,
-only within existing paid Cloudflare/Netlify resources. Secret storage alone is
+product flow. This design does not establish a configured provider.
+The launch custody profile uses a software crypto service with protected host
+secrets outside the database, vetted crypto and random per-profile DEKs within
+an existing paid Cloudflare or Netlify allocation. Secret storage alone is
 not KMS. Runtime/shared KEK compromise can expose all reachable DEKs: this launch
 tradeoff does not meet independent non-exportable/HSM custody unchanged. No
 external paid KMS is required at launch; stronger profiles remain unavailable

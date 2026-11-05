@@ -35,13 +35,33 @@ class FixedCommandTest(unittest.TestCase):
 
 
 class CaptureTest(unittest.TestCase):
+    def test_retains_only_actual_discovery_unittest_failure_identifier(self) -> None:
+        capture = CHECK.Capture("coverage")
+        capture.consume(
+            b"test_current_tool_contract_and_safe_outputs "
+            b"(test_client.MCPClientTests.test_current_tool_contract_and_safe_outputs) ... FAIL\n"
+        )
+        capture.consume(b"Traceback: synthetic credential=must-not-retain\n")
+        self.assertEqual(
+            ["test_client.MCPClientTests.test_current_tool_contract_and_safe_outputs"], capture.unittest_failures
+        )
+
+    def test_rejects_unittest_identifiers_outside_actual_discovery_grammar(self) -> None:
+        self.assertIsNone(
+            CHECK._safe_test_identifier("sdk.python.tests.test_client.ClientTest.test_disclosure")
+        )
+        self.assertIsNone(CHECK._safe_test_identifier("test_client.Path/Outside.test_disclosure"))
+        self.assertIsNone(CHECK._safe_test_identifier("test_client.ClientTests.test_secret=synthetic"))
+        self.assertIsNone(CHECK._safe_test_identifier("test_client.ClientTests.test_" + "a" * 257))
+        self.assertIsNone(CHECK._safe_test_identifier("test_client.ClientTests.test_disclosure\x1f"))
+
     def test_keeps_only_bounded_sdk_path_diagnostics(self) -> None:
         capture = CHECK.Capture("ruff")
-        capture.consume(b"sdk/python/src/cquay/client.py:19:4: E501 Line too long\n")
+        capture.consume(b"sdk/python/src/cq/client.py:19:4: E501 Line too long\n")
         capture.consume(b"outside.py:1:1: E501 ignored\n")
         self.assertEqual(1, len(capture.diagnostics))
         diagnostic = capture.diagnostics[0]
-        self.assertEqual(("E501", "sdk/python/src/cquay/client.py", 19, 4), (diagnostic.rule, diagnostic.path, diagnostic.line, diagnostic.column))
+        self.assertEqual(("E501", "sdk/python/src/cq/client.py", 19, 4), (diagnostic.rule, diagnostic.path, diagnostic.line, diagnostic.column))
 
     def test_marks_invalid_utf8_capture_malformed(self) -> None:
         capture = CHECK.Capture("mypy")
@@ -61,23 +81,23 @@ class CaptureTest(unittest.TestCase):
         self.assertTrue(bandit.malformed)
 
         unsafe = CHECK.Capture("ruff")
-        unsafe.consume(b"sdk/python/src/cquay/../secret.py:1:1: E501 synthetic\n")
+        unsafe.consume(b"sdk/python/src/cq/../secret.py:1:1: E501 synthetic\n")
         self.assertTrue(unsafe.malformed)
 
         numeric = CHECK.Capture("ruff")
-        numeric.consume(b"sdk/python/src/cquay/client.py:" + b"9" * 32 + b":1: E501 synthetic\n")
+        numeric.consume(b"sdk/python/src/cq/client.py:" + b"9" * 32 + b":1: E501 synthetic\n")
         self.assertTrue(numeric.malformed)
 
     def test_parses_bandit_issue_with_location(self) -> None:
         capture = CHECK.Capture("bandit")
         capture.consume(b">> Issue: [B101:assert_used] synthetic message\n")
-        capture.consume(b"   Location: sdk/python/src/cquay/client.py:42:0\n")
+        capture.consume(b"   Location: sdk/python/src/cq/client.py:42:0\n")
         self.assertEqual("B101", capture.diagnostics[0].rule)
 
     def test_parses_mypy_rule_without_backtracking_expression(self) -> None:
         capture = CHECK.Capture("mypy")
         capture.consume(
-            b"sdk/python/src/cquay/client.py:19: error: synthetic type error [arg-type]\n"
+            b"sdk/python/src/cq/client.py:19: error: synthetic type error [arg-type]\n"
         )
         self.assertEqual(
             ("arg-type", "synthetic type error"),
@@ -85,17 +105,17 @@ class CaptureTest(unittest.TestCase):
         )
 
         empty_message = CHECK.Capture("mypy")
-        empty_message.consume(b"sdk/python/src/cquay/client.py:19: [arg-type]\n")
+        empty_message.consume(b"sdk/python/src/cq/client.py:19: [arg-type]\n")
         self.assertTrue(empty_message.malformed)
 
     def test_records_bounded_coverage_rows_without_raw_output(self) -> None:
         capture = CHECK.Capture("coverage")
-        capture.consume(b"sdk/python/src/cquay/client.py 12 1 4 1 75% 4-6, 9->exit, 11->7\n")
+        capture.consume(b"sdk/python/src/cq/client.py 12 1 4 1 75% 4-6, 9->exit, 11->7\n")
         self.assertFalse(capture.malformed)
         self.assertEqual(0, capture.unparsed_sdk_lines)
         self.assertEqual(1, len(capture.coverage_rows))
         row = capture.coverage_rows[0]
-        self.assertEqual("sdk/python/src/cquay/client.py", row.path)
+        self.assertEqual("sdk/python/src/cq/client.py", row.path)
         self.assertEqual(((4, 6),), row.missing_lines)
         self.assertEqual(((9, None), (11, 7)), row.missing_branches)
         report = CHECK.report("coverage", 2, capture, False, 1)
@@ -110,8 +130,8 @@ class CaptureTest(unittest.TestCase):
 
     def test_normalizes_windows_rows_and_requires_complete_manifest(self) -> None:
         capture = CHECK.Capture("coverage")
-        capture.consume(b"sdk\\python\\src\\cquay\\client.py 12 0 0 0 100%\n")
-        self.assertEqual("sdk/python/src/cquay/client.py", capture.coverage_rows[0].path)
+        capture.consume(b"sdk\\python\\src\\cq\\client.py 12 0 0 0 100%\n")
+        self.assertEqual("sdk/python/src/cq/client.py", capture.coverage_rows[0].path)
         CHECK._require_coverage_manifest(capture)
         self.assertTrue(capture.malformed)
 
@@ -123,28 +143,58 @@ class CaptureTest(unittest.TestCase):
 
     def test_rejects_malformed_or_duplicate_coverage_rows(self) -> None:
         malformed = CHECK.Capture("coverage")
-        malformed.consume(b"sdk/python/src/cquay/client.py 12 0 0 0 84% 4-5\n")
+        malformed.consume(b"sdk/python/src/cq/client.py 12 0 0 0 84% 4-5\n")
         self.assertTrue(malformed.malformed)
 
         zero_range = CHECK.Capture("coverage")
-        zero_range.consume(b"sdk/python/src/cquay/client.py 12 1 0 0 91% 0\n")
+        zero_range.consume(b"sdk/python/src/cq/client.py 12 1 0 0 91% 0\n")
         self.assertTrue(zero_range.malformed)
 
         overlapping_range = CHECK.Capture("coverage")
-        overlapping_range.consume(b"sdk/python/src/cquay/client.py 12 3 0 0 75% 3-4, 4\n")
+        overlapping_range.consume(b"sdk/python/src/cq/client.py 12 3 0 0 75% 3-4, 4\n")
         self.assertTrue(overlapping_range.malformed)
 
         duplicate = CHECK.Capture("coverage")
-        row = b"sdk/python/src/cquay/client.py 12 0 0 0 100%\n"
+        row = b"sdk/python/src/cq/client.py 12 0 0 0 100%\n"
         duplicate.consume(row + row)
         self.assertTrue(duplicate.malformed)
 
         untracked = CHECK.Capture("coverage")
-        untracked.consume(b"sdk/python/src/cquay/untracked.py 12 0 0 0 100%\n")
+        untracked.consume(b"sdk/python/src/cq/untracked.py 12 0 0 0 100%\n")
         self.assertTrue(untracked.malformed)
 
 
 class ProtectedReportTest(unittest.TestCase):
+    def test_coverage_report_separates_unittest_and_threshold_phases(self) -> None:
+        capture = CHECK.Capture("coverage")
+        capture.unittest_started = True
+        capture.unittest_exit_code = 2
+        capture.coverage_report_started = True
+        capture.coverage_report_exit_code = 1
+        value = CHECK.report("coverage", 2, capture, False, 1)
+        self.assertEqual({"unittest": "failed", "coverage_report": "failed"}, value["phases"])
+
+    def test_coverage_phase_timeouts_are_not_misattributed(self) -> None:
+        test_timeout = CHECK.Capture("coverage")
+        test_timeout.unittest_started = True
+        test_timeout.unittest_exit_code = 124
+        test_timeout.unittest_timed_out = True
+        self.assertEqual(
+            {"unittest": "timed_out", "coverage_report": "not_run"},
+            CHECK.report("coverage", 124, test_timeout, True, 1)["phases"],
+        )
+
+        report_timeout = CHECK.Capture("coverage")
+        report_timeout.unittest_started = True
+        report_timeout.unittest_exit_code = 0
+        report_timeout.coverage_report_started = True
+        report_timeout.coverage_report_exit_code = 124
+        report_timeout.coverage_report_timed_out = True
+        self.assertEqual(
+            {"unittest": "passed", "coverage_report": "timed_out"},
+            CHECK.report("coverage", 124, report_timeout, True, 1)["phases"],
+        )
+
     def test_writes_machine_readable_structured_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "reports" / "result.json"
@@ -165,7 +215,7 @@ class ProtectedReportTest(unittest.TestCase):
             CHECK.protected_json(
                 path,
                 {
-                    "format": "cquay-sdk-python-progress-v1",
+                    "format": "cq-sdk-python-progress-v1",
                     "events": [
                         {"phase": "start", "test": "suite.Case.test_one"},
                         {"phase": "end", "test": "suite.Case.test_one"},
@@ -178,7 +228,7 @@ class ProtectedReportTest(unittest.TestCase):
 
             CHECK.protected_json(
                 path,
-                {"format": "cquay-sdk-python-progress-v1", "events": [{"phase": "end", "test": "wrong"}]},
+                {"format": "cq-sdk-python-progress-v1", "events": [{"phase": "end", "test": "wrong"}]},
             )
             malformed = CHECK.Capture("coverage")
             CHECK._validate_progress(path, malformed, allow_open=False)

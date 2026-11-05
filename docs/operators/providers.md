@@ -29,7 +29,7 @@ The published screens and terms are authoritative. If a free entitlement cannot 
 For every test:
 
 1. Register/verify the account through the official route and configure supported MFA/recovery.
-2. Create an isolated `cquay-audit` project/environment with fabricated values.
+2. Create an isolated `cq-audit` project/environment with fabricated values.
 3. Establish an allowed resource and a separate denied resource.
 4. Create a least-privilege machine identity for the allowed resource only.
 5. Store its bootstrap credential outside the repository through protected storage; policy contains only its reference.

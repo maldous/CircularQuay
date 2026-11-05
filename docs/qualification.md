@@ -7,7 +7,7 @@ This matrix distinguishes implementation from independent or live qualification.
 | Strict policy and complete generations | In development; consult package tests | Independent review pending. |
 | Local literal configuration | Synthetic example provided | Installed-artifact run pending. |
 | SOPS/age and Transit | In development | Selected-version round trip, denial and native-key custody pending. |
-| Cloud/SaaS readers | Connector-specific; inspect `cquay providers` | Live-provider qualification pending; mocks do not qualify accounts. |
+| Cloud/SaaS readers | Connector-specific; inspect `cq providers` | Live-provider qualification pending; mocks do not qualify accounts. |
 | Native publication | Connector-specific | Target entitlement/identity and deployment tests pending. |
 | Linux/systemd | Implementation/templates in development | Cold reboot/offline recovery pending on an operator-owned host. |
 | Windows | Implementation/templates in development | Actual SID/ACL/DPAPI, no-login reboot and restore pending. |
@@ -25,8 +25,27 @@ This matrix distinguishes implementation from independent or live qualification.
 | Client-side composition | Bounded JSON master/includes resolver, native CLI integration and private-domain guards added as source changes | Source/static review only; new tests have not run under the shared-host execution hold. Full hierarchy/profile enforcement and service parity are not established. |
 | Canonical hierarchy and lifecycle | [Governance](configuration-governance.md) and [lifecycle](credential-lifecycle.md) contracts defined; current schema remains the flat local runtime policy | Group/default/lock compilation, managed sessions/SCIM, provider-native mutation, scanner gates and cross-interface lifecycle administration remain unimplemented. |
 | Hosted KMS and age associations | Both associations are required by the hosted enrollment design; local age, hosted age-key retrieval and remote KMS custody remain distinct | No hosted enrollment, provider provisioning, key-service endpoint, policy/SDK/MCP integration or live KMS qualification is established. Current SOPS source still rejects cloud KMS and key groups. |
+| Automatic startup and integration readiness | Source audits and a single v1 contract are being reconciled; current init generates synthetic configuration/fixtures | Real first authentication, authorized profile/key setup, fast repeat reuse and configured-integration partial/uncertain/headless recovery are not implemented or qualified. |
+| Default metrics and early opt-out | Current native telemetry defaults off and rejects disabled configuration with a retained endpoint | The required default-on bounded metrics and CLI/config opt-out before affected client/reference/store/exporter/network work remain implementation and qualification gaps. Browser demo metadata does not establish native behavior. |
 
 ## Source workflow scope
+
+GitHub readback on 2026-11-05 confirms active Gitflow branch rules for `main`,
+`develop` and `release/**/*`, with eight GitHub Actions checks required and no
+bypass actors. The checks include `Hosted ephemeral SonarQube gate` and
+`SDK qualification`, alongside source/native/security/CodeQL checks. The rule
+requires an up-to-date branch, pull-request approval, last-push approval and
+resolved review threads, blocks deletion/force pushes, and requires CodeQL
+results at all alert thresholds. Active `v*` tag rules prevent updates,
+deletion and non-fast-forward changes. This is enforcement evidence, not a
+passing analysis, branch-merge, artifact-signing or release qualification.
+The current failed checks remain blocking. Receipt
+`checkpoint57/github-approved-hardening-pr-readback.json`, SHA-256
+`b8752510745fe719e15a2f728443ff7e812cea7f67103bf1d5a620fa99c6c7a5`,
+retains the exact before/after rules and CQ draft-PR metadata readback.
+Historical administrative HTTP 403 results remain historical; these successful
+ruleset reads and authenticated browser saves do not establish every other
+administrative permission or release-protection setting.
 
 The whole-product default/strict design has an independent source review of
 the policy schema and profile/administration contracts. It identifies the
@@ -52,6 +71,46 @@ Local complementary tooling has exercised TLC, ShellCheck/shfmt, PSScriptAnalyze
 Record each qualification receipt with a source commit, artifact digest, platform/provider/client version, setup, test outcome and sanitized evidence link. Do not mark a row tested based on a plan, cross-compilation, generated manifest, or absence of a complaint.
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
+
+## Exact b30f1308 hosted evidence
+
+Published source `b30f1308bd384b04201df6d637fe016f8c8ba029`, tree
+`650214efd4727ad2bec42f508868ddbec22dc9cc`, has exact public readback of
+eleven selected paths and all 466 working files, clean at publication. Its
+tested merge `e6b26b5f474385909929b1eead86acae04fbe941` has that same tree.
+These results apply to that revision only.
+
+[Source run 41940572706](https://github.com/maldous/CircularQuay/actions/runs/41940572706)
+fails the new `TestVerifyRejectsThresholdAliasAndExpiry`: its expiry case
+retains the earlier two-signer threshold and receives a threshold denial.
+The captured Go profile is **8,666/10,412 statements (83.23088744%)** from a
+failing test run, not a successful coverage qualification. Required tagged
+integration remains unrun. Returned cross-build successes establish only
+their individual compilation results.
+
+[Security run 41940572849](https://github.com/maldous/CircularQuay/actions/runs/41940572849)
+completes CodeQL analysis/upload, but its toolchain job fails Staticcheck
+SA1019 on deprecated ECDSA coordinate access in the verifier and fixture.
+Later gosec/govulncheck success is not established; this does not clear older
+findings or establish an empty CodeQL alert inventory.
+
+All nine [Browser jobs](https://github.com/maldous/CircularQuay/actions/runs/41940572887),
+three [WireMock jobs](https://github.com/maldous/CircularQuay/actions/runs/41940572953)
+and [Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41940572699)
+pass their recorded scopes. [SDK qualification](https://github.com/maldous/CircularQuay/actions/runs/41940572896)
+fails. Coverage, dependency and platform failures require their own exact
+diagnosis; passing synthetic browser/provider jobs do not qualify SDKs.
+
+[Sonar run 41940572785](https://github.com/maldous/CircularQuay/actions/runs/41940572785)
+completes CE and exact current-analysis/revision checks with **zero issues,
+hotspots, duplication and violations**. The gate remains **ERROR** at
+**64.2%** coverage. Required new-code metrics are absent and the Python
+3.15-to-3.14 analyzer warning remains; scanner exit 3 is failure. Its coverage
+and the Go statement profile have different denominators.
+`checkpoint57/b30f1308-hosted-evidence.json`, SHA-256
+`f7eca6cbc9c4bdc3a1f730a9ea241d79d0902f7e9d4ce01bcf0e3e79403d942b`,
+retains the bounded observation. No gate has been weakened and no workflow
+was manually rerun or cancelled for this observation.
 
 ## Exact 77435c34 hosted evidence
 
@@ -103,10 +162,16 @@ Its public summary omits graph, payload, provenance and fence digests.
 Declared capabilities are requirements, not measured runtime satisfaction.
 
 Two independent behavior reviews and a separate comment/schema-description
-review bind the integrated six-file snapshot. Pinned `gofmt` passes; compilation,
-test execution, coverage, analyzers and runtime qualification have not run for
-these new files. `checkpoint56/securitycontext-source-integration.json` retains
-their exact hashes and preservation of all 459 preceding tracked files. The
+review bind the initial six-file snapshot; a separate seventh file adds
+adversarial test source. The b30f1308 run above exposes the expiry fixture and
+deprecated ECDSA access failures. The following independently reviewed source
+correction gives expiry its own valid one-signer fixture, validates maintained
+JOSE key structure before maintained `PublicKey.Bytes`, and adds nil-coordinate
+and non-nil off-curve vectors. It retains the alias-threshold assertions and
+uses no analyzer suppression. Pinned `gofmt` passes; these corrected bytes have
+not been compiled, executed or analyzed locally. Receipt
+`checkpoint57/securitycontext-ci-correction-integration.json` binds the two
+corrected paths and final independent reviews. The
 protected compiler, store, approval/bootstrap/recovery and unified enforcement
 remain required; no CLI flag, profile field or strict-mode pass follows.
 
@@ -117,17 +182,37 @@ post-deployment and withdrawal procedures are operator requirements. Source
 review establishes no vendor account, entitlement, service activation, legal
 compliance, deployment or commercial readiness.
 
-Private help source review binds 333 English entries and accepts exactly forty
+Help source review binds 333 English entries and accepts exactly forty
 punctuation corrections. It does not establish every field's conditional
 semantics, actual UI/action coverage, translation quality or search acceptance.
-The separate local-help candidate has producer-scoped 47-test/browser receipts
-and sound article/corpus hashes, but its unpinned distribution manifest blocks
-integration. Article hashes alone cannot authenticate a replacement manifest.
-The initial English/Arabic manifest also remains blocked pending deterministic
-cross-file semantic validation and actual bounded consumer/fallback evidence.
-Three Arabic guide drafts, zero reviewed translations and 330 missing entries
-are incomplete. All initial contracts remain v1; the incompatible private v2
-draft is rejected, not consumed or published.
+The following integrated English-only snapshot contains 715 web files and
+producer-scoped evidence of 52 current tests. It pins the exact distribution
+manifest digest and byte length in the trusted release module before decoding
+or fetching children; per-article hashes alone are insufficient. Local fulltext
+search, progressive article loading and bounded caching use query-free
+same-origin requests. F1 control context admits only static schema identifiers,
+normalizes declared map/list paths and restores focus on Escape. Root has not
+run Node or a browser; actual hosted, accessibility, relevance, device and
+performance acceptance remain separate. This pin does not defend a compromised
+trusted application bundle or host.
+
+The English authoring JSON is compacted to 957,833 bytes with parsed content
+equal to the corrected readable corpus. Its actual byte digest changes;
+authored content version and semantics do not. The existing 1 MiB general file,
+32 MiB aggregate and 10,000-file source limits remain unchanged, with only the
+previously declared selected contact-sheet PNG exception. Receipt
+`checkpoint57/frontend-help-source-integration.json` binds every integrated
+file and the independent source reviews.
+
+The separate Arabic corpus now has 333 drafts and zero reviewed entries.
+Independent correction review accepts the prior field-language fixes only;
+it is not language, UI, RTL or production acceptance. An initial closed v1
+source-shard proposal remains private pending immutable bundle-root binding,
+`contentStage` parity, consumer and fallback evidence. Presentation preferences
+remain in the existing frontend lane. All current product contracts use one
+direct initial v1 semantics; no legacy version converter or dual-version reader
+is introduced. Historical incompatible proposals retain their original identity
+and are not consumed or relabelled.
 
 ## Exact eac85a1 source and evidence boundary
 
@@ -553,9 +638,9 @@ and interrupted-migration journeys. Source/evidence hash readback is distinct
 from independently rerunning those journeys. Further frontend corrections
 remain with that owner until their own frozen checkpoint and review.
 
-The user subsequently confirmed phone access through existing authenticated
-Termux SSH forwarding to loopback 5180/5181. The earlier receipt's false
-phone-open field is historical and is preserved. This is human confirmation,
+Recorded phone reachability uses authenticated Termux SSH forwarding to
+loopback 5180/5181. The earlier receipt's false
+phone-open field is historical and is preserved. This is operator-reported reachability,
 not an automated physical-device test, public tunnel or shared browser store.
 The original contact-sheet SHA-256 is
 `b50b0e0db86d4d39f4295a5f06c2ba5651c314ad088410e88aa9991ea05cbba6`;
@@ -1261,11 +1346,11 @@ release evidence.
 
 | Receipt | Revision and time | Scope and observed result | Limit |
 | --- | --- | --- | --- |
-| Frozen local checkpoint23 | Native-fixture/provisioning/Sonar-label follow-up based on `2d1f1003d7c720f8d1ee5884ec576786358548c2`, 2026-11-04 | All 31 local source/test/static/format/module/workflow/compile checks passed with identical source manifests. Coverage is unchanged at 5,953/7,055 statements (84.37987%). Strict offline zizmor auditor collection has zero findings. A private copied Go distribution rebuilt the real auditor and passed a poisoned-PATH tiny fixture; the old shared writable layout was explicitly denied. | Actual native Windows/macOS and hosted-runner confirmation is separate. CircularQuay's 100% coverage and zero-gosec gates still fail; a 1/1 fixture is not a product gate pass. |
+| Frozen local checkpoint23 | Native-fixture/provisioning/Sonar-label follow-up based on `2d1f1003d7c720f8d1ee5884ec576786358548c2`, 2026-11-04 | All 31 local source/test/static/format/module/workflow/compile checks passed with identical source manifests. Coverage is unchanged at 5,953/7,055 statements (84.37987%). Strict offline zizmor auditor collection has zero findings. A private copied Go distribution rebuilt the real auditor and passed a poisoned-PATH tiny fixture; the old shared writable layout was explicitly denied. | Actual native Windows/macOS and hosted-runner confirmation is separate. CQ's 100% coverage and zero-gosec gates still fail; a 1/1 fixture is not a product gate pass. |
 | Frozen local checkpoint22 | Combined auditor/CI-flow/Sonar-remediation capture based on `bfaa66cc116093588dd1053a301bdf90a8ecef28`, 2026-11-04 | All 31 recorded checks passed with identical source manifests: whole-module normal/race, vet, Staticcheck all, formatting, module integrity, both complexity ceilings, actionlint, 13 Windows and six Darwin package test compilations. Coverage is 5,953/7,055 statements (84.37987%). The exact workflow-manifest/public-auditor smoke passes selected checks under a poisoned PATH. Expanded offline zizmor auditor-persona collection reports zero findings. | Coverage still fails 100%; scoped gosec still has eight Linux / nine Windows unsuppressed findings. Compile checks and a tiny synthetic audit do not qualify native OS execution, complete tool/runtime closure, exact-head Sonar, CI identity assertions or production. |
 | [Native and cross-build CI](https://github.com/maldous/CircularQuay/actions/runs/41724962521) | `bfaa66cc116093588dd1053a301bdf90a8ecef28`, tree `0afc2f5f7fcaf00f1547b29f849540cf78cfc89f` | Native Linux, macOS and Windows tests and all 26 cross-builds passed. Synthetic merge `3be5764a6b551982bfa4962fc7c35a8c7000df2f` has the same public tree. [Advanced CodeQL](https://github.com/maldous/CircularQuay/actions/runs/41724962531) passed. | Source assurance fails required coverage (5,554/6,441 statements); gosec fails eight unsuppressed findings. Native runners do not qualify providers, reboot/recovery, installers or releases. |
 | Managed DPoP diff review | `97b757a` → `bfaa66c`, scan `56553a87-7692-4deb-9432-d0f716652dc3` | Sealed complete review of all 37 changed files; zero reportable findings/candidates. Focused pinned Go 1.27.3 synthetic validation passed. | Complete diff coverage is not a whole-repository, live-provider or production audit. |
-| Protected audit-tool fixture | Frozen isolated auditor slice, 2026-11-04 | A real source-profile run on a tiny clean synthetic repository passed with protected Git/Go/gofmt/Staticcheck under a poisoned ambient PATH. Binary, manifest, source and report hashes are retained. Other analyzers were explicitly not run. | Fixture-only Linux evidence, not CircularQuay's gate pass, publisher authentication, transitive runtime closure, atomic execution or an OS sandbox. |
+| Protected audit-tool fixture | Frozen isolated auditor slice, 2026-11-04 | A real source-profile run on a tiny clean synthetic repository passed with protected Git/Go/gofmt/Staticcheck under a poisoned ambient PATH. Binary, manifest, source and report hashes are retained. Other analyzers were explicitly not run. | Fixture-only Linux evidence, not CQ's gate pass, publisher authentication, transitive runtime closure, atomic execution or an OS sandbox. |
 | Frozen local checkpoint21 | Captured DPoP follow-up based on `97b757af8a91c7dce5227f8b6230fa3d98545d1a`, 2026-11-04 | Whole-repository normal/race tests, vet, Staticcheck with all checks, formatting, module tidy-diff/verification, cyclomatic and exact-recursion cognitive ceilings of 10, actionlint, 13 Windows and four Darwin test compilations passed with identical source manifests. Coverage is 5,554/6,441 statements (86.22885%). Signed synthetic issuer-to-MCP tests exercise persistent nonce handling, authorized reads, replay denial and a fresh Bearer downgrade denial followed by acceptance of the same unconsumed proof under DPoP. Schema/parser tests enforce omitted-skew defaults and every skew/proof-age boundary below 30 seconds. | The unchanged 100% gate fails. These are local synthetic and compilation receipts, not native, live issuer/client, cluster, release or exact-candidate Sonar qualification. |
 | Sender-constraint finite model | `SenderConstraint.tla` SHA-256 `b962953ac879eb3f433ec9cce77f1843419217dee00d38b5f49f37f5c3b22822`; configuration `a9fd6f75aaf69045dfce9332d76a908b8ef60c63771a612cb8035f7fcd46f244` | TLC completed 1,081,397 generated / 127,067 distinct states at depth 20. Four private guard mutations produced counterexamples for replay, expiry, stale authority and restart persistence. Raw logs and the exact Java/jar identities are retained. | Two fingerprints, one key/JTI, three nonces, a fixed resource and time 0–2 only. The authorization-boundary abstraction assumes trusted clock, OS, store, native lock, issuer and cryptography; it is not whole-program refinement, cryptographic proof or resistance to a host administrator. |
 | Checkpoint21 scoped gosec | Same frozen Go inputs, 2026-11-04 | Linux has eight findings (G204 ×6, G103 ×2); Windows has nine (G204 ×5, G103 ×4), with zero Go errors and zero suppressions. Source manifests match. | Both zero-finding gates remain failed; no rule or quality threshold is waived. |
@@ -1344,7 +1429,7 @@ The linked managed-key document and README describe the v1 North Star. The
 authenticated key-mapping endpoint, managed association administration API, protected
 local custody, bundle-bound remote unlocking, and new CLI/MCP management paths
 are not implemented or qualified in this source checkpoint. Upstream plugin
-and hosting documentation is research evidence, not a CircularQuay integration
+and hosting documentation is research evidence, not a CQ integration
 receipt. The hosting/capacity/revenue calculations are explicit assumptions,
 not benchmarks, customer traction, approved prices, or operating accounts.
 No service, paid plan, credential, or BAU infrastructure was created or changed.

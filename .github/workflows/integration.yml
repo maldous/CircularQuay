@@ -63,6 +63,6 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          export CQUAY_WIREMOCK_JAR="$(cat "$RUNNER_TEMP/wiremock-path")"
+          export CQ_WIREMOCK_JAR="$(cat "$RUNNER_TEMP/wiremock-path")"
           go vet -tags=integration ./internal/integration
           go test -p 1 -tags=integration ./internal/integration

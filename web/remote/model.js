@@ -7,7 +7,7 @@ export const model = {
   intro: 'Your account, clear access, predictable usage.',
   scopes: ['Account', 'Operator'],
   personas: ['Account owner', 'Enterprise administrator', 'Support specialist', 'Security auditor', 'Service operator', 'Billing specialist', 'Product owner', 'AI agent', 'Global administrator'],
-  settings: { name: 'Alex Morgan', email: 'alex@example.invalid', organization: 'Harbour Studio', theme: 'system', initials: 'AM', brand: 'CircularQuay', notifications: 'Security and usage', retention: '30 days' },
+  settings: { name: 'Alex Morgan', email: 'alex@example.invalid', organization: 'Harbour Studio', initials: 'AM', brand: 'CQ', notifications: 'Security and usage', retention: '30 days' },
   navigation: {
     Account: ['overview', 'profiles', 'usage', 'billing', 'support', 'members', 'groups', 'identity', 'settings'],
     Operator: ['overview', 'customers', 'associations', 'grants', 'roles', 'billing', 'support', 'operations', 'audit', 'telemetry', 'identity', 'settings'],

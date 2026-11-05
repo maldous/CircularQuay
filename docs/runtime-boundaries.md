@@ -12,7 +12,7 @@ SOPS can use cloud KMS or OpenBao Transit to protect a document key. That is dif
 | systemd / Windows / Termux / containers | Native startup and credential boundaries; actual devices require qualification. |
 | Windmill / Workers / Netlify / cloud applications | Explicit native one-way delivery profiles; no inherited source-audit guarantee. |
 
-Use `cquay providers` and the qualification matrix for the current executable's capabilities. Unsupported combinations must fail explicitly. Provider and platform support does not imply a free subscription, official Android support, or an upstream security endorsement.
+Use `cq providers` and the qualification matrix for the current executable's capabilities. Unsupported combinations must fail explicitly. Provider and platform support does not imply a free subscription, official Android support, or an upstream security endorsement.
 
 Termux startup occurs after Android permits access following the first unlock. Multiple Termux processes share an application UID. Windows DPAPI machine protection relies on ACLs for service separation. Root or Administrator compromise defeats endpoint protections.
 

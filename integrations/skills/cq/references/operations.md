@@ -1,19 +1,18 @@
 # Operating workflows
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
+
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
 
 Use the command vocabulary of the selected qualified executable. Current remote
 bootstrap requires both pins even interactively; `flow run` uses local policy or
@@ -26,13 +25,13 @@ or schema field solely from an intended integration requirement.
 
 | Task | Route | Boundary |
 | --- | --- | --- |
-| Select configuration | `cquay bootstrap --config-source URL --config-ref FULL_COMMIT --config-path PATH --config-sha256 SHA256 --output PATH --non-interactive` | Pins come from a trusted maintainer route. Explicit settings override environment, local policy and enrolled discovery; they cannot widen access. |
-| Inspect | `cquay --config PATH config validate`, `doctor`, `plan`; `status --workload ID --json` | Protect paths and minimize output. Validation is not a provider access test. |
+| Select configuration | `cq bootstrap --config-source URL --config-ref FULL_COMMIT --config-path PATH --config-sha256 SHA256 --output PATH --non-interactive` | Pins come from a trusted maintainer route. Explicit settings override environment, local policy and enrolled discovery; they cannot widen access. |
+| Inspect | `cq --config PATH config validate`, `doctor`, `plan`; `status --workload ID --json` | Protect paths and minimize output. Validation is not a provider access test. |
 | Edit declarations | `config get`, `list`, `set`, `delete`, `replace` with documented pointer/file flags | Validate the complete candidate and use `--expect-sha256` for conditional writes. JSON values are non-secret declarations. |
-| Execute | `cquay --config PATH run --workload ID`; `flow run --workload ID --non-interactive` | Declared identities and executable trust apply; runner markers are context, not authentication. |
+| Execute | `cq --config PATH run --workload ID`; `flow run --workload ID --non-interactive` | Declared identities and executable trust apply; runner markers are context, not authentication. |
 | Publish a projection | `snapshot --workload ID`, `apply --workload ID --target ID`, `sync --workload ID --once` | Export, target write and native activation are separate grants. An offline copy does not preserve central per-read audit. |
-| Inspect updates | `cquay --config PATH update check --json` | Advisory metadata only; no automatic install, restart, prompt or grant. |
-| Serve MCP | `cquay --config PATH mcp serve --transport stdio` or the enrolled HTTP profile | Use an absolute verified executable at launch; remote HTTP needs its explicit issuer/resource/TLS boundary. |
+| Inspect updates | `cq --config PATH update check --json` | Advisory metadata only; no automatic install, restart, prompt or grant. |
+| Serve MCP | `cq --config PATH mcp serve --transport stdio` or the enrolled HTTP profile | Use an absolute verified executable at launch; remote HTTP needs its explicit issuer/resource/TLS boundary. |
 
 For CI, use the same `flow run` entry point in GitHub Actions, GitLab CI and
 Azure Pipelines. Select short-lived job/provider identity, exact repository/ref
@@ -123,7 +122,7 @@ No contents/source credentials reach hosted backend/proxy/analytics/logs.
 Browser CORS/file restrictions require permitted native/local CLI/SDK integration,
 not a server fetch proxy. Hosted state is profile→KMS/age plus necessary
 service metadata; keys are never logged/displayed. CLI/config disable resolves
-before hosted network. The user clarified PVM/KVM meant per-profile KMS; no
+before hosted network. KMS is configured per profile; no
 guessed flag, production UI authority or automatic subscription follows from
 this design. The separately authorized previews remain synthetic/mock and
 loopback-only.
@@ -141,12 +140,12 @@ separate no-backend/no-provider/no-key boundary.
 ## Shared UIF project profiles
 
 UIF is general infrastructure/orchestration/governance for distinct product
-profiles. CQ connects secret providers/client-owned configuration to authorized
+profiles. CircularQuay connects secret providers/client-owned configuration to authorized
 workloads and crypto/age/account/client operations. OffMenu's canonical product
 docs describe the household product-to-pantry-to-plate loop, with separate food/
 source-data rights, private household/profile information, runtime/toolchains
 and publication authority. Do not copy its mutable requirements or corpus into
-CQ work. Follow the owners' canonical repository/docs and accepted source pins.
+CircularQuay work. Follow the owners' canonical repository/docs and accepted source pins.
 
 General multi-project capability is required/planned, not proven by a profile
 name, skill, project record or qualified-but-not-installed candidate. Recover
@@ -164,7 +163,7 @@ source/job/isolation evidence; diagnose project-specific failures separately.
 Preserve current tasks/leases and controlled per-unit handover through the same
 owner route. Reconcile ambiguous ownership before another writer or retry.
 
-CQ migration proceeds now in parallel with OffMenu config/data fixes and BAU;
+CircularQuay migration proceeds now in parallel with OffMenu config/data fixes and BAU;
 neither project's independent completion gates the other. An affected-unit
 blocker does not pause unrelated authorized work. No abrupt runtime cutover,
 new account/credential, permission expansion or production activation follows
@@ -178,8 +177,8 @@ account and operator previews. Read its actual `web/README.md`, package scripts,
 coverage matrix and pinned schema/example evidence. That tree may be separate
 from the native source checkout; do not assume it is installed or integrated.
 Reuse the existing owner/process/phone forwarding, not a competing server,
-public tunnel or firewall change. User-confirmed phone access proves the
-existing route works, not public deployment or backend authentication.
+public tunnel or firewall change. Reported phone reachability does not establish
+public deployment or backend authentication.
 
 Use synthetic data only. Browser storage is per device/origin and is not a
 protected credential vault. Saved local config, variables, source credentials
@@ -198,7 +197,7 @@ a finished vector or permit inventing a different selected asset.
 
 ## User-profile KMS and availability modes
 
-The user clarified KVM/PVM meant KMS configured in the user profile. Distinguish
+KMS is configured per profile. Distinguish
 local age, minimal hosted age-private-key retrieval and remote KMS master-key
 custody. The inspected SOPS adapter rejects cloud-KMS recipients and key groups;
 upstream SOPS support or cloud secret-reader SDKs do not prove adapter support.
@@ -279,7 +278,7 @@ by this skill design; use only real qualified capabilities, never invented tools
 Existing SECURITY/threat-model/security-profile/administration/assurance gates
 apply equally to hosted KMS, local adapters and migration. Do not lower custody,
 scopes, durable audit, replay/fallback or issue/coverage/complexity/review gates for
-cost. The user explicitly authorized the initial software-custody tradeoff;
+cost. The launch profile uses software custody;
 stronger independent non-exportable/HSM claims are unavailable. Real backend/
 recovery evidence is distinct from mocks; missing
 authorized backend is unqualified, not pass/certification. Cost model must cover

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CquayError, LocalCLIClient } from "../src/index.ts";
+import { CqError, LocalCLIClient } from "../src/index.ts";
 
 test("config replacement rejects nonportable JSON before local dispatch", () => {
   const { client, inputs } = recordingClient();
@@ -71,5 +71,5 @@ function nestedObject(depth: number): Record<string, unknown> {
 }
 
 function invalid(error: unknown): boolean {
-  return error instanceof CquayError && error.category === "invalid";
+  return error instanceof CqError && error.category === "invalid";
 }

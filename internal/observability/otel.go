@@ -33,8 +33,8 @@ const (
 	maxOTLPRequestBytes  = 1 << 20
 	maxOTLPResponseBytes = 1 << 20
 	instrumentationScope = "github.com/maldous/CircularQuay"
-	operationEventName   = "cquay.operation"
-	outcomeAttributeName = "cquay.outcome"
+	operationEventName   = "cq.operation"
+	outcomeAttributeName = "cq.outcome"
 )
 
 type otelBackend struct {
@@ -332,17 +332,17 @@ func (b *otelBackend) configureMetrics(ctx context.Context, config model.Observa
 
 func (b *otelBackend) configureOperationMetrics(meter otelmetric.Meter) error {
 	var err error
-	b.operationTotal, err = meter.Int64Counter("cquay.operation.total")
+	b.operationTotal, err = meter.Int64Counter("cq.operation.total")
 	if err != nil {
 		return err
 	}
-	b.operationDuration, err = meter.Float64Histogram("cquay.operation.duration", otelmetric.WithUnit("s"))
+	b.operationDuration, err = meter.Float64Histogram("cq.operation.duration", otelmetric.WithUnit("s"))
 	return err
 }
 
 func (b *otelBackend) configureRuntimeMetrics(meter otelmetric.Meter) {
-	goroutines, firstErr := meter.Int64ObservableGauge("cquay.runtime.goroutines")
-	heap, secondErr := meter.Int64ObservableGauge("cquay.runtime.heap.bytes")
+	goroutines, firstErr := meter.Int64ObservableGauge("cq.runtime.goroutines")
+	heap, secondErr := meter.Int64ObservableGauge("cq.runtime.heap.bytes")
 	if firstErr != nil || secondErr != nil {
 		return
 	}
@@ -392,7 +392,7 @@ func (b *otelBackend) begin(ctx context.Context, operation Operation) (context.C
 		return ctx, localSpan{backend: b, operation: operation, correlation: correlation(ctx), started: time.Now()}
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContext{})
-	ctx, current := b.tracer.Start(ctx, "cquay."+string(operation.Phase), trace.WithAttributes(operationAttributes(operation)...))
+	ctx, current := b.tracer.Start(ctx, "cq."+string(operation.Phase), trace.WithAttributes(operationAttributes(operation)...))
 	return ctx, otelSpan{backend: b, span: current, operation: operation, correlation: correlation(ctx), started: time.Now()}
 }
 
@@ -411,7 +411,7 @@ func (b *otelBackend) record(ctx context.Context, event Event) {
 		b.operationTotal.Add(ctx, 1, otelmetric.WithAttributes(metricAttributes...))
 	}
 	if b.logger != nil {
-		logAttributes := append(metricAttributes, attribute.String("cquay.correlation_id", event.Correlation))
+		logAttributes := append(metricAttributes, attribute.String("cq.correlation_id", event.Correlation))
 		record := otellog.Record{}
 		record.SetTimestamp(event.At)
 		record.SetEventName(operationEventName)
@@ -427,7 +427,7 @@ func (b *otelBackend) record(ctx context.Context, event Event) {
 }
 
 func operationAttributes(operation Operation) []attribute.KeyValue {
-	return []attribute.KeyValue{attribute.String("cquay.phase", string(operation.Phase)), attribute.String("cquay.provider_kind", operation.ProviderKind)}
+	return []attribute.KeyValue{attribute.String("cq.phase", string(operation.Phase)), attribute.String("cq.provider_kind", operation.ProviderKind)}
 }
 
 func logSeverity(outcome Outcome) otellog.Severity {

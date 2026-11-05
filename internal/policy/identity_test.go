@@ -12,7 +12,7 @@ import (
 func namedIdentityPolicy() model.Policy {
 	p := validPolicy()
 	p.MCP = model.MCP{
-		Resource: "https://cquay.example.test/mcp",
+		Resource: "https://cq.example.test/mcp",
 		Authorities: map[string]model.IdentityAuthority{"workforce": {
 			Issuer: "https://identity.example.test", JWKSURL: "https://identity.example.test/keys",
 			Audience: "registered-api", Profile: "rfc9068", Clients: []string{"approved-client"},
@@ -68,7 +68,7 @@ func TestEntraProfileSchemaAndValidatorRequireGUIDAudience(t *testing.T) {
 func TestNamedIdentityRejectsIncompleteAuthority(t *testing.T) {
 	for name, edit := range map[string]func(*model.Policy){
 		"resource missing":                       func(p *model.Policy) { p.MCP.Resource = "" },
-		"resource root":                          func(p *model.Policy) { p.MCP.Resource = "https://cquay.example.test/" },
+		"resource root":                          func(p *model.Policy) { p.MCP.Resource = "https://cq.example.test/" },
 		"mixed contracts":                        func(p *model.Policy) { p.MCP.Issuer = "https://identity.example.test" },
 		"missing grant authority":                func(p *model.Policy) { p.Grants[0].Authority = "unknown" },
 		"unqualified subject":                    func(p *model.Policy) { p.Grants[0].Subject = "person" },

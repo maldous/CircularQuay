@@ -26,7 +26,7 @@ const (
 	sopsInputTypeFlag    = "--input-type"
 	sopsOutputTypeFlag   = "--output-type"
 	sopsFilenameFlag     = "--filename-override"
-	sopsJSONFilename     = "cquay.sops.json"
+	sopsJSONFilename     = "cq.sops.json"
 	sopsJSONDocumentType = "json"
 )
 
@@ -251,7 +251,7 @@ func runSOPS(ctx context.Context, executable string, args []string, input []byte
 	if err := platform.ValidateExecutable(executable); err != nil {
 		return nil, err
 	}
-	home, err := os.MkdirTemp("", "cquay-sops-*")
+	home, err := os.MkdirTemp("", "cq-sops-*")
 	if err != nil {
 		return nil, fault.New(fault.Apply, "isolate SOPS identity discovery")
 	}

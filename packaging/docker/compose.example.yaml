@@ -12,7 +12,7 @@ services:
 
 secrets:
   workload_config:
-    file: /run/circularquay/example/workload.json
+    file: /run/cq/example/workload.json
 
 # Generate the protected runtime file through an approved host projection first.
 # This Compose file is NOT Swarm encrypted storage. Recreate the affected service

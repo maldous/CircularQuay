@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CquayClient, CquayError, LocalCLIClient } from "../src/index.ts";
+import { CqClient, CqError, LocalCLIClient } from "../src/index.ts";
 
 test("local configuration CRUD sends bounded JSON through stdin", async () => {
   const calls: Array<{ args: string[]; options: unknown }> = [];
@@ -60,7 +60,7 @@ test("MCP results enforce ordering, shape, and safe error categories", async () 
 
 test("MCP observer is metadata-only and cannot change an operation outcome", async () => {
   const observations: Array<{ action: string; outcome: string; durationMs: number }> = [];
-  const client = new CquayClient(transport({ workloads: ["api"] }), {
+  const client = new CqClient(transport({ workloads: ["api"] }), {
     async observer(observation) { observations.push(observation); throw new Error("observer failure"); }
   });
   assert.deepEqual(await client.listWorkloads(), ["api"]);
@@ -71,7 +71,7 @@ test("MCP maps aborted and unavailable transports without retaining detail", asy
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(mcp({ workloads: [] }).listWorkloads({ signal: controller.signal }), cancelled);
-  const client = new CquayClient({ async listTools() { return { pages: [] }; }, async callTool() { throw new Error("provider endpoint synthetic detail"); } });
+  const client = new CqClient({ async listTools() { return { pages: [] }; }, async callTool() { throw new Error("provider endpoint synthetic detail"); } });
   await assert.rejects(client.listWorkloads(), unavailable);
 });
 
@@ -83,8 +83,8 @@ function validPin(output: string): { configSource: string; configRef: string; co
   return { configSource: "https://github.com/acme/policy", configRef: "a".repeat(40), configPath: "policy.json", configSHA256: "b".repeat(64), output };
 }
 
-function mcp(structuredContent: Record<string, unknown>): CquayClient {
-  return new CquayClient(transport(structuredContent));
+function mcp(structuredContent: Record<string, unknown>): CqClient {
+  return new CqClient(transport(structuredContent));
 }
 
 function transport(structuredContent: Record<string, unknown>) {
@@ -95,4 +95,4 @@ function invalid(error: unknown): boolean { return category(error, "invalid"); }
 function protocol(error: unknown): boolean { return category(error, "protocol"); }
 function cancelled(error: unknown): boolean { return category(error, "cancelled"); }
 function unavailable(error: unknown): boolean { return category(error, "unavailable"); }
-function category(error: unknown, expected: string): boolean { return error instanceof CquayError && error.category === expected; }
+function category(error: unknown, expected: string): boolean { return error instanceof CqError && error.category === expected; }

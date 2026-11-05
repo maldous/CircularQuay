@@ -77,9 +77,9 @@ func TestFlowRejectsArgumentsAndPinsBeforeFetch(t *testing.T) {
 func TestFlowExplicitConfigWinsOverAmbientSource(t *testing.T) {
 	clearFlowEnvironment(t)
 	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv(envCQUAYConfigSource, "https://github.com/acme/config/tree/"+bootstrapRef)
-	t.Setenv(envCQUAYConfigRef, bootstrapRef)
-	t.Setenv(envCQUAYConfigSHA256, bootstrapDigest)
+	t.Setenv(envCQConfigSource, "https://github.com/acme/config/tree/"+bootstrapRef)
+	t.Setenv(envCQConfigRef, bootstrapRef)
+	t.Setenv(envCQConfigSHA256, bootstrapDigest)
 	a := application{config: "missing-local.json", configExplicit: true, runner: Runner{Out: &bytes.Buffer{}}}
 	calls := 0
 	_, err := a.flowWithFetcher(context.Background(), []string{"run", "--workload", "demo"}, func(context.Context, bootstrap.Request) (bootstrap.Result, error) {
@@ -93,10 +93,10 @@ func TestFlowExplicitConfigWinsOverAmbientSource(t *testing.T) {
 
 func TestFlowOptionsOverrideEnvironmentPerField(t *testing.T) {
 	clearFlowEnvironment(t)
-	t.Setenv(envCQUAYConfigSource, "https://github.com/acme/config/tree/"+bootstrapRef)
-	t.Setenv(envCQUAYConfigRef, bootstrapRef)
-	t.Setenv(envCQUAYConfigPath, "from-environment.json")
-	t.Setenv(envCQUAYConfigSHA256, bootstrapDigest)
+	t.Setenv(envCQConfigSource, "https://github.com/acme/config/tree/"+bootstrapRef)
+	t.Setenv(envCQConfigRef, bootstrapRef)
+	t.Setenv(envCQConfigPath, "from-environment.json")
+	t.Setenv(envCQConfigSHA256, bootstrapDigest)
 	o, err := (application{}).flowOptions([]string{"run", "--workload", "demo", "--config-sha256", "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"})
 	if err != nil || !o.explicit || o.source.sourceURL == "" || o.source.ref != bootstrapRef || o.source.path != "from-environment.json" || o.source.digest != "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" {
 		t.Fatalf("flow option precedence = %+v, %v", o, err)
@@ -106,7 +106,7 @@ func TestFlowOptionsOverrideEnvironmentPerField(t *testing.T) {
 func TestRunnerFlowExplicitConfigSuppressesAmbientRemote(t *testing.T) {
 	clearFlowEnvironment(t)
 	t.Setenv("GITHUB_ACTIONS", "true")
-	t.Setenv(envCQUAYConfigSource, "https://github.com/acme/ignored/tree/"+bootstrapRef)
+	t.Setenv(envCQConfigSource, "https://github.com/acme/ignored/tree/"+bootstrapRef)
 	parent := privateCLIDirectory(t)
 	values := filepath.Join(parent, "values.json")
 	writeProtectedFixture(t, values, []byte(`{"message":"synthetic-flow-value"}`))
@@ -140,7 +140,7 @@ func TestFlowEnforcesMinimumBeforeProviderOrChild(t *testing.T) {
 			"fixture": {Type: "json", Path: filepath.Join(directory, "provider-must-not-be-read.json")},
 		},
 		Workloads: map[string]model.Workload{
-			"demo": {Mode: "offline", Directory: working, Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{copyProtectedTestExecutable(t, directory), "-test.run=^TestFlowChild$", "--", "cquay-flow-child", "success"}},
+			"demo": {Mode: "offline", Directory: working, Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{copyProtectedTestExecutable(t, directory), "-test.run=^TestFlowChild$", "--", "cq-flow-child", "success"}},
 		},
 		Updates: &model.Updates{Check: "never", MinimumVersion: "v999.0.0"},
 	}
@@ -286,7 +286,7 @@ func TestFlowRemovesTemporaryPolicyAfterParseFailure(t *testing.T) {
 
 func flowPolicy(t *testing.T, executable, values, working, outcome string) []byte {
 	t.Helper()
-	p := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: values}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Directory: working, Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{executable, "-test.run=^TestFlowChild$", "--", "cquay-flow-child", outcome}}}}
+	p := model.Policy{Version: 1, Sources: map[string]model.Source{"fixture": {Type: "json", Path: values}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Directory: working, Bindings: []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}}, Command: []string{executable, "-test.run=^TestFlowChild$", "--", "cq-flow-child", outcome}}}}
 	data, err := json.Marshal(p)
 	if err != nil {
 		t.Fatal(err)
@@ -301,7 +301,7 @@ func flowFixtureFetch(data []byte) bootstrapFetch {
 }
 
 func TestFlowChild(t *testing.T) {
-	if len(os.Args) < 3 || os.Args[len(os.Args)-2] != "cquay-flow-child" {
+	if len(os.Args) < 3 || os.Args[len(os.Args)-2] != "cq-flow-child" {
 		return
 	}
 	if os.Getenv("MESSAGE") != "synthetic-flow-value" {
@@ -315,7 +315,7 @@ func TestFlowChild(t *testing.T) {
 
 func clearFlowEnvironment(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", envCQUAYConfigSource, envCQUAYConfigRef, envCQUAYConfigPath, envCQUAYConfigSHA256} {
+	for _, key := range []string{"GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", envCQConfigSource, envCQConfigRef, envCQConfigPath, envCQConfigSHA256} {
 		value, present := os.LookupEnv(key)
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)

@@ -1,7 +1,7 @@
 {
-  "name": "@maldous/cquay-sdk",
+  "name": "@maldous/cq-sdk",
   "version": "1.0.0-dev.0",
-  "description": "Typed, policy-bound MCP and local CLI clients for CircularQuay v1.",
+  "description": "Typed, policy-bound MCP and local CLI clients for CQ v1.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

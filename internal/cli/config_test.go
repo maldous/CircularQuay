@@ -266,7 +266,7 @@ func TestConfigReadOnlyOperationsLeavePolicyUntouchedAndRedactValidationFailure(
 		runConfig(t, config, nil, args...)
 	}
 	assertConfigSnapshotUnchanged(t, config, before, digest)
-	if _, err := os.Stat(filepath.Join(filepath.Dir(config), ".cquay-config-lock")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(filepath.Dir(config), ".cq-config-lock")); !os.IsNotExist(err) {
 		t.Fatalf("read-only command created a mutation lock: %v", err)
 	}
 
@@ -297,7 +297,7 @@ func TestConfigReadOnlyOperationsLeavePolicyUntouchedAndRedactValidationFailure(
 
 func TestConfigInitAndValidate(t *testing.T) {
 	dir := privateCLIDirectory(t)
-	config := filepath.Join(dir, "cquay.json")
+	config := filepath.Join(dir, "cq.json")
 	out := runConfig(t, config, nil, "config", "init")
 	if outputState(t, out) != "initialized" {
 		t.Fatalf("init response: %s", out)
@@ -507,14 +507,14 @@ func TestConfigReplaceRepairsInvalidExistingPolicy(t *testing.T) {
 }
 
 func TestConfigReplaceRepairsRelativePolicy(t *testing.T) {
-	for _, name := range []string{"cquay.json", "relative-policy.json"} {
+	for _, name := range []string{"cq.json", "relative-policy.json"} {
 		t.Run(name, func(t *testing.T) {
 			directory := filepath.Dir(configFixture(t))
 			t.Chdir(directory)
 			path := filepath.Join(directory, name)
 			writeProtectedFixture(t, path, []byte(`{"version":1,"sources":{},"workloads":{}}`))
 			args := []string{"config", "replace", "--file", "-"}
-			if name != "cquay.json" {
+			if name != "cq.json" {
 				args = append([]string{"--config", name}, args...)
 			}
 			var out, diagnostics bytes.Buffer

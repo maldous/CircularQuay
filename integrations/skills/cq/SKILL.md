@@ -1,14 +1,15 @@
 ---
-name: cquay
+name: cq
 description: Configure, inspect and run CircularQuay workloads through its CLI, official SDKs or optional MCP connection. Use for bootstrap, policy CRUD, CI flow, telemetry and scoped lifecycle administration; raw disclosure requires its own authorization.
 license: Apache-2.0
 metadata:
   compatibility: Requires the selected CircularQuay executable or official SDK/MCP adapter, protected policy and state, and dependencies for enabled features.
 ---
 
-# cquay
+# cq
 
-`cquay`, pronounced **“c-key”**, connects existing providers to approved apps.
+The `cq` skill connects existing providers to approved applications through
+the CircularQuay CLI, official SDKs or an optional MCP connection.
 Use the installed release's help and capability contract. Product guides define
 the complete v1 end state; release/qualification records establish the exact
 available and tested artifact. A skill, plugin, SDK or agent name grants nothing.
@@ -56,11 +57,11 @@ not attempt automatic discovery or sign-in based solely on the product design.
 
 UIF is the required general harness; CircularQuay is the secret/config/workload
 product, while OffMenu owns its separate household/product/food/stock/meal-data
-outcomes and rights/privacy. Do not default a CQ task to OffMenu or share its
+outcomes and rights/privacy. Do not default a CircularQuay task to OffMenu or share its
 credentials, state/data roots or toolchain. Multi-project support remains
 required/planned until actual accepted-source/job/isolation evidence covers the
 affected profiles. Preserve existing coordinators, tasks, leases, reviewers,
-publication routes and controlled unit handover. CQ migration and OffMenu BAU/
+publication routes and controlled unit handover. CircularQuay migration and OffMenu BAU/
 data work proceed in parallel, with no global gate between independent work.
 Recover verified canonical record/project/view bindings from the owners; no
 guessed IDs, new dispatcher or duplicate issue tree. See
@@ -140,20 +141,19 @@ must be explicit; unavailable input grants no extra access.
 
 ## Hosted key service initialization
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
+
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
 
 For migration from existing local age/OS/self-hosted KMS and encrypted assets,
 follow the complete staged workflow in references/operations.md. Mode/enrollment
@@ -167,8 +167,8 @@ fallback, authenticates and initializes the minimal hosted key service unless
 CLI or configuration disables it. Resolve either opt-out before any hosted
 network call; validate precedence/enterprise locks and deny conflicts rather
 than registering anyway. Inspect actual installed capabilities: this contract
-creates no flag/schema/tool. The user clarified KVM/PVM meant KMS, configured
-per user profile; inspect actual adapter/schema support before use.
+creates no flag, schema or tool. Configure KMS per profile and inspect actual
+adapter/schema support before use.
 
 Authorized enrollment must idempotently provision BOTH genuine hosted KMS and
 age-key associations; this supersedes the earlier age-only hosted baseline.
@@ -208,7 +208,7 @@ authorize live paid provisioning or account connection. Never invent a tool. App
 Preview authorization does not make custom UI a delivered or production-approved
 service.
 
-The user confirmed a README-led public landing and authenticated client SPA.
+The interface design includes a public landing page and an authenticated client SPA.
 A separate frontend checkout may implement it only as a synthetic/mock functional
 preview or loopback local-configuration simulation; production operation remains
 unapproved. Client OTel uses

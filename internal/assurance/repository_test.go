@@ -20,7 +20,7 @@ func privateAssuranceDirectory(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, err := os.MkdirTemp(canonical, "cquay-assurance-")
+	parent, err := os.MkdirTemp(canonical, "cq-assurance-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,10 +123,10 @@ func assertMissingMetadataRejected(t *testing.T, root string) {
 
 func TestCaseCollisionInvariant(t *testing.T) {
 	seen := map[string]bool{}
-	if !uniqueAssetPath(seen, "cmd/cquay/main.go") {
+	if !uniqueAssetPath(seen, "cmd/cq/main.go") {
 		t.Fatal("first portable path rejected")
 	}
-	if uniqueAssetPath(seen, "cmd/cquay/Main.go") {
+	if uniqueAssetPath(seen, "cmd/cq/Main.go") {
 		t.Fatal("case-folded collision accepted")
 	}
 }

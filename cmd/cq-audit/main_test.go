@@ -26,6 +26,16 @@ func TestInvalidAuditArguments(t *testing.T) {
 	}
 }
 
+func TestAuditUsageNamesCanonicalBinary(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), nil, &stdout, &stderr); code != 2 {
+		t.Fatalf("usage status = %d, want 2", code)
+	}
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "usage: cq-audit run") || strings.Contains(stderr.String(), "cquay-audit") {
+		t.Fatal("audit usage did not name only the canonical binary")
+	}
+}
+
 func TestCancelledBootstrapDoesNotContactServer(t *testing.T) {
 	directory, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

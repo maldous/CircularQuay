@@ -14,7 +14,7 @@ import (
 const maximumTokenBytes = 8192
 
 // Options supplies process-local details that never enter policy. The
-// diagnostic directory must be a private state directory owned by cquay.
+// diagnostic directory must be a private state directory owned by cq.
 type Options struct {
 	DiagnosticDirectory string
 	Version             string

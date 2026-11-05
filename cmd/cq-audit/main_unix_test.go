@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const auditSignalHelperEnvironment = "CQUAY_TEST_AUDIT_SIGNAL_HELPER"
+const auditSignalHelperEnvironment = "CQ_TEST_AUDIT_SIGNAL_HELPER"
 
 func TestAuditSignalContextCancelsForSIGTERM(t *testing.T) {
 	if os.Getenv(auditSignalHelperEnvironment) == "1" {

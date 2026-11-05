@@ -53,7 +53,7 @@ func newIssuer(t *testing.T) *issuerFixture {
 
 func (i *issuerFixture) token(t *testing.T, changes map[string]any) string {
 	t.Helper()
-	claims := jwt.MapClaims{"iss": i.server.URL, "sub": "alice", "aud": "https://cq.example/mcp", "exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Unix(), "jti": "synthetic-token-id", "client_id": "agent-a", "scope": "cquay:mcp cquay:list cquay:status cquay:read"}
+	claims := jwt.MapClaims{"iss": i.server.URL, "sub": "alice", "aud": "https://cq.example/mcp", "exp": time.Now().Add(time.Minute).Unix(), "iat": time.Now().Unix(), "jti": "synthetic-token-id", "client_id": "agent-a", "scope": "cq:mcp cq:list cq:status cq:read"}
 	for k, v := range changes {
 		claims[k] = v
 	}
@@ -222,7 +222,7 @@ func assertHTTPResponseContract(t *testing.T, recorder *httptest.ResponseRecorde
 	if want == http.StatusUnauthorized && !strings.Contains(recorder.Header().Get("WWW-Authenticate"), "resource_metadata") {
 		t.Fatal("missing OAuth discovery challenge")
 	}
-	if want == http.StatusOK && !strings.Contains(recorder.Body.String(), "cquay:read") {
+	if want == http.StatusOK && !strings.Contains(recorder.Body.String(), "cq:read") {
 		t.Fatal("missing scope contract")
 	}
 }
@@ -311,7 +311,7 @@ func TestHTTPRejectsMissingOrExpiredTokenDeadline(t *testing.T) {
 	for _, expires := range []time.Time{{}, time.Unix(0, 0)} {
 		s := makeService(t, p, &fakeBackend{}, Options{})
 		h, err := s.httpHandler(func(context.Context, string, *http.Request) (*auth.TokenInfo, error) {
-			return &auth.TokenInfo{UserID: "fixture|alice", Scopes: []string{"cquay:mcp"}, Expiration: expires}, nil
+			return &auth.TokenInfo{UserID: "fixture|alice", Scopes: []string{"cq:mcp"}, Expiration: expires}, nil
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -340,7 +340,7 @@ func TestNoScopeAndInvalidJWTReachNoBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest(http.MethodPost, "https://cq.example/mcp", strings.NewReader(`{}`))
-	r.Header.Set("Authorization", "Bearer "+issuer.token(t, map[string]any{"scope": "cquay:read"}))
+	r.Header.Set("Authorization", "Bearer "+issuer.token(t, map[string]any{"scope": "cq:read"}))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != 403 {

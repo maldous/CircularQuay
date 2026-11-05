@@ -21,7 +21,7 @@ Authentication, KMS/Transit key release, value retrieval and publication are dis
 | Akeyless | Exact item/identity within account entitlement. |
 | 1Password | Service-account CLI read of one exact `op://vault/item/field` reference. 1Password Environments are unsupported. |
 
-`cquay providers` reports what this executable implements. A source whose dependency, authentication or lifecycle combination is unsupported must fail explicitly. No table entry alone qualifies a live provider.
+`cq providers` reports what this executable implements. A source whose dependency, authentication or lifecycle combination is unsupported must fail explicitly. No table entry alone qualifies a live provider.
 
 ## Explicit adapter profiles
 

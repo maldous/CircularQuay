@@ -24,7 +24,7 @@ func TestBootstrapMaterializesValidatedPinnedPolicy(t *testing.T) {
 	application := application{config: filepath.Join(directory, "default.json"), runner: Runner{Out: &stdout}}
 	called := false
 	code, err := application.bootstrapWithFetcher(context.Background(), []string{
-		"--config-source", "https://github.com/acme/cquay/tree/" + bootstrapRef,
+		"--config-source", "https://github.com/acme/cq/tree/" + bootstrapRef,
 		"--config-ref", bootstrapRef, "--config-path", "config/policy.json", "--config-sha256", bootstrapDigest,
 		"--output", output, "--non-interactive",
 	}, func(_ context.Context, request bootstrap.Request) (bootstrap.Result, error) {
@@ -32,7 +32,7 @@ func TestBootstrapMaterializesValidatedPinnedPolicy(t *testing.T) {
 		if request.ConfigRef != bootstrapRef || request.ExpectedSHA256 != bootstrapDigest || request.ConfigPath != "config/policy.json" {
 			t.Fatalf("unexpected fetch request: %#v", request)
 		}
-		return bootstrap.Result{CanonicalSourceURL: "https://raw.githubusercontent.com/acme/cquay/" + bootstrapRef + "/config/policy.json", ConfigRef: bootstrapRef, ConfigPath: request.ConfigPath, SHA256: bootstrapDigest, Bytes: data}, nil
+		return bootstrap.Result{CanonicalSourceURL: "https://raw.githubusercontent.com/acme/cq/" + bootstrapRef + "/config/policy.json", ConfigRef: bootstrapRef, ConfigPath: request.ConfigPath, SHA256: bootstrapDigest, Bytes: data}, nil
 	})
 	if err != nil || code != 0 || !called {
 		t.Fatalf("bootstrap result = code %d, error %v", code, err)
@@ -95,7 +95,7 @@ type bootstrapRejectionCase struct {
 
 func bootstrapRejectionCases() []bootstrapRejectionCase {
 	return []bootstrapRejectionCase{
-		{"missing_pins", []string{"--config-source", "https://github.com/acme/cquay/tree/" + bootstrapRef}, bootstrap.Result{}, noBootstrapPreparation, 0, assertBootstrapAbsent},
+		{"missing_pins", []string{"--config-source", "https://github.com/acme/cq/tree/" + bootstrapRef}, bootstrap.Result{}, noBootstrapPreparation, 0, assertBootstrapAbsent},
 		{"invalid_policy", pinnedBootstrapArgs(), bootstrap.Result{Bytes: []byte(`{"version":1}`)}, noBootstrapPreparation, 1, assertBootstrapAbsent},
 		{"existing_output", pinnedBootstrapArgs(), bootstrap.Result{Bytes: bootstrapPolicy()}, createBootstrapExistingOutput, 0, assertBootstrapExisting},
 	}
@@ -131,10 +131,10 @@ func createBootstrapExistingOutput(t *testing.T, output string) {
 func TestBootstrapUsesEnvironmentDefaults(t *testing.T) {
 	directory := privateCLIDirectory(t)
 	output := filepath.Join(directory, "environment.json")
-	t.Setenv(envCQUAYConfigSource, "https://github.com/acme/cquay/tree/"+bootstrapRef)
-	t.Setenv(envCQUAYConfigRef, bootstrapRef)
-	t.Setenv(envCQUAYConfigPath, "config/policy.json")
-	t.Setenv(envCQUAYConfigSHA256, bootstrapDigest)
+	t.Setenv(envCQConfigSource, "https://github.com/acme/cq/tree/"+bootstrapRef)
+	t.Setenv(envCQConfigRef, bootstrapRef)
+	t.Setenv(envCQConfigPath, "config/policy.json")
+	t.Setenv(envCQConfigSHA256, bootstrapDigest)
 	application := application{config: filepath.Join(directory, "default.json"), runner: Runner{Out: &bytes.Buffer{}}}
 	_, err := application.bootstrapWithFetcher(context.Background(), []string{"--output", output}, func(_ context.Context, request bootstrap.Request) (bootstrap.Result, error) {
 		return bootstrap.Result{CanonicalSourceURL: request.SourceURL, ConfigRef: request.ConfigRef, ConfigPath: request.ConfigPath, SHA256: request.ExpectedSHA256, Bytes: bootstrapPolicy()}, nil
@@ -159,7 +159,7 @@ func TestBootstrapDigestFailureDoesNotMaterialize(t *testing.T) {
 
 func pinnedBootstrapArgs() []string {
 	return []string{
-		"--config-source", "https://github.com/acme/cquay/tree/" + bootstrapRef,
+		"--config-source", "https://github.com/acme/cq/tree/" + bootstrapRef,
 		"--config-ref", bootstrapRef, "--config-path", "config/policy.json", "--config-sha256", bootstrapDigest,
 	}
 }

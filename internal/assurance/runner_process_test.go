@@ -46,7 +46,7 @@ func runAssuranceHelper(arguments []string) (int, bool) {
 }
 
 func waitForCancellation() int {
-	marker := os.Getenv("CQUAY_ASSURANCE_STARTED")
+	marker := os.Getenv("CQ_ASSURANCE_STARTED")
 	if marker == "" || os.WriteFile(marker, []byte("ready"), 0o600) != nil {
 		return 9
 	}
@@ -107,7 +107,7 @@ func TestRunCommandCancellationAndPipeDelayAreBounded(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		result := make(chan commandResult, 1)
-		environment := append(append([]string{}, environment...), "CQUAY_ASSURANCE_STARTED="+marker)
+		environment := append(append([]string{}, environment...), "CQ_ASSURANCE_STARTED="+marker)
 		go func() {
 			result <- runCommand(ctx, binary, []string{"--assurance-helper", "wait"}, directory, environment)
 		}()

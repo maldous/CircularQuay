@@ -81,6 +81,6 @@ func dpopProfileClaims(authority Authority) map[string]any {
 		return map[string]any{}
 	}
 	return map[string]any{
-		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cquay.read",
+		"ver": "2.0", "tid": tenantID, "oid": objectID, "azp": clientID, "scp": "cq.read",
 	}
 }

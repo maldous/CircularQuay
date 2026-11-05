@@ -77,7 +77,7 @@ func lockProbeWorkload(t *testing.T, directory, stateDirectory string) model.Wor
 		Mode:      "offline",
 		Directory: workingDirectory,
 		Bindings:  []model.Binding{{Name: "MESSAGE", Source: "fixture", Field: "message", AllowOffline: true}},
-		Command:   []string{executable, "-test.run=^TestLockProbeChild$", "--", "cquay-lock-probe", stateDirectory},
+		Command:   []string{executable, "-test.run=^TestLockProbeChild$", "--", "cq-lock-probe", stateDirectory},
 	}
 }
 
@@ -115,7 +115,7 @@ func copyProtectedTestExecutable(t *testing.T, directory string) string {
 }
 
 func TestLockProbeChild(t *testing.T) {
-	if len(os.Args) < 3 || os.Args[len(os.Args)-2] != "cquay-lock-probe" {
+	if len(os.Args) < 3 || os.Args[len(os.Args)-2] != "cq-lock-probe" {
 		return
 	}
 	s := state.Store{Directory: os.Args[len(os.Args)-1]}

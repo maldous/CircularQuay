@@ -24,10 +24,10 @@ func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error)
 func TestFetchNormalizesImmutableGitHubSources(t *testing.T) {
 	data := []byte(`{"version":1}`)
 	path := "config/policy.json"
-	wantURL := "https://raw.githubusercontent.com/acme/cquay/" + testRef + "/" + path
+	wantURL := "https://raw.githubusercontent.com/acme/cq/" + testRef + "/" + path
 	for _, sourceURL := range []string{
-		"https://github.com/acme/cquay/tree/" + testRef,
-		"https://github.com/acme/cquay/blob/" + testRef + "/" + path,
+		"https://github.com/acme/cq/tree/" + testRef,
+		"https://github.com/acme/cq/blob/" + testRef + "/" + path,
 		wantURL,
 	} {
 		t.Run(sourceURL, func(t *testing.T) {
@@ -71,23 +71,23 @@ func assertImmutableRequest(t *testing.T, request *http.Request, wantURL string)
 func TestFetchRejectsMutableOrAmbiguousSourceBeforeHTTP(t *testing.T) {
 	path := "config/policy.json"
 	data := []byte(`{"version":1}`)
-	valid := "https://github.com/acme/cquay/tree/" + testRef
+	valid := "https://github.com/acme/cq/tree/" + testRef
 	for _, change := range []func(*Request){
-		func(request *Request) { request.SourceURL = "https://github.com/acme/cquay/tree/main" },
+		func(request *Request) { request.SourceURL = "https://github.com/acme/cq/tree/main" },
 		func(request *Request) { request.SourceURL = valid + "/config" },
 		func(request *Request) {
-			request.SourceURL = "https://github.com/acme/cquay/blob/" + testRef + "/config/other.json"
+			request.SourceURL = "https://github.com/acme/cq/blob/" + testRef + "/config/other.json"
 		},
 		func(request *Request) {
-			request.SourceURL = "https://raw.githubusercontent.com/acme/cquay/" + testRef + "/config/%70olicy.json"
+			request.SourceURL = "https://raw.githubusercontent.com/acme/cq/" + testRef + "/config/%70olicy.json"
 		},
 		func(request *Request) { request.SourceURL = "https://github.com/acme/%zz" },
-		func(request *Request) { request.SourceURL = "https://github.com/../cquay/tree/" + testRef },
+		func(request *Request) { request.SourceURL = "https://github.com/../cq/tree/" + testRef },
 		func(request *Request) { request.SourceURL = "https://github.com/acme/../tree/" + testRef },
 		func(request *Request) { request.SourceURL = strings.Repeat("x", 8193) },
 		func(request *Request) { request.SourceURL = valid + "?ref=main" },
-		func(request *Request) { request.SourceURL = "https://user@example.com/acme/cquay/tree/" + testRef },
-		func(request *Request) { request.SourceURL = "https://github.com:443/acme/cquay/tree/" + testRef },
+		func(request *Request) { request.SourceURL = "https://user@example.com/acme/cq/tree/" + testRef },
+		func(request *Request) { request.SourceURL = "https://github.com:443/acme/cq/tree/" + testRef },
 		func(request *Request) { request.ConfigPath = "config/../policy.json" },
 		func(request *Request) { request.ConfigPath = "config/policy%2Ejson" },
 		func(request *Request) { request.ConfigPath = strings.Repeat("a", 4097) },
@@ -110,12 +110,12 @@ func TestFetchRejectsMutableOrAmbiguousSourceBeforeHTTP(t *testing.T) {
 func TestFetchRejectsMalformedComponentsBeforeHTTP(t *testing.T) {
 	data := []byte(`{"version":1}`)
 	for _, change := range []func(*Request){
-		func(request *Request) { request.SourceURL = "https://github.com/-/cquay/tree/" + testRef },
+		func(request *Request) { request.SourceURL = "https://github.com/-/cq/tree/" + testRef },
 		func(request *Request) { request.SourceURL = "https://github.com/acme/tree" },
 		func(request *Request) { request.ConfigPath = "config/space name.json" },
 		func(request *Request) { request.ConfigPath = "config/" + strings.Repeat("a", 101) },
 	} {
-		request := testRequest("https://github.com/acme/cquay/tree/"+testRef, "config/policy.json", data)
+		request := testRequest("https://github.com/acme/cq/tree/"+testRef, "config/policy.json", data)
 		change(&request)
 		if _, err := normalize(request); !fault.Is(err, fault.Invalid) {
 			t.Fatalf("malformed component accepted: %v", err)
@@ -124,7 +124,7 @@ func TestFetchRejectsMalformedComponentsBeforeHTTP(t *testing.T) {
 }
 
 func TestFetchRejectsUntrustedResponses(t *testing.T) {
-	valid := "https://github.com/acme/cquay/tree/" + testRef
+	valid := "https://github.com/acme/cq/tree/" + testRef
 	data := []byte(`{"version":1}`)
 	for _, test := range []struct {
 		name     string
@@ -159,14 +159,14 @@ func TestFetchHonorsCanceledContext(t *testing.T) {
 		calls++
 		return nil, nil
 	})
-	if _, err := fetcher.Fetch(ctx, testRequest("https://github.com/acme/cquay/tree/"+testRef, "config/policy.json", []byte(`{"version":1}`))); !fault.Is(err, fault.Apply) || calls != 0 {
+	if _, err := fetcher.Fetch(ctx, testRequest("https://github.com/acme/cq/tree/"+testRef, "config/policy.json", []byte(`{"version":1}`))); !fault.Is(err, fault.Apply) || calls != 0 {
 		t.Fatalf("canceled request reached HTTP: error=%v calls=%d", err, calls)
 	}
 }
 
 func TestFetchClassifiesTransportAndResponseReadFailures(t *testing.T) {
 	data := []byte(`{"version":1}`)
-	request := testRequest("https://github.com/acme/cquay/tree/"+testRef, "config/policy.json", data)
+	request := testRequest("https://github.com/acme/cq/tree/"+testRef, "config/policy.json", data)
 	marker := errors.New("SYNTHETIC_TRANSPORT_MARKER")
 	fetcher := testFetcher(t, func(*http.Request) (*http.Response, error) { return nil, marker })
 	if _, err := fetcher.Fetch(context.Background(), request); !fault.Is(err, fault.Trust) || strings.Contains(err.Error(), marker.Error()) {

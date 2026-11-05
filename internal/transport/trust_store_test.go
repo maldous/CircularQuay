@@ -174,7 +174,7 @@ func syntheticTrustStoreCertificate(t *testing.T) ([]byte, tls.Certificate) {
 	}
 	now := time.Now()
 	rootTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "cquay synthetic root"},
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "cq synthetic root"},
 		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), IsCA: true,
 		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 	}

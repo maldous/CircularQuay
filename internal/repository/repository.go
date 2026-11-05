@@ -180,10 +180,10 @@ func (s *store) fetchCandidate(ctx context.Context) (string, error) {
 	if err := s.initialize(ctx); err != nil {
 		return "", err
 	}
-	if _, err := s.run(ctx, true, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", s.repo.URL, "+"+s.repo.Ref+":refs/cquay/candidate"); err != nil {
+	if _, err := s.run(ctx, true, 4096, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", "--force", "--", s.repo.URL, "+"+s.repo.Ref+":refs/cq/candidate"); err != nil {
 		return "", failure(fault.Unavailable, "fetch")
 	}
-	data, err := s.command(ctx, 256, "rev-parse", "--verify", "refs/cquay/candidate^{commit}")
+	data, err := s.command(ctx, 256, "rev-parse", "--verify", "refs/cq/candidate^{commit}")
 	if err != nil {
 		return "", err
 	}

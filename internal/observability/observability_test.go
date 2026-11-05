@@ -74,7 +74,7 @@ func TestRuntimeConfigurationRejectsNonExecutableSignals(t *testing.T) {
 	disabled := false
 	ratio := 0.5
 	base := &model.Observability{
-		Enabled: &enabled, ServiceName: "cquay", DiagnosticLevel: "off", Endpoint: "https://collector.example",
+		Enabled: &enabled, ServiceName: "cq", DiagnosticLevel: "off", Endpoint: "https://collector.example",
 		TimeoutSeconds: 5, ExportIntervalSeconds: 5, BatchSize: 4, QueueSize: 4,
 		Metrics: &model.MetricsSignal{Enabled: &enabled, IntervalSeconds: 5},
 		Traces:  &model.TracesSignal{Enabled: &disabled},
@@ -128,7 +128,7 @@ func TestDisabledRuntimeDoesNotRequireConfiguration(t *testing.T) {
 func TestRuntimeRejectsInvalidEndpointBeforeTokenRead(t *testing.T) {
 	enabled := true
 	config := &model.Observability{
-		Enabled: &enabled, ServiceName: "cquay", DiagnosticLevel: "off", Endpoint: "http://collector.example",
+		Enabled: &enabled, ServiceName: "cq", DiagnosticLevel: "off", Endpoint: "http://collector.example",
 		TokenFile: "/synthetic/missing-token", TimeoutSeconds: 5, ExportIntervalSeconds: 5, BatchSize: 4, QueueSize: 4,
 		Metrics: &model.MetricsSignal{Enabled: &enabled, IntervalSeconds: 5},
 	}

@@ -1,4 +1,4 @@
-"""Public typed values for the CircularQuay v1 SDK contract."""
+"""Public typed values for the CQ v1 SDK contract."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ JSONValue: TypeAlias = JSONScalar | list["JSONValue"] | dict[str, "JSONValue"]
 
 
 class ToolName(StrEnum):
-    """The complete v1 CircularQuay MCP tool catalog."""
+    """The complete v1 CQ MCP tool catalog."""
 
     LIST_WORKLOADS = "list_workloads"
     GET_STATUS = "get_status"
@@ -60,7 +60,7 @@ class WorkloadRun:
 class SecretDisclosure:
     """One intentionally released plaintext value.
 
-    Constructed only by :class:`cquay.client.DisclosureClient`.  ``repr()``,
+    Constructed only by :class:`cq.client.DisclosureClient`.  ``repr()``,
     ``str()``, and :meth:`redacted_dict` never contain plaintext.  Python and
     downstream libraries can copy strings, so this type makes no zeroization
     promise.  Call :meth:`reveal` only at the narrowly scoped hand-off point.

@@ -60,7 +60,7 @@ func TestDPoPServiceRejectsTrustStoreInsideReplayState(t *testing.T) {
 
 func TestProtectedOperationalInputWithinDPoPStateUsesFilesystemBoundaries(t *testing.T) {
 	root := filepath.VolumeName(os.TempDir()) + string(filepath.Separator)
-	state := filepath.Join(root, "cquay-state")
+	state := filepath.Join(root, "cq-state")
 	for name, test := range map[string]struct {
 		state, protected string
 		kind             string
@@ -71,7 +71,7 @@ func TestProtectedOperationalInputWithinDPoPStateUsesFilesystemBoundaries(t *tes
 		"observability CA child":    {state, filepath.Join(state, "collector-roots.pem"), "telemetry-trust", true},
 		"update token child":        {state, filepath.Join(state, "update-token"), "update-token", true},
 		"update CA child":           {state, filepath.Join(state, "update-roots.pem"), "update-trust", true},
-		"prefix sibling":            {state, filepath.Join(root, "cquay-state-other", "roots.pem"), "authority", false},
+		"prefix sibling":            {state, filepath.Join(root, "cq-state-other", "roots.pem"), "authority", false},
 		"parent directory":          {state, filepath.Dir(state), "authority", false},
 		"root directory":            {root, filepath.Join(root, "authority-roots.pem"), "authority", true},
 	} {

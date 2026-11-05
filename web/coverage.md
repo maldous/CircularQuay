@@ -252,3 +252,7 @@ unchanged historical `0ecbc69` evidence. The integrated candidate requires
 fresh hosted and browser verification. Real identity, billing, key service,
 provider/fleet adapters, composition resolution and native/production qualification
 retain their full implementation and exact-evidence requirements.
+
+## Current CQ display projection
+
+The current native schema title is CQ policy version 1; its exact source-owner bytes are SHA-256 `66634e5e23cb5d2268ca93b22bac3e6b76cb68307963ed39076c5f134b0d3f03`. Parsed schema equality after replacing only the historical title was verified. The earlier snapshot above remains historical evidence; current help source references and generated pins await the coherent owner update. The Linux example is unchanged.

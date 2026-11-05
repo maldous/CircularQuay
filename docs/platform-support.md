@@ -10,7 +10,7 @@ The source workflow has three distinct lanes:
 | Lane | Meaning |
 | --- | --- |
 | Native synthetic test | Tests execute on a GitHub-hosted operating system. This is the only lane that can exercise native behavior in CI. |
-| Cross-build | Both `cquay` and `cquay-audit` compile with `CGO_ENABLED=0`. It proves neither installation nor runtime behavior. |
+| Cross-build | Both `cq` and `cq-audit` compile with `CGO_ENABLED=0`. It proves neither installation nor runtime behavior. |
 | Protected-feature qualification | A retained, platform-specific receipt verifies filesystem protections, service behavior, provider paths, recovery and any enabled integrations. It is required before a production support claim. |
 
 The release configuration may stage the following archive targets after the

@@ -42,8 +42,8 @@ provider, SDK and MCP capabilities retain their exact independent grants.
 | Profile-bound key-service core | `internal/keyservice` separates enrollment, wrap, unwrap and age retrieval through caller-supplied authorization/storage/provisioning; software JWE and constrained Transit adapters are present. | This is not a hosted listener, production store, first-run service enrollment or public CLI/SDK/MCP integration. Native/provider/custody and deployment qualification remain separate. |
 | Browser development | A separately assigned frontend checkout contains three interactive synthetic surfaces: local workbench, customer account and operator console. Its own `web/README.md`, `web/coverage.md` and exact browser receipts describe routes, pinned schema and tested interactions. | Rendered schema controls are not every-field mutation coverage. Browser round trips are not native signature/include/provider validation, real key/payment/fleet actions or service authentication. |
 
-Reuse the frontend owner's existing development process and user-confirmed phone
-access route. Phone access establishes reachability through that route, not a
+Use the documented browser preview process and authenticated phone-forwarding
+route. Reported phone access establishes reachability through that route, not a
 public deployment or real backend. Do not start a competing server, copy saved
 configurations into evidence uploads or select a substitute brand asset. The
 selected icon's original raster/provenance and a finished vector are distinct
@@ -54,9 +54,9 @@ integrates and requalifies them.
 
 | Scope | Purpose and canonical project source | Project-specific boundary |
 | --- | --- | --- |
-| UIF shared harness | General infrastructure, admitted orchestration and governance for multiple product profiles; [UIF Home](https://linear.app/maldous/document/uif-home-build-first-delivery-model-96eeea3357ee) is the existing canonical navigation/owner map, with any runtime acceptance/routing controlled through the existing UIF integration-owner/Gateway route. | UIF is not the OffMenu product or a replacement CQ coordinator. Multi-project capability and CQ migration remain required/planned until actual profile/job/isolation verification; a qualified candidate is not installed/accepted runtime. |
+| UIF shared harness | General infrastructure, admitted orchestration and governance for multiple product profiles; [UIF Home](https://linear.app/maldous/document/uif-home-build-first-delivery-model-96eeea3357ee) is the existing canonical navigation/owner map, with any runtime acceptance/routing controlled through the existing UIF integration-owner/Gateway route. | UIF is not the OffMenu product or a replacement CircularQuay coordinator. Multi-project capability and CircularQuay migration remain required/planned until actual profile/job/isolation verification; a qualified candidate is not installed/accepted runtime. |
 | CircularQuay product | Connect existing secret providers and client-owned configuration to authorized workloads, software crypto/age access and scoped account/operator/client surfaces. [Canonical repository](https://github.com/maldous/CircularQuay), [implementation plan](implementation-plan.md), [security](../SECURITY.md) and [handoff](session-handoff.md). | Native Go, official Go/TypeScript/Python SDKs and separately owned synthetic Node/browser work require their selected toolchains and evidence. Local config/variables/source credentials stay client-side; secret-bearing state is not a shared harness payload or another project's input. Source review, mock UI, native/backend qualification and production publication are separate. |
-| OffMenu product | The household product-to-pantry-to-plate loop: understand products, ingredients, recipes and nutrition; connect menus, stock, serving/consumption/leftovers/history/planning and explicitly authorized shopping/receipt workflows. [Accepted product North Star](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/README.md), [documentation](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/README.md), [source acceptance](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/source-acceptance-contract.md) and [curation boundaries](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/curation-architecture.md). | Its canonical docs describe browser/PWA JavaScript, Worker/D1 backend and separate Python/SQLite curation tooling. Retained source-data rights/provenance/publication projections, private household/profile/health state and personal-connection credentials have their own constraints. CQ toolchain, secrets model or passing tests cannot qualify those data/product/release paths. Current config/data fixes and BAU adoption remain the OffMenu owners' work. |
+| OffMenu product | The household product-to-pantry-to-plate loop: understand products, ingredients, recipes and nutrition; connect menus, stock, serving/consumption/leftovers/history/planning and explicitly authorized shopping/receipt workflows. [Accepted product North Star](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/README.md), [documentation](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/README.md), [source acceptance](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/source-acceptance-contract.md) and [curation boundaries](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/curation-architecture.md). | Its canonical docs describe browser/PWA JavaScript, Worker/D1 backend and separate Python/SQLite curation tooling. Retained source-data rights/provenance/publication projections, private household/profile/health state and personal-connection credentials have their own constraints. CircularQuay toolchain, secrets model or passing tests cannot qualify those data/product/release paths. Current config/data fixes and BAU adoption remain the OffMenu owners' work. |
 
 The OffMenu product links pin the owner-confirmed accepted product revision
 `3540b2d4d5f4e96a518a63c832ccd6c3db809686` (tree
@@ -64,10 +64,10 @@ The OffMenu product links pin the owner-confirmed accepted product revision
 not proof the whole loop is delivered. Product acceptance, installed UIF control
 and a qualified-but-not-installed successor are different source/runtime states.
 Use each owner's actual accepted execution tree, manifests, rights and review/
-publication record. Do not duplicate mutable OffMenu requirements in CQ docs,
-ingest its corpus to test a harness change or substitute CQ's release route for
+publication record. Do not duplicate mutable OffMenu requirements in CircularQuay docs,
+ingest its corpus to test a harness change or substitute CircularQuay's release route for
 OffMenu/UIF's sole integration owner. The current authoritative UIF route remains
-its existing Root via Gateway; CQ retains its current coordinator/source owner.
+its existing Root via Gateway; CircularQuay retains its current coordinator/source owner.
 
 UIF is the **general shared harness**; CircularQuay is a product with its own
 project profile and acceptance requirements. Do not classify CircularQuay as
@@ -89,7 +89,7 @@ independently read-back references are [UIF `P-UIF-16`](https://linear.app/maldo
 [OffMenu `P-UIF-14`](https://linear.app/maldous/project/offmenu-ccd080f4f6f0) and
 [CircularQuay `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c)
 under the UIF team. The designated existing canonical migration checklist is
-[the CQ handoff](session-handoff.md#uif-migration-and-delivery-closure), now
+[the CircularQuay handoff](session-handoff.md#uif-migration-and-delivery-closure), now
 populated by the source owner with the obligation, ownership and harness-gap
 checklist. Dynamic all-status/nonarchived view/filter IDs still await
 creation/readback. Project creation alone creates no task/lease admission,
@@ -99,8 +99,8 @@ review/publication authority and controlled per-unit handover; no abrupt cutover
 or expanded production admission follows from this requirement.
 
 The existing UIF Home/shared-project description still shows its earlier
-three-project navigation at this readback; the enhanced CQ sibling/multi-project
-requirement needs the canonical owner's update there. This CQ guide links that
+three-project navigation at this readback; the enhanced CircularQuay sibling/multi-project
+requirement needs the canonical owner's update there. This CircularQuay guide links that
 home rather than replacing it or treating stale navigation as migration proof.
 
 Each project profile must establish its actual repository/accepted tree,
@@ -114,10 +114,10 @@ source/job/isolation evidence before describing the migration as operational.
 
 ## Bootstrap, integrate and operate
 
-`cquay bootstrap` selects local configuration first, then enrolled discovery;
+`cq bootstrap` selects local configuration first, then enrolled discovery;
 explicit options override environment settings, local configuration and
 verified discovery in that order. Discovery provides a trusted configuration
-reference, never authority by itself. `cquay flow run` applies the same model
+reference, never authority by itself. `cq flow run` applies the same model
 to GitHub Actions, GitLab CI and Azure Pipelines. See the
 [configuration and CI guide](configuration-repositories.md).
 

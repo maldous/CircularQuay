@@ -3,7 +3,7 @@ requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cquay-sdk"
+name = "cq-sdk"
 version = "1.0.0.dev0"
 description = "Safe client adapters for CircularQuay v1"
 readme = "README.md"
@@ -34,10 +34,10 @@ Documentation = "https://github.com/maldous/CircularQuay/tree/feature/initial-im
 Repository = "https://github.com/maldous/CircularQuay"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cquay"]
+packages = ["src/cq"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/cquay", "README.md", "LICENSE", "pyproject.toml"]
+include = ["src/cq", "README.md", "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 target-version = "py311"
@@ -55,7 +55,7 @@ strict = true
 warn_unused_configs = true
 
 [tool.coverage.run]
-source = ["cquay"]
+source = ["cq"]
 branch = true
 
 [tool.coverage.report]

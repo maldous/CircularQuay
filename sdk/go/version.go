@@ -1,4 +1,4 @@
-package cquay
+package cq
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 // RuntimeVersion is the bounded public metadata reported by the linked
-// CircularQuay core. It contains no policy, provider, or credential information.
+// CQ core. It contains no policy, provider, or credential information.
 type RuntimeVersion struct {
 	Version  string `json:"version"`
 	Commit   string `json:"commit"`
@@ -19,7 +19,7 @@ type RuntimeVersion struct {
 	Maturity string `json:"maturity"`
 }
 
-// Version reads and validates the linked CircularQuay core's version metadata.
+// Version reads and validates the linked CQ core's version metadata.
 // It performs no subprocess start, provider access, policy load, prompt, or
 // workload startup.
 func (c *LocalClient) Version(ctx context.Context) (RuntimeVersion, error) {

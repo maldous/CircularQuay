@@ -11,7 +11,7 @@ import (
 )
 
 func TestEnvironmentRejectsProtectedInputsBeforeRead(t *testing.T) {
-	for _, name := range []string{"vAuLt_ToKeN", "cQuAy_bootstrap", "ld_preload"} {
+	for _, name := range []string{"vAuLt_ToKeN", "cQ_bootstrap", "ld_preload"} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(name, "SYNTHETIC_PROTECTED_MARKER")
 			assertProtectedEnvironmentInput(t, model.Source{Type: "env", Resources: []string{name}}, name)

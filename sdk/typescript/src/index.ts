@@ -17,7 +17,7 @@ const MAX_JSON_NODES = 16_384;
 const HANDLE = /^[A-Za-z0-9_.-]{1,128}$/;
 const HEX_64 = /^[a-f0-9]{64}$/;
 const RFC3339_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-const DENIED_ENV_PREFIXES = ["AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQUAY_CONFIG_"];
+const DENIED_ENV_PREFIXES = ["AWS_", "AZURE_", "GOOGLE_", "VAULT_", "OP_", "BW_", "CQ_CONFIG_"];
 const KNOWN_TOOLS = new Set(["list_workloads", "get_status", "run_workload", "read_secret"]);
 const STATES = new Set(["unprovisioned", "ready", "pending", "error", "running", "stopped", "unknown", "not_provisioned", "blocked", "resolved", "snapshotted", "applied", "activated", "apply_failed", "pending_activation", "partial_resolved", "partial_applied", "partial_activated", "partial_apply_failed", "partial_pending_activation"]);
 
@@ -35,12 +35,12 @@ const NATIVE_ERROR_CATEGORIES: Readonly<Record<string, ErrorCategory>> = {
 };
 
 /** A stable, deliberately detail-free SDK error. */
-export class CquayError extends Error {
+export class CqError extends Error {
   readonly category: ErrorCategory;
 
   constructor(category: ErrorCategory) {
-    super(`CircularQuay SDK ${category}`);
-    this.name = "CquayError";
+    super(`CQ SDK ${category}`);
+    this.name = "CqError";
     this.category = category;
   }
 }
@@ -66,7 +66,7 @@ export function officialMCPAdapter(session: OfficialMCPClientSession, callToolRe
     async listTools({ signal } = {}) {
       const result = await session.listTools(undefined, signal === undefined ? undefined : { signal });
       const nextCursor = object(result).nextCursor;
-      if (nextCursor !== undefined && nextCursor !== "") throw new CquayError("protocol");
+      if (nextCursor !== undefined && nextCursor !== "") throw new CqError("protocol");
       return { pages: [result] };
     },
     callTool(call, { signal } = {}) {
@@ -81,7 +81,7 @@ export interface Observation {
   readonly durationMs: number;
 }
 export type Observer = (observation: Observation) => void | Promise<void>;
-export interface CquayClientOptions { readonly observer?: Observer; }
+export interface CqClientOptions { readonly observer?: Observer; }
 export interface ToolDescriptor { readonly name: string; readonly description?: string; }
 export interface WorkloadStatus { readonly workload: string; readonly mode: "offline" | "online" | "hybrid"; readonly state: string; }
 export interface RunResult { readonly id: string; readonly status: "completed" | "failed" | "running" | "cancelled" | "unknown"; readonly exitCode: number; }
@@ -102,7 +102,7 @@ export class SecretDisclosure {
 
   /** Returns plaintext only after the caller deliberately chooses to use it. */
   reveal(): string { return this.#value; }
-  toString(): string { return "[CircularQuay secret redacted]"; }
+  toString(): string { return "[CQ secret redacted]"; }
   toJSON(): Record<string, string | undefined> {
     return { alias: this.alias, version: this.version, expiresAt: this.expiresAt, value: "[redacted]" };
   }
@@ -112,11 +112,11 @@ export class SecretDisclosure {
 /** Separate capability so plaintext disclosure cannot happen through the standard client. */
 export interface DisclosureClient { readSecret(workload: string, key: string, options?: CallOptions): Promise<SecretDisclosure>; }
 
-export class CquayClient {
+export class CqClient {
   readonly #transport: MCPTransport;
   readonly #observer: Observer | undefined;
 
-  constructor(transport: MCPTransport, options: CquayClientOptions = {}) {
+  constructor(transport: MCPTransport, options: CqClientOptions = {}) {
     this.#transport = transport;
     this.#observer = options.observer;
   }
@@ -128,7 +128,7 @@ export class CquayClient {
   async discoverTools(options: CallOptions = {}): Promise<readonly ToolDescriptor[]> {
     return this.observe("discover_tools", options, async () => {
       const pages = object(await this.#transport.listTools(options)).pages;
-      if (!Array.isArray(pages) || pages.length !== 1) throw new CquayError("protocol");
+      if (!Array.isArray(pages) || pages.length !== 1) throw new CqError("protocol");
       return parseTools(pages[0]);
     });
   }
@@ -156,7 +156,7 @@ export class CquayClient {
   private async tool<T>(name: Observation["action"], args: Readonly<Record<string, unknown>>, options: CallOptions, parse: (value: unknown) => T): Promise<T> {
     return this.observe(name, options, async () => {
       const response = object(await this.#transport.callTool({ name, arguments: args }, options));
-      if (response.isError === true) throw new CquayError("denied");
+      if (response.isError === true) throw new CqError("denied");
       return parse(structured(response));
     });
   }
@@ -207,21 +207,21 @@ export class LocalCLIClient {
 
   async version(options: CallOptions = {}): Promise<Readonly<{ version: string; commit: string; go: string; maturity: string }>> {
     const value = await this.json(["version"], options);
-    if (!isVersion(value)) throw new CquayError("protocol");
-    if (semanticMajor(value.version) !== 1) throw new CquayError("unsupported");
+    if (!isVersion(value)) throw new CqError("protocol");
+    if (semanticMajor(value.version) !== 1) throw new CqError("unsupported");
     return Object.freeze(value);
   }
 
   providers(options: CallOptions = {}): Promise<unknown> { return this.json(["providers"], options); }
 
   bootstrap(args: RemotePin & { readonly output: string }, options: CallOptions = {}): Promise<unknown> {
-    if (!isAbsolute(args.output)) throw new CquayError("invalid");
+    if (!isAbsolute(args.output)) throw new CqError("invalid");
     validateRemotePin(args);
     return this.json(["bootstrap", ...flags(args, { ...remoteFlags, output: "--output" }), "--non-interactive"], options);
   }
 
   configInit(output?: string, options: CallOptions = {}): Promise<unknown> {
-    if (output !== undefined && !isAbsolute(output)) throw new CquayError("invalid");
+    if (output !== undefined && !isAbsolute(output)) throw new CqError("invalid");
     return this.json(["config", "init", ...optionalFlag("--output", output)], options);
   }
   configValidate(options: CallOptions = {}): Promise<unknown> { return this.json(["config", "validate"], options); }
@@ -240,7 +240,7 @@ export class LocalCLIClient {
     return this.json(["config", "replace", "--file", "-", ...expected(expectSHA256)], { ...options, stdin: strictJSON(document) });
   }
   doctor(options: { readonly fix?: boolean; readonly identityOnly?: boolean; readonly signal?: AbortSignal } = {}): Promise<unknown> {
-    if (options.fix && options.identityOnly) throw new CquayError("invalid");
+    if (options.fix && options.identityOnly) throw new CqError("invalid");
     const mode = doctorMode(options);
     return this.json(["doctor", ...mode], options);
   }
@@ -284,7 +284,7 @@ function doctorMode(options: { readonly fix?: boolean; readonly identityOnly?: b
 }
 
 function object(value: unknown): Record<string, unknown> {
-  if (!isPlainObject(value)) throw new CquayError("protocol");
+  if (!isPlainObject(value)) throw new CqError("protocol");
   return value;
 }
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -293,16 +293,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 function structured(root: Record<string, unknown>): unknown {
-  if (!Object.hasOwn(root, "structuredContent")) throw new CquayError("protocol");
+  if (!Object.hasOwn(root, "structuredContent")) throw new CqError("protocol");
   const value = root.structuredContent;
-  if (!safeJSON(value)) throw new CquayError("protocol");
+  if (!safeJSON(value)) throw new CqError("protocol");
   const serialized = JSON.stringify(value);
-  if (encodedLength(serialized) > MAX_RESPONSE_BYTES) throw new CquayError("protocol");
+  if (encodedLength(serialized) > MAX_RESPONSE_BYTES) throw new CqError("protocol");
   return value;
 }
 function parseTools(page: unknown): readonly ToolDescriptor[] {
   const tools = object(page).tools;
-  if (!Array.isArray(tools) || tools.length > MAX_TOOLS) throw new CquayError("protocol");
+  if (!Array.isArray(tools) || tools.length > MAX_TOOLS) throw new CqError("protocol");
   const result: ToolDescriptor[] = [];
   for (const item of tools) result.push(parseTool(item, result));
   return Object.freeze(result);
@@ -310,22 +310,22 @@ function parseTools(page: unknown): readonly ToolDescriptor[] {
 function parseTool(item: unknown, existing: readonly ToolDescriptor[]): ToolDescriptor {
   const value = object(item);
   const { name, description } = value;
-  if (!validHandle(name) || !KNOWN_TOOLS.has(name) || existing.some(tool => tool.name === name)) throw new CquayError("protocol");
-  if (description !== undefined && (typeof description !== "string" || description.length > 4096)) throw new CquayError("protocol");
+  if (!validHandle(name) || !KNOWN_TOOLS.has(name) || existing.some(tool => tool.name === name)) throw new CqError("protocol");
+  if (description !== undefined && (typeof description !== "string" || description.length > 4096)) throw new CqError("protocol");
   return description === undefined ? { name } : { name, description };
 }
 function parseWorkloads(value: unknown): readonly string[] {
   const result = object(value);
   const workloads = result.workloads;
   const valid = Array.isArray(workloads) && workloads.length <= MAX_WORKLOADS && keysOnly(result, ["workloads"]) && workloads.every(validHandle) && new Set(workloads).size === workloads.length && sorted(workloads);
-  if (!valid) throw new CquayError("protocol");
+  if (!valid) throw new CqError("protocol");
   return Object.freeze([...workloads]);
 }
 function parseStatus(value: unknown, workload: string): WorkloadStatus {
   const result = object(value);
   const mode = result.mode;
   const state = result.state;
-  if (result.workload !== workload || !validMode(mode) || typeof state !== "string" || !STATES.has(state) || !keysOnly(result, ["workload", "mode", "state"])) throw new CquayError("protocol");
+  if (result.workload !== workload || !validMode(mode) || typeof state !== "string" || !STATES.has(state) || !keysOnly(result, ["workload", "mode", "state"])) throw new CqError("protocol");
   return Object.freeze({ workload, mode, state });
 }
 function parseRunResult(value: unknown): RunResult {
@@ -333,7 +333,7 @@ function parseRunResult(value: unknown): RunResult {
   const id = result.id;
   const status = result.status;
   const exitCode = result.exit_code;
-  if (!validHandle(id) || !validRunStatus(status) || !validExitCode(exitCode) || !keysOnly(result, ["id", "status", "exit_code"])) throw new CquayError("protocol");
+  if (!validHandle(id) || !validRunStatus(status) || !validExitCode(exitCode) || !keysOnly(result, ["id", "status", "exit_code"])) throw new CqError("protocol");
   return Object.freeze({ id, status, exitCode });
 }
 function parseSecret(value: unknown, key: string): SecretDisclosure {
@@ -342,8 +342,8 @@ function parseSecret(value: unknown, key: string): SecretDisclosure {
   const version = result.version;
   const expiresAt = result.expires_at;
   const expiry = parseExpiry(expiresAt);
-  if (expiry === "expired") throw new CquayError("expired");
-  if (result.alias !== key || !validSecretValue(secret) || !validProviderVersion(version) || expiry !== "valid" || !keysOnly(result, ["alias", "value", "version", "expires_at"])) throw new CquayError("protocol");
+  if (expiry === "expired") throw new CqError("expired");
+  if (result.alias !== key || !validSecretValue(secret) || !validProviderVersion(version) || expiry !== "valid" || !keysOnly(result, ["alias", "value", "version", "expires_at"])) throw new CqError("protocol");
   return new SecretDisclosure(key, secret, version, expiryValue(expiresAt));
 }
 function validMode(value: unknown): value is WorkloadStatus["mode"] {
@@ -360,13 +360,13 @@ function expiryValue(value: unknown): string | undefined {
 }
 function keysOnly(value: Record<string, unknown>, allowed: readonly string[]): boolean { return Object.keys(value).every(key => allowed.includes(key)); }
 function validHandle(value: unknown): value is string { return typeof value === "string" && HANDLE.test(value) && value !== "." && value !== ".."; }
-function validateHandle(value: string): void { if (!validHandle(value)) throw new CquayError("invalid"); }
-function validateText(value: string): void { if (typeof value !== "string" || value.length > 4096 || value.includes("\0")) throw new CquayError("invalid"); }
+function validateHandle(value: string): void { if (!validHandle(value)) throw new CqError("invalid"); }
+function validateText(value: string): void { if (typeof value !== "string" || value.length > 4096 || value.includes("\0")) throw new CqError("invalid"); }
 function validatePointer(value: string): void {
   validateText(value);
   if (value === "") return;
-  if (!value.startsWith("/")) throw new CquayError("invalid");
-  for (let index = 0; index < value.length; index += 1) if (value[index] === "~" && value[index + 1] !== "0" && value[index + 1] !== "1") throw new CquayError("invalid");
+  if (!value.startsWith("/")) throw new CqError("invalid");
+  for (let index = 0; index < value.length; index += 1) if (value[index] === "~" && value[index + 1] !== "0" && value[index + 1] !== "1") throw new CqError("invalid");
 }
 function validSecretValue(value: unknown): value is string { return typeof value === "string" && encodedLength(value) <= MAX_SECRET_VALUE_BYTES; }
 function validProviderVersion(value: unknown): value is string | undefined {
@@ -404,12 +404,12 @@ function flags<T extends object>(input: T, names: Readonly<Partial<Record<keyof 
   return result;
 }
 function validateFlagValue(value: unknown): asserts value is string {
-  if (typeof value !== "string" || value.length === 0 || value.length > 4096 || value.includes("\0")) throw new CquayError("invalid");
+  if (typeof value !== "string" || value.length === 0 || value.length > 4096 || value.includes("\0")) throw new CqError("invalid");
 }
 function optionalFlag(flag: string, value: string | undefined): string[] { return value === undefined ? [] : flags({ value }, { value: flag }); }
 function expected(value: string | undefined): string[] {
   if (value === undefined) return [];
-  if (!HEX_64.test(value)) throw new CquayError("invalid");
+  if (!HEX_64.test(value)) throw new CqError("invalid");
   return ["--expect-sha256", value];
 }
 function targetFlag(target: string | undefined): string[] {
@@ -419,7 +419,7 @@ function targetFlag(target: string | undefined): string[] {
 }
 function validateRemotePin(value: RemotePin): void {
   if (!hasRemotePin(value)) return;
-  if (!completeRemotePin(value)) throw new CquayError("invalid");
+  if (!completeRemotePin(value)) throw new CqError("invalid");
 }
 function hasRemotePin(value: RemotePin): boolean { return Object.values(value).some(item => item !== undefined); }
 function completeRemotePin(value: RemotePin): boolean {
@@ -505,7 +505,7 @@ function asciiAlphaNumericHyphen(value: string): boolean {
   return true;
 }
 function validateLocalOptions(options: LocalCLIOptions): void {
-  if (!isAbsolute(options.executablePath) || !HEX_64.test(options.expectedSHA256) || !isAbsolute(options.configPath) || !isAbsolute(options.stateDirectory)) throw new CquayError("invalid");
+  if (!isAbsolute(options.executablePath) || !HEX_64.test(options.expectedSHA256) || !isAbsolute(options.configPath) || !isAbsolute(options.stateDirectory)) throw new CqError("invalid");
 }
 function cleanEnvironment(source: Readonly<Record<string, string>> | undefined): Readonly<Record<string, string>> {
   const result: Record<string, string> = {};
@@ -514,7 +514,7 @@ function cleanEnvironment(source: Readonly<Record<string, string>> | undefined):
 }
 function validateEnvironmentEntry(key: string, value: string): void {
   const valid = /^[_a-zA-Z]\w*$/.test(key) && !DENIED_ENV_PREFIXES.some(prefix => key.startsWith(prefix)) && typeof value === "string" && !value.includes("\0") && value.length <= 32768;
-  if (!valid) throw new CquayError("invalid");
+  if (!valid) throw new CqError("invalid");
 }
 function safeJSON(value: unknown): boolean { return isSafeJSONValue(value, 0); }
 function isSafeJSONValue(value: unknown, depth: number): boolean {
@@ -531,11 +531,11 @@ function strictJSON(value: unknown): string {
   const state: JSONValidationState = { seen: new WeakSet(), nodes: 0 };
   validateJSONValue(value, 0, state);
   const serialized = JSON.stringify(value);
-  if (encodedLength(serialized) > MAX_STDIO_BYTES) throw new CquayError("invalid");
+  if (encodedLength(serialized) > MAX_STDIO_BYTES) throw new CqError("invalid");
   return serialized;
 }
 function validateJSONValue(value: unknown, depth: number, state: JSONValidationState): void {
-  if (depth > MAX_JSON_DEPTH || ++state.nodes > MAX_JSON_NODES) throw new CquayError("invalid");
+  if (depth > MAX_JSON_DEPTH || ++state.nodes > MAX_JSON_NODES) throw new CqError("invalid");
   if (value === null || typeof value === "string" || typeof value === "boolean") return;
   if (typeof value === "number") {
     validateJSONNumber(value);
@@ -549,16 +549,16 @@ function validateJSONValue(value: unknown, depth: number, state: JSONValidationS
     validateJSONObject(value, depth, state);
     return;
   }
-  throw new CquayError("invalid");
+  throw new CqError("invalid");
 }
-function validateJSONNumber(value: number): void { if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) throw new CquayError("invalid"); }
+function validateJSONNumber(value: number): void { if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) throw new CqError("invalid"); }
 function validateJSONCollection(value: readonly unknown[], depth: number, state: JSONValidationState): void {
-  if (state.seen.has(value)) throw new CquayError("invalid");
+  if (state.seen.has(value)) throw new CqError("invalid");
   state.seen.add(value);
   for (const item of value) validateJSONValue(item, depth + 1, state);
 }
 function validateJSONObject(value: Record<string, unknown>, depth: number, state: JSONValidationState): void {
-  if (state.seen.has(value)) throw new CquayError("invalid");
+  if (state.seen.has(value)) throw new CqError("invalid");
   state.seen.add(value);
   for (const [key, item] of Object.entries(value)) { validateText(key); validateJSONValue(item, depth + 1, state); }
 }
@@ -566,26 +566,26 @@ function encodedLength(value: string): number { return new TextEncoder().encode(
 async function verifyExecutable(path: string, expectedDigest: string): Promise<string> {
   try {
     const link = await lstat(path);
-    if (link.isSymbolicLink() || !link.isFile()) throw new CquayError("integrity");
+    if (link.isSymbolicLink() || !link.isFile()) throw new CqError("integrity");
     const canonical = await realpath(path);
     const actualDigest = await hashRegularFile(canonical);
-    if (!timingSafeEqual(Buffer.from(actualDigest, "hex"), Buffer.from(expectedDigest, "hex"))) throw new CquayError("integrity");
+    if (!timingSafeEqual(Buffer.from(actualDigest, "hex"), Buffer.from(expectedDigest, "hex"))) throw new CqError("integrity");
     return canonical;
   } catch (error) {
-    if (error instanceof CquayError) throw error;
-    throw new CquayError("integrity");
+    if (error instanceof CqError) throw error;
+    throw new CqError("integrity");
   }
 }
 async function hashRegularFile(path: string): Promise<string> {
   const handle = await open(path, "r");
   try {
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_EXECUTABLE_BYTES) throw new CquayError("integrity");
+    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_EXECUTABLE_BYTES) throw new CqError("integrity");
     const hash = createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
     for (let position = 0; position < stat.size;) {
       const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, stat.size - position), position);
-      if (bytesRead === 0) throw new CquayError("integrity");
+      if (bytesRead === 0) throw new CqError("integrity");
       hash.update(buffer.subarray(0, bytesRead));
       position += bytesRead;
     }
@@ -596,7 +596,7 @@ async function observe<T>(observer: Observer | undefined, action: Observation["a
   const startedAt = Date.now();
   let outcome: Observation["outcome"] = "unavailable";
   try {
-    if (signal?.aborted) throw new CquayError("cancelled");
+    if (signal?.aborted) throw new CqError("cancelled");
     const result = await operation();
     outcome = "success";
     return result;
@@ -608,22 +608,22 @@ async function observe<T>(observer: Observer | undefined, action: Observation["a
     if (observer !== undefined) try { await observer({ action, outcome, durationMs: Math.max(0, Date.now() - startedAt) }); } catch { /* observer failure cannot affect operation */ }
   }
 }
-function observationError(error: unknown, signal: AbortSignal | undefined): CquayError {
-  if (error instanceof CquayError) return error;
-  if (signal?.aborted || isAbort(error)) return new CquayError("cancelled");
-  return new CquayError("unavailable");
+function observationError(error: unknown, signal: AbortSignal | undefined): CqError {
+  if (error instanceof CqError) return error;
+  if (signal?.aborted || isAbort(error)) return new CqError("cancelled");
+  return new CqError("unavailable");
 }
 function boundedJSON(text: string): unknown {
-  if (encodedLength(text) > MAX_RESPONSE_BYTES) throw new CquayError("protocol");
+  if (encodedLength(text) > MAX_RESPONSE_BYTES) throw new CqError("protocol");
   const value = JSON.parse(text) as unknown;
-  if (!safeJSON(value)) throw new CquayError("protocol");
+  if (!safeJSON(value)) throw new CqError("protocol");
   return value;
 }
 function spawnOwned(executable: string, args: string[], environment: Readonly<Record<string, string>>, options: LocalRunOptions): Promise<LocalResult> {
   return new Promise((resolve, reject) => {
-    if (options.signal?.aborted) { reject(new CquayError("cancelled")); return; }
+    if (options.signal?.aborted) { reject(new CqError("cancelled")); return; }
     const child = startChild(executable, args, environment, options.inheritOutput === true);
-    if (child === undefined) { reject(new CquayError("process")); return; }
+    if (child === undefined) { reject(new CqError("process")); return; }
     const state = new ProcessState(options.signal, resolve, reject);
     bindProcessLifecycle(child, state, options);
     writeInput(child, options.stdin, () => { state.overflow(child); });
@@ -635,12 +635,12 @@ class ProcessState {
   #abortListener: (() => void) | undefined;
   readonly #signal: AbortSignal | undefined;
   readonly #resolve: (value: LocalResult) => void;
-  readonly #reject: (reason: CquayError) => void;
+  readonly #reject: (reason: CqError) => void;
 
   constructor(
     signal: AbortSignal | undefined,
     resolve: (value: LocalResult) => void,
-    reject: (reason: CquayError) => void
+    reject: (reason: CqError) => void
   ) {
     this.#signal = signal;
     this.#resolve = resolve;
@@ -678,9 +678,9 @@ class ProcessState {
     if (this.#settled || this.#killTimer !== undefined) return;
     try { child.kill("SIGTERM"); } catch { /* wait for close */ }
     this.#killTimer = setTimeout(() => { killChild(child, "SIGKILL"); }, 5000);
-    this.#fallbackTimer = setTimeout(() => { this.finish(this.terminalError() ?? new CquayError("process")); }, 6000);
+    this.#fallbackTimer = setTimeout(() => { this.finish(this.terminalError() ?? new CqError("process")); }, 6000);
   }
-  finish(error?: CquayError, result?: LocalResult): void {
+  finish(error?: CqError, result?: LocalResult): void {
     if (this.#settled) return;
     this.#settled = true;
     if (this.#killTimer !== undefined) clearTimeout(this.#killTimer);
@@ -691,22 +691,22 @@ class ProcessState {
       return;
     }
     if (result === undefined) {
-      this.#reject(new CquayError("process"));
+      this.#reject(new CqError("process"));
       return;
     }
     this.#resolve(result);
   }
 
-  private closeError(code: number | null, allowNonZero: boolean): CquayError | undefined {
+  private closeError(code: number | null, allowNonZero: boolean): CqError | undefined {
     const terminal = this.terminalError();
     if (terminal !== undefined) return terminal;
     return code !== 0 && !allowNonZero ? nativeFailure(this.#stderr) : undefined;
   }
 
-  private terminalError(): CquayError | undefined {
-    if (this.#cancelled) return new CquayError("cancelled");
-    if (this.#overflow) return new CquayError("protocol");
-    if (this.#stdinFailure || this.#childFailure) return new CquayError("process");
+  private terminalError(): CqError | undefined {
+    if (this.#cancelled) return new CqError("cancelled");
+    if (this.#overflow) return new CqError("protocol");
+    if (this.#stdinFailure || this.#childFailure) return new CqError("process");
     return undefined;
   }
 }
@@ -740,10 +740,10 @@ function appendBounded(current: string, chunk: Buffer | string): string | undefi
   const next = current + chunk.toString();
   return encodedLength(next) <= MAX_STDIO_BYTES ? next : undefined;
 }
-function nativeFailure(stderr: string): CquayError {
-  if (stderr === "") return new CquayError("process");
+function nativeFailure(stderr: string): CqError {
+  if (stderr === "") return new CqError("process");
   const category = nativeErrorCategory(stderr);
-  return category === undefined ? new CquayError("protocol") : new CquayError(category);
+  return category === undefined ? new CqError("protocol") : new CqError(category);
 }
 function nativeErrorCategory(stderr: string): ErrorCategory | undefined {
   try {

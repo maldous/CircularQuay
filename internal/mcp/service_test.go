@@ -251,11 +251,11 @@ func TestScopesAndClientAreIndependent(t *testing.T) {
 	p.Grants = []model.Grant{{Subject: "https://issuer|alice", Client: "agent-a", Workload: "alpha", Operations: []string{"read"}, Keys: []string{"SERVICE_KEY"}}}
 	b := &fakeBackend{value: model.Value{Data: "value"}}
 	s := makeService(t, p, b, Options{Audit: &memoryAudit{}})
-	actor := Principal{Subject: "https://issuer|alice", Client: "agent-a", HTTP: true, Scopes: []string{"cquay:mcp"}, ExpiresAt: time.Now().Add(time.Minute)}
+	actor := Principal{Subject: "https://issuer|alice", Client: "agent-a", HTTP: true, Scopes: []string{"cq:mcp"}, ExpiresAt: time.Now().Add(time.Minute)}
 	if _, err := s.ReadSecret(context.Background(), actor, "alpha", "SERVICE_KEY"); !fault.Is(err, fault.Denied) {
 		t.Fatal("scope bypass")
 	}
-	actor.Scopes = append(actor.Scopes, "cquay:read")
+	actor.Scopes = append(actor.Scopes, "cq:read")
 	actor.Client = "agent-b"
 	if _, err := s.ReadSecret(context.Background(), actor, "alpha", "SERVICE_KEY"); !fault.Is(err, fault.Denied) {
 		t.Fatal("client bypass")

@@ -23,18 +23,18 @@ for the copied files; on Windows, restrict the directory and files to the
 selected user using the documented [native protection requirements](runtime-boundaries.md).
 Git does not preserve owner-only read/write permissions, so a checkout alone
 does not establish those protections. Then use an authenticated selected
-`cquay` executable:
+`cq` executable:
 
 ```sh
-cquay --config /absolute/private/example/master.json config validate
-cquay --config /absolute/private/example/master.json plan
+cq --config /absolute/private/example/master.json config validate
+cq --config /absolute/private/example/master.json plan
 ```
 
 PowerShell accepts the same commands with the selected native pathname:
 
 ```powershell
-.\cquay.exe --config C:\Private\Example\master.json config validate
-.\cquay.exe --config C:\Private\Example\master.json plan
+.\cq.exe --config C:\Private\Example\master.json config validate
+.\cq.exe --config C:\Private\Example\master.json plan
 ```
 
 The resulting workload is `personal__demo` and its source is `personal__data`.

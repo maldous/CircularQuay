@@ -119,9 +119,9 @@ func requireWireMockManifest(t *testing.T, manifest toolManifest) {
 
 func configuredJarPath(t *testing.T) string {
 	t.Helper()
-	path := os.Getenv("CQUAY_WIREMOCK_JAR")
+	path := os.Getenv("CQ_WIREMOCK_JAR")
 	if path == "" || !filepath.IsAbs(path) {
-		t.Fatal("integration tag requires an absolute CQUAY_WIREMOCK_JAR selected from tools/integration-tools.json")
+		t.Fatal("integration tag requires an absolute CQ_WIREMOCK_JAR selected from tools/integration-tools.json")
 	}
 	return path
 }
@@ -188,7 +188,7 @@ func privateDirectory(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("resolve integration temporary directory: %v", err)
 	}
-	parent, err := os.MkdirTemp(base, "cquay-wiremock-")
+	parent, err := os.MkdirTemp(base, "cq-wiremock-")
 	if err != nil {
 		t.Fatalf("create private integration directory: %v", err)
 	}

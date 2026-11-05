@@ -1,14 +1,14 @@
 [Unit]
-Description=CircularQuay enrolled workload %i
+Description=CQ enrolled workload %i
 After=local-fs.target
 
 [Service]
 Type=simple
-User=cquay-%i
-Group=cquay-%i
+User=cq-%i
+Group=cq-%i
 UMask=0077
-ExecStart=/usr/local/bin/cquay --config /etc/circularquay/%i.json --state-dir /var/lib/cquay-%i run --workload %i
-StateDirectory=cquay-%i
+ExecStart=/usr/local/bin/cq --config /etc/cq/%i.json --state-dir /var/lib/cq-%i run --workload %i
+StateDirectory=cq-%i
 StateDirectoryMode=0700
 Restart=on-failure
 RestartSec=10s
@@ -17,7 +17,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/cquay-%i
+ReadWritePaths=/var/lib/cq-%i
 
 # Online mode resolves again on EVERY ExecStart, including crash restarts. Do
 # not replace this with a dependency oneshot that stays successful indefinitely.

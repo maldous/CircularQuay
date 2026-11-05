@@ -8,7 +8,7 @@ import unittest
 from dataclasses import asdict
 from types import SimpleNamespace
 
-from cquay import (
+from cq import (
     CircularQuayClient,
     CircularQuayError,
     ErrorCategory,

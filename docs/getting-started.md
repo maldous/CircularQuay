@@ -14,30 +14,30 @@ qualification are recorded in [the qualification matrix](qualification.md).
 umask 077
 cd -P "$(mktemp -d)"
 release_ref='<verified-release-tag>' # Select an existing authenticated release.
-git clone --branch "$release_ref" https://github.com/maldous/CircularQuay.git
-cd CircularQuay
+git clone --branch "$release_ref" https://github.com/maldous/CircularQuay.git cq
+cd cq
 go version # requires Go 1.27.3
-go build -o ./cquay ./cmd/cquay
+go build -o ./cq ./cmd/cq
 
-./cquay init --output cquay.json
-./cquay --config cquay.json doctor
-./cquay --config cquay.json plan
-./cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+./cq init --output cq.json
+./cq --config cq.json doctor
+./cq --config cq.json plan
+./cq --config cq.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
 ```
 
 ## Windows PowerShell
 
 ```powershell
 $ReleaseRef = '<verified-release-tag>' # Select an existing authenticated release.
-git clone --branch $ReleaseRef https://github.com/maldous/CircularQuay.git
-Set-Location CircularQuay
+git clone --branch $ReleaseRef https://github.com/maldous/CircularQuay.git cq
+Set-Location cq
 go version # requires Go 1.27.3
-go build -o .\cquay.exe .\cmd\cquay
+go build -o .\cq.exe .\cmd\cq
 
-.\cquay.exe init --output cquay.json
-.\cquay.exe --config cquay.json doctor
-.\cquay.exe --config cquay.json plan
-.\cquay.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Synthetic workload completed.'
+.\cq.exe init --output cq.json
+.\cq.exe --config cq.json doctor
+.\cq.exe --config cq.json plan
+.\cq.exe --config cq.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Synthetic workload completed.'
 ```
 
 The final command runs an explicitly named, trusted operating-system program
@@ -81,7 +81,7 @@ and [qualification](qualification.md) for actual capability evidence.
 ## Connect your application or pipeline
 
 Use [bootstrap and discovery](configuration-repositories.md) to select trusted
-local or repository configuration, and `cquay flow run --workload ID
+local or repository configuration, and `cq flow run --workload ID
 --non-interactive` for an enrolled CI workload. Explicit overrides select the
 context; they cannot widen authorization. Discovery and job environment markers
 do not authenticate a source, user or provider identity on their own.
@@ -115,11 +115,11 @@ file. After that policy and its prerequisites are valid, use its declared
 workload ID with the normal lifecycle commands:
 
 ```sh
-CONFIG=/absolute/operator-owned/cquay.json
-cquay --config "$CONFIG" plan
-cquay --config "$CONFIG" run --workload reference-api -- /absolute/path/to/your/workload
-cquay --config "$CONFIG" snapshot --workload reference-api
-cquay --config "$CONFIG" sync --once --workload reference-api
+CONFIG=/absolute/operator-owned/cq.json
+cq --config "$CONFIG" plan
+cq --config "$CONFIG" run --workload reference-api -- /absolute/path/to/your/workload
+cq --config "$CONFIG" snapshot --workload reference-api
+cq --config "$CONFIG" sync --once --workload reference-api
 ```
 
 The reference itself names nonexistent synthetic paths and cannot be run until
@@ -131,11 +131,11 @@ Already delivered values cannot be recalled from process memory, old ciphertext,
 
 ## Try a credential-free workload
 
-The `examples/` directory contains fabricated values only. From the repository root, with a built `cquay` executable:
+The `examples/` directory contains fabricated values only. From the repository root, with a built `cq` executable:
 
 ```sh
-cquay --config examples/demo.json plan
-cquay --config examples/demo.json run --workload demo -- /usr/bin/env
+cq --config examples/demo.json plan
+cq --config examples/demo.json run --workload demo -- /usr/bin/env
 ```
 
 The second command deliberately demonstrates the child's environment using **synthetic data**. Do not use environment-dumping commands with real credentials. Normal workload commands should consume their assigned values without printing them.

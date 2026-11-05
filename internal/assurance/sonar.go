@@ -413,13 +413,13 @@ func createSonarAuditToken(ctx context.Context, administrator *sonarClient, dire
 	if err != nil {
 		return err
 	}
-	login := "cquay-audit-" + name[:12]
+	login := "cq-audit-" + name[:12]
 	password, err := randomSecret()
 	if err != nil {
 		return err
 	}
 	password = "Cq9!" + password
-	if err = administrator.call(ctx, http.MethodPost, "/api/users/create", url.Values{"login": {login}, "name": {"CircularQuay temporary audit"}, "local": {"true"}, "password": {password}}, nil); err != nil {
+	if err = administrator.call(ctx, http.MethodPost, "/api/users/create", url.Values{"login": {login}, "name": {"CQ temporary audit"}, "local": {"true"}, "password": {password}}, nil); err != nil {
 		return err
 	}
 	// A project-analysis token cannot read hotspots or completed task warnings.
@@ -448,7 +448,7 @@ func isLoopbackHost(host string) bool {
 }
 
 func createSonarProject(ctx context.Context, client *sonarClient, project string) error {
-	if err := client.call(ctx, http.MethodPost, "/api/projects/create", url.Values{"project": {project}, "name": {"CircularQuay independent audit"}, "visibility": {"private"}}, nil); err == nil {
+	if err := client.call(ctx, http.MethodPost, "/api/projects/create", url.Values{"project": {project}, "name": {"CQ independent audit"}, "visibility": {"private"}}, nil); err == nil {
 		return nil
 	}
 	var component struct {
@@ -463,7 +463,7 @@ func createSonarProject(ctx context.Context, client *sonarClient, project string
 }
 
 func configureSonarGate(ctx context.Context, client *sonarClient, project string) error {
-	const name = "CircularQuay Enterprise"
+	const name = "CQ Enterprise"
 	if err := client.call(ctx, http.MethodPost, "/api/qualitygates/create", url.Values{"name": {name}}, nil); err != nil {
 		return errors.New("sonar gate must be created in a fresh audit instance")
 	}
@@ -577,7 +577,7 @@ func completeSonarProfile(profiles []sonarQualityProfile, language string) (sona
 
 func sonarComplexityProfile(ctx context.Context, client *sonarClient, base sonarQualityProfile) (sonarQualityProfile, error) {
 	var profile sonarQualityProfile
-	name := "CircularQuay Go comprehensive"
+	name := "CQ Go comprehensive"
 	if err := client.call(ctx, http.MethodPost, "/api/qualityprofiles/copy", url.Values{"fromKey": {base.Key}, "toName": {name}}, &profile); err != nil {
 		return profile, err
 	}

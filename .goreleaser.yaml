@@ -1,14 +1,14 @@
 # Qualification target: GoReleaser OSS 2.19.0. This stages drafts only.
 version: 2
-project_name: cquay
+project_name: cq
 env:
   - CGO_ENABLED=0
 snapshot:
   version_template: '1.0.0-dev.{{ .ShortCommit }}'
 builds:
-  - id: cquay-linux
-    main: ./cmd/cquay
-    binary: cquay
+  - id: cq-linux
+    main: ./cmd/cq
+    binary: cq
     goos: [linux]
     goarch: [386, arm, arm64, amd64, loong64, ppc64le, riscv64, s390x]
     goarm: [7]
@@ -16,27 +16,27 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     ldflags:
       - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
-  - id: cquay-darwin
-    main: ./cmd/cquay
-    binary: cquay
+  - id: cq-darwin
+    main: ./cmd/cq
+    binary: cq
     goos: [darwin]
     goarch: [amd64, arm64]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
     ldflags:
       - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
-  - id: cquay-windows
-    main: ./cmd/cquay
-    binary: cquay
+  - id: cq-windows
+    main: ./cmd/cq
+    binary: cq
     goos: [windows]
     goarch: [386, amd64, arm64]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
     ldflags:
       - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
-  - id: cquay-portable-unix
-    main: ./cmd/cquay
-    binary: cquay
+  - id: cq-portable-unix
+    main: ./cmd/cq
+    binary: cq
     goos: [freebsd, netbsd, openbsd, dragonfly, illumos, solaris]
     goarch: [386, amd64, arm64]
     ignore:
@@ -56,31 +56,31 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     ldflags:
       - -s -w -X github.com/maldous/CircularQuay/internal/cli.Version={{ .Version }} -X github.com/maldous/CircularQuay/internal/cli.Commit={{ .FullCommit }}
-  - id: cquay-audit-linux
-    main: ./cmd/cquay-audit
-    binary: cquay-audit
+  - id: cq-audit-linux
+    main: ./cmd/cq-audit
+    binary: cq-audit
     goos: [linux]
     goarch: [386, arm, arm64, amd64, loong64, ppc64le, riscv64, s390x]
     goarm: [7]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
-  - id: cquay-audit-darwin
-    main: ./cmd/cquay-audit
-    binary: cquay-audit
+  - id: cq-audit-darwin
+    main: ./cmd/cq-audit
+    binary: cq-audit
     goos: [darwin]
     goarch: [amd64, arm64]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
-  - id: cquay-audit-windows
-    main: ./cmd/cquay-audit
-    binary: cquay-audit
+  - id: cq-audit-windows
+    main: ./cmd/cq-audit
+    binary: cq-audit
     goos: [windows]
     goarch: [386, amd64, arm64]
     flags: [-trimpath]
     mod_timestamp: '{{ .CommitTimestamp }}'
-  - id: cquay-audit-portable-unix
-    main: ./cmd/cquay-audit
-    binary: cquay-audit
+  - id: cq-audit-portable-unix
+    main: ./cmd/cq-audit
+    binary: cq-audit
     goos: [freebsd, netbsd, openbsd, dragonfly, illumos, solaris]
     goarch: [386, amd64, arm64]
     ignore:
@@ -100,8 +100,8 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
 archives:
   - id: native
-    ids: [cquay-linux, cquay-darwin, cquay-windows, cquay-portable-unix, cquay-audit-linux, cquay-audit-darwin, cquay-audit-windows, cquay-audit-portable-unix]
-    name_template: 'cquay_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    ids: [cq-linux, cq-darwin, cq-windows, cq-portable-unix, cq-audit-linux, cq-audit-darwin, cq-audit-windows, cq-audit-portable-unix]
+    name_template: 'cq_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     formats: [tar.gz]
     format_overrides:
       - goos: windows
@@ -116,18 +116,18 @@ archives:
       - docs/**
       - examples/**
       - internal/policy/schema/policy-v1.schema.json
-      - integrations/skills/cquay/**
+      - integrations/skills/cq/**
 checksum:
-  name_template: 'cquay_{{ .Version }}_checksums.txt'
+  name_template: 'cq_{{ .Version }}_checksums.txt'
   algorithm: sha256
 source:
   enabled: true
-  name_template: 'cquay_{{ .Version }}_source'
+  name_template: 'cq_{{ .Version }}_source'
 release:
   github:
     owner: maldous
     name: CircularQuay
   draft: true
   prerelease: auto
-  name_template: 'cquay {{ .Tag }}'
+  name_template: 'CQ {{ .Tag }}'
   make_latest: false

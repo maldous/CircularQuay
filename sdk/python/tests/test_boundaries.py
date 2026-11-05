@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from cquay import (
+from cq import (
     CircularQuayClient,
     CircularQuayError,
     ErrorCategory,
@@ -120,8 +120,8 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         root = Path(self.directory.name)
-        executable = root / "cquay"
-        executable.write_bytes(b"synthetic-cquay")
+        executable = root / "cq"
+        executable.write_bytes(b"synthetic-cq")
         os.chmod(executable, 0o700)
         self.client = LocalCLIClient(
             executable,

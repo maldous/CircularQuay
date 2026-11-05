@@ -1,18 +1,18 @@
 [Unit]
-Description=Reconcile CircularQuay workload %i
+Description=Reconcile CQ workload %i
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=circularquay
-Group=circularquay
+User=cq
+Group=cq
 UMask=0077
-ExecStart=/usr/local/bin/cquay --config /etc/circularquay/policy.json --state-dir /var/lib/circularquay sync --workload %i
-StateDirectory=circularquay
+ExecStart=/usr/local/bin/cq --config /etc/cq/policy.json --state-dir /var/lib/cq sync --workload %i
+StateDirectory=cq
 StateDirectoryMode=0700
 ProtectSystem=strict
-ReadWritePaths=/var/lib/circularquay
+ReadWritePaths=/var/lib/cq
 ProtectHome=true
 PrivateTmp=true
 NoNewPrivileges=true

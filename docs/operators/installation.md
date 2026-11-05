@@ -17,9 +17,9 @@ For a source build, use the pinned Go toolchain and a clean tagged checkout:
 ```sh
 go mod download
 go mod verify
-go build -trimpath -o ./dist/cquay ./cmd/cquay
-go build -trimpath -o ./dist/cquay-audit ./cmd/cquay-audit
-./dist/cquay --config examples/demo.json plan
+go build -trimpath -o ./dist/cq ./cmd/cq
+go build -trimpath -o ./dist/cq-audit ./cmd/cq-audit
+./dist/cq --config examples/demo.json plan
 ```
 
 On Windows use `.exe` output names and explicit PowerShell paths. Go is a build prerequisite, not a normal binary-runtime prerequisite. Optional feature dependencies are checked separately; a binary alone does not include SOPS, Git, or a vendor CLI.

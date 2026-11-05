@@ -1,6 +1,6 @@
 //go:build integration
 
-package cquay
+package cq
 
 import (
 	"context"
@@ -18,12 +18,12 @@ import (
 
 const officialMCPConformanceTimeout = 30 * time.Second
 
-// TestOfficialMCPClientSessionAgainstSyntheticCquay exercises the exported Go
-// SDK against a repository-built cquay stdio server through the official MCP
+// TestOfficialMCPClientSessionAgainstSyntheticCq exercises the exported Go
+// SDK against a repository-built cq stdio server through the official MCP
 // Go SDK v1.8.0 CommandTransport and ClientSession. The fixture is an explicit
 // hosted qualification gate: it has no skip path and requires a synthetic,
 // scoped policy prepared by sdk/conformance/go-mcp.sh's calling workflow.
-func TestOfficialMCPClientSessionAgainstSyntheticCquay(t *testing.T) {
+func TestOfficialMCPClientSessionAgainstSyntheticCq(t *testing.T) {
 	fixture := officialMCPFixtureFromEnvironment(t)
 	ctx, cancel := context.WithTimeout(context.Background(), officialMCPConformanceTimeout)
 	defer cancel()
@@ -47,7 +47,7 @@ func connectOfficialMCPFixture(t *testing.T, ctx context.Context, fixture offici
 	// the hosted job's environment, which could contain provider credentials.
 	command.Env = []string{}
 	transport := &mcp.CommandTransport{Command: command, TerminateDuration: 2 * time.Second}
-	raw, err := mcp.NewClient(&mcp.Implementation{Name: "cquay-sdk-conformance", Version: "1.0.0"}, nil).Connect(ctx, transport, nil)
+	raw, err := mcp.NewClient(&mcp.Implementation{Name: "cq-sdk-conformance", Version: "1.0.0"}, nil).Connect(ctx, transport, nil)
 	if err != nil {
 		t.Fatalf("connect official MCP client session: %v", err)
 	}
@@ -121,13 +121,13 @@ type officialMCPFixture struct {
 
 func officialMCPFixtureFromEnvironment(t *testing.T) officialMCPFixture {
 	t.Helper()
-	if os.Getenv("CQUAY_GO_MCP_CONFORMANCE") != "1" {
-		t.Fatal("CQUAY_GO_MCP_CONFORMANCE=1 is required for official MCP conformance")
+	if os.Getenv("CQ_GO_MCP_CONFORMANCE") != "1" {
+		t.Fatal("CQ_GO_MCP_CONFORMANCE=1 is required for official MCP conformance")
 	}
 	fixture := officialMCPFixture{
-		executable:     os.Getenv("CQUAY_EXECUTABLE"),
-		config:         os.Getenv("CQUAY_CONFIG"),
-		stateDirectory: os.Getenv("CQUAY_STATE_DIRECTORY"),
+		executable:     os.Getenv("CQ_EXECUTABLE"),
+		config:         os.Getenv("CQ_CONFIG"),
+		stateDirectory: os.Getenv("CQ_STATE_DIRECTORY"),
 	}
 	for _, path := range []string{fixture.executable, fixture.config, fixture.stateDirectory} {
 		if path == "" || !filepath.IsAbs(path) {

@@ -223,8 +223,8 @@ func TestRemoteTargetOwnershipNormalizesImplementedDestinations(t *testing.T) {
 	base := t.TempDir()
 	for name, targets := range map[string]map[string]model.Target{
 		"cloudflare": {
-			"first":  {Type: "cloudflare", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "first"), AcceptSnapshot: true},
-			"second": {Type: "cloudflare", Endpoint: "https://api.cloudflare.com/", Account: "account", Resource: "worker", Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "second"), AcceptSnapshot: true},
+			"first":  {Type: "cloudflare", Account: "account", Resource: "worker", Path: "CQ_CONFIG", TokenFile: filepath.Join(base, "first"), AcceptSnapshot: true},
+			"second": {Type: "cloudflare", Endpoint: "https://api.cloudflare.com/", Account: "account", Resource: "worker", Path: "CQ_CONFIG", TokenFile: filepath.Join(base, "second"), AcceptSnapshot: true},
 		},
 		"windmill": {
 			"first":  {Type: "windmill", Endpoint: "https://windmill.example", Project: "workspace", Resource: "variable", TokenFile: filepath.Join(base, "first"), AcceptSnapshot: true},
@@ -257,7 +257,7 @@ func testRepository(base string) model.Repository {
 func netlifyTarget(base, environment string) model.Target {
 	return model.Target{
 		Type: "netlify", Account: "account", Project: "site", Environment: environment,
-		Path: "CQUAY_CONFIG", TokenFile: filepath.Join(base, "netlify-token"), AcceptSnapshot: true,
+		Path: "CQ_CONFIG", TokenFile: filepath.Join(base, "netlify-token"), AcceptSnapshot: true,
 	}
 }
 

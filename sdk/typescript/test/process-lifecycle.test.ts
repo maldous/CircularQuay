@@ -36,6 +36,7 @@ class SyntheticChild extends EventEmitter {
 
 class ChildHarness {
   readonly children: SyntheticChild[] = [];
+  readonly starts: Array<{ readonly executable: string; readonly args: readonly string[] }> = [];
   #plans: ChildPlan[] = [];
   #waiters: Array<(child: SyntheticChild) => void> = [];
   #throwOnStart = false;
@@ -43,7 +44,7 @@ class ChildHarness {
   enqueue(plan: ChildPlan): void { this.#plans.push(plan); }
   failNextStart(): void { this.#throwOnStart = true; }
 
-  spawn = (): unknown => {
+  spawn = (executable: string, args: readonly string[]): unknown => {
     if (this.#throwOnStart) {
       this.#throwOnStart = false;
       throw new Error("synthetic spawn failure");
@@ -51,6 +52,7 @@ class ChildHarness {
     const plan = this.#plans.shift();
     if (plan === undefined) throw new Error("synthetic child plan missing");
     const child = new SyntheticChild();
+    this.starts.push({ executable, args });
     this.children.push(child);
     plan(child);
     this.#waiters.shift()?.(child);
@@ -98,6 +100,38 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       assert.deepEqual(await client.run("api"), { exitCode: 7, stdout: "" });
     });
 
+    await t.test("uses public config-init and flow-run contracts", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => finish(child, '{"created":true}', 0)));
+      assert.deepEqual(await client.configInit("/synthetic/generated.json"), { created: true });
+      assert.deepEqual(harness.starts.at(-1)?.args, ["--config", "/synthetic/config.json", "--state-dir", "/synthetic/state", "config", "init", "--output", "/synthetic/generated.json"]);
+
+      harness.enqueue(child => queueMicrotask(() => finish(child, "", 0)));
+      assert.deepEqual(await client.flowRun("api", completePin()), { exitCode: 0, stdout: "" });
+      assert.deepEqual(harness.starts.at(-1)?.args, ["--config", "/synthetic/config.json", "--state-dir", "/synthetic/state", "flow", "run", "--workload", "api", "--config-source", "https://github.com/acme/policy", "--config-ref", "a".repeat(40), "--config-path", "policy.json", "--config-sha256", "b".repeat(64), "--non-interactive"]);
+    });
+
+    await t.test("rejects malformed remote URLs before a local process starts", async () => {
+      const client = await createClient(sdk, harness);
+      const before = harness.children.length;
+      assert.throws(() => client.bootstrap({ ...completePin(), configSource: "https://[", output: "/synthetic/policy.json" }), category(sdk, "invalid"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("rejects unsafe explicit environment entries before a local process starts", async () => {
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      for (const environment of [
+        { AWS_SECRET_ACCESS_KEY: "synthetic" },
+        { "not-valid": "synthetic" },
+        { SAFE: "synthetic\0value" },
+        { SAFE: "x".repeat(32_769) }
+      ]) {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, environment }), category(sdk, "invalid"));
+      }
+      assert.equal(harness.children.length, before);
+    });
+
     await t.test("rejects process start and lifecycle stream failures with safe categories", async () => {
       const client = await createClient(sdk, harness);
       harness.failNextStart();
@@ -119,7 +153,7 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       const before = harness.children.length;
       const options = { expectedSHA256: "0".repeat(64), configPath: resolve("synthetic", "config.json"), stateDirectory: resolve("synthetic", "state") };
       await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: process.execPath }), category(sdk, "integrity"));
-      const directory = await mkdtemp(join(tmpdir(), "cquay-sdk-missing-"));
+      const directory = await mkdtemp(join(tmpdir(), "cq-sdk-missing-"));
       try {
         await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: join(directory, "missing") }), category(sdk, "integrity"));
       } finally {
@@ -148,9 +182,17 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
 
 async function createClient(sdk: SDK, harness: ChildHarness): Promise<InstanceType<SDK["LocalCLIClient"]>> {
   harness.enqueue(child => queueMicrotask(() => finish(child, '{"version":"1.0.0","commit":"synthetic","go":"go1.27.3","maturity":"development"}', 0)));
-  const executable = process.execPath;
-  const expectedSHA256 = createHash("sha256").update(await readFile(executable)).digest("hex");
-  return sdk.LocalCLIClient.create({ executablePath: executable, expectedSHA256, configPath: "/synthetic/config.json", stateDirectory: "/synthetic/state" });
+  return sdk.LocalCLIClient.create(await trustedOptions());
+}
+
+async function trustedOptions(): Promise<{ readonly executablePath: string; readonly expectedSHA256: string; readonly configPath: string; readonly stateDirectory: string }> {
+  const executablePath = process.execPath;
+  const expectedSHA256 = createHash("sha256").update(await readFile(executablePath)).digest("hex");
+  return { executablePath, expectedSHA256, configPath: "/synthetic/config.json", stateDirectory: "/synthetic/state" };
+}
+
+function completePin(): { readonly configSource: string; readonly configRef: string; readonly configPath: string; readonly configSHA256: string } {
+  return { configSource: "https://github.com/acme/policy", configRef: "a".repeat(40), configPath: "policy.json", configSHA256: "b".repeat(64) };
 }
 
 async function assertProcessCategory(operation: () => Promise<unknown>, harness: ChildHarness, stderr: string, expected: string, sdk: SDK): Promise<void> {
@@ -173,5 +215,5 @@ function finish(child: SyntheticChild, stdoutOrStderr: string, code: number): vo
 }
 
 function category(sdk: SDK, expected: string): (error: unknown) => boolean {
-  return error => error instanceof sdk.CquayError && error.category === expected;
+  return error => error instanceof sdk.CqError && error.category === expected;
 }

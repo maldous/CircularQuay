@@ -1,5 +1,5 @@
 [Unit]
-Description=Periodic CircularQuay reconciliation for %i
+Description=Periodic CQ reconciliation for %i
 
 [Timer]
 OnBootSec=30s

@@ -86,7 +86,7 @@
   "language_conventions": {
     "python_cancellation": "asyncio.CancelledError is re-raised after bounded owned-child cleanup; its observation outcome is cancelled",
     "go_cancellation": "a detail-free Error with category cancelled is returned",
-    "typescript_cancellation": "a detail-free CquayError with category cancelled is rejected"
+    "typescript_cancellation": "a detail-free CqError with category cancelled is rejected"
   },
   "safety": {
     "raw_server_error_text": "must_not_be_retained_or_serialized",

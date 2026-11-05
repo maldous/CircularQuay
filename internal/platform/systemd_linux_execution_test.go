@@ -128,7 +128,7 @@ func TestSystemdCommandBoundsOrphanedOutputPipe(t *testing.T) {
 	start := time.Now()
 	err := runSystemdCommand(context.Background(), systemCommand{
 		path: os.Args[0], args: []string{"-test.run=^TestSystemdCommandHelper$"},
-		env: []string{"CQUAY_SYSTEMD_HELPER=parent"}, stdout: io.Discard, stderr: io.Discard,
+		env: []string{"CQ_SYSTEMD_HELPER=parent"}, stdout: io.Discard, stderr: io.Discard,
 	})
 	if !errors.Is(err, exec.ErrWaitDelay) {
 		t.Fatalf("orphaned output result = %v", err)
@@ -139,12 +139,12 @@ func TestSystemdCommandBoundsOrphanedOutputPipe(t *testing.T) {
 }
 
 func TestSystemdCommandHelper(t *testing.T) {
-	switch os.Getenv("CQUAY_SYSTEMD_HELPER") {
+	switch os.Getenv("CQ_SYSTEMD_HELPER") {
 	case "child":
 		writeUntilPipeClosed(10 * systemdWaitDelay)
 	case "parent":
 		child := exec.Command(os.Args[0], "-test.run=^TestSystemdCommandHelper$")
-		child.Env = []string{"CQUAY_SYSTEMD_HELPER=child"}
+		child.Env = []string{"CQ_SYSTEMD_HELPER=child"}
 		child.Stdout, child.Stderr = os.Stdout, os.Stderr
 		if err := child.Start(); err != nil {
 			t.Fatal(err)

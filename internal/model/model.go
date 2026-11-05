@@ -1,4 +1,4 @@
-// Package model defines CircularQuay's versioned, non-secret configuration contract.
+// Package model defines CQ's versioned, non-secret configuration contract.
 package model
 
 import "time"
@@ -178,7 +178,7 @@ type Target struct {
 }
 
 // Grant is enforced before fetching values or invoking actions. Its optional
-// time bounds constrain local cquay authorization; they do not extend remote
+// time bounds constrain local cq authorization; they do not extend remote
 // identity claims or provider credential validity.
 type Grant struct {
 	Authority  string     `json:"authority,omitempty" yaml:"authority,omitempty"`
@@ -205,7 +205,7 @@ type MCP struct {
 }
 
 // IdentityAuthority pins one access-token issuer, resource audience and typed
-// claim profile. Permissions map operator-defined scopes/roles to cquay actions;
+// claim profile. Permissions map operator-defined scopes/roles to cq actions;
 // an omitted action is denied, independently of an exact local workload grant.
 type IdentityAuthority struct {
 	Issuer           string                     `json:"issuer" yaml:"issuer"`
@@ -223,7 +223,7 @@ type IdentityAuthority struct {
 }
 
 // SenderConstraint selects the optional DPoP access-token binding profile.
-// Its replay cache is intentionally local and persistent: one cquay instance may
+// Its replay cache is intentionally local and persistent: one cq instance may
 // enforce it. Multi-replica operation must not select this profile.
 type SenderConstraint struct {
 	Type               string `json:"type" yaml:"type"`

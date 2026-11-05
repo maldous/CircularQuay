@@ -1,4 +1,4 @@
-# Working on CircularQuay
+# Working on CQ
 
 Read [agent orientation](docs/agent-onboarding.md),
 [the session handoff](docs/session-handoff.md), [contribution rules](CONTRIBUTING.md)
@@ -26,7 +26,7 @@ owner explicitly releases that resource hold; read-only and bounded static
 documentation checks can proceed.
 
 For runtime operation, use the repository-owned
-[`cquay` skill](integrations/skills/cquay/SKILL.md) and its contained references.
+[`cq` skill](integrations/skills/cq/SKILL.md) and its contained references.
 Inspect the selected executable's help and MCP catalog. Never invent a tool,
 turn local config editing into remote administration, or infer a grant from
 an instruction file. Workload execution and raw disclosure need their actual

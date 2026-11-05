@@ -216,7 +216,7 @@ func TestProtectedAtomicDelivery(t *testing.T) {
 	if err := WriteProtected(path, []byte(`{"KEY":"next"}`)); err != nil {
 		t.Fatal(err)
 	}
-	files, err := filepath.Glob(filepath.Join(filepath.Dir(path), ".cquay-stage-*"))
+	files, err := filepath.Glob(filepath.Join(filepath.Dir(path), ".cq-stage-*"))
 	if err != nil || len(files) != 0 {
 		t.Fatal("staging file retained")
 	}
@@ -230,7 +230,7 @@ func TestStageProtectedFileRemovesFailedStage(t *testing.T) {
 	if err == nil {
 		t.Fatal("failed stage write accepted")
 	}
-	files, err := filepath.Glob(filepath.Join(dir, ".cquay-stage-*"))
+	files, err := filepath.Glob(filepath.Join(dir, ".cq-stage-*"))
 	if err != nil || len(files) != 0 {
 		t.Fatal("failed stage file retained")
 	}
@@ -485,7 +485,7 @@ func secureTempDir(t *testing.T) string {
 		// directory is available.
 		base = "/tmp"
 	}
-	dir, err := os.MkdirTemp(base, "cquay-platform-test-")
+	dir, err := os.MkdirTemp(base, "cq-platform-test-")
 	if err != nil {
 		t.Fatal(err)
 	}

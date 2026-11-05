@@ -23,14 +23,13 @@ One small Node process listens on two **loopback-only** ports:
 | Customer account | http://127.0.0.1:5180/#/account/overview |
 | Operator console | http://127.0.0.1:5180/#/operator/overview |
 
-Matt confirmed phone access through his existing authenticated Termux SSH tunnel.
+Phone previews can use authenticated Termux SSH forwarding to the loopback ports.
 Forward phone `127.0.0.1:5181` to Foo `127.0.0.1:5181`, and phone
 `127.0.0.1:5180` to Foo `127.0.0.1:5180`, using the existing Foo SSH target.
-This is user-confirmed access, not an automated physical-phone test. Browser
-storage is device/browser/origin scoped; desktop drafts do not automatically
-transfer to the phone. No firewall, public tunnel, production hosting or service
-installation was created. `Ctrl+C` stops the process. Ports and ownership were
-agreed with the implementation owner.
+Phone reachability is operator-reported; no automated physical-device test is
+recorded. Browser storage is device/browser/origin scoped; desktop drafts do not automatically
+transfer to the phone. Loopback forwarding requires no public listener or service installation.
+`Ctrl+C` stops the process. Coordinate port use on shared development hosts.
 
 Editing source JavaScript, CSS or bundled JSON reloads connected previews. An
 unsaved draft suppresses automatic reload and asks the user to save/discard it.
@@ -122,7 +121,7 @@ landing page. They are derived vectors, not the original vector source or a
 pixel-identical reproduction of the raster texture.
 Dock/Guided were structural preferences, not a claimed approved final
 layout. The pre-revision source is retained at
-`/tmp/cquay-frontend-before-workbench/web`.
+`/tmp/cq-frontend-before-workbench/web`.
 
 All 131 editable scalar controls were individually changed with exact whole-document
 comparisons on the deliberately invalid all-fields draft; six true constants
@@ -146,3 +145,27 @@ secondary actions under More actions, and offers Undo removal until the next
 edit/save/document replacement. Undo restores the whole previous proposal and
 invalid numeric inputs. Browser validation remains separate from native
 qualification. `PRODUCT.md` and `DESIGN.md` record the authorized browser scope.
+
+## Client-local help
+
+Use **Help & search**, F1, or `/help.html` on either preview port. The launcher loads with the app; the viewer, public catalog and selected article load only when opened. The full-text index loads on the first nonblank search, with one shared request across concurrent searches. Ranking and subsequent queries run locally. Queries never enter request URLs, bodies, browser storage or diagnostic events. Browsing starts with 16 guides; full-text search also covers 317 schema and collection-field articles.
+
+Run `npm run build:help` after an approved authoring-content update, then restart the existing preview to reload its exact asset allowlist. The build validates the closed v1 authoring schema, publishes only product instructions/references, and produces content-addressed articles, catalog, postings and precompressed Brotli alternatives. Hash-addressed assets have immutable cache headers; the small manifest is fetched without caching on a fresh viewer store. Its exact byte count, SHA-256 and expected content/source version are pinned in the reviewed executable module `help-release.js`; the bounded reader verifies raw bytes before JSON parsing. A self-consistent replacement manifest and corpus are rejected before catalog use. Review any regenerated pin together with its source and derived assets. This bundle pin does not protect against executable-bundle or host compromise. Browsers without Brotli receive the identical uncompressed content. Runtime checks reject mismatched versions, hashes, unsupported shapes and oversized streams. Article memory caching is bounded to 32 articles or 2 MiB.
+
+`npm test` selects current root test files explicitly so retained historical evidence under `output/` is not counted as new test coverage. The English corpus is an authored draft; article presence/searchability is not acceptance of every native semantic branch. Initial language scope is English plus one Arabic locale. Arabic translation and full interface RTL acceptance are separate pending work, not implied by Arabic search normalization.
+
+The English public source JSON is compactly serialized to remain below the existing 1 MiB first-party source-identity limit. Its parsed 333-article/header/reference semantics are identical to the independently accepted readable authoring artifact; the distribution version and bundle pin use the actual compact file hash. The build refuses larger source files.
+
+## Language and theme
+
+Language and theme controls work before entering either demo and on task and standalone help pages. English (`en`) is the fallback; Arabic (`ar`) is explicitly a preview for RTL testing while product pages and the current help corpus remain English. The preferences module loads independently of the application module. Changing a preference updates the document and preference controls in place, preserving open form drafts.
+
+The single current storage record is `cq.presentation.v1`: `{version:1, language?:'system'|'en'|'ar', theme?:'system'|'light'|'dark'}`. Only explicit choices are saved. Automatic clears the field; Browser only and Device system explicitly follow this device. An optional verified profile value would apply between device choice and browser defaults, but no real profile service is connected. Workspace preferences are never read or converted. Blocked browser storage keeps the choice for this page and displays a warning. No geolocation service, language request or telemetry is involved.
+
+Browser checks cover draft preservation, reload persistence, narrow RTL layouts, keyboard controls, forced-colors emulation and component contrast. They do not establish full Arabic translation, genuine identity transitions, physical-phone or assistive-technology acceptance.
+
+## Measured public-asset delivery
+
+The preview negotiates Brotli for allowlisted JavaScript/CSS of at least 1 KiB, with byte-identical identity fallback. Every request still passes the trusted-file read. Encodings are keyed by current content hash, with at most 32 retained entries / 2 MiB and four concurrent encodes; concurrent requests for the same bytes share work. Immutable help payloads retain their separately built/pinned Brotli representations. No configuration or search input enters compression keys or uploaded diagnostics.
+
+Local Lighthouse reports, public-timing probes and rendered-route observations are under `output/playwright/performance/`. They identify source/tool/browser/emulation and limits; no homepage score, mobile viewport, automated accessibility score or local Event Timing sample establishes complete action coverage, physical-device/OS/AT acceptance or field INP. The current whole-interface Arabic translation and full platform/feedback acceptance remain pending.

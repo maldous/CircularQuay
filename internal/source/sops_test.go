@@ -303,7 +303,7 @@ func TestSOPSRealAgeRoundTrip(t *testing.T) {
 
 func realSOPSTools(t *testing.T) (string, string, bool) {
 	t.Helper()
-	sops, ageKeygen := os.Getenv("CQUAY_TEST_SOPS"), os.Getenv("CQUAY_TEST_AGE_KEYGEN")
+	sops, ageKeygen := os.Getenv("CQ_TEST_SOPS"), os.Getenv("CQ_TEST_AGE_KEYGEN")
 	if sops == "" || ageKeygen == "" {
 		return "", "", false
 	}

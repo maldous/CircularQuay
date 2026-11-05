@@ -15,8 +15,7 @@ authorization is required and where an encrypted offline copy is appropriate.
 
 CircularQuay gets the right secrets to the right apps, wherever they run.
 Keep your existing secret stores, choose what each app can access, and manage
-it all from one configuration. The app and command are **`cquay`**, pronounced
-**“c-key.”**
+it all from one configuration. The command is **`cq`** (the letters **C,Q**).
 
 Use it on its own, or connect an **optional identity provider** to tie access
 to a person or service and a time limit. An **optional MCP connector** brings
@@ -43,7 +42,7 @@ records what was tested; passing a workflow does not establish a qualified relea
 
 ## Try it in a minute
 
-[Install or build `cquay`](docs/getting-started.md), then create a local example
+[Install or build `cq`](docs/getting-started.md), then create a local example
 with fabricated values in a local JSON file. This fixture uses no external
 secret-provider account or MCP connection. Hosted key-service enrollment has
 its own first-run authentication and opt-out contract, described below.
@@ -52,17 +51,17 @@ its own first-run authentication and opt-out contract, described below.
 
 ```sh
 umask 077
-cquay init --output cquay.json
-cquay --config cquay.json doctor
-cquay --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello from cquay.'
+cq init --output cq.json
+cq --config cq.json doctor
+cq --config cq.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello from cq.'
 ```
 
 **Windows PowerShell**
 
 ```powershell
-.\cquay.exe init --output cquay.json
-.\cquay.exe --config cquay.json doctor
-.\cquay.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Hello from cquay.'
+.\cq.exe init --output cq.json
+.\cq.exe --config cq.json doctor
+.\cq.exe --config cq.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Hello from cq.'
 ```
 
 On first run, the product checks existing configuration, then trusted discovery,

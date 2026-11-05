@@ -42,7 +42,7 @@ flowchart TD
   IDP -- "Authenticated identity" --> AS["Authorization server"]
   APP["Registered application and client proof"] --> AS
   AS -- "Identity, application, permissions and expiry" --> TICKET["Signed permission ticket"]
-  TICKET --> CHECK{"cquay checks identity, policy and time"}
+  TICKET --> CHECK{"cq checks identity, policy and time"}
   AS -. "Trusted public signing keys" .-> CHECK
   APP -- "Token and proof of client-key possession" --> CHECK
   POLICY["Protected policy and key associations"] --> CHECK
@@ -129,7 +129,7 @@ flowchart TD
   IDENTITY["Identity grant expires: 17:00"] --> EARLIEST["Earliest deadline wins"]
   SECRET["Provider credential expires: 16:30"] --> EARLIEST
   WINDOW --> EARLIEST
-  EARLIEST --> DEADLINE["Secret access through cquay ends: 15:00"]
+  EARLIEST --> DEADLINE["Secret access through cq ends: 15:00"]
   DEADLINE --> RENEW["Fresh authorization renews access"]
 ```
 

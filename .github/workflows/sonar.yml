@@ -13,8 +13,7 @@ concurrency:
 
 jobs:
   sonar:
-    # Keep this distinct and initially non-required: a real PR run must exist
-    # before branch protection can require its check name.
+    # This stable name is bound to the protected-branch required check.
     name: Hosted ephemeral SonarQube gate
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -39,16 +38,16 @@ jobs:
           set -uo pipefail
           umask 077
 
-          root="$RUNNER_TEMP/cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          root="$RUNNER_TEMP/cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           state="$root/state"
           evidence="$root/evidence"
           mkdir -p "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
           chmod 700 "$root" "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
-          printf 'CQUAY_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
-          printf 'CQUAY_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
+          printf 'CQ_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
+          printf 'CQ_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
           export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
 
-          compose_project="cquay-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          compose_project="cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
           compose_start_attempted=0
           startup_diagnostics_collected=0
@@ -168,8 +167,8 @@ jobs:
           )" || fatal "loopback-port-allocation-failed"
           export SONAR_PORT="$sonar_port"
 
-          go build -p 1 -trimpath -o "$root/cquay-audit" ./cmd/cquay-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
-          "$root/cquay-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+          go build -p 1 -trimpath -o "$root/cq-audit" ./cmd/cq-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
+          "$root/cq-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
           compose_start_attempted=1
           timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
           timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
@@ -204,7 +203,7 @@ jobs:
             collect_startup_diagnostics
             fatal "sonar-not-ready"
           fi
-          "$root/cquay-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project circularquay --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
+          "$root/cq-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project cq --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
 
           # The lock's archive digest was read from the official SonarSource
           # .sha256 sidecar; the executable digest is an independent receipt.
@@ -260,7 +259,7 @@ jobs:
             # minimal environment while retaining the explicit revision fence.
             env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_TOKEN="$sonar_token" "$scanner" \
               -Dsonar.host.url="http://127.0.0.1:${sonar_port}" \
-              -Dsonar.projectKey=circularquay \
+              -Dsonar.projectKey=cq \
               -Dsonar.scm.revision="$GITHUB_SHA" \
               -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
               -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
@@ -303,15 +302,15 @@ jobs:
             test -n "$ce_task" || readback_ok=0
             request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
             analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_ok=0
-            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "circularquay")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_ok=0
-            request current-analysis '/api/project_analyses/search?project=circularquay&ps=100'
+            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_ok=0
+            request current-analysis '/api/project_analyses/search?project=cq&ps=100'
             jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_ok=0
             request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
-            request metrics '/api/measures/component?component=circularquay&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
+            request metrics '/api/measures/component?component=cq&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
             # Match the strict inspector contract. Accepted and false-positive
             # dispositions must block, never waive, this gate.
-            request all-issues '/api/issues/search?componentKeys=circularquay&issueStatuses=OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX&ps=500&p=1'
-            request hotspots '/api/hotspots/search?project=circularquay&ps=500&p=1'
+            request all-issues '/api/issues/search?componentKeys=cq&issueStatuses=OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX&ps=500&p=1'
+            request hotspots '/api/hotspots/search?project=cq&ps=500&p=1'
 
             # Attribution is deliberately a post-analysis read-only receipt.
             # SonarQube Community Build 26.10.0.133078 declares both public
@@ -336,7 +335,7 @@ jobs:
               printf '%s\n' "$status" >"$evidence/${name}.status"
               test "$status" = 200 || readback_ok=0
             }
-            request_private duplicate-components '/api/measures/component_tree?component=circularquay&metricKeys=duplicated_lines,duplicated_blocks,duplicated_lines_density&qualifiers=FIL&strategy=leaves&s=metric&metricSort=duplicated_lines&metricSortFilter=withMeasuresOnly&asc=false&ps=500&p=1'
+            request_private duplicate-components '/api/measures/component_tree?component=cq&metricKeys=duplicated_lines,duplicated_blocks,duplicated_lines_density&qualifiers=FIL&strategy=leaves&s=metric&metricSort=duplicated_lines&metricSortFilter=withMeasuresOnly&asc=false&ps=500&p=1'
             jq -e '
               (.paging | type == "object" and (.pageIndex | type == "number" and . == 1) and (.pageSize | type == "number" and . > 0 and . <= 500) and (.total | type == "number" and . >= 0 and . <= 500)) and
               (.components | type == "array" and length <= 500) and
@@ -360,7 +359,7 @@ jobs:
             emitted_groups=0
             emitted_blocks=0
             public_component_path() {
-              case "$1" in circularquay:*) path="${1#circularquay:}";; *) return 1;; esac
+              case "$1" in cq:*) path="${1#cq:}";; *) return 1;; esac
               test -n "$path" && test "${path#/}" = "$path" && test "${path//\\/}" = "$path" || return 1
               case "/$path/" in *'/./'*|*'/../'*|*'//'*) return 1;; esac
               test "$(git cat-file -t "$GITHUB_SHA:$path" 2>/dev/null)" = blob
@@ -386,7 +385,7 @@ jobs:
               if test "$participants_ok" != true; then readback_ok=0; continue; fi
               jq -c --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" '
                 .files as $files | .duplications[] |
-                {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^circularquay:"; "")),from:.from,size:.size}]}
+                {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^cq:"; "")),from:.from,size:.size}]}
               ' "$response" >>"$state/duplication-blocks.ndjson" || readback_ok=0
               emitted_groups=$((emitted_groups + response_groups))
               emitted_blocks=$((emitted_blocks + response_blocks))
@@ -419,6 +418,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sonar-ephemeral-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ env.CQUAY_SONAR_EVIDENCE }}
+          path: ${{ env.CQ_SONAR_EVIDENCE }}
           if-no-files-found: error
           retention-days: 14

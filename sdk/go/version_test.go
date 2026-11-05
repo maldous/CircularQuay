@@ -1,4 +1,4 @@
-package cquay
+package cq
 
 import (
 	"context"

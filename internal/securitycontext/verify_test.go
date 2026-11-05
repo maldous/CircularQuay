@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"strconv"
 	"strings"
 	"testing"
@@ -65,6 +64,7 @@ func TestVerifyRejectsThresholdAliasAndExpiry(t *testing.T) {
 	if _, err := Verify(aliased, input); !fault.Is(err, fault.Trust) {
 		t.Fatalf("alias threshold error = %v", err)
 	}
+	input, private = fixture(t)
 	expired := claimsFor(input)
 	expired.ExpiresAt = input.Now.Add(-time.Second)
 	if _, err := Verify(signed(t, expired, private, "key-1", nil), input); !fault.Is(err, fault.Expired) {
@@ -98,16 +98,26 @@ func TestCanonicalECDSAKeyValidation(t *testing.T) {
 	if _, ok := canonicalECDSAKey(&private.PublicKey, elliptic.P256()); !ok {
 		t.Fatal("valid ES256 public key rejected")
 	}
+	wrongCurve, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cases := []crypto.PublicKey{
+		&ecdsa.PublicKey{Curve: elliptic.P256()},
 		private,
 		(*ecdsa.PublicKey)(nil),
-		&ecdsa.PublicKey{Curve: elliptic.P384(), X: private.X, Y: private.Y},
-		&ecdsa.PublicKey{Curve: elliptic.P256(), X: big.NewInt(1), Y: big.NewInt(1)},
+		&wrongCurve.PublicKey,
+		struct{}{},
 	}
 	for _, value := range cases {
 		if _, ok := canonicalECDSAKey(value, elliptic.P256()); ok {
 			t.Fatal("unsupported ECDSA public key accepted")
 		}
+	}
+	invalidPoint := private.PublicKey
+	invalidPoint.Curve = elliptic.P384()
+	if _, ok := canonicalECDSAKey(&invalidPoint, elliptic.P384()); ok {
+		t.Fatal("point from a different curve accepted")
 	}
 }
 
@@ -169,7 +179,7 @@ func fixture(t *testing.T) (Input, *ecdsa.PrivateKey) {
 	boot := hashText("bootstrap")
 	authority := GenerationReference{RecoveryEpoch: "0", Sequence: "1", AcceptedPayloadSHA256: hashText("authority")}
 	enrollment := GenerationReference{RecoveryEpoch: "0", Sequence: "1", AcceptedPayloadSHA256: hashText("enrollment")}
-	binding := Binding{Tenant: "tenant-a", ContextID: "context-a", TrustDomain: "native-a", Audience: "cquay://native-a"}
+	binding := Binding{Tenant: "tenant-a", ContextID: "context-a", TrustDomain: "native-a", Audience: "cq://native-a"}
 	return Input{Trust: Trust{Binding: binding, Issuer: "local-baseline", ProfileID: "default-local", ProfileRevision: "1", Keys: []TrustedKey{{KID: "key-1", Algorithm: jose.ES256, Key: &private.PublicKey}}, RequiredSigners: 1}, Snapshot: AggregateSnapshot{Context: AcceptedContext{Reference: GenerationReference{RecoveryEpoch: "0", Sequence: "0", AcceptedPayloadSHA256: boot}, PreviousPayload: boot}, Authority: authority, Enrollment: enrollment, TrustSetEpoch: "1", RevocationEpoch: "1", Fence: "1"}, GraphDigest: hashText("graph"), Now: time.Now().UTC()}, private
 }
 

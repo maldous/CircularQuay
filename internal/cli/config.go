@@ -353,7 +353,7 @@ func (a application) ensureConfigUnchanged(path, digest string, repair bool) err
 }
 
 func configLock(path string) (func() error, error) {
-	store := state.Store{Directory: filepath.Join(filepath.Dir(path), ".cquay-config-lock")}
+	store := state.Store{Directory: filepath.Join(filepath.Dir(path), ".cq-config-lock")}
 	return store.Lock("policy")
 }
 

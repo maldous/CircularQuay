@@ -32,7 +32,7 @@ func privateDeliveryDirectory(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory, err := os.MkdirTemp(base, "cquay-delivery-test-")
+	directory, err := os.MkdirTemp(base, "cq-delivery-test-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func assertCloudflareRequest(t *testing.T, r *http.Request) {
 		t.Error("missing bearer authorization")
 	}
 	var body map[string]string
-	if json.NewDecoder(r.Body).Decode(&body) != nil || body["name"] != "CQUAY_CONFIG" || body["type"] != "secret_text" {
+	if json.NewDecoder(r.Body).Decode(&body) != nil || body["name"] != "CQ_CONFIG" || body["type"] != "secret_text" {
 		t.Error("incorrect binding")
 		return
 	}
@@ -158,7 +158,7 @@ func TestNetlifyPublicationScope(t *testing.T) {
 
 func TestNetlifyUpdateAndTargetValidation(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/accounts/account/env/CQUAY_CONFIG" {
+		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/accounts/account/env/CQ_CONFIG" {
 			t.Error("Netlify update escaped target")
 		}
 		w.WriteHeader(http.StatusOK)

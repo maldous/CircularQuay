@@ -1,7 +1,7 @@
-// Package cquay is the supported Go client for CircularQuay's optional MCP
+// Package cq is the supported Go client for CircularQuay's optional MCP
 // interface. It wraps a caller-owned official MCP SDK session; it does not
 // discover credentials, start a process, or create a transport.
-package cquay
+package cq
 
 import (
 	"bytes"
@@ -51,7 +51,7 @@ const (
 // response content.
 type Error struct{ Category Category }
 
-func (e *Error) Error() string { return "cquay: " + string(e.Category) }
+func (e *Error) Error() string { return "cq: " + string(e.Category) }
 
 // Event is metadata-only operation telemetry. It contains no tool arguments,
 // identifiers, endpoint URLs, credentials, or values.
@@ -124,9 +124,9 @@ type Tool struct {
 	Description string
 }
 
-// DiscoverTools lists the CircularQuay MCP tools available to the caller's
+// DiscoverTools lists the CQ MCP tools available to the caller's
 // already-authenticated session. It neither caches nor follows pagination;
-// current CircularQuay v1 responses are one bounded page.
+// current CQ v1 responses are one bounded page.
 func (c *Client) DiscoverTools(ctx context.Context) (tools []Tool, err error) {
 	started := time.Now()
 	defer func() { c.observe("discover_tools", outcome(err), time.Since(started)) }()
@@ -272,10 +272,10 @@ type Secret struct {
 func (s Secret) Value() string { return s.value }
 
 // String never returns the plaintext secret.
-func (Secret) String() string { return "[cquay secret redacted]" }
+func (Secret) String() string { return "[cq secret redacted]" }
 
 // GoString never returns the plaintext secret.
-func (Secret) GoString() string { return "cquay.Secret{Value:[redacted]}" }
+func (Secret) GoString() string { return "cq.Secret{Value:[redacted]}" }
 
 // MarshalJSON serializes secret metadata and a redaction marker, never the
 // plaintext value.
@@ -433,7 +433,7 @@ func validHandleRune(r rune) bool {
 func boundedText(value string) bool { return len(value) <= maxTextLength }
 
 // validProviderVersion accepts the provider's opaque version identifier. It is
-// deliberately not a CircularQuay handle: providers use paths, timestamps,
+// deliberately not a CQ handle: providers use paths, timestamps,
 // and other provider-specific syntaxes. C0 controls and DEL are excluded so
 // the metadata remains safe for bounded structured use.
 func validProviderVersion(value string) bool {

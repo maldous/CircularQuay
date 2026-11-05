@@ -308,7 +308,7 @@ func (e *Engine) Snapshot(ctx context.Context, g model.Generation) (err error) {
 	if err != nil {
 		return err
 	}
-	return e.Snapshots.Encrypt(ctx, w.Snapshot, map[string]string{"circularquay_snapshot": encoded})
+	return e.Snapshots.Encrypt(ctx, w.Snapshot, map[string]string{"cq_snapshot": encoded})
 }
 
 func (e *Engine) snapshotWorkload(id string) (model.Workload, error) {
@@ -476,7 +476,7 @@ func (e *Engine) decryptSnapshot(ctx context.Context, workload model.Workload) (
 	if err != nil {
 		return snapshotPayload{}, err
 	}
-	encoded, valid := contents["circularquay_snapshot"]
+	encoded, valid := contents["cq_snapshot"]
 	if len(contents) != 1 || !valid || len(encoded) > 2<<20 {
 		return snapshotPayload{}, fault.New(fault.Trust, "snapshot format")
 	}

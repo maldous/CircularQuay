@@ -71,10 +71,10 @@ func (a application) flowOptions(args []string) (flowOptions, error) {
 	f := flag.NewFlagSet("flow run", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	workload := f.String("workload", "", "declared workload ID")
-	source := f.String("config-source", os.Getenv(envCQUAYConfigSource), "immutable GitHub configuration source")
-	ref := f.String("config-ref", os.Getenv(envCQUAYConfigRef), "full immutable Git commit")
+	source := f.String("config-source", os.Getenv(envCQConfigSource), "immutable GitHub configuration source")
+	ref := f.String("config-ref", os.Getenv(envCQConfigRef), "full immutable Git commit")
 	path := f.String("config-path", configPathDefault(), "configuration path in the repository")
-	digest := f.String("config-sha256", os.Getenv(envCQUAYConfigSHA256), "required configuration SHA-256")
+	digest := f.String("config-sha256", os.Getenv(envCQConfigSHA256), "required configuration SHA-256")
 	_ = f.Bool("non-interactive", false, "flow never prompts")
 	if f.Parse(args[1:]) != nil || f.NArg() != 0 || *workload == "" {
 		return flowOptions{}, fault.New(fault.Invalid, "flow arguments")
@@ -93,7 +93,7 @@ func (a application) flowRemote(ctx context.Context, options flowOptions, runner
 	if err != nil {
 		return 0, err
 	}
-	directory, err := newFlowTempDir(parent, "cquay-flow-")
+	directory, err := newFlowTempDir(parent, "cq-flow-")
 	if err != nil {
 		return 0, fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
@@ -165,7 +165,7 @@ func (a application) flowReceipt(runner ciRunner, sourceKind, workload, ref, dig
 }
 
 func flowEnvironmentSourcePresent() bool {
-	for _, key := range []string{envCQUAYConfigSource, envCQUAYConfigRef, envCQUAYConfigPath, envCQUAYConfigSHA256} {
+	for _, key := range []string{envCQConfigSource, envCQConfigRef, envCQConfigPath, envCQConfigSHA256} {
 		if _, found := os.LookupEnv(key); found {
 			return true
 		}

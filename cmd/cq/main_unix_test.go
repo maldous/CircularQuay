@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const rootSignalHelperEnvironment = "CQUAY_TEST_ROOT_SIGNAL_HELPER"
+const rootSignalHelperEnvironment = "CQ_TEST_ROOT_SIGNAL_HELPER"
 
 func TestRootSignalNotifyContextCancelsForSIGTERM(t *testing.T) {
 	if os.Getenv(rootSignalHelperEnvironment) == "1" {

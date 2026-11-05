@@ -14,7 +14,7 @@ func namedAuthorityServicePolicy(t *testing.T) model.Policy {
 	t.Helper()
 	config := testPolicy(t)
 	config.MCP = model.MCP{
-		Resource: "https://cquay.example.test/mcp",
+		Resource: "https://cq.example.test/mcp",
 		Authorities: map[string]model.IdentityAuthority{
 			"workforce": {
 				Issuer:         "https://identity.example.test",
@@ -113,12 +113,12 @@ func TestLegacyHTTPPrincipalRequiresDefaultOperationScope(t *testing.T) {
 	now := time.Date(2026, time.November, 4, 1, 0, 0, 0, time.UTC)
 	config := testPolicy(t)
 	principal := Principal{
-		Subject: "local:alice", HTTP: true, Scopes: []string{"cquay:read"}, ExpiresAt: now.Add(time.Minute),
+		Subject: "local:alice", HTTP: true, Scopes: []string{"cq:read"}, ExpiresAt: now.Add(time.Minute),
 	}
 	if !principal.Authorize(config, "alpha", "read", "SERVICE_KEY", now) {
 		t.Fatal("legacy HTTP authorization denied")
 	}
-	principal.Scopes = []string{"cquay:status"}
+	principal.Scopes = []string{"cq:status"}
 	if principal.Authorize(config, "alpha", "read", "SERVICE_KEY", now) {
 		t.Fatal("legacy HTTP scope granted another operation")
 	}
@@ -130,7 +130,7 @@ func TestLegacyAuthorityFingerprintRechecksLoadedPolicyBeforeProvider(t *testing
 	principal := Principal{
 		Subject:              "local:alice",
 		HTTP:                 true,
-		Scopes:               []string{"cquay:read"},
+		Scopes:               []string{"cq:read"},
 		ExpiresAt:            now.Add(time.Minute),
 		AuthorityFingerprint: policy.MCPLegacyFingerprint(config.MCP),
 	}
@@ -141,7 +141,7 @@ func TestLegacyAuthorityFingerprintRechecksLoadedPolicyBeforeProvider(t *testing
 			mcp.JWKSURL = "https://rotated-identity.example.test/keys"
 		},
 		"jwks":     func(_ *Principal, mcp *model.MCP) { mcp.JWKSURL = "https://identity.example.test/rotated-keys" },
-		"audience": func(_ *Principal, mcp *model.MCP) { mcp.Audience = "https://cquay.example.test/rotated-mcp" },
+		"audience": func(_ *Principal, mcp *model.MCP) { mcp.Audience = "https://cq.example.test/rotated-mcp" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			current := config
@@ -164,7 +164,7 @@ func legacyAuthorityServicePolicy(t *testing.T) model.Policy {
 	t.Helper()
 	config := testPolicy(t)
 	config.MCP = model.MCP{
-		Issuer: "https://identity.example.test", JWKSURL: "https://identity.example.test/keys", Audience: "https://cquay.example.test/mcp",
+		Issuer: "https://identity.example.test", JWKSURL: "https://identity.example.test/keys", Audience: "https://cq.example.test/mcp",
 	}
 	return config
 }
