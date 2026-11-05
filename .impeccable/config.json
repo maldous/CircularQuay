@@ -1,0 +1,73 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/index.html"
+        ],
+        "createdAt": "2026-11-05T05:40:35.816Z",
+        "reason": "User confirmed: preserve existing product branding, colours, themes and fonts for landing-page consistency; web/style.css defines the Inter/platform stack."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/style.css"
+        ],
+        "createdAt": "2026-11-05T05:40:35.823Z",
+        "reason": "User confirmed: preserve existing product branding, colours, themes and fonts for landing-page consistency; web/style.css defines the Inter/platform stack."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/explore.html",
+          "examples/landing-motion/login.html"
+        ],
+        "createdAt": "2026-11-05T09:02:02.616Z",
+        "reason": "User explicitly pinned existing CircularQuay fonts on every page; shared Inter/platform stack is intentional branding."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "examples/landing-motion/index.html"
+        ],
+        "createdAt": "2026-11-05T09:02:02.730Z",
+        "reason": "False positive on the editorial index rows: text is inset by the child link padding (11px vertically), which also creates the complete hit area; outer li supplies only the separator."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "examples/landing-motion/index.html",
+          "examples/landing-motion/login.html"
+        ],
+        "createdAt": "2026-11-05T09:02:18.294Z",
+        "reason": "User explicitly pinned the existing warm ivory CircularQuay palette and provided the visual reference; preserve product branding."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/help.html"
+        ],
+        "createdAt": "2026-11-05T11:18:11.825Z",
+        "reason": "User explicitly requires existing CircularQuay branding and fonts across Help, search, Explore and Markdown pages; preserve the shared Inter/platform stack."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "examples/landing-motion/help.html"
+        ],
+        "createdAt": "2026-11-05T11:18:11.885Z",
+        "reason": "User explicitly requires existing CircularQuay branding across all pages; the existing warm ivory surface is intentional."
+      }
+    ]
+  }
+}

@@ -1,0 +1,300 @@
+name: Source checks
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Linux synthetic tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Formatting and module integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' go_sources < <(git ls-files -z '*.go')
+          test -z "$(gofmt -l "${go_sources[@]}")"
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go mod verify
+      - name: Tests, race checks and vet
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -count=1 -p 1 ./...
+          go test -race -count=1 -p 1 ./...
+          go vet -p 1 ./...
+      - name: Bounded parser and policy fuzzing
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -run='^$' -fuzz=FuzzCoverage -fuzztime=15s -parallel=2 ./internal/assurance
+          go test -run='^$' -fuzz=FuzzDecodeNeverLeaksInput -fuzztime=15s -parallel=2 ./internal/policy
+          go test -run='^$' -fuzz=FuzzEndpointNeverAcceptsCredentialURL -fuzztime=15s -parallel=2 ./internal/transport
+      - name: Enforce complexity ceilings
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$GOBIN"
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+          go install github.com/uudashr/gocognit/cmd/gocognit@v1.3.0
+          mapfile -d '' go_sources < <(git ls-files -z '*.go')
+          "$GOBIN/gocyclo" -over 10 "${go_sources[@]}"
+          cq_cognitive_log="$RUNNER_TEMP/cq-cognitive.log"
+          # Type-aware analysis loads each native package once per owning
+          # directory. Treat warnings/fallback diagnostics as a failed check.
+          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd sdk/go >"$cq_cognitive_log" 2>&1; then
+            cat "$cq_cognitive_log"
+            exit 1
+          fi
+          if test -s "$cq_cognitive_log"; then
+            cat "$cq_cognitive_log"
+            exit 1
+          fi
+  native-macos:
+    name: macOS synthetic tests
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run native synthetic tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          # Exercise Apple's protected Git/OpenSSH installation rather than a
+          # package-manager helper under a potentially mutable PATH ancestor.
+          export PATH="/usr/bin:/bin:$PATH"
+          go test -count=1 -p 1 ./...
+  native-windows:
+    name: Windows synthetic tests
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run native synthetic tests
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          go test -count=1 -p=1 ./...
+  cross-build:
+    name: Compile ${{ matrix.tier }} ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { tier: release-build, os: linux, arch: '386' }
+          - { tier: release-build, os: linux, arch: arm, goarm: '7' }
+          - { tier: release-build, os: linux, arch: arm64 }
+          - { tier: release-build, os: linux, arch: amd64 }
+          - { tier: release-build, os: linux, arch: loong64 }
+          - { tier: release-build, os: linux, arch: ppc64le }
+          - { tier: release-build, os: linux, arch: riscv64 }
+          - { tier: release-build, os: linux, arch: s390x }
+          - { tier: release-build, os: darwin, arch: amd64 }
+          - { tier: release-build, os: darwin, arch: arm64 }
+          - { tier: release-build, os: windows, arch: '386' }
+          - { tier: release-build, os: windows, arch: amd64 }
+          - { tier: release-build, os: windows, arch: arm64 }
+          - { tier: portable-build, os: freebsd, arch: '386' }
+          - { tier: portable-build, os: freebsd, arch: amd64 }
+          - { tier: portable-build, os: freebsd, arch: arm64 }
+          - { tier: portable-build, os: netbsd, arch: '386' }
+          - { tier: portable-build, os: netbsd, arch: amd64 }
+          - { tier: portable-build, os: netbsd, arch: arm64 }
+          - { tier: portable-build, os: openbsd, arch: '386' }
+          - { tier: portable-build, os: openbsd, arch: amd64 }
+          - { tier: portable-build, os: openbsd, arch: arm64 }
+          - { tier: portable-build, os: dragonfly, arch: amd64 }
+          - { tier: portable-build, os: illumos, arch: amd64 }
+          - { tier: portable-build, os: solaris, arch: amd64 }
+          - { tier: compile-only, os: android, arch: arm64 }
+    env:
+      CGO_ENABLED: '0'
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+      GOOS: ${{ matrix.os }}
+      GOARCH: ${{ matrix.arch }}
+      GOARM: ${{ matrix.goarm }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build both commands without installing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local/build
+          go build -p 1 -trimpath -o .local/build/cq ./cmd/cq
+          go build -p 1 -trimpath -o .local/build/cq-audit ./cmd/cq-audit
+  cross-build-gate:
+    name: Cross-build matrix
+    needs: cross-build
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every cross-build
+        shell: bash
+        env:
+          CQ_CROSS_BUILD_RESULT: ${{ needs.cross-build.result }}
+        run: |
+          set -euo pipefail
+          test "$CQ_CROSS_BUILD_RESULT" = success
+  assurance:
+    name: Source assurance gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Run the actual source profile
+        shell: bash --noprofile --norc -eo pipefail {0}
+        run: |
+          set -euo pipefail
+          umask 077
+          cq_audit_dir=''
+          cq_audit_dir=$(mktemp -d "${HOME}/cq-source-audit.XXXXXX")
+          chmod 0700 "$cq_audit_dir"
+          cq_tool_dir="$cq_audit_dir/tools"
+          cq_home_dir="$cq_audit_dir/home"
+          cq_tmp_dir="$cq_audit_dir/tmp"
+          cq_cache_dir="$cq_audit_dir/cache"
+          mkdir -m 0700 "$cq_tool_dir" "$cq_home_dir" "$cq_tmp_dir" "$cq_cache_dir"
+          mkdir -m 0700 "$cq_cache_dir/build" "$cq_cache_dir/mod"
+          CQ_SELECTED_GIT=''
+          CQ_SELECTED_SSH_KEYGEN=''
+          CQ_SELECTED_GOROOT=''
+          CQ_SELECTED_GO=''
+          CQ_SELECTED_GIT="$(realpath -e /usr/bin/git)"
+          CQ_SELECTED_SSH_KEYGEN="$(realpath -e /usr/bin/ssh-keygen)"
+          CQ_SELECTED_GO="$(realpath -e "$(command -v go)")"
+          CQ_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQ_SELECTED_GO")/..")"
+          test "$CQ_SELECTED_GO" = "$CQ_SELECTED_GOROOT/bin/go"
+          test "$(env GOROOT="$CQ_SELECTED_GOROOT" "$CQ_SELECTED_GO" env GOVERSION)" = go1.27.3
+          test -x "$CQ_SELECTED_GIT"
+          test -x "$CQ_SELECTED_SSH_KEYGEN"
+          test -x "$CQ_SELECTED_GO"
+          test -x "$CQ_SELECTED_GOROOT/bin/gofmt"
+          test ! -L "$CQ_SELECTED_GIT"
+          test ! -L "$CQ_SELECTED_SSH_KEYGEN"
+          test -z "$(find "$CQ_SELECTED_GOROOT" -type l -print -quit)"
+          install -m 0700 "$CQ_SELECTED_GIT" "$cq_tool_dir/git"
+          install -m 0700 "$CQ_SELECTED_SSH_KEYGEN" "$cq_tool_dir/ssh-keygen"
+          cp -R "$CQ_SELECTED_GOROOT" "$cq_tool_dir/go"
+          test -z "$(find "$cq_tool_dir" -type l -print -quit)"
+          chmod -R go-rwx "$cq_tool_dir"
+          CQ_GIT=''
+          CQ_GIT="$(realpath -e "$cq_tool_dir/git")"
+          CQ_GO="$(realpath -e "$cq_tool_dir/go/bin/go")"
+          CQ_GOFMT="$(realpath -e "$cq_tool_dir/go/bin/gofmt")"
+          CQ_SSH_KEYGEN="$(realpath -e "$cq_tool_dir/ssh-keygen")"
+          test -x "$CQ_GIT"
+          test -x "$CQ_GO"
+          test -x "$CQ_GOFMT"
+          test -x "$CQ_SSH_KEYGEN"
+          CQ_TOOL_MANIFEST="$cq_tool_dir/manifest.json"
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 "$CQ_GO" build -p 1 -trimpath -o "$cq_audit_dir/cq-audit" ./cmd/cq-audit
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" CQ_GOFMT="$CQ_GOFMT" \
+            CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" CQ_SSH_KEYGEN="$CQ_SSH_KEYGEN" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+
+          def entry(identifier, path, version_args, expected_status=0, declared_version=None):
+              result = subprocess.run([path, *version_args], capture_output=True, check=False)
+              if result.returncode != expected_status:
+                  raise RuntimeError(f"{identifier} probe exited {result.returncode}")
+              version = result.stdout + result.stderr
+              with open(path, "rb") as binary:
+                  digest = hashlib.file_digest(binary, "sha256").hexdigest()
+              return {"id": identifier, "path": path, "sha256": digest,
+                      "version": declared_version or version.decode("ascii").strip(),
+                      "version_output_sha256": hashlib.sha256(version).hexdigest()}
+
+          go_tool = entry("go", os.environ["CQ_GO"], ["version"])
+          with open(os.environ["CQ_SSH_KEYGEN"], "rb") as helper:
+              helper_digest = hashlib.file_digest(helper, "sha256").hexdigest()
+          manifest = {"version": 1, "platform": "linux/amd64",
+                      "helpers": [{"id": "ssh-keygen", "path": os.environ["CQ_SSH_KEYGEN"],
+                                   "sha256": helper_digest}], "tools": [
+              entry("git", os.environ["CQ_GIT"], ["--version"]),
+              go_tool,
+              entry("gofmt", os.environ["CQ_GOFMT"], ["-h"], 0,
+                    declared_version="gofmt from " + go_tool["version"]),
+          ]}
+          with open(os.environ["CQ_TOOL_MANIFEST"], "x", encoding="utf-8") as output:
+              json.dump(manifest, output, separators=(",", ":"))
+          os.chmod(os.environ["CQ_TOOL_MANIFEST"], 0o600)
+          PY
+          env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
+            GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
+            GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" \
+            CQ_GOFMT="$CQ_GOFMT" CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" \
+            "$cq_audit_dir/cq-audit" run --profile source --tool-manifest "$CQ_TOOL_MANIFEST" --go "$CQ_GO" --output "$cq_audit_dir/evidence"

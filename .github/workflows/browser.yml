@@ -1,0 +1,74 @@
+name: Browser preview validation
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-frontend:
+    name: Public landing, Login, Explore and Help
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24.22.2'
+          package-manager-cache: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          check-latest: false
+      - name: Install the reviewed documentation-renderer closure
+        shell: bash
+        run: |
+          python -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r examples/landing-motion/requirements-explore.txt
+      - name: Verify public behavior and standalone export
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node examples/landing-motion/render-integrations.mjs --check
+          node examples/landing-motion/render-site-pages.mjs --check
+          node examples/landing-motion/build-motion-catalog.mjs --check
+          python examples/landing-motion/build-explore.py --check
+          node --test examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs
+          node examples/landing-motion/build-public.mjs --check
+
+  browser:
+    name: Browser preview (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        node: ['22.23.4', '24.22.2', '26.13.0']
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Validate dependency-free browser preview
+        shell: bash
+        working-directory: web
+        run: |
+          set -euo pipefail
+          umask 077
+          npm run check
+          npm test
