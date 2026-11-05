@@ -1,4 +1,4 @@
-import { parseDocument, shape, validate, referenceErrors, schemaInventory, documentsEqual, reindexArrayInputs } from './schema-tools.js';
+import { parseDocument, shape, validate, referenceErrors, schemaInventory, documentsEqual, reindexArrayInputs, publicHelpPointer } from './schema-tools.js';
 import { brandMarkup } from '../ui.js';
 const h = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -144,7 +144,9 @@ export async function configuration(root, state, hooks) {
     const s = shape(sourceSchema, schema);
     const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
     const ownErrors = errors.filter(error => error.startsWith(`${pointer}:`));
-    const attrs = `data-pointer="${h(pointer)}" aria-label="${h(pointer)}"`;
+    const publicPointer = publicHelpPointer(schema, pointer);
+    const helpAttr = publicPointer ? `data-help-schema="${h(publicPointer)}"` : '';
+    const attrs = `${helpAttr} data-pointer="${h(pointer)}" aria-label="${h(pointer)}"`;
     const removeButton = `<button type="button" class="quiet small-button" data-cfg="remove" data-pointer="${h(pointer)}" aria-label="Remove ${h(pointer)}">Remove</button>`;
     const hint = `<span class="cfg-path">${h(pointer)}${s.format ? ` · ${h(s.format)}` : ''}${s.minimum !== undefined ? ` · min ${s.minimum}` : ''}${s.maximum !== undefined ? ` · max ${s.maximum}` : ''}</span>`;
     const issue = ownErrors.length ? `<div class="cfg-field-error">${ownErrors.map(h).join('<br>')}</div>` : '';
@@ -155,7 +157,7 @@ export async function configuration(root, state, hooks) {
       const missing = Object.keys(properties).filter(key => !Object.hasOwn(value, key));
       const matching = !search || pointer.toLowerCase().includes(search.toLowerCase()) || JSON.stringify(value).toLowerCase().includes(search.toLowerCase()) || missing.some(key => `${pointer}/${key}`.toLowerCase().includes(search.toLowerCase()));
       if (!matching) return '';
-      return `<details class="cfg-group" data-path="${h(pointer)}" ${openPaths.has(pointer) || search ? 'open' : ''}><summary><strong>${h(label(name))}</strong><span>${actual === 'array' ? `${entries.length} items` : `${entries.length} set ${entries.length === 1 ? 'field' : 'fields'}`}</span></summary><div class="cfg-group-body">${hint}${issue}${typeChoice}<div class="cfg-group-actions">${removeButton}${actual === 'array' ? `<button type="button" class="quiet small-button" data-cfg="append" data-pointer="${h(pointer)}" aria-label="Add item to ${h(pointer)}">+ Add item</button>` : missing.length ? `<label>Add field<select data-add-select="${h(pointer)}"><option value="">Choose field…</option>${fieldOptions(missing)}</select></label>` : ''}${actual === 'object' && (typeof s.additionalProperties === 'object' || s.additionalProperties === true || !Object.keys(properties).length) ? `<button type="button" class="quiet small-button" data-cfg="map-add" data-pointer="${h(pointer)}" aria-label="Add entry to ${h(pointer)}">+ Add entry</button>` : ''}</div>${entries.map(([key, v]) => {
+      return `<details class="cfg-group" ${helpAttr} data-path="${h(pointer)}" ${openPaths.has(pointer) || search ? 'open' : ''}><summary><strong>${h(label(name))}</strong><span>${actual === 'array' ? `${entries.length} items` : `${entries.length} set ${entries.length === 1 ? 'field' : 'fields'}`}</span></summary><div class="cfg-group-body">${hint}${issue}${typeChoice}<div class="cfg-group-actions">${removeButton}${actual === 'array' ? `<button type="button" class="quiet small-button" data-cfg="append" data-pointer="${h(pointer)}" aria-label="Add item to ${h(pointer)}">+ Add item</button>` : missing.length ? `<label>Add field<select data-add-select="${h(pointer)}"><option value="">Choose field…</option>${fieldOptions(missing)}</select></label>` : ''}${actual === 'object' && (typeof s.additionalProperties === 'object' || s.additionalProperties === true || !Object.keys(properties).length) ? `<button type="button" class="quiet small-button" data-cfg="map-add" data-pointer="${h(pointer)}" aria-label="Add entry to ${h(pointer)}">+ Add entry</button>` : ''}</div>${entries.map(([key, v]) => {
         const childSchema = actual === 'array' ? s.items || {} : hasOwn(properties, key) ? properties[key] : (typeof s.additionalProperties === 'object' ? s.additionalProperties : {});
         const unsupported = actual !== 'array' && !Object.hasOwn(properties, key) && s.additionalProperties === false;
         return `${unsupported ? `<div class="cfg-unsupported">Unsupported field preserved: ${h(key)}. Native schema rejects it.</div>` : ''}${actual === 'array' ? `<div class="cfg-order"><button type="button" class="quiet small-button" data-cfg="move-up" data-pointer="${h(pointer)}/${key}" ${Number(key) === 0 ? 'disabled' : ''}>Move item ${key} up</button><button type="button" class="quiet small-button" data-cfg="move-down" data-pointer="${h(pointer)}/${key}" ${Number(key) === entries.length - 1 ? 'disabled' : ''}>Move item ${key} down</button></div>` : ''}${field(v, childSchema, `${pointer}/${encode(key)}`, key)}`;
@@ -284,8 +286,8 @@ export async function configuration(root, state, hooks) {
       dirty = false; hooks.changed(false); hooks.save();
       notify('Proposal discarded; untouched imported source restored exactly and saved locally.');
     }
-    else if (name === 'export') { if (invalidControls.size) { notify('Correct or discard invalid numeric input before exporting.'); return; } hooks.exportJSON(document, 'cquay-local-configuration.json'); notify('Current proposal exported locally, including unsupported fields. No upload.'); }
-    else if (name === 'coverage') { hooks.exportJSON({ schema: 'local/policy-schema.json', paths: schemaInventory(schema), runtimeQualification: false }, 'cquay-schema-control-coverage.json'); notify('Schema control inventory exported. This maps controls, not native runtime qualification.'); }
+    else if (name === 'export') { if (invalidControls.size) { notify('Correct or discard invalid numeric input before exporting.'); return; } hooks.exportJSON(document, 'cq-local-configuration.json'); notify('Current proposal exported locally, including unsupported fields. No upload.'); }
+    else if (name === 'coverage') { hooks.exportJSON({ schema: 'local/policy-schema.json', paths: schemaInventory(schema), runtimeQualification: false }, 'cq-schema-control-coverage.json'); notify('Schema control inventory exported. This maps controls, not native runtime qualification.'); }
     else if (name === 'close') root.querySelector('#cfg-dialog').close();
     else if (name === 'import') {
       if (dirty) { notify('Save or discard the current proposal before importing.'); return; }

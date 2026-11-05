@@ -2,7 +2,7 @@
   "version": 1,
   "observability": {
     "enabled": true,
-    "service_name": "cquay",
+    "service_name": "cq",
     "environment": "reference",
     "diagnostic_level": "info",
     "resource_attributes": {
@@ -27,7 +27,7 @@
       "type": "sops",
       "path": "repo:secrets/reference-api.sops.json",
       "sops": "/usr/bin/sops",
-      "age_identity_file": "/etc/circularquay/identities/reference-age.txt",
+      "age_identity_file": "/etc/cq/identities/reference-age.txt",
       "identity": "none"
     }
   },
@@ -48,11 +48,11 @@
       },
       "directory": "/var/lib/reference-api",
       "snapshot": {
-        "path": "/var/lib/circularquay/snapshots/reference-api.sops.json",
+        "path": "/var/lib/cq/snapshots/reference-api.sops.json",
         "recipients": [
           "age1cy0su9fwf3gf9mw868g5yut09p6nytfmmnktexz2ya5uqg9vl9sss4euqm"
         ],
-        "identity_file": "/etc/circularquay/identities/reference-age.txt",
+        "identity_file": "/etc/cq/identities/reference-age.txt",
         "sops": "/usr/bin/sops"
       },
       "targets": {
@@ -86,13 +86,13 @@
     "hosts": [
       "mcp.example.test"
     ],
-    "audit_path": "/var/lib/circularquay/audit/reference-api.jsonl",
+    "audit_path": "/var/lib/cq/audit/reference-api.jsonl",
     "resource": "https://mcp.example.test/mcp",
     "authorities": {
       "workforce": {
         "issuer": "https://id.example.test",
         "jwks_url": "https://id.example.test/.well-known/jwks.json",
-        "audience": "registered-cquay-api",
+        "audience": "registered-cq-api",
         "profile": "rfc9068",
         "clients": [
           "reference-console"
@@ -119,10 +119,10 @@
     }
   },
   "repository": {
-    "url": "https://github.com/example-org/cquay-config.git",
-    "directory": "/var/lib/circularquay/repository",
+    "url": "https://github.com/example-org/cq-config.git",
+    "directory": "/var/lib/cq/repository",
     "ref": "refs/heads/main",
-    "allowed_signers_file": "/etc/circularquay/repository-signers",
+    "allowed_signers_file": "/etc/cq/repository-signers",
     "initial_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
 }

@@ -195,7 +195,7 @@ export function workbench(root, state, hooks) {
         if (text.trim().startsWith('{')) {
           const backup = parseDocument(text);
           const candidate = backup.configuration;
-          if (backup.format !== 'cquay-workbench-demo-v1' || !candidate || !Array.isArray(candidate.rows) || candidate.rows.length > 500) throw new Error('Choose a supported workbench JSON export. Native policies use Complete configuration.');
+          if (backup.format !== 'cq-workbench-demo-v1' || !candidate || !Array.isArray(candidate.rows) || candidate.rows.length > 500) throw new Error('Choose a supported workbench JSON export. Native policies use Complete configuration.');
           const ids = new Set();
           for (const row of candidate.rows) {
             if (!row || ['id', 'name', 'value', 'kind', 'provider', 'resource', 'environment', 'group', 'profile', 'mode', 'custody', 'start', 'end', 'zone', 'origin'].some(key => typeof row[key] !== 'string') || typeof row.required !== 'boolean') throw new Error('Invalid workbench row types; import rejected without replacing state.');
@@ -231,10 +231,10 @@ export function workbench(root, state, hooks) {
     dialog.innerHTML = `<h2 id="wb-dialog-title">Export local workspace</h2><p>Workspace JSON preserves per-variable sources, windows, zones and provenance. A plain .env file cannot encode those controls. Only synthetic demo values belong in this preview.</p><form id="wb-export"><label>Format<select name="format"><option value="workspace">Workspace JSON (full local model)</option><option value="env">.env (literal values only; no policies)</option></select></label><label class="check-label"><input type="checkbox" required> I understand export contains local values and cannot be recalled.</label><div class="actions"><button>Download local file</button><button type="button" class="quiet" data-wb="close">Cancel</button></div></form>`;
     dialog.showModal(); document.querySelector('#wb-export').onsubmit = event => {
       event.preventDefault(); const format = new FormData(event.target).get('format');
-      if (format === 'workspace') hooks.exportJSON({ format: 'cquay-workbench-demo-v1', configuration: data, nativePolicy: state.policy }, 'cquay-workbench-local.json');
+      if (format === 'workspace') hooks.exportJSON({ format: 'cq-workbench-demo-v1', configuration: data, nativePolicy: state.policy }, 'cq-workbench-local.json');
       else {
         const text = currentRows().filter(row => row.kind === 'Literal' && effective(row) !== null).map(row => `${row.name}=${JSON.stringify(effective(row))}`).join('\n') + '\n';
-        const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); const a = document.createElement('a'); a.href = url; a.download = 'cquay-demo.env'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+        const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); const a = document.createElement('a'); a.href = url; a.download = 'cq-demo.env'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
       dialog.close(); pulse('Local file exported. Nothing was uploaded. .env does not enforce windows or custody policy.');
     };

@@ -70,8 +70,8 @@ test('preview accepts only literal planes', () => {
 });
 
 test('allowlisted assets reject external file and directory symlinks', async () => {
-  const fixture = await mkdtemp(join(tmpdir(), 'cquay-preview-'));
-  const outside = await mkdtemp(join(tmpdir(), 'cquay-preview-outside-'));
+  const fixture = await mkdtemp(join(tmpdir(), 'cq-preview-'));
+  const outside = await mkdtemp(join(tmpdir(), 'cq-preview-outside-'));
   let server;
   try {
     await writeFile(join(fixture, 'style.css'), 'body{}');
@@ -95,7 +95,7 @@ test('allowlisted assets reject external file and directory symlinks', async () 
 });
 
 test('allowlisted assets reject content larger than the preview bound', async () => {
-  const fixture = await mkdtemp(join(tmpdir(), 'cquay-preview-large-'));
+  const fixture = await mkdtemp(join(tmpdir(), 'cq-preview-large-'));
   let server;
   try {
     await writeFile(join(fixture, 'style.css'), Buffer.alloc(4 * 1024 * 1024 + 1));
@@ -142,7 +142,7 @@ test('reload admission is finite and HEAD leaves no held stream', { timeout: 500
 
 for (const component of ['root', 'intermediate']) {
   test(`asset open rejects a deterministic ${component} replacement before reading another file`, async () => {
-    const fixture = await mkdtemp(join(tmpdir(), 'cquay-preview-race-'));
+    const fixture = await mkdtemp(join(tmpdir(), 'cq-preview-race-'));
     const directory = join(fixture, 'current');
     const outside = join(fixture, 'outside');
     const backup = join(fixture, 'original-component');

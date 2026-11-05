@@ -1,3 +1,4 @@
+import { installHelp } from './help-launcher.js';
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const html = escapeHTML;
 const titleCase = value => value[0].toUpperCase() + value.slice(1);
@@ -19,9 +20,10 @@ function loadPolicySchema() {
 const loadGuidedPolicyTools = () => guidedPolicyToolsPromise ||= import('/local/schema-tools.js');
 
 export function start(model) {
+  installHelp();
   const root = document.querySelector('#app');
   const local = model.plane === 'local';
-  const storageKey = `cquay.preview.v1.${model.plane}`;
+  const storageKey = `cq.preview.v1.${model.plane}`;
   let state = { settings: clone(model.settings), collections: clone(model.collections), policy: clone(model.policy ?? {}), context: 'development', generation: 'none', plan: 'Free demo', identity: 'not configured', events: [] };
   let storageWarning = '';
   try {
@@ -323,7 +325,7 @@ export function start(model) {
       stopSimulation(); clearTimeout(connectionTimer); state = { settings: clone(model.settings), collections: clone(model.collections), policy: clone(model.policy ?? {}), context: 'development', generation: 'none', plan: 'Free demo', identity: 'not configured', events: [] };
       dirty = false; search = ''; filter = ''; selected.clear(); save(); render(); notify('Demo restored to seeded state.');
     });
-    else if (name === 'export') exportJSON(c.rows, `cquay-${model.plane}-${route}-demo.json`);
+    else if (name === 'export') exportJSON(c.rows, `cq-${model.plane}-${route}-demo.json`);
     else if (name === 'retry' || name === 'clear') { viewState = 'ready'; search = ''; filter = ''; render(); }
     else if (name === 'retry-meter') notify(state.lastMeter ? 'Last logical event reconciled. No additional meter unit or duplicate release.' : 'Simulate a logical event first.', !state.lastMeter);
     else if (name === 'event') { audit('Demo event', local ? 'local-workspace' : 'customer-1'); render(); }
@@ -333,7 +335,7 @@ export function start(model) {
       catch (error) { result.textContent = error.message; result.className = 'result error'; }
     } else if (name === 'discard-policy') { dirty = false; render(); }
     else if (name === 'import-policy') document.querySelector('#policy-import').click();
-    else if (name === 'export-policy') exportJSON(state.policy, 'cquay-local-policy.json');
+    else if (name === 'export-policy') exportJSON(state.policy, 'cq-local-policy.json');
     else if (name === 'plan' || name === 'cancel-plan' || name === 'portal') {
       if (!canWrite('billing')) { notify('This presentation cannot change billing.', true); return; }
       confirmation('Synthetic financial preview', 'No payment service is connected, no card data is collected and no money will move. This previews an explicit user confirmation.', () => {

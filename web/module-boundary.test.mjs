@@ -93,11 +93,27 @@ test('remote entry static module closure contains no local client module', async
       if (left === right) return 0;
       return left < right ? -1 : 1;
     });
-    assert.deepEqual(paths, ['/remote/entry.js', '/remote/model.js', '/ui.js']);
+    assert.deepEqual(paths, ['/help-launcher.js', '/remote/entry.js', '/remote/model.js', '/ui.js']);
     assert.equal([...modules.keys()].some(path => path.startsWith('/local/')), false);
     assert.equal((await requestPreview(server, '/local/schema-tools.js')).status, 404);
     assert.equal((await requestPreview(server, '/local/policy-schema.json')).status, 404);
+    const help = await staticModuleClosure(server, '/help-page.js');
+    assert.deepEqual([...help.keys()].sort(), ['/help-contract.js', '/help-page.js', '/help-release.js', '/help-search.js', '/help-store.js', '/help.js', '/presentation-preferences.js', '/presentation.js']);
+    assert.equal([...help.keys()].some(path => path.startsWith('/local/')), false);
+    for (const privatePath of ['/help/source-index.json', '/help/source-contract.schema.json', '/help/assets.js', '/tools/build-help.mjs']) assert.equal((await requestPreview(server, privatePath)).status, 404);
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test('standalone help presentation entry is independent of app, account and client loading', async () => {
+  const server = createPreview('remote'); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const modules = await staticModuleClosure(server, '/presentation-entry.js');
+    assert.deepEqual([...modules.keys()].sort(), ['/presentation-entry.js', '/presentation-preferences.js', '/presentation.js']);
+    const html = (await requestPreview(server, '/help.html')).body.toString('utf8');
+    assert.ok(html.indexOf('/presentation-bootstrap.js') < html.indexOf('/style.css'));
+    assert.ok(html.indexOf('/presentation-entry.js') < html.indexOf('/help-page.js'));
+    assert.ok(html.includes('rel="modulepreload" href="/presentation-preferences.js"'));
+  } finally { await new Promise(resolve => server.close(resolve)); }
 });

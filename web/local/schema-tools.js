@@ -231,3 +231,26 @@ export function schemaInventory(schema) {
   }
   visit(schema, ''); return paths;
 }
+
+// Resolve a concrete editor pointer against public schema structure only.
+// Map identifiers and list indices become schema placeholders; unknown fields
+// have no contextual binding. No document values are inputs to this function.
+export function publicHelpPointer(schema, pointer) {
+  if (typeof pointer !== 'string' || pointer.length > 4096 || (pointer && !pointer.startsWith('/'))) return null;
+  if (!pointer) return '/';
+  let node = schema;
+  const parts = [];
+  for (const encoded of pointer.slice(1).split('/')) {
+    if (/~(?![01])/.test(encoded)) return null;
+    const key = encoded.replace(/~1/g, '/').replace(/~0/g, '~');
+    const current = shape(node, schema);
+    if (current.properties && Object.hasOwn(current.properties, key)) {
+      parts.push(key); node = current.properties[key];
+    } else if (current.items && /^(0|[1-9]\d*)$/.test(key)) {
+      parts.push('*'); node = current.items;
+    } else if (current.additionalProperties && typeof current.additionalProperties === 'object') {
+      parts.push('{id}'); node = current.additionalProperties;
+    } else return null;
+  }
+  return '/' + parts.join('/');
+}

@@ -1,3 +1,4 @@
+import { helpAssetPaths } from './help/assets.js';
 import http from 'node:http';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { constants, watch } from 'node:fs';
@@ -5,13 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
-const shared = new Set(['ui.js', 'style.css', 'logo.png', 'logo-light.svg', 'logo-dark.svg']);
+const shared = new Set(['ui.js', 'presentation.js', 'presentation-entry.js', 'presentation-preferences.js', 'presentation-bootstrap.js', 'style.css', 'logo.png', 'logo-light.svg', 'logo-dark.svg', 'help-launcher.js', 'help-release.js', 'help.js', 'help-store.js', 'help-contract.js', 'help-search.js', 'help-page.js', 'help.html', ...helpAssetPaths]);
 const planes = new Set(['local', 'remote']);
 const assets = {
   local: new Set(['local/entry.js', 'local/model.js', 'local/workbench.js', 'local/configuration.js', 'local/schema-tools.js', 'local/policy-schema.json', 'local/linux-example.json']),
   remote: new Set(['remote/entry.js', 'remote/model.js']),
 };
-const types = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const types = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.html': 'text/html' };
 const listeners = new Set();
 const maximumAssetBytes = 4 * 1024 * 1024;
 const maximumReloadListeners = 32;
@@ -152,8 +153,17 @@ export function createPreview(plane, sourceRoot = root) {
     // Serving roots are explicit and disjoint: no repository browsing or local-client module on remote.
     if (!shared.has(name) && !assets[plane].has(name)) return reject(404);
     try {
-      const bytes = await readTrustedAsset(directory, name);
+      const immutableHelp = /^help\/generated\/.+-[a-f0-9]{64}\.json$/.test(name);
+      const acceptsBrotli = String(request.headers['accept-encoding'] || '').split(',').some(part => {
+        const match = /^\s*br\s*(?:;\s*q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?\s*$/i.exec(part);
+        return match && (match[1] === undefined || Number(match[1]) > 0);
+      });
+      let bytes = immutableHelp && acceptsBrotli ? await readTrustedAsset(directory, name + '.br') : null;
+      if (bytes) headers['Content-Encoding'] = 'br';
+      else bytes = await readTrustedAsset(directory, name);
+      if (immutableHelp) headers.Vary = 'Accept-Encoding';
       if (!bytes) return reject(404);
+      if (immutableHelp) headers['Cache-Control'] = 'public, max-age=31536000, immutable';
       response.writeHead(200, { ...headers, 'Content-Type': types[extname(name)] || 'application/octet-stream' });
       response.end(request.method === 'HEAD' ? undefined : bytes);
     } catch { reject(404); }

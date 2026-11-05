@@ -57,7 +57,7 @@ test('guided source edit preserves untouched provider fields and accepts a full 
   );
   assert.equal(next.sources['service-sops'].path, 'repo:secrets/revised-reference-api.sops.json');
   assert.equal(next.sources['service-sops'].sops, '/usr/bin/sops');
-  assert.equal(next.sources['service-sops'].age_identity_file, '/etc/circularquay/identities/reference-age.txt');
+  assert.equal(next.sources['service-sops'].age_identity_file, '/etc/cq/identities/reference-age.txt');
   assert.equal(next.sources['service-sops'].identity, 'none');
   assert.equal(policy.sources['service-sops'].path, 'repo:secrets/reference-api.sops.json');
 });
