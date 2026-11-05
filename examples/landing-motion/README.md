@@ -1,131 +1,59 @@
-# CircularQuay landing-motion proof of concept
+> Preserved, superseded experiment. The human rejected the full-flock hero for excessive detail, especially on mobile. This snapshot retains the complete work and critiques for reuse. The next revision restores a focused professional hero and moves the full icon inventory into a static secondary ecosystem section.
 
-This is a local-only, synthetic landing-page experiment. It tests whether a
-short, legible motion attractor can introduce CircularQuay before a visitor
-reaches the existing workbench or account surfaces. It is not a replacement for
-the owned `web/` preview, a production site, or a claim that a backend exists.
+# CircularQuay landing motion proof of concept
 
-The starting reference is the [CircularQuay motion study](https://circularquay-motion-study.matthewaldous.chatgpt.site/).
-The concept to retain is a visually playful explanation of a key travelling from
-intent to an approved application. The concept to change is its overloaded
-iconography: the POC uses one readable manual-to-coordinated sequence, rather
-than multiple competing symbols, so the visitor can understand the story before
-interacting with it.
+A local-only exploration of the original [motion study](https://circularquay-motion-study.matthewaldous.chatgpt.site/), preserving its full integration breadth and the existing CircularQuay identity.
 
-This direct user-requested proof of concept is an exemption from normal issue
-intake. It adds no Linear issue and makes no product, CIX, infrastructure or
-production change. Existing UIF-170 work is treated as read-only context. Any
-future integration belongs to the current CircularQuay frontend/source owner.
+The corrected attractor retains **all 113 entries**: 30 authentication, 35 encryption/source and 48 application examples, represented by 108 distinct local SVG assets. It follows the user's selected treatment: a flocking field that settles into groups as the journey becomes organized. Icons stay visual; named examples rotate automatically during active playback. Every entry remains in static HTML on desktop, tablet, folded/unfolded and mobile layouts.
+
+The earlier three-generic-source/three-app POC at `d894597` is retained in Git history, but was **not accepted against the required breadth**. Its static-polish verdict did not establish compliance with that requirement. The correction's evidence chain is:
+
+1. [Source-bound critique](CRITIQUE.md): independent A design and B detector/browser assessments of that exact baseline.
+2. [Justified correction plan](CORRECTION-PLAN.md): issue → change → acceptance evidence.
+3. [Visual critique before polish](POLISH-CRITIQUE.md): the 23/32 assessment that rejected the broad but generic dark-card composition.
+4. [Surface brief](BRIEF.md): confirmed user choices, motion, responsive and custody contracts.
+5. `review.json`: exact runtime/asset hashes and scoped before/after verification.
 
 ## Review locally
 
-Use Node.js 22 or later; there are no dependencies to install.
+Use Node.js 22 or later; there are no dependencies to install:
 
 ```sh
 node examples/landing-motion/server.mjs
 ```
 
-Review at [http://127.0.0.1:5182/](http://127.0.0.1:5182/). The server binds
-only to loopback, accepts GET and HEAD, and only serves the declared POC assets.
-It does not serve this README, briefs, design material, evidence or repository
-files. Stop it with `Ctrl+C`. Syntax-only checks, with no dependencies, are:
+Open [http://127.0.0.1:5182/](http://127.0.0.1:5182/). The one small server binds only to loopback and serves an exact allowlist of HTML/CSS/JS/logo/integration SVGs. It does not serve briefs, catalogs, source provenance or private evidence. Stop it with `Ctrl+C`. Existing workbench/account previews on 5180/5181 remain owned and unchanged.
+
+The catalog is the authoritative inventory for this isolated example. Regenerate/check its static HTML with:
 
 ```sh
-node --check examples/landing-motion/server.mjs
+node examples/landing-motion/render-integrations.mjs
+node examples/landing-motion/render-integrations.mjs --check
 node --check examples/landing-motion/motion.js
 node --check examples/landing-motion/preference-bootstrap.js
+node --check examples/landing-motion/server.mjs
 ```
 
-## Device and interaction plan
+## Interaction and device behavior
 
-- **Desktop and large tablet:** use the animation as the hero’s spatial
-  attractor, with a stable text column and an explicit replay affordance.
-- **Tablet and folded devices:** reduce the stage to a single focal lane when
-  the available width is 900 CSS pixels or less; preserve the explanation in text.
-  Short viewports retain ordinary scrolling rather than shrinking the diagram.
-- **Unfolded foldables:** progressively enhance into the wider composition only
-  when the effective viewport is actually available. A hinge must never contain
-  essential copy or controls; CSS viewport segments can refine placement when
-  supported, while the one-column composition remains the baseline.
-- **Phones:** show the concise story and direct controls first. Do not require
-  precise dragging, hover or landscape orientation to understand it.
+The 14-second active story begins with the complete mixed flock, organizes it into the three complete fields, demonstrates denial, and settles on the coordinated route. Each flock can roam the entire animation area; final role groups are destinations, not movement lanes. Cached geometry, global separation and protected readable content keep the field usable. Direct eased organization avoids spring overshoot under dropped frames. Pause, replay and chapters are native controls placed before the field. Playback suspends while hidden/offscreen. Name changes do not announce continuously to assistive technology.
 
-The automatic story runs once for fourteen seconds of active playback, then
-settles on an intelligible final frame. Visitors can pause, replay, or choose a chapter.
-When the browser requests reduced motion, the page begins in its static settled
-state. Animation also pauses when hidden or off-screen. The story only depicts
-synthetic, clearly labelled approved and denied paths; it never represents a
-real key, credential, provider or authorization decision.
+Reduced motion shows the complete grouped field, without flocking or automatic name rotation. With JavaScript disabled, all 113 icons, names in image alternatives, explanation and workbench links remain available. No interaction with an individual icon is required.
 
-## Visual and integration boundaries
+The human-selected fourth reference panel drives the pale composition: copy at left, real integration marks arranged around the local-policy pane at right. Desktop (1440×900 and 1280×800) and tablet (820×1180) fit one viewport. Narrow/folded/mobile layouts recompose the **same 113 entries** into a compact field. Where the readable inventory needs more height, the page uses ordinary vertical scrolling with gentle proximity snapping at the intro/diagram boundary. Reduced motion disables smooth scrolling and snapping. There is no nested scrolling or mandatory full-screen snap. Viewport-segment handling is progressive enhancement, not physical-foldable qualification.
 
-The POC uses the established CircularQuay theme tokens and font stack from the
-existing browser preview: Inter, `ui-sans-serif` and system fallbacks; light
-`#f7f8fa` / `#192834` with accent `#126b5b` and feature `#102f36`; dark
-`#111b24` / `#e5eced` with accent `#7dd0b5` and feature `#0e3035`. Use only the
-exact icon-13-derived SVG assets and their retained provenance; it is not
-permission to create or claim a new final logo. The public product name is
-**CircularQuay**; **CQ** is an internal compact label and `cq` is reserved for
-owned technical names.
+## Branding, assets and truth
 
-If the experiment is adopted, the frontend owner can port the isolated motion
-module or a Web Component into `web/` after a source-owner handoff. That later
-work needs its own review against the existing UI, privacy/server boundary,
-accessibility, performance budget and actual desktop/tablet/foldable/phone
-device evidence. This POC does not establish those qualifications.
+The exact name/slogan, selected logo13-derived light/dark SVGs, existing Inter/platform font stack, and product theme tokens remain in use. The visual authority stays in `../../web/DESIGN.md` and `../../web/style.css`; no existing product/design file is rewritten.
 
-## Realisation and later integration
+Integration vectors and verified brand colours are hosted locally, with per-entry upstream URL, licence and digest in `integrations.json`. Simple Icons colour transforms retain both upstream and final SHA-256 values. Historical Microsoft/IBM vectors retain their source context. The local-filesystem symbol is explicitly non-brand; shared vendor marks retain separate role names. See [asset provenance](assets/integrations/PROVENANCE.md) and [licence notices](assets/integrations/LICENSES.md).
 
-1. **Retain the story, simplify the stage — implemented here.** Three sources
-   and three workload examples replace the original moving provider cloud.
-   Manual handoffs give way to a single local-policy route. The denied chapter
-   removes every outgoing particle and approval mark. All content is synthetic.
-2. **Make the animation optional — implemented here.** The full route and
-   explanation are in HTML before scripts run. Autoplay yields to navigation,
-   scrolling, explicit chapter selection and reduced motion. No signup, provider
-   connection, preload sequence or scroll lock sits in front of the page.
-3. **Adapt the composition — implemented here.** Above 900 CSS pixels the route
-   is horizontal; at narrower widths the diagram has independently authored
-   vertical geometry. Foldable segment reporting also selects the compact route.
-   Ordinary scrolling is preserved at short heights. Device models are not
-   inferred from a user agent.
-4. **Review the attractor with Matt — next.** Use Replay and the three chapters
-   to judge the story, the entertainment value and how quickly the local-policy
-   boundary becomes clear. Compare light/dark and folded/unfolded viewport sizes.
-   The experiment is removable without changing the workbench.
-5. **Port the chosen treatment through the existing frontend owner — later.**
-   Move the diagram and timeline into the owned landing route using the actual
-   presentation/preferences modules, existing language controls and shared tokens.
-   Keep those modules authoritative; the small standalone theme bootstrap here
-   is for this independent review origin. Preserve current drafts, CSP, help,
-   client/server separation and ownership. No new backend is needed for motion.
-6. **Qualify the integrated result — later.** Exercise real touch devices,
-   Safari/Firefox, RTL, forced colours, reduced motion, slow CPUs and real
-   foldable posture/hinges; profile frame work and activation/network cost.
-   This local Chromium review does not establish that broader acceptance.
+**The scene is an illustrative ecosystem, not a supported-adapter catalogue.** Logos do not prove a qualified, configured, connected or authorized integration. No actual credentials, source retrieval, workload, enrollment or backend is connected. Configuration stays client-local.
 
-The inherited visual authority remains `../../web/DESIGN.md` and the actual
-tokens/font stack in `../../web/style.css`. No existing product/design file was
-rewritten. The selected light/dark SVGs are exact copies of `web/logo-*.svg`.
+## Evidence and handoff
 
-## Review evidence
+Use the existing `.local/qualification/checkpoint57/landing-motion-review/` store. `panel-four-after/` holds the corrected composition. Earlier motion traces are retained as historical failing evidence and are excluded from current acceptance; the final trace is explicitly source-bound in `review.json`. Before captures are source-bound to `d894597`; the intermediate breadth-only view was independently rejected for visual craft; corrected captures and runtime/asset hashes are recorded separately. The supplied desktop/tablet/foldable/mobile evidence is Chromium viewport emulation. Actual hardware/hinges, Safari/Firefox, screen readers, RTL, forced colours and device performance need their own acceptance.
 
-The retained evidence lives in the repository's existing
-`.local/qualification/checkpoint57/landing-motion-review/` store. It is not a new
-controller or work tracker. Full-page Chromium captures cover desktop 1440,
-tablet 820, unfolded-width 673, folded-width 360, mobile 390 and narrow-phone 320
-CSS pixels, with no document-width overflow in the captured layouts. Foldable
-names describe viewport emulation; no physical hinge was tested.
+The scoped Inter detector exceptions in `.impeccable/config.json` preserve the user's explicit existing-font instruction; they apply only to this example's HTML/CSS. They do not disable whole rules or whole files. A clean detector does not establish design or product acceptance.
 
-The independent source/visual review returned **ship** for this POC. Bounded
-verification includes JavaScript syntax, eleven HTTP asset/privacy/method checks,
-exact logo-byte comparison, light/dark, a static reduced-motion route, pause,
-keyboard chapter selection and JavaScript-disabled content. There is no font,
-library, video or third-party asset request. These are local review checks,
-not a measured frame-rate or production performance claim.
-
-The design hook's small-text finding was fixed by increasing interface copy to
-at least 12px and the story caption to 14px. The later overused-font findings
-are intentionally excepted only for Inter in this prototype's `index.html` and
-`style.css`, through `.impeccable/config.json`. The user explicitly confirmed
-retaining existing product fonts. No whole-rule or whole-file ignore is used.
+This directly authorized landing exemption creates no Linear issue, resumes no BAU/CIX work and publishes nothing. All corrections are committed on the current feature branch for later use. Any adoption into `web/` belongs to the existing frontend/source owner: reuse the actual presentation/language/theme modules, preserve drafts, CSP/help and privacy boundaries, and qualify the integrated result separately.

@@ -1,146 +1,544 @@
 {
-  "scope": "Local landing-page animation proof of concept; review readiness only",
-  "recordedAt": "2026-11-05T05:39:16.206508+00:00",
-  "authority": "Direct human exemption: prepare a responsive localhost landing POC, plan and commit on the current branch without creating a Linear issue. Subsequent instruction preserves existing branding, colours, themes and fonts.",
+  "scope": "Preserved full-flock exploration; explicitly superseded, not accepted landing design",
+  "recordedAt": "2026-11-05T07:03:03.847698+00:00",
   "branch": "feature/initial-implementation",
-  "parent": "b30f1308bd384b04201df6d637fe016f8c8ba029",
-  "context": {
-    "study": "https://circularquay-motion-study.matthewaldous.chatgpt.site/",
-    "linearReadOnly": "https://linear.app/maldous/issue/UIF-170/integrate-and-complete-client-account-and-operator-interfaces",
-    "design": "../../web/DESIGN.md",
-    "paletteAndFonts": "../../web/style.css"
+  "parent": "d894597a1c860631e4edce62be6c85a9bb92f467",
+  "authority": "Direct human landing exemption; keep and commit work without a Linear issue. Latest human steering restores a professional focused hero and moves full inventory to a static secondary ecosystem section.",
+  "disposition": "Rejected by the human for excessive detail, especially on mobile. This commit preserves the exploration and critiques for reuse; it is not a release or final qualification.",
+  "inventory": {
+    "entries": 113,
+    "distinctLocalSvgs": 108,
+    "groups": {
+      "identity": 30,
+      "sources": 35,
+      "applications": 48
+    }
   },
-  "result": "Ready for human localhost review; independent static source/visual review disposition ship; subsequent elapsed-time correction reviewed ship.",
-  "implemented": [
-    "Manual work becomes a coordinated local-policy route",
-    "Denied requests have no outgoing delivery or approval mark",
-    "Horizontal and separately authored compact SVG layouts",
-    "System/light/dark with existing tokens and font stack",
-    "Pause, replay, keyboard chapter selection, reduced motion and static no-JavaScript content"
-  ],
   "source": {
-    "index.html": {
-      "bytes": 12987,
-      "sha256": "762c0aac26ee9a6d04a986464d74454e2320f50326e8cd517e6b0cbc0294c90d"
+    "CORRECTION-PLAN.md": {
+      "bytes": 7122,
+      "sha256": "c4eaa2253460a3c73eb54b1e4a128ae6c7a00be035aa396e5ff6a81134883162"
+    },
+    "formations.css": {
+      "bytes": 14357,
+      "sha256": "48b40c9fca72e7fc1f14cd57841db9a9a119ef8d0c66f0ffafa2bf13b9b1f93b"
     },
     "style.css": {
-      "bytes": 14107,
-      "sha256": "cc6b10bed7b383f08fcf5cc5902453b8e176fb91d6f3ed745d3cf4a2014a6de5"
+      "bytes": 15823,
+      "sha256": "e0bfb6e8132fc4230f0deb99d64063025fe37f60476fbcdebeb515d617354505"
+    },
+    "BRIEF.md": {
+      "bytes": 5959,
+      "sha256": "19f2a5d856f07a98111808f80fc91b135ef6251011e9f33c78ca7fae7ebbb82f"
     },
     "motion.js": {
-      "bytes": 7615,
-      "sha256": "493aef4f41a60fca2d2928fbd67385d393c20537f92684bbfaddbc8da2cf8644"
+      "bytes": 22103,
+      "sha256": "912aa741f081cd51903774ba13aae5540c4a81b12694d4bad50799b28801e139"
     },
     "preference-bootstrap.js": {
-      "bytes": 327,
-      "sha256": "ed5e3697cd475ffcd8dd750c49213f870eb86a1b1db3162c23a0b6b9eeeb8278"
+      "bytes": 243,
+      "sha256": "b53e0fc861b0c148f07178631e64fe4539ae99d6b73d827ea35d640f38c02611"
     },
-    "assets/logo-light.svg": {
-      "bytes": 360,
-      "sha256": "4223e91d2d4bb298fec6f8a1e2840235f5404c033f52cfa74ebc88124969df25"
+    "render-integrations.mjs": {
+      "bytes": 10227,
+      "sha256": "d663bf4696aa33166357e9d89f8bee33f096d4150d445adab2497e9bc4704030"
+    },
+    "README.md": {
+      "bytes": 6462,
+      "sha256": "7b88aba3ff4de52fa0ab56fb84d8e1ba9cf10761f2182a20e84edc7e136e1e13"
+    },
+    "integrations.json": {
+      "bytes": 94728,
+      "sha256": "38564df21d290e7250d8089865b637ca5c489f0625d5a50cd1d154e448c8cdd3"
+    },
+    "REFERENCE-CRITIQUE.md": {
+      "bytes": 3442,
+      "sha256": "460fe2ed05f42a8599cd6ec66481759434a689cd7aef2043ffe13bc8fb58c428"
+    },
+    "CRITIQUE.md": {
+      "bytes": 6860,
+      "sha256": "6e5b49d1124781dab1ff85b9fead595115124189abb2360875a61edc7e34ebe8"
+    },
+    "index.html": {
+      "bytes": 36192,
+      "sha256": "b1f5350ec48fecb6324d70f5894e7a5ffb0c68cea655c6542690d282c1e87d6d"
+    },
+    "POLISH-CRITIQUE.md": {
+      "bytes": 4132,
+      "sha256": "7bfd71ed9feee57cf18face9fc279d8ad50176d501c99e17429a3e1307f48bc6"
+    },
+    "server.mjs": {
+      "bytes": 3738,
+      "sha256": "c9d140a6f9951e81b9411833fb2a76add4261a4e00cf7fde8fc747f0f5cf7851"
     },
     "assets/logo-dark.svg": {
       "bytes": 360,
       "sha256": "e3c6d2b5a0c928ec3c7256314eb3c8936272946339185bbe20f7608f87010cd6"
     },
-    "server.mjs": {
-      "bytes": 3121,
-      "sha256": "14d0d55b7286821743158761c18dc8582ad434d68cea209d1bb9928370ee4395"
+    "assets/logo-light.svg": {
+      "bytes": 360,
+      "sha256": "4223e91d2d4bb298fec6f8a1e2840235f5404c033f52cfa74ebc88124969df25"
+    },
+    "assets/integrations/php.svg": {
+      "bytes": 1142,
+      "sha256": "d695da48e3cb1c3547ae369b19ec01fb81150254bfb16d5c165b0e0c947651be"
+    },
+    "assets/integrations/clerk.svg": {
+      "bytes": 710,
+      "sha256": "a4e5941a6f74f547896c4cc7b21d3f14c1e14015e44fe1c366923d407e2bb8d6"
+    },
+    "assets/integrations/microsoftonedrive-historical.svg": {
+      "bytes": 1346,
+      "sha256": "d3449a3873e27b9aa8e2e8beb6fbdee27063e12e2aa55cfd7a5c11b08f1da7ec"
+    },
+    "assets/integrations/netlify.svg": {
+      "bytes": 671,
+      "sha256": "b073094453c8289048b20da7e94e447104d76b945ea3f963d4a68c0fdc8a6db0"
+    },
+    "assets/integrations/ceph.svg": {
+      "bytes": 1867,
+      "sha256": "af6b02c903ba8c6f081ded773531bdc6cd7243a905144563b240aa172e9c4f8e"
+    },
+    "assets/integrations/atlassian.svg": {
+      "bytes": 393,
+      "sha256": "35224c8a9a39c7d72f9482fe1460389d1e601269a46854de03fa71f6c3ddcea9"
+    },
+    "assets/integrations/railway.svg": {
+      "bytes": 788,
+      "sha256": "2dfa721a9a1e9ea7778884d7351d7f362e2f09ddd4333e142f942f7253cdfc06"
+    },
+    "assets/integrations/apple.svg": {
+      "bytes": 665,
+      "sha256": "1d7537ee3be4889a9d79a665afa1fd9576b1a3ab926d0e36d0a54ea81ca2bbad"
+    },
+    "assets/integrations/googlecloud.svg": {
+      "bytes": 698,
+      "sha256": "279b4cd0ecf8ec1e58097150d283ca90c2703a71c311096e2a89910c5841eef1"
+    },
+    "assets/integrations/akamai.svg": {
+      "bytes": 844,
+      "sha256": "a06ed13dfaa7fd29d88bc59e0f9b7d336d1b26dfb86937f0390577db549ea560"
+    },
+    "assets/integrations/terraform.svg": {
+      "bytes": 268,
+      "sha256": "436d4d552286c5e692c03fcd52edeea7a9fb73e9266ce9005b173df89bc74d3b"
+    },
+    "assets/integrations/gradle.svg": {
+      "bytes": 926,
+      "sha256": "902d98c195dbaa26d91bce861b13c42dbb8863ad4af1dc93dc6c5e40d4e9ebad"
+    },
+    "assets/integrations/github.svg": {
+      "bytes": 837,
+      "sha256": "856bc0d4f44f961404bd46e90a61eb4486e6df0abc3ee3f72007a0c9e9563aaa"
+    },
+    "assets/integrations/hetzner.svg": {
+      "bytes": 425,
+      "sha256": "b74c3c3396743748601fe8d23e553828b61492ceb1da908a746bcb06661e8289"
+    },
+    "assets/integrations/fusionauth.svg": {
+      "bytes": 1410,
+      "sha256": "c883d56b2c669b3c4a83c5e9af70856fc0229dfa10e2a61a9607f12d83a49064"
+    },
+    "assets/integrations/openid.svg": {
+      "bytes": 397,
+      "sha256": "aa6a15780250624722408ca6b9eb79d9a04c26e7aa331962b4aa1edf39c5ed68"
+    },
+    "assets/integrations/bitbucket.svg": {
+      "bytes": 299,
+      "sha256": "2e1ee03aa0a25a4642f35d4f908946333055969507743f7614da9ace70d0c3ca"
+    },
+    "assets/integrations/gnubash.svg": {
+      "bytes": 2047,
+      "sha256": "e44ec18d7664eac2b7f4fb824542a372bec1aa3e60fbf3d5953caff207cc1578"
+    },
+    "assets/integrations/opentofu.svg": {
+      "bytes": 1430,
+      "sha256": "d8408eeff37d059d8a84273bdca3eae0de1adb123e11d487af7c02e7062228b5"
+    },
+    "assets/integrations/seafile.svg": {
+      "bytes": 1448,
+      "sha256": "a11815bf851d2d4e0cf3ea09b848d457629d6cc78e8c3fe76c1e0de7a606b67f"
+    },
+    "assets/integrations/keycloak.svg": {
+      "bytes": 547,
+      "sha256": "711af34257a3db739e1af049e93e6329b8c87d14cfb5cfa954ca87c214105223"
+    },
+    "assets/integrations/vercel.svg": {
+      "bytes": 147,
+      "sha256": "2c0e96822923b6a16254199ebd75c93870d2681a9e3e2130b9ae48bca86931f7"
+    },
+    "assets/integrations/truenas.svg": {
+      "bytes": 386,
+      "sha256": "c3195e72fab621649f51052a685583cfdcfad7a0ea583302182bd717c34b3570"
+    },
+    "assets/integrations/microsoftsharepoint-historical.svg": {
+      "bytes": 2276,
+      "sha256": "75e3d6c228de2480ff143f16b15d7c1ba4bc4ac27b2b10682eed3d4e22af412e"
+    },
+    "assets/integrations/x.svg": {
+      "bytes": 314,
+      "sha256": "40a04de8251b36ff4d81629d2ad96c702e8c9ab15c84370fa60a0e7220dd16d0"
+    },
+    "assets/integrations/astral.svg": {
+      "bytes": 403,
+      "sha256": "5ab35c4e535ef0de291c6539971eb43c63c083f9fd9349bca05c4211c3591e32"
+    },
+    "assets/integrations/minio.svg": {
+      "bytes": 724,
+      "sha256": "5b2fb990db3e9ca325feab4f02ddaee1144e5e8d1444de8d671bbd5f0a965c5e"
+    },
+    "assets/integrations/poetry.svg": {
+      "bytes": 331,
+      "sha256": "4c041a22cd13cbff8369fa2d37b028ff48d83c6ae66e6fb187594b039210a847"
+    },
+    "assets/integrations/alibabacloud.svg": {
+      "bytes": 562,
+      "sha256": "36ec07286b23c01da4ee7eac939dba6f26914a35092c8b05787289c5beb44c5b"
+    },
+    "assets/integrations/spotify.svg": {
+      "bytes": 712,
+      "sha256": "4721d02853f92300ebe565fb5c3383fb36501ffa2c1d9cf6d02f27f5c464f9b9"
+    },
+    "assets/integrations/n8n.svg": {
+      "bytes": 688,
+      "sha256": "28a5a0d58b4637eb3d94f3fa863fe6c4e0439893a59216bb2866f0ee2e2fd7f0"
+    },
+    "assets/integrations/synology.svg": {
+      "bytes": 5257,
+      "sha256": "9efa04ecbe22c666ca1c7b86f67b50e6321610e495b79f322013cc63ac4e6107"
+    },
+    "assets/integrations/ibmcloud-historical.svg": {
+      "bytes": 2064,
+      "sha256": "f779708de9137d2df8d585af66bc43508f8638c778500270ac74dec7fa6afc07"
+    },
+    "assets/integrations/kubernetes.svg": {
+      "bytes": 3580,
+      "sha256": "0658f7b09c4ca587015b996a9b21d9bb5826e2e544c8443d74d48061930efa4c"
+    },
+    "assets/integrations/authentik.svg": {
+      "bytes": 640,
+      "sha256": "f4f80cb73d00c087262c9d4168bb827864cb8f8f2e2694b1d412b15f258f17bd"
+    },
+    "assets/integrations/cloudflare.svg": {
+      "bytes": 1193,
+      "sha256": "69c2d22134e281c7ae46932a02ddbb2f8f6a3759d1f0e8a284a808140ecf7a43"
+    },
+    "assets/integrations/auth0.svg": {
+      "bytes": 364,
+      "sha256": "03b86848a3908bd90d265af8901fa4dadfcf837b776cc8238c5ef09f1c31870b"
+    },
+    "assets/integrations/oracle-original.svg": {
+      "bytes": 1244,
+      "sha256": "6afd3872d2ecb9a619fc10048b6a18bc3b948dfd7c97d1a694af26c6a7153cbf"
+    },
+    "assets/integrations/backblaze.svg": {
+      "bytes": 1322,
+      "sha256": "e0fbe87b53e4f6fcc3e4a315c196be8de2b02337c019bf64c63da0059dae3293"
+    },
+    "assets/integrations/supabase.svg": {
+      "bytes": 318,
+      "sha256": "96530139a7cc57a3792575303ad7313331288a0d6a4bcd63d254fcb543795f1f"
+    },
+    "assets/integrations/apachemaven.svg": {
+      "bytes": 5689,
+      "sha256": "bdccd704c76e229f51c769312768b710ffe5440ea39f59c323d9db1a65a9b598"
+    },
+    "assets/integrations/python.svg": {
+      "bytes": 1001,
+      "sha256": "1063b525b7dd38e2007392d433fe6658af19c728e94d4f86ea088b8e4b14d1b7"
+    },
+    "assets/integrations/steam.svg": {
+      "bytes": 1051,
+      "sha256": "ead97303ecdd3fe90fa372c32d966e356e4832fa9e915a7307499ed1fbe5814d"
+    },
+    "assets/integrations/line.svg": {
+      "bytes": 1191,
+      "sha256": "1cb34fbe2584219302817870486c326b6bef399a26ea975d92801d01bb93cc0e"
+    },
+    "assets/integrations/scaleway.svg": {
+      "bytes": 738,
+      "sha256": "5ec66a08ea87383afc1bc5eedaebe3f704a8fc3cd8ec7a829ac1619dacdab65f"
+    },
+    "assets/integrations/bun.svg": {
+      "bytes": 1722,
+      "sha256": "afb75c77b1bbfbc4264e5bd2a583c73a0ce943bb4be051809c8d24e12797d03f"
+    },
+    "assets/integrations/twitch.svg": {
+      "bytes": 307,
+      "sha256": "c6bf7380edf5d019da2ec4d39e6c5c0a7bd5252f547bb6cc7205a494d7ecd4da"
+    },
+    "assets/integrations/githubactions.svg": {
+      "bytes": 1742,
+      "sha256": "cc0906657e0098ff2c1641251d55d0119cf402cd645970d7557b4cdc3000ace6"
+    },
+    "assets/integrations/redis.svg": {
+      "bytes": 753,
+      "sha256": "0f26b9de7824c0cb319529ecb1b09e42b9e97cc9ce38cb28116d6884bf272c25"
+    },
+    "assets/integrations/huggingface.svg": {
+      "bytes": 3042,
+      "sha256": "d5c0033bdc77b27d0af69049968859534e9d7d61a25d5fa619f6f245dd00c376"
+    },
+    "assets/integrations/cloudflareworkers.svg": {
+      "bytes": 350,
+      "sha256": "7825e3f9bea7768ccf9f991a1114ee94275473abf9f5ef6b9f1f31c0a4e99cb8"
+    },
+    "assets/integrations/discord.svg": {
+      "bytes": 1389,
+      "sha256": "dfc22683c1b2a39d5f0693b08e34f0519227da4b4895b1854fdb85c8cce25445"
+    },
+    "assets/integrations/ory.svg": {
+      "bytes": 216,
+      "sha256": "50ded10a5643f8a2f00b9520ed93d56a662e08a5cb867d04b37ac013d4e27d11"
+    },
+    "assets/integrations/PROVENANCE.md": {
+      "bytes": 2413,
+      "sha256": "b6a6508907efdd8f2860eda4c7f92ff27533b83acbb52a671e69fb0696b90be7"
+    },
+    "assets/integrations/ollama.svg": {
+      "bytes": 4784,
+      "sha256": "5b34fee0961edee85cfabe71c112c5141af6d4b4347ea882457a843f05b9b31e"
+    },
+    "assets/integrations/dropbox.svg": {
+      "bytes": 351,
+      "sha256": "d29fa4a6fa067ea65946eda6e68a45b8cc81007b805dc49beee626cf43d2719e"
+    },
+    "assets/integrations/okta.svg": {
+      "bytes": 254,
+      "sha256": "49e3ba237e56c9884d5057f3025b19254c9e8f53ac3a580548a5b3a0c1faf776"
+    },
+    "assets/integrations/filen.svg": {
+      "bytes": 1022,
+      "sha256": "55a85832abfeb47b3665296031754627cde96393355ca1501bc077ec88b79f4c"
+    },
+    "assets/integrations/dotnet.svg": {
+      "bytes": 549,
+      "sha256": "eacd9b56cbf9310dea1ff5402a4f56fe9fff64dc9e00592186d50a3d1432e1e5"
+    },
+    "assets/integrations/kakaotalk.svg": {
+      "bytes": 1787,
+      "sha256": "e048080a69467b3b7b6cd8fc5e3ed7ff5de5c53347969029e7ae8a845367c271"
+    },
+    "assets/integrations/argo.svg": {
+      "bytes": 5025,
+      "sha256": "6b699869a620fdcb2ae9239cb0f79ad66e2a71981bdb3b94287c5f3c5be51482"
+    },
+    "assets/integrations/nodedotjs.svg": {
+      "bytes": 1623,
+      "sha256": "7a515dc7ed05dbf63c4892408edd0adb058b0d6b73bcb2de2388f8144c0010df"
+    },
+    "assets/integrations/vultr.svg": {
+      "bytes": 508,
+      "sha256": "a1726308c61a13f9cdae5b79bdacd1cb1e1b9ce4c91d9abd6d0e74442f086b23"
+    },
+    "assets/integrations/icloud.svg": {
+      "bytes": 406,
+      "sha256": "4886f756ffda5d1e76d8c5957e328ce42e226b3b5787ca6d4c54a59ba94c3a5a"
+    },
+    "assets/integrations/facebook.svg": {
+      "bytes": 557,
+      "sha256": "ef6ee344d8dee79135fee70715657761fa80ba0bf8ff050b44dd070d7a425920"
+    },
+    "assets/integrations/naver.svg": {
+      "bytes": 194,
+      "sha256": "6e9d03803953361a93210adb28b650f7f3f5e93074c438ee85b527092dbb4e8c"
+    },
+    "assets/integrations/wechat.svg": {
+      "bytes": 1345,
+      "sha256": "79ad2650332edb407fcd828ff308f7314d2b041b45e8abfb61ca51e581d68d4f"
+    },
+    "assets/integrations/ansible.svg": {
+      "bytes": 455,
+      "sha256": "5dbf5c98ba0a691a90464f613d2a6ac6da5fa6f8975726baffe415dfb04ab1fc"
+    },
+    "assets/integrations/nextcloud.svg": {
+      "bytes": 873,
+      "sha256": "077f72d9caea190df750fc329a2403d71e06dee58a14d76030982f8d8cc9a728"
+    },
+    "assets/integrations/mega.svg": {
+      "bytes": 578,
+      "sha256": "b00ffbe74fd74578897a225e793fe6db6975c7ae3db09a2deaa01d29b3254f44"
+    },
+    "assets/integrations/model-context-protocol-official.svg": {
+      "bytes": 1095,
+      "sha256": "f6f33e24e95846f9ae2582ab72c4eae7beec5ec52c13d767d9f342bf639dd3e6"
+    },
+    "assets/integrations/wasabi.svg": {
+      "bytes": 997,
+      "sha256": "52b040d62a62dc39b0025616f5044ec7e7c4c68e1eee655a727836b57c4b7519"
+    },
+    "assets/integrations/amazonwebservices-original-wordmark.svg": {
+      "bytes": 3743,
+      "sha256": "5b4d8371d79a5c0d3a27ea4e929f772e68d47f7d267496bf9211d5f60fcf8084"
+    },
+    "assets/integrations/firebase.svg": {
+      "bytes": 1942,
+      "sha256": "0b5dad00ce83a26841ecc8e2ff983a50ebe22df12ddd903a56260969690dad19"
+    },
+    "assets/integrations/local-filesystem.svg": {
+      "bytes": 424,
+      "sha256": "98c96d5f98b60c11d2580afa665f89a13d9870ba30e7026812ccab8b6e940098"
+    },
+    "assets/integrations/render.svg": {
+      "bytes": 396,
+      "sha256": "350482b6b5ee5a0360b36b62cbaf251d6e5fb34ea85089c71dee46575de2b1db"
+    },
+    "assets/integrations/npm.svg": {
+      "bytes": 332,
+      "sha256": "021f5a6c432f52a5383e88b7feb6235270fe7d65ebf2eed10257453dd3884b63"
+    },
+    "assets/integrations/helm.svg": {
+      "bytes": 1534,
+      "sha256": "e240c8051d06075f2b7a3cbf24fc125a1025f699826d2365efc86fc275105075"
+    },
+    "assets/integrations/protondrive.svg": {
+      "bytes": 581,
+      "sha256": "1fe78074b253e71b84464eb1db37a8b7f0b1accc8ff5b2dcf21525f77ce4b9b9"
+    },
+    "assets/integrations/gitlab.svg": {
+      "bytes": 588,
+      "sha256": "1162a8d9726130f4dd0250291467b0b2a7697489e51494e54f79dc8d0dac5503"
+    },
+    "assets/integrations/go.svg": {
+      "bytes": 1651,
+      "sha256": "2eba57d646fab3ef134a9ac2727176b275ec1003340c3450f575a7831f176561"
+    },
+    "assets/integrations/composer.svg": {
+      "bytes": 39711,
+      "sha256": "1a60abf3283e5de24ff42246dcef32434e76705f700c4ed1516ba4a9447e5717"
+    },
+    "assets/integrations/openjdk.svg": {
+      "bytes": 1789,
+      "sha256": "b8779a40534331752a719eec3d56e242c5245b0d3777107ae9766789e702f623"
+    },
+    "assets/integrations/circleci.svg": {
+      "bytes": 653,
+      "sha256": "1613902b9381355b0c4f8ddff1010ec3b9c0a673bbe4717ba4ffa1ea18816651"
+    },
+    "assets/integrations/temporal.svg": {
+      "bytes": 888,
+      "sha256": "26a10c27447bbd9a2ddb660e75b5b0240ba515170899d645c076bfec3c2a2e4a"
+    },
+    "assets/integrations/ruby.svg": {
+      "bytes": 550,
+      "sha256": "d33e55b99ec1f083e569d301e8f2e1a9c34cf622bdab3440993443d0a6283fc2"
+    },
+    "assets/integrations/jupyter.svg": {
+      "bytes": 914,
+      "sha256": "2b3f48a3dcc86a8e93224abc3f21a3e00ed2e6510e2c762abc6cb6ba44e1eaa6"
+    },
+    "assets/integrations/anthropic.svg": {
+      "bytes": 296,
+      "sha256": "33489f2e956ea3d6fe05e38453310361b707c120de93f33c9d3dad3627ffd205"
+    },
+    "assets/integrations/docker.svg": {
+      "bytes": 1780,
+      "sha256": "5f2b847dbd866440ae981fc858754e41ac6e0b6b764e171585652df9913d698e"
+    },
+    "assets/integrations/jenkins.svg": {
+      "bytes": 4683,
+      "sha256": "eff66b3eff50975a4956abf98a30cb30ebfbe99941eb6eddfd9224c62743b856"
+    },
+    "assets/integrations/pulumi.svg": {
+      "bytes": 1955,
+      "sha256": "97cd80761a6722932b255f2a60eda2c88d94680751abb12609ab1afdaa291325"
+    },
+    "assets/integrations/googledrive.svg": {
+      "bytes": 614,
+      "sha256": "4708aba17fe42f148c561178b9b02b48fde867e3330c4b2d644aa57b4c3e5e61"
+    },
+    "assets/integrations/LICENSES.md": {
+      "bytes": 3213,
+      "sha256": "2cb7706bd5c641cd2d061060330de8c75690d6384868daee2ca380640ad5bcb1"
+    },
+    "assets/integrations/rust.svg": {
+      "bytes": 4259,
+      "sha256": "e7b39ada454c67a0e66a57bee61ac5d69b7dd3f584ba4062d86d3812b80e878f"
+    },
+    "assets/integrations/googlegemini.svg": {
+      "bytes": 416,
+      "sha256": "4df479fa8dae9b5b657e8855392df1b8e017287f069af5c37ac6d18670cae1a0"
+    },
+    "assets/integrations/rustfs.svg": {
+      "bytes": 1742,
+      "sha256": "12f708366e0dcc97621d3055883a792ca73ece723d7d4a739d72316c684d034a"
+    },
+    "assets/integrations/flux.svg": {
+      "bytes": 1740,
+      "sha256": "741eb5cfc526ee08a42f31207951afa1a15f55fd37d774576b3bf4bccdd17228"
+    },
+    "assets/integrations/deno.svg": {
+      "bytes": 1052,
+      "sha256": "9faaeba6f285a9cd6f959f8d70fb3ca47e3c79ebb0cfda3b4dafc593b607c272"
+    },
+    "assets/integrations/webauthn.svg": {
+      "bytes": 3308,
+      "sha256": "90255d78f794c415c242082c9cd534bdd3168f3f488538835da7974e47bd9612"
+    },
+    "assets/integrations/owncloud.svg": {
+      "bytes": 4347,
+      "sha256": "4d1332c1b9079cad1daa6635eb4fd98802ccb48cb8734bbfaeb5ccd04d750ffa"
+    },
+    "assets/integrations/digitalocean.svg": {
+      "bytes": 446,
+      "sha256": "49027289a8df1917254f3b263ab252bb1976237ddd5ebe4dea5644a78c742607"
+    },
+    "assets/integrations/ovh.svg": {
+      "bytes": 379,
+      "sha256": "e5a74845be1c00312589a037ba7bdf9dbefe994baa82127c70c9e761befa4424"
+    },
+    "assets/integrations/pnpm.svg": {
+      "bytes": 358,
+      "sha256": "8e2e6bcfa43ac8105efdd9e987334a8d0b5347b792fe257b5d8b3f6fdd846cb2"
+    },
+    "assets/integrations/box.svg": {
+      "bytes": 1050,
+      "sha256": "ed04a6148edcf2f783f8791bb1054ea63bcb73cfe4d55c83bafafefd4b7f17b7"
+    },
+    "assets/integrations/postgresql.svg": {
+      "bytes": 5220,
+      "sha256": "8b9c21480c2f5bf11021dbd692dd67e8e49a2fb3131371235442a7934f0cb49f"
+    },
+    "assets/integrations/yarn.svg": {
+      "bytes": 1948,
+      "sha256": "21d4825ea4baed53c7155316f3dfe2b508e513f4a7e9f356ab63be09ef661b33"
+    },
+    "assets/integrations/powershell-original.svg": {
+      "bytes": 1809,
+      "sha256": "f72bc9843ff04005045b659f1ce960d03ddf7707fe02cb5d3dee373914a6d750"
+    },
+    "assets/integrations/reddit.svg": {
+      "bytes": 1248,
+      "sha256": "340a842b35830d79ac63ee587440392b6b3325145c4db095ac72fefcdfc90050"
+    },
+    "assets/integrations/google.svg": {
+      "bytes": 472,
+      "sha256": "437e48667ac7ea2125a54a8696e3548c0ab8611f4f4fdc30f78f049314824d58"
+    },
+    "assets/integrations/vk.svg": {
+      "bytes": 1293,
+      "sha256": "ea3e497108c5bb8945bb140bf167b2a370eca19d619737e88fcc48a3263a5027"
     }
   },
-  "publicAssetBytes": 35756,
-  "verification": {
-    "syntax": "Node v24.16.0 --check passed for all three JavaScript modules",
-    "http": "11 bounded route/asset/privacy/method checks passed",
-    "layouts": [
-      {
-        "name": "desktop",
-        "width": 1440,
-        "height": 1000,
-        "contentWidth": 1425,
-        "contentHeight": 1846
-      },
-      {
-        "name": "tablet",
-        "width": 820,
-        "height": 1180,
-        "contentWidth": 805,
-        "contentHeight": 1959
-      },
-      {
-        "name": "foldable-open",
-        "width": 673,
-        "height": 841,
-        "contentWidth": 673,
-        "contentHeight": 2102
-      },
-      {
-        "name": "foldable-closed",
-        "width": 360,
-        "height": 800,
-        "contentWidth": 360,
-        "contentHeight": 2075
-      },
-      {
-        "name": "mobile",
-        "width": 390,
-        "height": 844,
-        "contentWidth": 390,
-        "contentHeight": 2120
-      },
-      {
-        "name": "narrow-phone",
-        "width": 320,
-        "height": 740,
-        "contentWidth": 320,
-        "contentHeight": 2145
-      }
-    ],
-    "pause": "Visible packet coordinates identical before/after pause",
-    "keyboard": "Enter selected denied chapter and aria-pressed=true",
-    "denied": "Only denied packet visible; approval opacity 0",
-    "autoplay": {
-      "chapter": "flow",
-      "elapsedMs": 14239.90000000596,
-      "playing": "false",
-      "reason": "settled",
-      "visibility": "visible"
-    },
-    "reducedMotion": "Static coordinated scene, no packet movement; explicit chapter exploration available",
-    "noJavaScript": "Full route, explanation and workbench links rendered; inert controls disabled",
-    "consoleErrors": 0,
-    "designHook": "Small-text finding fixed; two later overused-font findings intentionally excepted for Inter only in prototype index.html/style.css, under the explicit human branding-consistency instruction. Scoped detector rerun returned no findings."
-  },
-  "evidence": {
-    "desktop.jpg": "ce4e38ba1b9c77df2c4c10dd32b2ebc540c50fbfe8e5a07ffa29a0e65fc01f52",
-    "tablet.jpg": "4267cfd35e6a56d73e6ae442353f09793fb3824ddfed6def04237984a7347180",
-    "foldable-open.jpg": "23cd107af21d5ad91dc1ac05209009870795fd17fadbac0e9ec2e9fa6a4b4e5a",
-    "foldable-closed.jpg": "b40f9e15dd0077104dbe69eaaf97c42e56b18028956d96936266fb80d7e60bb6",
-    "mobile.jpg": "d6d47f362e55ccede4570ea73b28509a66af59a07e00eac820c384e68020247a",
-    "narrow-phone.jpg": "f16db750bf9fa8d836807c523d00460722a5838a4d19624edabfdedb3ce8df1b",
-    "dark-manual.jpg": "9287c28b568082a62d5731f75a71900868223a2a6bc9352707d58c84a0d13128",
-    "no-javascript.jpg": "f387f03e9cab880a5a9599c4ec577576a7f587dda7812599188289a8612b3b74"
-  },
-  "preservation": {
-    "preexistingSourceFiles": 1156,
-    "allPreexistingBytesUnchanged": true,
-    "existingPreviewPid": 1094745,
-    "existingPreviewPorts": [
-      5180,
-      5181
-    ],
-    "ownedPreview": "127.0.0.1:5182"
-  },
-  "limits": [
-    "Chromium viewport emulation, not physical tablet/foldable/mobile acceptance",
-    "Actual hinges, touch hardware, Safari/Firefox, RTL, forced-colours and CPU/frame profiling remain for integration",
-    "Hidden/offscreen scheduling is source-reviewed, not independently instrumented as device qualification",
-    "No native execution, real provider or backend exercised"
+  "critiqueSequence": [
+    "CRITIQUE.md",
+    "POLISH-CRITIQUE.md",
+    "REFERENCE-CRITIQUE.md"
   ],
-  "nextAction": "Matt reviews localhost and selects/revises the attractor; existing frontend/source owner integrates any adopted treatment later.",
+  "verificationLimits": [
+    "No final acceptance claim for this superseded experiment",
+    "Historical browser captures and failing traces retained under the existing private checkpoint57 evidence store",
+    "Current contour polish was interrupted by new human direction"
+  ],
+  "preservation": {
+    "outsideOwnedScope": 1157,
+    "unchanged": true
+  },
   "holds": [
-    "No new Linear issue or mutation",
-    "CIX and BAU execution remain paused",
-    "No production deployment, push, release, new controller, ownership transfer or workbench modification"
-  ]
+    "No Linear mutations",
+    "BAU/CIX/production remain paused",
+    "No push/deployment",
+    "Owned web/ untouched"
+  ],
+  "nextAction": "Restore a focused 1-IDP, local/remote encrypted-storage, 3-destination hero. Render all 113 icons statically in a secondary ecosystem section. Polish and commit separately."
 }

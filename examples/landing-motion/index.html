@@ -1,133 +1,173 @@
 <!doctype html>
-<html lang="en" data-chapter="flow">
+<html lang="en" data-theme="light" data-chapter="flow" data-playing="false">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f8fa">
-  <meta name="description" content="Explore how CircularQuay connects encrypted sources, local policy and approved applications. An interactive, synthetic landing-page concept.">
+  <meta name="theme-color" content="#f2f0e8">
+  <meta name="description" content="The right secrets, ready for your apps. Explore a living CircularQuay ecosystem, brought together through local policy.">
   <title>CircularQuay — The right secrets, ready for your apps.</title>
   <link rel="icon" href="assets/logo-light.svg" type="image/svg+xml">
   <script src="preference-bootstrap.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="formations.css">
   <script type="module" src="motion.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header page-width">
-    <a class="wordmark" href="#main" aria-label="CircularQuay home">
-      <img class="logo-light" src="assets/logo-light.svg" width="42" height="38" alt="">
-      <img class="logo-dark" src="assets/logo-dark.svg" width="42" height="38" alt="">
-      <span>CircularQuay</span>
-    </a>
-    <nav aria-label="Main navigation">
-      <a class="how-link" href="#how-it-works">How it works</a>
-      <label class="theme-control"><span class="visually-hidden">Appearance</span>
-        <select id="theme" aria-label="Appearance"><option value="system">System theme</option><option value="light">Light theme</option><option value="dark">Dark theme</option></select>
-      </label>
-      <a class="header-action" href="http://127.0.0.1:5181/#/workbench">Open workbench <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
-    </nav>
+    <a class="wordmark" href="#main" aria-label="CircularQuay home"><img class="logo-light" src="assets/logo-light.svg" width="42" height="38" alt=""><img class="logo-dark" src="assets/logo-dark.svg" width="42" height="38" alt=""><span>CircularQuay</span></a>
+    <nav aria-label="Main navigation"><a href="#scene">How it works</a><a href="#policy-details">Your policy</a></nav>
+    <label class="theme-control"><span class="visually-hidden">Appearance</span><select disabled id="theme" aria-label="Appearance"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></label>
   </header>
-
   <main id="main">
     <section class="hero page-width" aria-labelledby="hero-title">
-      <div class="hero-intro">
-        <h1 id="hero-title">The right secrets,<br><span>ready for your apps.</span></h1>
-        <div class="hero-summary">
-          <p>From the sources you trust to the apps you approve. CircularQuay brings the journey together, with your configuration on your device.</p>
-          <a class="text-action" href="#journey">Follow the journey <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16m-6-6 6 6 6-6"/></svg></a>
-        </div>
+      <div class="hero-copy">
+        <h1 id="hero-title">The right secrets,<br>ready for your apps.</h1>
+        <p class="hero-summary">Choose your sources. Set your policy.<br>Keep your configuration on your device.</p>
+        <div class="hero-actions"><button class="primary-action" id="start-motion" type="button" disabled>See it in motion <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button><a class="policy-link" href="#policy-details">About your policy <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a></div>
       </div>
-
-      <figure class="journey" id="journey" aria-labelledby="journey-title" aria-describedby="journey-description">
-        <div class="stage-heading"><span id="journey-title">A little less back and forth.</span><span class="example-label">Illustrative example</span></div>
-        <div class="diagram" aria-hidden="true">
-          <svg class="diagram-wide" viewBox="0 0 1120 380" focusable="false">
-            <defs>
-              <symbol id="file-icon" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H6V3h1Zm7 0v5h4M9 13h6m-6 4h4"/></symbol>
-              <symbol id="cloud-icon" viewBox="0 0 24 24"><path d="M6 18a4.5 4.5 0 0 1-.3-9 6.5 6.5 0 0 1 12.6 0A4.5 4.5 0 0 1 18 18ZM9 14l3-3 3 3m-3-3v9"/></symbol>
-              <symbol id="git-icon" viewBox="0 0 24 24"><circle cx="7" cy="5" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="7" cy="19" r="2.5"/><path d="M7 7.5v9m10-8v1c0 5-10 2-10 6"/></symbol>
-              <symbol id="app-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18m-12 5 2 2-2 2m5 0h3"/></symbol>
-              <symbol id="check-icon" viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></symbol>
-              <symbol id="lock-icon" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></symbol>
-            </defs>
-            <g class="route-lines flow-lines">
-              <path data-route="in-file" d="M235 84H322Q360 84 388 112L478 202"/>
-              <path data-route="in-cloud" d="M235 202H478"/>
-              <path data-route="in-git" d="M235 320H322Q360 320 388 292L478 202"/>
-              <path data-route="out-app" d="M642 202 732 112Q760 84 798 84H885"/>
-              <path data-route="out-ci" d="M642 202H885"/>
-              <path data-route="out-agent" d="M642 202 732 292Q760 320 798 320H885"/>
-            </g>
-            <g class="route-lines manual-lines">
-              <path data-route="manual-a" d="M235 84C480 30 356 360 674 302S658 30 885 84"/>
-              <path data-route="manual-b" d="M235 202C360 360 765 12 885 202"/>
-              <path data-route="manual-c" d="M235 320C330 130 770 160 885 320"/>
-            </g>
-            <g class="denied-lines route-lines"><path data-route="denied" d="M235 202H459"/><path d="m447 190 12 12-12 12"/></g>
-            <g class="source-node" transform="translate(192 84)"><circle r="32"/><use href="#file-icon" x="-13" y="-13" width="26" height="26"/><text class="node-label" x="-52" y="5" text-anchor="end">Encrypted file</text></g>
-            <g class="source-node" transform="translate(192 202)"><circle r="32"/><use href="#cloud-icon" x="-13" y="-13" width="26" height="26"/><text class="node-label" x="-52" y="5" text-anchor="end">Cloud store</text></g>
-            <g class="source-node" transform="translate(192 320)"><circle r="32"/><use href="#git-icon" x="-13" y="-13" width="26" height="26"/><text class="node-label" x="-52" y="5" text-anchor="end">Repository</text></g>
-            <g class="hub" transform="translate(560 202)">
-              <circle class="hub-orbit" r="100"/><circle class="hub-disc" r="78"/>
-              <image href="assets/logo-dark.svg" x="-31" y="-34" width="62" height="56"/>
-              <text class="hub-label" text-anchor="middle" y="45">Local policy</text>
-              <text class="device-label" text-anchor="middle" y="-122">ON YOUR DEVICE</text>
-              <g class="approval-mark" transform="translate(66 57)"><circle r="15"/><use href="#check-icon" x="-10" y="-10" width="20" height="20"/></g>
-            </g>
-            <g class="app-node" transform="translate(928 84)"><rect x="-32" y="-32" width="64" height="64" rx="14"/><use href="#app-icon" x="-14" y="-14" width="28" height="28"/><text class="node-label" x="52" y="5">API service</text></g>
-            <g class="app-node" transform="translate(928 202)"><rect x="-32" y="-32" width="64" height="64" rx="14"/><path d="m-9-7 7 7-7 7m13 0h7"/><text class="node-label" x="52" y="5">CI job</text></g>
-            <g class="app-node" transform="translate(928 320)"><rect x="-32" y="-32" width="64" height="64" rx="14"/><rect x="-12" y="-9" width="24" height="18" rx="5"/><path d="M-5-2v4m10-4v4M0-14v5"/><text class="node-label" x="52" y="5">Agent</text></g>
-            <g class="manual-note"><rect x="360" y="24" width="173" height="40" rx="6"/><text x="446" y="49" text-anchor="middle">Find the right file</text></g>
-            <g class="manual-note"><rect x="630" y="316" width="156" height="40" rx="6"/><text x="708" y="341" text-anchor="middle">Check access. Again.</text></g>
-            <g class="denied-note"><text x="360" y="242" text-anchor="middle">No matching grant</text><text x="779" y="242" text-anchor="middle">No delivery</text></g>
-            <g class="packets"></g>
-          </svg>
-
-          <svg class="diagram-compact" viewBox="0 0 400 430" focusable="false">
-            <g class="route-lines flow-lines">
-              <path data-route="compact-in" d="M97 94V148Q97 178 127 178H170Q200 178 200 208"/>
-              <path data-route="compact-out" d="M200 292Q200 322 230 322H273Q303 322 303 352V365"/>
-            </g>
-            <g class="route-lines manual-lines"><path data-route="compact-manual" d="M97 94C-10 240 395 120 325 272S144 375 273 391"/></g>
-            <g class="route-lines denied-lines"><path data-route="compact-denied" d="M97 94V148Q97 178 127 178H170Q187 178 191 191"/><path d="m180 187 12 6 6-12"/></g>
-            <g class="source-node" transform="translate(97 63)"><circle r="31"/><use href="#lock-icon" x="-13" y="-13" width="26" height="26"/><text class="node-label" x="51" y="-4">Your encrypted sources</text><text class="node-sub" x="51" y="21">Files · cloud · repositories</text></g>
-            <g class="hub" transform="translate(200 250)"><circle class="hub-orbit" r="78"/><circle class="hub-disc" r="62"/><image href="assets/logo-dark.svg" x="-26" y="-31" width="52" height="47"/><text class="hub-label" text-anchor="middle" y="35">Local policy</text><text class="device-label" x="0" y="-94" text-anchor="middle">ON YOUR DEVICE</text><g class="approval-mark" transform="translate(53 43)"><circle r="14"/><use href="#check-icon" x="-10" y="-10" width="20" height="20"/></g></g>
-            <g class="app-node" transform="translate(303 391)"><rect x="-30" y="-30" width="60" height="60" rx="14"/><use href="#app-icon" x="-14" y="-14" width="28" height="28"/><text class="node-label" x="-49" y="-4" text-anchor="end">Your approved apps</text><text class="node-sub" x="-49" y="21" text-anchor="end">Services · CI · agents</text></g>
-            <g class="manual-note"><rect x="213" y="122" width="172" height="38" rx="6"/><text x="299" y="147" text-anchor="middle">Check access. Again.</text></g>
-            <g class="denied-note"><text x="262" y="159" text-anchor="middle">No matching grant</text></g>
-            <g class="packets"></g>
-          </svg>
+      <figure class="journey" id="scene" aria-label="Your ecosystem, brought together by CircularQuay" aria-describedby="journey-description">
+        <div class="ecosystem">
+          <svg class="journey-connections" viewBox="0 0 760 600" preserveAspectRatio="none" aria-hidden="true" focusable="false"><g class="flow-lines"><path data-route="identity" d="M290 160 C350 160 330 300 348 300"/><path data-route="sources" d="M300 450 C350 450 330 300 348 300"/><path data-route="applications" d="M452 300 C480 300 480 300 505 300"/></g><path class="denied-line" data-route="denied" d="M300 450 C350 450 330 300 348 300"/><g class="packets"></g></svg>
+          <div class="local-hub"><div class="hub-disc"><img class="logo-light" src="assets/logo-light.svg" width="66" height="60" alt="CircularQuay"><img class="logo-dark" src="assets/logo-dark.svg" width="66" height="60" alt="CircularQuay"><span>Local policy</span><svg class="approval-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></div><span class="device-label">On your device</span></div>
+          <section class="integration-field identity-field" data-group="identity" aria-labelledby="identity-title"><header class="field-heading visually-hidden"><h2 id="identity-title">Authentication</h2></header><ul class="integration-grid" aria-label="Authentication examples">
+              <!-- integrations:identity:start -->
+                <li class="integration-token" data-integration-id="google-workspace" data-group="identity" data-name="Google Workspace"><img src="assets/integrations/google.svg" alt="Google Workspace" title="Google Workspace" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="github" data-group="identity" data-name="GitHub"><img src="assets/integrations/github.svg" alt="GitHub" title="GitHub" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="gitlab" data-group="identity" data-name="GitLab"><img src="assets/integrations/gitlab.svg" alt="GitLab" title="GitLab" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="okta" data-group="identity" data-name="Okta"><img src="assets/integrations/okta.svg" alt="Okta" title="Okta" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="auth0" data-group="identity" data-name="Auth0"><img src="assets/integrations/auth0.svg" alt="Auth0" title="Auth0" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="keycloak" data-group="identity" data-name="Keycloak"><img src="assets/integrations/keycloak.svg" alt="Keycloak" title="Keycloak" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="fusionauth" data-group="identity" data-name="FusionAuth"><img src="assets/integrations/fusionauth.svg" alt="FusionAuth" title="FusionAuth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="authentik" data-group="identity" data-name="authentik"><img src="assets/integrations/authentik.svg" alt="authentik" title="authentik" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="clerk" data-group="identity" data-name="Clerk"><img src="assets/integrations/clerk.svg" alt="Clerk" title="Clerk" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ory" data-group="identity" data-name="Ory"><img src="assets/integrations/ory.svg" alt="Ory" title="Ory" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="openid-connect" data-group="identity" data-name="OpenID Connect"><img src="assets/integrations/openid.svg" alt="OpenID Connect" title="OpenID Connect" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="webauthn-passkeys" data-group="identity" data-name="WebAuthn / Passkeys"><img src="assets/integrations/webauthn.svg" alt="WebAuthn / Passkeys" title="WebAuthn / Passkeys" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="firebase-authentication" data-group="identity" data-name="Firebase Authentication"><img src="assets/integrations/firebase.svg" alt="Firebase Authentication" title="Firebase Authentication" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="supabase-auth" data-group="identity" data-name="Supabase Auth"><img src="assets/integrations/supabase.svg" alt="Supabase Auth" title="Supabase Auth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="apple-sign-in" data-group="identity" data-name="Apple sign-in"><img src="assets/integrations/apple.svg" alt="Apple sign-in" title="Apple sign-in" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="facebook-login" data-group="identity" data-name="Facebook Login"><img src="assets/integrations/facebook.svg" alt="Facebook Login" title="Facebook Login" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="discord-oauth" data-group="identity" data-name="Discord OAuth"><img src="assets/integrations/discord.svg" alt="Discord OAuth" title="Discord OAuth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="twitch-identity" data-group="identity" data-name="Twitch identity"><img src="assets/integrations/twitch.svg" alt="Twitch identity" title="Twitch identity" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="reddit-oauth" data-group="identity" data-name="Reddit OAuth"><img src="assets/integrations/reddit.svg" alt="Reddit OAuth" title="Reddit OAuth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="steam-openid" data-group="identity" data-name="Steam OpenID"><img src="assets/integrations/steam.svg" alt="Steam OpenID" title="Steam OpenID" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="spotify-oauth" data-group="identity" data-name="Spotify OAuth"><img src="assets/integrations/spotify.svg" alt="Spotify OAuth" title="Spotify OAuth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="atlassian-identity" data-group="identity" data-name="Atlassian identity"><img src="assets/integrations/atlassian.svg" alt="Atlassian identity" title="Atlassian identity" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="x-oauth" data-group="identity" data-name="X OAuth"><img src="assets/integrations/x.svg" alt="X OAuth" title="X OAuth" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="line-login" data-group="identity" data-name="LINE Login"><img src="assets/integrations/line.svg" alt="LINE Login" title="LINE Login" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="wechat-login" data-group="identity" data-name="WeChat Login"><img src="assets/integrations/wechat.svg" alt="WeChat Login" title="WeChat Login" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="kakao-login" data-group="identity" data-name="Kakao Login"><img src="assets/integrations/kakaotalk.svg" alt="Kakao Login" title="Kakao Login" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="naver-login" data-group="identity" data-name="Naver Login"><img src="assets/integrations/naver.svg" alt="Naver Login" title="Naver Login" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="vk-id" data-group="identity" data-name="VK ID"><img src="assets/integrations/vk.svg" alt="VK ID" title="VK ID" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="amazon-cognito" data-group="identity" data-name="Amazon Cognito"><img src="assets/integrations/amazonwebservices-original-wordmark.svg" alt="Amazon Cognito" title="Amazon Cognito" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="aws-iam-identity-center" data-group="identity" data-name="AWS IAM Identity Center"><img src="assets/integrations/amazonwebservices-original-wordmark.svg" alt="AWS IAM Identity Center" title="AWS IAM Identity Center" width="28" height="28" decoding="async"></li>
+              <!-- integrations:identity:end -->
+            </ul></section>
+          <section class="integration-field sources-field" data-group="sources" aria-labelledby="sources-title"><header class="field-heading visually-hidden"><h2 id="sources-title">Encrypted sources</h2></header><ul class="integration-grid" aria-label="Encrypted sources examples">
+              <!-- integrations:sources:start -->
+                <li class="integration-token" data-integration-id="local-filesystem" data-group="sources" data-name="Local filesystem"><img src="assets/integrations/local-filesystem.svg" alt="Local filesystem" title="Local filesystem" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="google-drive" data-group="sources" data-name="Google Drive"><img src="assets/integrations/googledrive.svg" alt="Google Drive" title="Google Drive" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="dropbox" data-group="sources" data-name="Dropbox"><img src="assets/integrations/dropbox.svg" alt="Dropbox" title="Dropbox" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="box" data-group="sources" data-name="Box"><img src="assets/integrations/box.svg" alt="Box" title="Box" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="google-cloud-storage" data-group="sources" data-name="Google Cloud Storage"><img src="assets/integrations/googlecloud.svg" alt="Google Cloud Storage" title="Google Cloud Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="cloudflare-r2" data-group="sources" data-name="Cloudflare R2"><img src="assets/integrations/cloudflare.svg" alt="Cloudflare R2" title="Cloudflare R2" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="backblaze-b2" data-group="sources" data-name="Backblaze B2"><img src="assets/integrations/backblaze.svg" alt="Backblaze B2" title="Backblaze B2" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="wasabi" data-group="sources" data-name="Wasabi"><img src="assets/integrations/wasabi.svg" alt="Wasabi" title="Wasabi" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="digitalocean-spaces" data-group="sources" data-name="DigitalOcean Spaces"><img src="assets/integrations/digitalocean.svg" alt="DigitalOcean Spaces" title="DigitalOcean Spaces" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="minio" data-group="sources" data-name="MinIO"><img src="assets/integrations/minio.svg" alt="MinIO" title="MinIO" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="nextcloud" data-group="sources" data-name="Nextcloud"><img src="assets/integrations/nextcloud.svg" alt="Nextcloud" title="Nextcloud" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="github-repositories" data-group="sources" data-name="GitHub repositories"><img src="assets/integrations/github.svg" alt="GitHub repositories" title="GitHub repositories" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="gitlab-repositories" data-group="sources" data-name="GitLab repositories"><img src="assets/integrations/gitlab.svg" alt="GitLab repositories" title="GitLab repositories" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="bitbucket-repositories" data-group="sources" data-name="Bitbucket repositories"><img src="assets/integrations/bitbucket.svg" alt="Bitbucket repositories" title="Bitbucket repositories" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="alibaba-cloud-oss" data-group="sources" data-name="Alibaba Cloud OSS"><img src="assets/integrations/alibabacloud.svg" alt="Alibaba Cloud OSS" title="Alibaba Cloud OSS" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="scaleway-object-storage" data-group="sources" data-name="Scaleway Object Storage"><img src="assets/integrations/scaleway.svg" alt="Scaleway Object Storage" title="Scaleway Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ovhcloud-object-storage" data-group="sources" data-name="OVHcloud Object Storage"><img src="assets/integrations/ovh.svg" alt="OVHcloud Object Storage" title="OVHcloud Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="hetzner-object-storage" data-group="sources" data-name="Hetzner Object Storage"><img src="assets/integrations/hetzner.svg" alt="Hetzner Object Storage" title="Hetzner Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="vultr-object-storage" data-group="sources" data-name="Vultr Object Storage"><img src="assets/integrations/vultr.svg" alt="Vultr Object Storage" title="Vultr Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="akamai-object-storage" data-group="sources" data-name="Akamai Object Storage"><img src="assets/integrations/akamai.svg" alt="Akamai Object Storage" title="Akamai Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="seafile" data-group="sources" data-name="Seafile"><img src="assets/integrations/seafile.svg" alt="Seafile" title="Seafile" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="proton-drive" data-group="sources" data-name="Proton Drive"><img src="assets/integrations/protondrive.svg" alt="Proton Drive" title="Proton Drive" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="owncloud" data-group="sources" data-name="ownCloud"><img src="assets/integrations/owncloud.svg" alt="ownCloud" title="ownCloud" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="icloud-drive" data-group="sources" data-name="iCloud Drive"><img src="assets/integrations/icloud.svg" alt="iCloud Drive" title="iCloud Drive" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="synology-storage" data-group="sources" data-name="Synology storage"><img src="assets/integrations/synology.svg" alt="Synology storage" title="Synology storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="truenas" data-group="sources" data-name="TrueNAS"><img src="assets/integrations/truenas.svg" alt="TrueNAS" title="TrueNAS" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="mega" data-group="sources" data-name="MEGA"><img src="assets/integrations/mega.svg" alt="MEGA" title="MEGA" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="filen" data-group="sources" data-name="Filen"><img src="assets/integrations/filen.svg" alt="Filen" title="Filen" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ceph" data-group="sources" data-name="Ceph"><img src="assets/integrations/ceph.svg" alt="Ceph" title="Ceph" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="rustfs" data-group="sources" data-name="RustFS"><img src="assets/integrations/rustfs.svg" alt="RustFS" title="RustFS" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="onedrive" data-group="sources" data-name="OneDrive"><img src="assets/integrations/microsoftonedrive-historical.svg" alt="OneDrive" title="OneDrive" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="sharepoint" data-group="sources" data-name="SharePoint"><img src="assets/integrations/microsoftsharepoint-historical.svg" alt="SharePoint" title="SharePoint" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="amazon-s3" data-group="sources" data-name="Amazon S3"><img src="assets/integrations/amazonwebservices-original-wordmark.svg" alt="Amazon S3" title="Amazon S3" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="oracle-object-storage" data-group="sources" data-name="Oracle Object Storage"><img src="assets/integrations/oracle-original.svg" alt="Oracle Object Storage" title="Oracle Object Storage" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ibm-cloud-object-storage" data-group="sources" data-name="IBM Cloud Object Storage"><img src="assets/integrations/ibmcloud-historical.svg" alt="IBM Cloud Object Storage" title="IBM Cloud Object Storage" width="28" height="28" decoding="async"></li>
+              <!-- integrations:sources:end -->
+            </ul></section>
+          <section class="integration-field applications-field" data-group="applications" aria-labelledby="applications-title"><header class="field-heading visually-hidden"><h2 id="applications-title">Applications</h2></header><ul class="integration-grid" aria-label="Applications examples">
+              <!-- integrations:applications:start -->
+                <li class="integration-token" data-integration-id="bash" data-group="applications" data-name="Bash"><img src="assets/integrations/gnubash.svg" alt="Bash" title="Bash" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="kubernetes" data-group="applications" data-name="Kubernetes"><img src="assets/integrations/kubernetes.svg" alt="Kubernetes" title="Kubernetes" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="docker" data-group="applications" data-name="Docker"><img src="assets/integrations/docker.svg" alt="Docker" title="Docker" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="helm" data-group="applications" data-name="Helm"><img src="assets/integrations/helm.svg" alt="Helm" title="Helm" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="terraform" data-group="applications" data-name="Terraform"><img src="assets/integrations/terraform.svg" alt="Terraform" title="Terraform" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="opentofu" data-group="applications" data-name="OpenTofu"><img src="assets/integrations/opentofu.svg" alt="OpenTofu" title="OpenTofu" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="pulumi" data-group="applications" data-name="Pulumi"><img src="assets/integrations/pulumi.svg" alt="Pulumi" title="Pulumi" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ansible" data-group="applications" data-name="Ansible"><img src="assets/integrations/ansible.svg" alt="Ansible" title="Ansible" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="github-actions" data-group="applications" data-name="GitHub Actions"><img src="assets/integrations/githubactions.svg" alt="GitHub Actions" title="GitHub Actions" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="gitlab-ci-cd" data-group="applications" data-name="GitLab CI/CD"><img src="assets/integrations/gitlab.svg" alt="GitLab CI/CD" title="GitLab CI/CD" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="jenkins" data-group="applications" data-name="Jenkins"><img src="assets/integrations/jenkins.svg" alt="Jenkins" title="Jenkins" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="circleci" data-group="applications" data-name="CircleCI"><img src="assets/integrations/circleci.svg" alt="CircleCI" title="CircleCI" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="argo-cd" data-group="applications" data-name="Argo CD"><img src="assets/integrations/argo.svg" alt="Argo CD" title="Argo CD" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="flux" data-group="applications" data-name="Flux"><img src="assets/integrations/flux.svg" alt="Flux" title="Flux" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="node-js" data-group="applications" data-name="Node.js"><img src="assets/integrations/nodedotjs.svg" alt="Node.js" title="Node.js" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="deno" data-group="applications" data-name="Deno"><img src="assets/integrations/deno.svg" alt="Deno" title="Deno" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="bun" data-group="applications" data-name="Bun"><img src="assets/integrations/bun.svg" alt="Bun" title="Bun" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="python" data-group="applications" data-name="Python"><img src="assets/integrations/python.svg" alt="Python" title="Python" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="go" data-group="applications" data-name="Go"><img src="assets/integrations/go.svg" alt="Go" title="Go" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="rust" data-group="applications" data-name="Rust"><img src="assets/integrations/rust.svg" alt="Rust" title="Rust" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="java" data-group="applications" data-name="Java"><img src="assets/integrations/openjdk.svg" alt="Java" title="Java" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="net" data-group="applications" data-name=".NET"><img src="assets/integrations/dotnet.svg" alt=".NET" title=".NET" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ruby" data-group="applications" data-name="Ruby"><img src="assets/integrations/ruby.svg" alt="Ruby" title="Ruby" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="php" data-group="applications" data-name="PHP"><img src="assets/integrations/php.svg" alt="PHP" title="PHP" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="postgresql" data-group="applications" data-name="PostgreSQL"><img src="assets/integrations/postgresql.svg" alt="PostgreSQL" title="PostgreSQL" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="redis" data-group="applications" data-name="Redis"><img src="assets/integrations/redis.svg" alt="Redis" title="Redis" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="mcp" data-group="applications" data-name="MCP"><img src="assets/integrations/model-context-protocol-official.svg" alt="MCP" title="MCP" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="npm" data-group="applications" data-name="npm"><img src="assets/integrations/npm.svg" alt="npm" title="npm" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="pnpm" data-group="applications" data-name="pnpm"><img src="assets/integrations/pnpm.svg" alt="pnpm" title="pnpm" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="yarn" data-group="applications" data-name="Yarn"><img src="assets/integrations/yarn.svg" alt="Yarn" title="Yarn" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="composer" data-group="applications" data-name="Composer"><img src="assets/integrations/composer.svg" alt="Composer" title="Composer" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="apache-maven" data-group="applications" data-name="Apache Maven"><img src="assets/integrations/apachemaven.svg" alt="Apache Maven" title="Apache Maven" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="gradle" data-group="applications" data-name="Gradle"><img src="assets/integrations/gradle.svg" alt="Gradle" title="Gradle" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="uv" data-group="applications" data-name="uv"><img src="assets/integrations/astral.svg" alt="uv" title="uv" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="poetry" data-group="applications" data-name="Poetry"><img src="assets/integrations/poetry.svg" alt="Poetry" title="Poetry" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="jupyter" data-group="applications" data-name="Jupyter"><img src="assets/integrations/jupyter.svg" alt="Jupyter" title="Jupyter" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="temporal" data-group="applications" data-name="Temporal"><img src="assets/integrations/temporal.svg" alt="Temporal" title="Temporal" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="n8n" data-group="applications" data-name="n8n"><img src="assets/integrations/n8n.svg" alt="n8n" title="n8n" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="anthropic-api-keys" data-group="applications" data-name="Anthropic API keys"><img src="assets/integrations/anthropic.svg" alt="Anthropic API keys" title="Anthropic API keys" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="gemini-api-keys" data-group="applications" data-name="Gemini API keys"><img src="assets/integrations/googlegemini.svg" alt="Gemini API keys" title="Gemini API keys" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="hugging-face" data-group="applications" data-name="Hugging Face"><img src="assets/integrations/huggingface.svg" alt="Hugging Face" title="Hugging Face" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="ollama" data-group="applications" data-name="Ollama"><img src="assets/integrations/ollama.svg" alt="Ollama" title="Ollama" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="cloudflare-workers" data-group="applications" data-name="Cloudflare Workers"><img src="assets/integrations/cloudflareworkers.svg" alt="Cloudflare Workers" title="Cloudflare Workers" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="vercel" data-group="applications" data-name="Vercel"><img src="assets/integrations/vercel.svg" alt="Vercel" title="Vercel" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="netlify" data-group="applications" data-name="Netlify"><img src="assets/integrations/netlify.svg" alt="Netlify" title="Netlify" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="railway" data-group="applications" data-name="Railway"><img src="assets/integrations/railway.svg" alt="Railway" title="Railway" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="render" data-group="applications" data-name="Render"><img src="assets/integrations/render.svg" alt="Render" title="Render" width="28" height="28" decoding="async"></li>
+                <li class="integration-token" data-integration-id="powershell" data-group="applications" data-name="PowerShell"><img src="assets/integrations/powershell-original.svg" alt="PowerShell" title="PowerShell" width="28" height="28" decoding="async"></li>
+              <!-- integrations:applications:end -->
+            </ul></section>
         </div>
-        <div class="story-caption"><span class="caption-marker" aria-hidden="true"></span><p id="story-copy">CircularQuay checks local policy before preparing the environment for an approved app.</p><span class="story-position" id="story-position" aria-hidden="true">02 / 03</span></div>
-        <figcaption id="journey-description" class="visually-hidden">Encrypted files, cloud stores and repositories connect through CircularQuay's local client to approved applications. Local policy checks identity, grants and availability windows. A request without a matching grant stops at the policy boundary. This example is synthetic; no real connection or secret is used.</figcaption>
+        <div class="scene-examples" aria-label="Automatically featured examples"><span><span class="example-role">Identity</span><span data-selection="identity">Google Workspace</span></span><span><span class="example-role">Encrypted source</span><span data-selection="sources">Local filesystem</span></span><span><span class="example-role">Application</span><span data-selection="applications">Bash</span></span></div>
+        <div class="story-caption"><p id="story-copy">Your identity, encrypted sources and apps meet at your local policy.</p><span class="visually-hidden" id="story-position">02 / 03</span></div>
+        <figcaption class="visually-hidden" id="journey-description">All 113 original integration examples remain visible: 30 authentication, 35 encrypted source and storage, and 48 applications and workflows. Three flocks can move across the entire scene and form around CircularQuay’s local policy. These marks are illustrative ecosystem examples, not a supported-adapter catalogue or live connections. A request without a matching grant stops at policy.</figcaption>
       </figure>
-
-      <div class="story-toolbar" aria-label="Journey controls">
-        <div class="chapters" role="group" aria-label="Choose a chapter">
-          <button type="button" disabled data-chapter-button="manual" aria-pressed="false"><span class="chapter-number">01</span> By hand</button>
-          <button type="button" disabled data-chapter-button="flow" aria-pressed="true"><span class="chapter-number">02</span> With CircularQuay</button>
-          <button type="button" disabled data-chapter-button="denied" aria-pressed="false"><span class="chapter-number">03</span> Without a grant</button>
-        </div>
-        <div class="playback" hidden>
-          <button type="button" id="pause" aria-label="Pause animation"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pause-icon" d="M9 5v14M15 5v14"/><path class="play-icon" d="m9 5 10 7-10 7Z"/></svg><span id="pause-label">Pause</span></button>
-          <button type="button" id="replay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a8 8 0 1 1 1 8M5 4v6h6"/></svg>Replay</button>
-        </div>
-      </div>
-      <p class="motion-note" id="motion-note">Choose any chapter. The complete route is available without animation.</p>
-      <p class="visually-hidden" role="status" aria-live="polite" id="interaction-status"></p>
-      <noscript><p class="noscript-note">The complete route is shown above. Animation controls need JavaScript; the explanation and workbench link work without it.</p></noscript>
-    </section>
-
-    <section class="explanation page-width" id="how-it-works" aria-labelledby="explanation-title">
-      <div class="explanation-intro"><h2 id="explanation-title">One clear route.<br>Boundaries you can see.</h2><p>The motion is the introduction. The useful part is knowing where your configuration lives, what an app can access and what happens when access is denied.</p></div>
-      <dl class="principles">
-        <div><dt>Start with your sources.</dt><dd>Keep encrypted material in the sources you choose. Reference it in your local configuration.</dd></div>
-        <div><dt>Decide on your device.</dt><dd>Inspect sources, grants and availability windows in the local client. Your configuration stays client-side.</dd></div>
-        <div><dt>Prepare the approved app.</dt><dd>A matching policy allows the intended environment to be prepared. A denied request does not become a partial delivery.</dd></div>
-      </dl>
-      <div class="closing"><p>See the configuration behind the journey.</p><a class="primary-action" href="http://127.0.0.1:5181/#/workbench">Explore the local workbench <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a><span>Synthetic demo · no login or real credentials</span></div>
     </section>
   </main>
-  <footer class="site-footer page-width"><span>CircularQuay</span><p>Landing-page motion concept · local review only</p><a href="https://circularquay-motion-study.matthewaldous.chatgpt.site/" rel="noreferrer">Original motion study <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"/></svg></a></footer>
+  <footer class="site-footer page-width">
+    <span class="scope-note">Illustrative ecosystem</span>
+    <div class="story-toolbar" aria-label="Journey controls"><div class="chapters" role="group" aria-label="Choose a chapter"><button type="button" disabled data-chapter-button="manual" aria-pressed="false">By hand</button><button type="button" disabled data-chapter-button="flow" aria-pressed="true">In flow</button><button type="button" disabled data-chapter-button="denied" aria-pressed="false">No grant</button></div><div class="playback" hidden><button type="button" id="pause" aria-label="Pause animation"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="pause-icon" d="M9 5v14M15 5v14"/><path class="play-icon" d="m9 5 10 7-10 7Z"/></svg><span class="visually-hidden" id="pause-label">Pause</span></button><button type="button" id="replay" aria-label="Replay animation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a8 8 0 1 1 1 8M5 4v6h6"/></svg></button></div></div>
+    <details class="boundary-detail" id="policy-details"><summary>About local policy</summary><p>Keep encrypted material in the sources you choose. Your local configuration brings identity, grants and availability windows together before preparing an approved app.</p><p>A request without a matching grant stops at local policy. Nothing is delivered to the app. These integration marks illustrate the ecosystem; availability depends on your setup.</p><p>This is a local motion concept with no login, real credentials or backend connection. <a href="https://circularquay-motion-study.matthewaldous.chatgpt.site/" rel="noreferrer">Original motion study</a>.</p></details>
+  </footer>
+  <p class="visually-hidden" id="motion-note">The complete ecosystem is available without animation.</p><p class="visually-hidden" role="status" aria-live="polite" id="interaction-status"></p>
+  <noscript><p class="noscript-note page-width">All 113 examples are shown. Animation and appearance controls need JavaScript.</p></noscript>
 </body>
 </html>

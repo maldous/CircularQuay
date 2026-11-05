@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, normalize, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 
 const host = '127.0.0.1';
 const port = 5182;
@@ -13,11 +14,25 @@ const assets = new Map([
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/style.css', 'style.css'],
+  ['/formations.css', 'formations.css'],
   ['/motion.js', 'motion.js'],
   ['/preference-bootstrap.js', 'preference-bootstrap.js'],
   ['/assets/logo-light.svg', 'assets/logo-light.svg'],
   ['/assets/logo-dark.svg', 'assets/logo-dark.svg'],
 ]);
+
+// Only declared local integration SVGs are public; catalogs, credits and
+// evidence remain outside the HTTP asset surface.
+const catalog = JSON.parse(await readFile(new URL('integrations.json', import.meta.url), 'utf8'));
+for (const group of catalog.groups) {
+  for (const item of group.items) {
+    if (item.asset === null) continue;
+    if (!/^assets\/integrations\/[a-z0-9-]+\.svg$/.test(item.asset)) {
+      throw new Error('Invalid public integration asset path');
+    }
+    assets.set(`/${item.asset}`, item.asset);
+  }
+}
 
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',

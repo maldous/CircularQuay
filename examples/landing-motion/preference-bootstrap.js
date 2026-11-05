@@ -1,7 +1,6 @@
-// Read only this prototype's preference; never read or change workbench storage.
 try {
-  const theme = localStorage.getItem('circularquay-motion-theme');
-  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+  const saved = localStorage.getItem('circularquay-motion-theme');
+  document.documentElement.dataset.theme = ['light', 'dark', 'system'].includes(saved) ? saved : 'light';
 } catch {
-  // A browser that blocks storage still follows the system theme.
+  document.documentElement.dataset.theme = 'light';
 }
