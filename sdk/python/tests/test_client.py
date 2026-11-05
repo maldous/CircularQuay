@@ -356,3 +356,80 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
                 {"value": "x" * (client_module._MAX_STRUCTURED_BYTES + 1)}
             )
         )
+
+    async def test_mapping_responses_accept_protocol_field_spellings(self) -> None:
+        async def catalog() -> object:
+            return {"tools": [{"name": "list_workloads"}], "next_cursor": ""}
+
+        self.session.list_tools = catalog  # type: ignore[method-assign]
+        self.assertEqual((ToolName.LIST_WORKLOADS,), (await self.client.discover_tools()).available)
+        self.session.responses["list_workloads"] = {
+            "structured_content": {"workloads": ["alpha"]}, "is_error": False
+        }
+        self.assertEqual(("alpha",), await self.client.list_workloads())
+        self.session.responses["list_workloads"] = {"structuredContent": {"workloads": []}}
+        self.assertEqual((), await self.client.list_workloads())
+        self.session.responses["list_workloads"] = {}
+        with self.assertRaises(CircularQuayError) as captured:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_malformed_catalog_shapes_fail_without_partial_authorization(self) -> None:
+        for raw in ({}, {"tools": "list_workloads"}, {"tools": [{}]}, {"tools": [None]}):
+            with self.subTest(raw=raw):
+                async def catalog(result: object = raw) -> object:
+                    return result
+
+                self.session.list_tools = catalog  # type: ignore[method-assign]
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.discover_tools()
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_workload_catalog_accepts_exact_limit_and_rejects_larger_catalog(self) -> None:
+        workloads = [f"workload-{index:04}" for index in range(client_module._MAX_WORKLOADS)]
+        self.session.responses["list_workloads"] = response({"workloads": workloads})
+        self.assertEqual(tuple(workloads), await self.client.list_workloads())
+        self.session.responses["list_workloads"] = response(
+            {"workloads": [*workloads, "workload-over-limit"]}
+        )
+        with self.assertRaises(CircularQuayError) as captured:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_protocol_types_are_required_for_status_run_and_secret(self) -> None:
+        cases = (
+            ("get_status", {"workload": "alpha", "mode": None, "state": "ready"}),
+            ("get_status", {"workload": "alpha", "mode": "online", "state": 1}),
+            ("run_workload", {"id": "run-1", "status": None, "exit_code": 0}),
+            ("run_workload", {"id": "run-1", "status": "completed", "exit_code": "0"}),
+            ("run_workload", {"id": "run-1", "status": "completed", "exit_code": -1}),
+            ("read_secret", {"alias": "API_KEY", "value": None}),
+            ("read_secret", {"alias": "API_KEY", "value": "synthetic", "version": 1}),
+            ("read_secret", {"alias": "API_KEY", "value": "synthetic", "version": "a\nb"}),
+        )
+        for operation, payload in cases:
+            with self.subTest(operation=operation, fields=tuple(payload)):
+                self.session.responses[operation] = response(payload)
+                with self.assertRaises(CircularQuayError) as captured:
+                    if operation == "get_status":
+                        await self.client.get_status("alpha")
+                    elif operation == "run_workload":
+                        await self.client.run_workload("alpha")
+                    else:
+                        await self.client.disclosures().read_secret("alpha", "API_KEY")
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_invalid_handles_fail_before_any_transport_call(self) -> None:
+        for workload in (None, ".", "..", "a" * 129, "café", "bad/handle"):
+            with self.subTest(workload=workload):
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.get_status(workload)  # type: ignore[arg-type]
+                self.assertEqual(ErrorCategory.INVALID, captured.exception.category)
+        self.assertEqual([], self.session.calls)
+
+    async def test_unrecognized_structured_fields_and_non_string_keys_are_rejected(self) -> None:
+        for payload in ({str(index): None for index in range(9)}, {1: "synthetic"}):
+            self.session.responses["list_workloads"] = SimpleNamespace(structuredContent=payload)
+            with self.assertRaises(CircularQuayError) as captured:
+                await self.client.list_workloads()
+            self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)

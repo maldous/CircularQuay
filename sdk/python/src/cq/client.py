@@ -369,8 +369,8 @@ def _parse_timestamp(value: Any, operation: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         raise CircularQuayError(ErrorCategory.PROTOCOL, operation) from None
-    if parsed.tzinfo is None:
-        raise CircularQuayError(ErrorCategory.PROTOCOL, operation)
+    # The grammar above requires Z or an explicit offset, so parsing always
+    # produces an aware timestamp.
     return parsed
 
 

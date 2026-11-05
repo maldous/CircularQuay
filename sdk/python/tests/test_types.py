@@ -47,3 +47,17 @@ class PublicTypesTests(unittest.TestCase):
             ("list_workloads", "get_status", "run_workload", "read_secret"),
             tuple(str(tool) for tool in catalog.available),
         )
+
+    def test_disclosure_metadata_fields_are_independently_optional(self) -> None:
+        expiry = datetime(2027, 1, 2, 3, 4, 5, tzinfo=UTC)
+        for version, expires_at, optional in (
+            (None, None, {}),
+            ("version-1", None, {"version": "version-1"}),
+            (None, expiry, {"expires_at": expiry.isoformat()}),
+        ):
+            with self.subTest(version=version, expires_at=expires_at):
+                disclosure = SecretDisclosure("alias", version, expires_at, "synthetic")
+                self.assertEqual(
+                    {"alias": "alias", "value": "[REDACTED]", **optional},
+                    disclosure.redacted_dict(),
+                )
