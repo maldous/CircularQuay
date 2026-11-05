@@ -55,6 +55,18 @@ class CaptureTest(unittest.TestCase):
         self.assertIsNone(CHECK._safe_test_identifier("test_client.ClientTests.test_" + "a" * 257))
         self.assertIsNone(CHECK._safe_test_identifier("test_client.ClientTests.test_disclosure\x1f"))
 
+    def test_retains_failures_from_the_type_contract_test_module(self) -> None:
+        capture = CHECK.Capture("coverage")
+        capture.consume(
+            b"test_secret_repr_redacts_value "
+            b"(test_types.TypeContractsTests.test_secret_repr_redacts_value) ... FAIL\n"
+        )
+        self.assertFalse(capture.malformed)
+        self.assertEqual(
+            ["test_types.TypeContractsTests.test_secret_repr_redacts_value"],
+            capture.unittest_failures,
+        )
+
     def test_keeps_only_bounded_sdk_path_diagnostics(self) -> None:
         capture = CHECK.Capture("ruff")
         capture.consume(b"sdk/python/src/cq/client.py:19:4: E501 Line too long\n")

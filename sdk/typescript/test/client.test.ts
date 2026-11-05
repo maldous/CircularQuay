@@ -55,6 +55,37 @@ test("official adapter rejects a second discovery page", async () => {
   await assert.rejects(client.discoverTools(), error => error instanceof CqError && error.category === "protocol");
 });
 
+test("official adapter forwards each public MCP call with its caller-owned signal", async () => {
+  const controller = new AbortController();
+  const schema = { synthetic: "CallToolResultSchema" };
+  let listedOptions: { readonly signal?: AbortSignal } | undefined;
+  let called: { readonly name: string; readonly arguments: Readonly<Record<string, unknown>> } | undefined;
+  let calledSchema: unknown;
+  let calledOptions: { readonly signal?: AbortSignal } | undefined;
+  const adapter = officialMCPAdapter({
+    async listTools(params, options) {
+      assert.equal(params, undefined);
+      listedOptions = options;
+      return { tools: [{ name: "list_workloads" }] };
+    },
+    async callTool(call, resultSchema, options) {
+      called = call;
+      calledSchema = resultSchema;
+      calledOptions = options;
+      return { structuredContent: { workload: "api", mode: "online", state: "ready" } };
+    }
+  }, schema);
+  const client = new CqClient(adapter);
+  assert.deepEqual(await client.discoverTools({ signal: controller.signal }), [{ name: "list_workloads" }]);
+  assert.deepEqual(await client.getStatus("api", { signal: controller.signal }), { workload: "api", mode: "online", state: "ready" });
+  assert.equal(listedOptions?.signal, controller.signal);
+  assert.deepEqual(called, { name: "get_status", arguments: { workload: "api" } });
+  assert.equal(calledSchema, schema);
+  assert.equal(calledOptions?.signal, controller.signal);
+  await client.getStatus("api");
+  assert.equal(calledOptions, undefined);
+});
+
 test("strict discovery accepts only one bounded known-tool catalog", async () => {
   const client = new CqClient({
     async listTools() {

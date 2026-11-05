@@ -15,6 +15,7 @@ from cq import (
     MCPClientSessionAdapter,
     ToolName,
 )
+from cq import client as client_module
 
 _ASYNC_TEST_DEADLINE_SECONDS = 1
 
@@ -52,6 +53,12 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
             MCPClientSessionAdapter(self.session),
             observer=self.events.append,
         )
+
+    def test_requires_explicit_non_null_session_and_adapter(self) -> None:
+        with self.assertRaisesRegex(CircularQuayError, "mcp_session"):
+            MCPClientSessionAdapter(None)  # type: ignore[arg-type]
+        with self.assertRaisesRegex(CircularQuayError, "mcp_adapter"):
+            CircularQuayClient(None)  # type: ignore[arg-type]
 
     async def test_current_tool_contract_and_safe_outputs(self) -> None:
         catalog = await self.client.discover_tools()
@@ -98,6 +105,70 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CircularQuayError):
             await self.client.get_status("alpha")
 
+    async def test_rejects_invalid_complete_workload_and_run_contracts(self) -> None:
+        invalid_workloads = (
+            {"workloads": ["beta", "alpha"]},
+            {"workloads": ["alpha", "alpha"]},
+            {"workloads": ["."]},
+            {"workloads": "alpha"},
+        )
+        for payload in invalid_workloads:
+            with self.subTest(workloads=payload):
+                self.session.responses["list_workloads"] = response(payload)
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.list_workloads()
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+        for payload in (
+            {"workload": "alpha", "mode": "invalid", "state": "ready"},
+            {"workload": "alpha", "mode": "online", "state": "invalid"},
+        ):
+            with self.subTest(status=payload):
+                self.session.responses["get_status"] = response(payload)
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.get_status("alpha")
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+        for payload in (
+            {"id": "job-1", "status": "invalid", "exit_code": 0},
+            {"id": "job-1", "status": "completed", "exit_code": True},
+            {"id": "job-1", "status": "completed", "exit_code": 256},
+        ):
+            with self.subTest(run=payload):
+                self.session.responses["run_workload"] = response(payload)
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.run_workload("alpha")
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_rejects_denied_and_unstructured_mcp_responses(self) -> None:
+        self.session.responses["list_workloads"] = response({}, is_error=True)
+        with self.assertRaises(CircularQuayError) as denied:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.DENIED, denied.exception.category)
+
+        self.session.responses["list_workloads"] = SimpleNamespace(is_error=False)
+        with self.assertRaises(CircularQuayError) as missing:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, missing.exception.category)
+
+        self.session.responses["list_workloads"] = response({"workloads": [], "extra": None})
+        with self.assertRaises(CircularQuayError) as extra:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, extra.exception.category)
+
+    async def test_rejects_non_mapping_and_non_encodable_structured_content(self) -> None:
+        self.session.responses["list_workloads"] = response(["alpha"])
+        with self.assertRaises(CircularQuayError) as non_mapping:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, non_mapping.exception.category)
+
+        self.session.responses["list_workloads"] = SimpleNamespace(
+            structuredContent={"workloads": {"alpha"}}, content=[], isError=False
+        )
+        with self.assertRaises(CircularQuayError) as non_encodable:
+            await self.client.list_workloads()
+        self.assertEqual(ErrorCategory.PROTOCOL, non_encodable.exception.category)
+
     async def test_rejects_text_fallback_even_when_text_looks_like_valid_json(self) -> None:
         # v1 consumes typed MCP structuredContent only.  Parsing this text would
         # silently collapse duplicate JSON keys in Python and diverge from peers.
@@ -119,6 +190,18 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(CircularQuayError) as captured:
             await self.client.discover_tools()
         self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_rejects_unknown_duplicate_and_oversized_catalogs(self) -> None:
+        for tools in (
+            [SimpleNamespace(name="unknown")],
+            [SimpleNamespace(name="list_workloads"), SimpleNamespace(name="list_workloads")],
+            [SimpleNamespace(name="list_workloads")] * 5,
+        ):
+            with self.subTest(tools=tools):
+                self.session.tools = tools
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.discover_tools()
+                self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
 
     async def test_normalizes_legacy_zero_expiry_to_absent(self) -> None:
         self.session.responses["read_secret"] = response(
@@ -171,7 +254,7 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ErrorCategory.EXPIRED, captured.exception.category)
 
     async def test_rejects_malformed_secret_expiry_as_protocol(self) -> None:
-        for expiry in ("not-a-timestamp", "2026-01-02 03:04:05Z"):
+        for expiry in ("not-a-timestamp", "2026-01-02 03:04:05Z", "2026-02-31T03:04:05Z"):
             with self.subTest(expiry=expiry):
                 self.session.responses["read_secret"] = response(
                     {"alias": "API_KEY", "value": "synthetic", "expires_at": expiry}
@@ -179,6 +262,21 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(CircularQuayError) as captured:
                     await self.client.disclosures().read_secret("alpha", "API_KEY")
                 self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
+
+    async def test_rejects_secret_alias_mismatch_and_invalid_handles_before_transport(self) -> None:
+        self.session.responses["read_secret"] = response(
+            {"alias": "OTHER", "value": "synthetic"}
+        )
+        with self.assertRaises(CircularQuayError) as mismatch:
+            await self.client.disclosures().read_secret("alpha", "API_KEY")
+        self.assertEqual(ErrorCategory.PROTOCOL, mismatch.exception.category)
+        calls_before = len(self.session.calls)
+        for workload, key in (("", "API_KEY"), ("alpha", "bad/key")):
+            with self.subTest(workload=workload, key=key):
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.disclosures().read_secret(workload, key)
+                self.assertEqual(ErrorCategory.INVALID, captured.exception.category)
+        self.assertEqual(calls_before, len(self.session.calls))
 
     async def test_sanitizes_remote_failures_and_observer_metadata(self) -> None:
         marker = "SYNTHETIC_SERVER_TEXT_MUST_NOT_ESCAPE"
@@ -191,6 +289,23 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         event = asdict(self.events[-1])
         self.assertEqual({"operation", "outcome", "duration_ms"}, set(event))
         self.assertNotIn(marker, json.dumps(event))
+
+    async def test_normalizes_timeout_and_os_errors_without_retaining_causes(self) -> None:
+        for failure in (TimeoutError("synthetic"), OSError("synthetic")):
+            with self.subTest(failure=type(failure).__name__):
+                self.session.responses["list_workloads"] = failure
+                with self.assertRaises(CircularQuayError) as captured:
+                    await self.client.list_workloads()
+                self.assertEqual(ErrorCategory.UNAVAILABLE, captured.exception.category)
+                self.assertIsNone(captured.exception.__cause__)
+
+    async def test_accepts_success_without_an_observer(self) -> None:
+        client = CircularQuayClient(MCPClientSessionAdapter(self.session))
+        self.session.responses["list_workloads"] = response({"workloads": ["alpha"]})
+        self.assertEqual(("alpha",), await client.list_workloads())
+
+    def test_rejects_non_utf8_secret_text_without_raising_encoder_error(self) -> None:
+        self.assertFalse(client_module._bounded_utf8_text("\ud800", 1))
 
     async def test_advisory_observer_failure_does_not_replace_success(self) -> None:
         def broken_observer(_: object) -> None:
@@ -231,3 +346,13 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
             if not task.done():
                 task.cancel()
                 await asyncio.gather(task, return_exceptions=True)
+
+    def test_structured_dto_budget_fails_closed_for_non_encodable_and_oversized_values(
+        self,
+    ) -> None:
+        self.assertFalse(client_module._within_structured_budget({"value": {1, 2}}))
+        self.assertFalse(
+            client_module._within_structured_budget(
+                {"value": "x" * (client_module._MAX_STRUCTURED_BYTES + 1)}
+            )
+        )

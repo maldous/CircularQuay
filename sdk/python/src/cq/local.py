@@ -353,10 +353,16 @@ class LocalCLIClient:
         *,
         stdin: bytes | None = None,
     ) -> tuple[bytes, int, ErrorCategory | None]:
+        async def consume(
+            process: asyncio.subprocess.Process,
+        ) -> tuple[tuple[bytes, int, ErrorCategory | None], str]:
+            await _write_captured_stdin(process, stdin)
+            return await _captured_result(process, operation)
+
         return await self._run_owned_process(
             operation,
-            lambda: self._start_captured(arguments, stdin),
-            lambda process: _captured_result(process, operation),
+            lambda: self._start_captured(arguments, stdin is not None),
+            consume,
         )
 
     async def _run_owned_process(
@@ -405,25 +411,22 @@ class LocalCLIClient:
             )
 
     async def _start_captured(
-        self, arguments: tuple[str, ...], stdin: bytes | None
+        self, arguments: tuple[str, ...], capture_stdin: bool
     ) -> asyncio.subprocess.Process:
-        process = await asyncio.create_subprocess_exec(
+        # Return immediately after spawn so _run_owned_process owns cleanup before
+        # any cancellable stdin write can run.
+        return await asyncio.create_subprocess_exec(
             str(self._executable),
             "--config",
             str(self._config),
             "--state-dir",
             str(self._state_dir),
             *arguments,
-            stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.PIPE if capture_stdin else asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=dict(self._environment),
         )
-        if stdin is not None and process.stdin is not None:
-            process.stdin.write(stdin)
-            await process.stdin.drain()
-            process.stdin.close()
-        return process
 
     async def _inherit(self, operation: str, arguments: tuple[str, ...]) -> int:
         return await self._run_owned_process(
@@ -755,6 +758,25 @@ def _safe_json_object(items: dict[Any, Any], depth: int) -> bool:
 
 def _safe_json_key(value: Any) -> bool:
     return isinstance(value, str) and len(value) <= 512
+
+
+async def _write_captured_stdin(
+    process: asyncio.subprocess.Process, stdin: bytes | None
+) -> None:
+    """Deliver bounded caller input only after the caller owns the child."""
+
+    if stdin is None:
+        return
+    writer = process.stdin
+    if writer is None:
+        raise OSError
+    try:
+        writer.write(stdin)
+        await writer.drain()
+    finally:
+        # A cancelled or failed drain must still signal EOF before owned-child
+        # cleanup terminates and reaps the process.
+        writer.close()
 
 
 async def _read_bounded(

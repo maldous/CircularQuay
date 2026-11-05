@@ -57,7 +57,7 @@ UNITTEST_RESULT = re.compile(
     r"^test_[A-Za-z0-9_]{1,127} \((?P<test>[^\r\n()]{1,256})\) \.\.\. (?P<result>FAIL|ERROR)$"
 )
 UNITTEST_IDENTIFIER = re.compile(
-    r"^test_(?:boundaries|client|local)\.[A-Z][A-Za-z0-9_]{0,127}\.test_[a-z][A-Za-z0-9_]{0,127}$"
+    r"^test_(?:boundaries|client|local|types)\.[A-Z][A-Za-z0-9_]{0,127}\.test_[a-z][A-Za-z0-9_]{0,127}$"
 )
 RUNTIME_ENVIRONMENT = (
     "LANG",

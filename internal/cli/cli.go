@@ -28,7 +28,10 @@ import (
 var Version = "1.0.0-dev"
 var Commit = "unknown"
 
-const policyPathDiagnostic = "policy path"
+const (
+	policyPathDiagnostic     = "policy path"
+	stateDirectoryDiagnostic = "state directory"
+)
 
 // Runner explicitly owns command I/O; errors never include raw provider text.
 type Runner struct {
@@ -321,7 +324,7 @@ func (a application) store() (state.Store, error) {
 	home, configErr := os.UserConfigDir()
 	if dir == "" {
 		if configErr != nil {
-			return state.Store{}, fault.New(fault.Apply, "state directory")
+			return state.Store{}, fault.New(fault.Apply, stateDirectoryDiagnostic)
 		}
 		dir = filepath.Join(home, "cq", "state")
 	}
@@ -336,11 +339,11 @@ func (a application) store() (state.Store, error) {
 func checkDefaultStateNamespace(home, selected string) error {
 	absolute, err := filepath.Abs(selected)
 	if err != nil {
-		return fault.New(fault.Apply, "state directory")
+		return fault.New(fault.Apply, stateDirectoryDiagnostic)
 	}
 	preferred, err := filepath.Abs(filepath.Join(home, "cq", "state"))
 	if err != nil {
-		return fault.New(fault.Apply, "state directory")
+		return fault.New(fault.Apply, stateDirectoryDiagnostic)
 	}
 	if absolute != preferred && !(runtime.GOOS == "windows" && strings.EqualFold(absolute, preferred)) {
 		return nil

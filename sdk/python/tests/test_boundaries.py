@@ -119,7 +119,10 @@ class MCPBoundaryTests(unittest.IsolatedAsyncioTestCase):
 class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
-        root = Path(self.directory.name)
+        # The production identity check intentionally requires a canonical
+        # executable path; temporary roots can pass through platform aliases.
+        self.root = Path(self.directory.name).resolve()
+        root = self.root
         executable = root / "cq"
         executable.write_bytes(b"synthetic-cq")
         os.chmod(executable, 0o700)
@@ -146,7 +149,7 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_json_commands_keep_values_on_stdin_and_use_exact_cli_arguments(self) -> None:
         with mock.patch.object(self.client, "_captured", new=self._captured):
-            root = Path(self.directory.name)
+            root = self.root
             self.assertEqual("1.0.0", (await self.client.version())["version"])
             await self.client.assert_runtime_compatibility()
             await self.client.providers()
@@ -173,6 +176,9 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
             set_call[1],
         )
         self.assertEqual(b'{"enabled":true}', set_call[2])
+        replace_call = next(call for call in self.calls if call[0] == "config_replace")
+        self.assertEqual(("config", "replace", "--value-file", "-"), replace_call[1])
+        self.assertEqual(b'{"workloads":[]}', replace_call[2])
         self.assertEqual(("update", "check", "--json"), self.calls[3][1])
         self.assertIn(("sync", ("sync", "--workload", "alpha", "--once"), None), self.calls)
 

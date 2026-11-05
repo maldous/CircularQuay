@@ -68,10 +68,59 @@ class _FinishedProcess:
         return self.returncode
 
 
+class _InputWriter:
+    def __init__(self, failure: BaseException | None = None) -> None:
+        self.failure = failure
+        self.writes: list[bytes] = []
+        self.closed = False
+        self.draining = asyncio.Event()
+        self.release = asyncio.Event()
+
+    def write(self, data: bytes) -> None:
+        self.writes.append(data)
+
+    async def drain(self) -> None:
+        self.draining.set()
+        if self.failure is not None:
+            raise self.failure
+        await self.release.wait()
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _InputProcess:
+    def __init__(self, writer: _InputWriter) -> None:
+        self.stdin = writer
+        self.stdout = None
+        self.stderr = None
+        self.returncode: int | None = None
+        self.terminated = False
+        self.waited = False
+        self.exited = asyncio.Event()
+
+    def terminate(self) -> None:
+        self.terminated = True
+        self.returncode = -15
+        self.exited.set()
+
+    def kill(self) -> None:
+        self.returncode = -9
+        self.exited.set()
+
+    async def wait(self) -> int:
+        self.waited = True
+        await self.exited.wait()
+        return self.returncode or -15
+
+
 class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
-        root = Path(self.directory.name)
+        # The production identity check intentionally requires a canonical
+        # executable path; temporary roots can pass through platform aliases.
+        self.root = Path(self.directory.name).resolve()
+        root = self.root
         self.executable = root / "cq"
         self.executable.write_bytes(b"synthetic-cq-binary")
         os.chmod(self.executable, 0o700)
@@ -105,8 +154,8 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
             LocalCLIClient(
                 self.executable,
                 hashlib.sha256(self.executable.read_bytes()).hexdigest(),
-                Path(self.directory.name) / "policy.json",
-                Path(self.directory.name) / "state",
+                self.root / "policy.json",
+                self.root / "state",
                 environment={"AWS_SECRET_ACCESS_KEY": "synthetic"},
             )
         with self.assertRaises(CircularQuayError):
@@ -208,6 +257,65 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(process.terminated)
         self.assertTrue(process.killed)
         self.assertTrue(process.stderr.cancelled)
+
+    async def test_cancelled_captured_input_closes_and_reaps_owned_child(self) -> None:
+        for operation, expected_body, invoke in (
+            (
+                "config_set",
+                b'{"enabled":true}',
+                lambda: self.client.config_set("/alpha", {"enabled": True}),
+            ),
+            (
+                "config_replace",
+                b'{"workloads":[]}',
+                lambda: self.client.config_replace({"workloads": []}),
+            ),
+        ):
+            with self.subTest(operation=operation):
+                writer = _InputWriter()
+                process = _InputProcess(writer)
+
+                async def create_process(*_: object, **__: object) -> _InputProcess:
+                    return process
+
+                with mock.patch(
+                    "cq.local.asyncio.create_subprocess_exec", new=create_process
+                ):
+                    task = asyncio.create_task(invoke())
+                    try:
+                        await asyncio.wait_for(writer.draining.wait(), timeout=1)
+                        task.cancel()
+                        with self.assertRaises(asyncio.CancelledError):
+                            await task
+                    finally:
+                        if not task.done():
+                            task.cancel()
+                            await asyncio.gather(task, return_exceptions=True)
+
+                self.assertEqual([expected_body], writer.writes)
+                self.assertTrue(writer.closed)
+                self.assertTrue(process.terminated)
+                self.assertTrue(process.waited)
+
+    async def test_captured_input_failure_closes_and_reaps_for_each_config_writer(self) -> None:
+        for operation, invoke in (
+            ("config_set", lambda: self.client.config_set("/alpha", {"enabled": True})),
+            ("config_replace", lambda: self.client.config_replace({"workloads": []})),
+        ):
+            with self.subTest(operation=operation):
+                writer = _InputWriter(BrokenPipeError("synthetic"))
+                process = _InputProcess(writer)
+
+                async def create_process(*_: object, **__: object) -> _InputProcess:
+                    return process
+
+                with mock.patch("cq.local.asyncio.create_subprocess_exec", new=create_process):
+                    with self.assertRaises(CircularQuayError) as captured:
+                        await invoke()
+                self.assertEqual(ErrorCategory.PROCESS, captured.exception.category)
+                self.assertTrue(writer.closed)
+                self.assertTrue(process.terminated)
+                self.assertTrue(process.waited)
 
     async def test_inherited_run_returns_native_exit_code_with_native_streams(self) -> None:
         process = _FinishedProcess(7)
