@@ -125,5 +125,7 @@ library, video or third-party asset request. These are local review checks,
 not a measured frame-rate or production performance claim.
 
 The design hook's small-text finding was fixed by increasing interface copy to
-at least 12px and the story caption to 14px. Nothing was suppressed. Existing
-UI font choice follows the user's explicit consistency instruction.
+at least 12px and the story caption to 14px. The later overused-font findings
+are intentionally excepted only for Inter in this prototype's `index.html` and
+`style.css`, through `.impeccable/config.json`. The user explicitly confirmed
+retaining existing product fonts. No whole-rule or whole-file ignore is used.

@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/index.html"
+        ],
+        "createdAt": "2026-11-05T05:40:35.816Z",
+        "reason": "User confirmed: preserve existing product branding, colours, themes and fonts for landing-page consistency; web/style.css defines the Inter/platform stack."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/style.css"
+        ],
+        "createdAt": "2026-11-05T05:40:35.823Z",
+        "reason": "User confirmed: preserve existing product branding, colours, themes and fonts for landing-page consistency; web/style.css defines the Inter/platform stack."
+      }
+    ]
+  }
+}

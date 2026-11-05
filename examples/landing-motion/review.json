@@ -109,7 +109,7 @@
     "reducedMotion": "Static coordinated scene, no packet movement; explicit chapter exploration available",
     "noJavaScript": "Full route, explanation and workbench links rendered; inert controls disabled",
     "consoleErrors": 0,
-    "designHook": "Small-text finding fixed; no suppressions; later hook scan reported no deterministic issues"
+    "designHook": "Small-text finding fixed; two later overused-font findings intentionally excepted for Inter only in prototype index.html/style.css, under the explicit human branding-consistency instruction. Scoped detector rerun returned no findings."
   },
   "evidence": {
     "desktop.jpg": "ce4e38ba1b9c77df2c4c10dd32b2ebc540c50fbfe8e5a07ffa29a0e65fc01f52",
