@@ -123,16 +123,8 @@ func TestLocalJSONOperationsKeepConfigurationAndTransportExplicit(t *testing.T) 
 		}
 		want := operations[position]
 		position++
-		input, readErr := io.ReadAll(runner.In)
-		if readErr != nil || string(input) != want.input {
-			t.Fatalf("%s input=%q error=%v", want.name, input, readErr)
-		}
-		if len(args) < 4 || !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
-			t.Fatalf("%s configuration args=%q", want.name, args)
-		}
-		if len(args) < 4 || !reflect.DeepEqual(args[4:], want.args) {
-			t.Fatalf("%s args=%q want command=%q", want.name, args, want.args)
-		}
+		assertLocalInput(t, runner.In, want.input)
+		assertLocalCommand(t, options, args, want.args)
 		_, _ = io.WriteString(runner.Out, `{"accepted":true}`)
 		return 0
 	}
@@ -149,9 +141,7 @@ func TestLocalJSONOperationsKeepConfigurationAndTransportExplicit(t *testing.T) 
 		t.Fatalf("observations=%d want=%d", len(observer.events), len(operations))
 	}
 	for index, event := range observer.events {
-		if event.Operation != operations[index].name || event.Outcome != "success" || event.Duration < 0 {
-			t.Fatalf("event[%d]=%+v", index, event)
-		}
+		assertLocalObservation(t, event, operations[index].name)
 	}
 }
 
@@ -180,20 +170,19 @@ func TestLocalEffectOperationsDiscardChildOutputAndKeepPinnedInputs(t *testing.T
 		if runner.Out != io.Discard || runner.Err != io.Discard {
 			t.Fatal("effect operation retained child output")
 		}
-		if len(args) < 4 || !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
-			t.Fatalf("effect configuration args=%q", args)
+		if position >= len(want) {
+			t.Fatalf("unexpected effect invocation: %q", args)
 		}
-		if len(args) < 4 || position >= len(want) || !reflect.DeepEqual(args[4:], want[position]) {
-			t.Fatalf("effect args=%q want=%q", args, want)
-		}
+		assertLocalCommand(t, options, args, want[position])
 		position++
 		return 20 + position
 	}
-	if result, callErr := client.RunWorkload(context.Background(), "alpha"); callErr != nil || result.ExitCode != 21 {
-		t.Fatalf("run result=%+v error=%v", result, callErr)
-	}
-	if result, callErr := client.Flow(context.Background(), flow); callErr != nil || result.ExitCode != 22 {
-		t.Fatalf("flow result=%+v error=%v", result, callErr)
+	result, callErr := client.RunWorkload(context.Background(), "alpha")
+	assertLocalEffectResult(t, result, callErr, 21)
+	result, callErr = client.Flow(context.Background(), flow)
+	assertLocalEffectResult(t, result, callErr, 22)
+	if position != len(want) {
+		t.Fatalf("effect invocations=%d want=%d", position, len(want))
 	}
 }
 
@@ -221,7 +210,6 @@ func TestLocalClientRejectsInvalidOrCancelledOperationsBeforeDispatch(t *testing
 		err  error
 		want Category
 	}{
-		{"nil context", func() error { _, err := client.ConfigValidate(nil); return err }(), CategoryInvalid},
 		{"empty delete pointer", func() error { _, err := client.ConfigDelete(context.Background(), "", digest); return err }(), CategoryInvalid},
 		{"empty workload", func() error { _, err := client.Status(context.Background(), ""); return err }(), CategoryInvalid},
 		{"unsafe workload", func() error { _, err := client.Snapshot(context.Background(), ".."); return err }(), CategoryInvalid},
@@ -240,6 +228,58 @@ func TestLocalClientRejectsInvalidOrCancelledOperationsBeforeDispatch(t *testing
 	}
 	if called {
 		t.Fatal("invalid or cancelled operation was dispatched")
+	}
+}
+
+// Nil is an invalid input under test, rather than an application context.
+func TestLocalClientRejectsNilContextBeforeDispatch(t *testing.T) {
+	client, err := NewLocal(localTestOptions(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.run = func(context.Context, cli.Runner, []string) int {
+		t.Fatal("nil context was dispatched")
+		return 0
+	}
+	for _, ctx := range []context.Context{nil} {
+		if _, err := client.ConfigValidate(ctx); category(err) != CategoryInvalid {
+			t.Fatalf("nil context category=%q error=%v", category(err), err)
+		}
+	}
+}
+
+func assertLocalEffectResult(t *testing.T, result EffectResult, err error, exitCode int) {
+	t.Helper()
+	if err != nil || result.ExitCode != exitCode {
+		t.Fatalf("effect result=%+v want exit code=%d error=%v", result, exitCode, err)
+	}
+}
+
+func assertLocalInput(t *testing.T, input io.Reader, want string) {
+	t.Helper()
+	actual, err := io.ReadAll(input)
+	if err != nil || string(actual) != want {
+		t.Fatalf("input=%q want=%q error=%v", actual, want, err)
+	}
+}
+
+func assertLocalCommand(t *testing.T, options LocalOptions, args, want []string) {
+	t.Helper()
+	if len(args) < 4 {
+		t.Fatalf("incomplete configuration args=%q", args)
+	}
+	if !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
+		t.Fatalf("configuration args=%q", args)
+	}
+	if !reflect.DeepEqual(args[4:], want) {
+		t.Fatalf("args=%q want command=%q", args, want)
+	}
+}
+
+func assertLocalObservation(t *testing.T, event Event, operation string) {
+	t.Helper()
+	if event.Operation != operation || event.Outcome != "success" || event.Duration < 0 {
+		t.Fatalf("operation=%s event=%+v", operation, event)
 	}
 }
 
