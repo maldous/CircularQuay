@@ -28,6 +28,8 @@ const PERSONAS = [
   { id: 'product-engineer', prefix: 'As a product engineer trying a small change,', targets: ['cloud', 'ci'] },
   { id: 'ai-model', prefix: 'As an AI model,', targets: ['cloud', 'container'], leadIn: 'all my human operator has to do is' },
 ];
+const PERSONA_ROLES = { 'new-hire': 'a new hire', 'frontend-developer': 'a frontend developer', 'backend-developer': 'a backend developer', 'mobile-developer': 'a mobile developer', 'friday-developer': 'a developer', sre: 'an SRE', 'on-call': 'the on-call engineer', 'release-engineer': 'a release engineer', 'platform-engineer': 'a platform engineer', 'qa-engineer': 'a QA engineer', 'data-engineer': 'a data engineer', researcher: 'a researcher', contractor: 'a contractor', maintainer: 'a maintainer', consultant: 'a consultant', 'support-engineer': 'a support engineer', 'automation-maintainer': 'an automation maintainer', 'homelab-owner': 'a homelab owner', 'security-reviewer': 'a security reviewer', administrator: 'an administrator', 'devops-engineer': 'a DevOps engineer', 'incident-coordinator': 'an incident coordinator', 'product-engineer': 'a product engineer', 'ai-model': 'an AI model' };
+const STORY_CONTEXTS = ['on day one', 'during a Friday release', 'after another handoff', 'with one last pipeline', 'while tracing an incident', 'before the next deploy', 'on a short project', 'with a reproducible job', 'after a small config change', 'while adding one more service', 'between support requests', 'with a waiting build'];
 const TARGET_ACTIONS = {
   cloud: name => `deploy to ${name}`,
   container: name => `run on ${name}`,
@@ -73,7 +75,50 @@ export function createOptionalSchedule({ random = Math.random } = {}) {
   };
 }
 
+export function createStoryRotation({ random = Math.random } = {}) {
+  let actors = [], contexts = [], lastActor = '', lastContext = '';
+  const refill = (values, last) => shuffled(values, random, last).map(value => typeof value === 'string' ? value : value.id);
+  return function nextChoice() {
+    if (!actors.length) actors = refill(PERSONAS, lastActor);
+    if (!contexts.length) contexts = refill(STORY_CONTEXTS, lastContext);
+    const personaId = actors.shift(); const context = contexts.shift();
+    lastActor = personaId; lastContext = context;
+    return Object.freeze({ personaId, context });
+  };
+}
+
 function choose(list, random) { return list[Math.floor(random() * list.length)]; }
+function shuffled(list, random, previousId = '') {
+  const copy = [...list];
+  for (let index = copy.length - 1; index > 0; index--) { const swap = Math.floor(random() * (index + 1)); [copy[index], copy[swap]] = [copy[swap], copy[index]]; }
+  if (copy.length > 1 && (copy[0]?.id || copy[0]) === previousId) [copy[0], copy[1]] = [copy[1], copy[0]];
+  return copy;
+}
+function validVariant(item, pool) { return pool?.some(candidate => candidate?.asset === item?.asset && candidate?.id === item?.id); }
+
+/** Rotates real integration variants without exhausting a group invisibly. */
+export function createVariantRotation({ variantPools = {}, random = Math.random } = {}) {
+  const bags = new Map();
+  const last = new Map();
+  const draw = (group, pool, unavailable = new Set()) => {
+    const candidates = (pool || []).filter(item => item?.id && item?.name && item?.asset && !unavailable.has(item.id));
+    if (!candidates.length) return Object.freeze({ id: 'illustrative-example', name: 'illustrative example', asset: '' });
+    let bag = bags.get(group) || [];
+    if (!bag.length || !bag.some(item => candidates.some(candidate => candidate.id === item.id))) bag = shuffled(candidates, random, last.get(group));
+    let index = bag.findIndex(item => !unavailable.has(item.id));
+    if (index < 0) { bag = shuffled(candidates, random, last.get(group)); index = 0; }
+    const [item] = bag.splice(index, 1); bags.set(group, bag); last.set(group, item.id); return Object.freeze(item);
+  };
+  return function next() {
+    const identity = draw('identity', variantPools.identity);
+    const identity2 = draw('identity', variantPools['identity-2'] || variantPools.identity, new Set([identity.id]));
+    const local = draw('sources', variantPools.local);
+    const remote = draw('sources', variantPools.remote || variantPools.local, new Set([local.id]));
+    const selection = { identity, 'identity-2': identity2, local, remote };
+    for (const node of ['shell', 'container', 'cloud', 'ci']) selection[node] = draw(`application:${node}`, variantPools[node]);
+    return Object.freeze(selection);
+  };
+}
 function pickVariant(list, previousAsset, random, unavailable = new Set()) {
   const all = Array.isArray(list) ? list.filter(item => item?.name && item?.asset) : [];
   const available = all.filter(item => !unavailable.has(item.asset));
@@ -86,13 +131,30 @@ function longestVariant(list, unavailable = new Set(), measure = item => item.na
   const available = (Array.isArray(list) ? list : []).filter(item => item?.name && item?.asset && !unavailable.has(item.asset));
   return Object.freeze([...available].sort((left, right) => measure(right) - measure(left))[0] || { name: 'illustrative example', asset: '' });
 }
+function reservationVariant(list, unavailable = new Set(), measure = item => item.name?.length || item.text?.length || 0) {
+  const candidates = (Array.isArray(list) ? list : []).filter(item => item?.name && item?.asset && !unavailable.has(item.asset));
+  const nameVariant = longestVariant(candidates, new Set(), measure);
+  const intent = candidates.map(item => item.intent).filter(Boolean).sort((left, right) => measure({ text: right }) - measure({ text: left }))[0];
+  const action = candidates.map(item => item.action?.template || item.action).filter(template => typeof template === 'string').sort((left, right) => measure({ text: right.replaceAll('{name}', nameVariant.name) }) - measure({ text: left.replaceAll('{name}', nameVariant.name) }))[0];
+  return Object.freeze({ ...nameVariant, ...(intent ? { intent } : {}), ...(action ? { action: { template: action } } : {}) });
+}
 function clause(text, references, legs, workloadIndex) { return Object.freeze({ text, references: Object.freeze(references), legs: Object.freeze(legs.map(leg => Object.freeze(leg))), workloadIndex }); }
-function personaPrefix(persona) {
+function personaPrefix(persona, selection = {}, storyChoice = null) {
   const context = persona.prefix.replace(/,\s*$/, '');
-  const needs = `${TARGET_INTENTS[persona.targets[0]]} and ${TARGET_INTENTS[persona.targets[1]]}`;
+  const needs = persona.targets.map(target => selection[target]?.intent || TARGET_INTENTS[target]).join(' and ');
+  if (storyChoice?.context) {
+    const role = PERSONA_ROLES[persona.id] || context.replace(/^As /, '');
+    return persona.id === 'ai-model'
+      ? `As an AI model ${storyChoice.context}, my human operator needs to ${needs},`
+      : `As ${role} ${storyChoice.context}, I need to ${needs},`;
+  }
   return persona.id === 'ai-model'
     ? `${context}, my human operator needs to ${needs},`
     : `${context}, I need to ${needs},`;
+}
+function targetAction(target, variant) {
+  const template = variant?.action?.template || variant?.action || TARGET_ACTIONS[target];
+  return name => typeof template === 'function' ? template(name) : String(template).replaceAll('{name}', name);
 }
 function task({ identity, source, target, optional, lead, selection, workloadIndex, action }) {
   const steps = [
@@ -105,12 +167,12 @@ function task({ identity, source, target, optional, lead, selection, workloadInd
 }
 
 /** Creates two connected workloads from only page-supplied variants. */
-export function createScenarioSession({ variantPools = {}, previous = null, random = Math.random, optionalProbability = OPTIONAL_PROBABILITY, optionalSlots } = {}) {
-  const persona = choose(PERSONAS.filter(item => item.id !== previous?.id), random);
+export function createScenarioSession({ variantPools = {}, previous = null, random = Math.random, optionalProbability = OPTIONAL_PROBABILITY, optionalSlots, variantSelection, storyChoice } = {}) {
+  const persona = PERSONAS.find(item => item.id === storyChoice?.personaId) || choose(PERSONAS.filter(item => item.id !== previous?.id), random);
   const selection = {};
-  selection.identity = pickVariant(variantPools.identity, previous?.selection?.identity?.asset, random);
-  selection['identity-2'] = pickVariant(variantPools['identity-2'], previous?.selection?.['identity-2']?.asset, random, new Set([selection.identity.asset]));
-  Object.entries(variantPools).filter(([node]) => node !== 'identity' && node !== 'identity-2').forEach(([node, variants]) => { selection[node] = pickVariant(variants, previous?.selection?.[node]?.asset, random); });
+  selection.identity = validVariant(variantSelection?.identity, variantPools.identity) ? variantSelection.identity : pickVariant(variantPools.identity, previous?.selection?.identity?.asset, random);
+  selection['identity-2'] = validVariant(variantSelection?.['identity-2'], variantPools['identity-2']) && variantSelection['identity-2'].asset !== selection.identity.asset ? variantSelection['identity-2'] : pickVariant(variantPools['identity-2'], previous?.selection?.['identity-2']?.asset, random, new Set([selection.identity.asset]));
+  Object.entries(variantPools).filter(([node]) => node !== 'identity' && node !== 'identity-2').forEach(([node, variants]) => { selection[node] = validVariant(variantSelection?.[node], variants) && (node !== 'remote' || variantSelection[node].asset !== selection.local?.asset) ? variantSelection[node] : pickVariant(variants, previous?.selection?.[node]?.asset, random, node === 'remote' ? new Set([selection.local?.asset]) : new Set()); });
   const [targetOne, targetTwo] = persona.targets;
   const slots = Array.isArray(optionalSlots) ? new Set(optionalSlots.filter(slot => slot === 0 || slot === 1)) : null;
   const firstOptional = slots ? (slots.has(0) ? choose(OPTIONALS, random) : null) : (random() < optionalProbability ? choose(OPTIONALS, random) : null);
@@ -120,20 +182,20 @@ export function createScenarioSession({ variantPools = {}, previous = null, rand
   const secondIdentity = firstIdentity === 'identity' ? 'identity-2' : 'identity';
   const secondSource = firstSource === 'local' ? 'remote' : 'local';
   const tasks = [
-    task({ identity: firstIdentity, source: firstSource, target: targetOne, optional: firstOptional, lead: `${persona.leadIn || 'all I have to do is'}`, selection, workloadIndex: 0, action: TARGET_ACTIONS[targetOne] }),
-    task({ identity: secondIdentity, source: secondSource, target: targetTwo, optional: secondOptional, lead: 'then', selection, workloadIndex: 1, action: TARGET_ACTIONS[targetTwo] }),
+    task({ identity: firstIdentity, source: firstSource, target: targetOne, optional: firstOptional, lead: `${persona.leadIn || 'all I have to do is'}`, selection, workloadIndex: 0, action: targetAction(targetOne, selection[targetOne]) }),
+    task({ identity: secondIdentity, source: secondSource, target: targetTwo, optional: secondOptional, lead: 'then', selection, workloadIndex: 1, action: targetAction(targetTwo, selection[targetTwo]) }),
   ];
   const clauses = tasks.flat();
   const legs = clauses.flatMap((item, clauseIndex) => item.legs.map((leg, clauseLegIndex) => Object.freeze({ ...leg, clauseIndex, clauseLegIndex, clauseLegCount: item.legs.length, workloadIndex: item.workloadIndex })));
-  return Object.freeze({ id: persona.id, prefix: personaPrefix(persona), suffix: 'or I can use CircularQuay.', selection: Object.freeze(selection), tasks: Object.freeze(tasks), clauses: Object.freeze(clauses), legs: Object.freeze(legs), duration: legs.length * STEP_DURATION + SESSION_SETTLE_DURATION });
+  return Object.freeze({ id: persona.id, prefix: personaPrefix(persona, selection, storyChoice), suffix: 'or I can use CircularQuay.', selection: Object.freeze(selection), tasks: Object.freeze(tasks), clauses: Object.freeze(clauses), legs: Object.freeze(legs), duration: legs.length * STEP_DURATION + SESSION_SETTLE_DURATION });
 }
 
 export function staticScenario(variantPools = {}) { return createScenarioSession({ variantPools, previous: { id: 'ai-model', selection: {} }, random: () => 0, optionalProbability: 0 }); }
 /** A bounded, conservative set used only to reserve story height before playback. */
 export function storyReservationSessions(variantPools = {}, measure = item => item.name?.length || item.text?.length || 0) {
-  const selection = Object.fromEntries(Object.entries(variantPools).map(([node, variants]) => [node, longestVariant(variants, new Set(), measure)]));
-  selection.identity = longestVariant(variantPools.identity, new Set(), measure);
-  selection['identity-2'] = longestVariant(variantPools['identity-2'], new Set([selection.identity.asset]), measure);
+  const selection = Object.fromEntries(Object.entries(variantPools).map(([node, variants]) => [node, reservationVariant(variants, new Set(), measure)]));
+  selection.identity = reservationVariant(variantPools.identity, new Set(), measure);
+  selection['identity-2'] = reservationVariant(variantPools['identity-2'], new Set([selection.identity.asset]), measure);
   const optionalByLength = [...OPTIONALS].sort((left, right) => measure(right) - measure(left));
   const [firstOption, secondOption] = optionalByLength;
   const modes = [[null, null], [firstOption, secondOption]];
@@ -144,11 +206,12 @@ export function storyReservationSessions(variantPools = {}, measure = item => it
     const firstSource = order === 'forward' ? 'local' : 'remote';
     const secondSource = order === 'forward' ? 'remote' : 'local';
     const tasks = [
-      task({ identity: firstIdentity, source: firstSource, target: targetOne, optional: firstOptional, lead: persona.leadIn || 'all I have to do is', selection, workloadIndex: 0, action: TARGET_ACTIONS[targetOne] }),
-      task({ identity: secondIdentity, source: secondSource, target: targetTwo, optional: secondOptional, lead: 'then', selection, workloadIndex: 1, action: TARGET_ACTIONS[targetTwo] }),
+      task({ identity: firstIdentity, source: firstSource, target: targetOne, optional: firstOptional, lead: persona.leadIn || 'all I have to do is', selection, workloadIndex: 0, action: targetAction(targetOne, selection[targetOne]) }),
+      task({ identity: secondIdentity, source: secondSource, target: targetTwo, optional: secondOptional, lead: 'then', selection, workloadIndex: 1, action: targetAction(targetTwo, selection[targetTwo]) }),
     ];
     const clauses = tasks.flat();
-    return Object.freeze({ id: `reserve-${persona.id}-${order}-${firstOptional?.route || 'none'}-${secondOptional?.route || 'none'}`, prefix: personaPrefix(persona), suffix: 'or I can use CircularQuay.', selection: Object.freeze(selection), tasks: Object.freeze(tasks), clauses: Object.freeze(clauses) });
+    const longestContext = [...STORY_CONTEXTS].sort((left, right) => measure({ text: right }) - measure({ text: left }))[0];
+    return Object.freeze({ id: `reserve-${persona.id}-${order}-${firstOptional?.route || 'none'}-${secondOptional?.route || 'none'}`, prefix: personaPrefix(persona, selection, { context: longestContext }), suffix: 'or I can use CircularQuay.', selection: Object.freeze(selection), tasks: Object.freeze(tasks), clauses: Object.freeze(clauses) });
   }))));
 }
 export function sessionStep(session, elapsed) {

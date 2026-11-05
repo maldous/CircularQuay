@@ -43,6 +43,7 @@ const assets = new Map([
   ['/style.css', 'style.css'],
   ['/motion.js', 'motion.js'],
   ['/scenario-flow.js', 'scenario-flow.js'],
+  ['/motion-catalog.js', 'motion-catalog.js'],
   ['/explore', 'explore.html'],
   ['/explore.html', 'explore.html'],
   ['/explore.js', 'explore.js'],

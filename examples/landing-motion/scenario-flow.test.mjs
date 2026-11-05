@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PERSONA_COUNT, STEP_DURATION, createOptionalSchedule, createScenarioSession, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { PERSONA_COUNT, STEP_DURATION, createOptionalSchedule, createScenarioSession, createStoryRotation, createVariantRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const variants = {
   identity: [{ name: 'GitHub', asset: 'github.svg' }, { name: 'Okta', asset: 'okta.svg' }],
@@ -116,10 +116,61 @@ test('story reservation uses a bounded set covering every persona, task order, a
   assert.ok(candidates.some(candidate => candidate.clauses.length === 8));
 });
 
+test('reservation envelopes independently retain widest context, name, intent, and action text', () => {
+  const rich = structuredClone(variants);
+  rich.cloud = [
+    { id: 'wide-name', name: 'Extraordinarily Wide Platform', asset: 'wide.svg', intent: 'short intent', action: { template: 'run {name}' } },
+    { id: 'wide-copy', name: 'CQ', asset: 'copy.svg', intent: 'the widest intent phrase', action: { template: 'perform the widest action through {name}' } },
+  ];
+  const measure = item => String(item.name || item.text).length;
+  const candidates = storyReservationSessions(rich, measure);
+  assert.ok(candidates.some(candidate => candidate.prefix.includes('the widest intent phrase')));
+  assert.ok(candidates.some(candidate => candidate.clauses.some(clause => clause.text.includes('perform the widest action through Extraordinarily Wide Platform'))));
+});
+
 test('a clause stays active across its two one-point-two-second legs and then settles', () => {
   const session = createScenarioSession({ variantPools: variants, random: seeded(29) });
   const vaultStart = STEP_DURATION * 2;
   assert.equal(sessionStep(session, vaultStart + STEP_DURATION / 2).clauseIndex, 1);
   assert.equal(sessionStep(session, vaultStart + STEP_DURATION + 1).clauseIndex, 1);
   assert.equal(sessionStep(session, session.legs.length * STEP_DURATION).settled, true);
+});
+
+test('shared rotation bags expose every identity and source before reuse while keeping each frame distinct', () => {
+  const item = (id, node) => ({ id, name: id, asset: `${id}.svg`, role: node });
+  const pools = {
+    identity: ['i1', 'i2', 'i3'].map(id => item(id, 'identity')),
+    'identity-2': ['i1', 'i2', 'i3'].map(id => item(id, 'identity')),
+    local: ['s1', 's2', 's3'].map(id => item(id, 'source')),
+    remote: ['s1', 's2', 's3'].map(id => item(id, 'source')),
+    shell: [item('shell', 'app')], container: [item('container', 'app')], cloud: [item('cloud', 'app')], ci: [item('ci', 'app')],
+  };
+  const next = createVariantRotation({ variantPools: pools, random: seeded(7) });
+  const selections = [next(), next(), next()];
+  assert.equal(new Set(selections.flatMap(selection => [selection.identity.id, selection['identity-2'].id])).size, 3);
+  assert.equal(new Set(selections.flatMap(selection => [selection.local.id, selection.remote.id])).size, 3);
+  assert.ok(selections.every(selection => selection.identity.id !== selection['identity-2'].id && selection.local.id !== selection.remote.id));
+});
+
+test('catalog variant intent and action override the generic persona language', () => {
+  const item = (id, node, extra = {}) => ({ id, name: id, asset: `${id}.svg`, role: node, ...extra });
+  const pools = {
+    identity: [item('id-one', 'identity')], 'identity-2': [item('id-two', 'identity')], local: [item('local-one', 'source')], remote: [item('remote-one', 'source')],
+    shell: [item('Terminal', 'application', { intent: 'open a custom terminal', action: { template: 'launch {name}' } })],
+    container: [item('Container', 'application')], cloud: [item('Cloud', 'application')], ci: [item('Pipeline', 'application', { intent: 'run custom delivery', action: { template: 'deliver through {name}' } })],
+  };
+  const selection = Object.fromEntries(Object.entries(pools).map(([node, values]) => [node, values[0]]));
+  const session = createScenarioSession({ variantPools: pools, variantSelection: selection, random: () => 0, optionalSlots: [] });
+  assert.match(session.prefix, /open a custom terminal and run custom delivery/);
+  assert.ok(session.clauses.some(clause => clause.text === 'launch Terminal'));
+  assert.ok(session.clauses.some(clause => clause.text === 'deliver through Pipeline'));
+});
+
+test('story rotation independently cycles actors and contexts before repeating', () => {
+  const next = createStoryRotation({ random: seeded(73) });
+  const choices = Array.from({ length: PERSONA_COUNT }, next);
+  assert.equal(new Set(choices.map(choice => choice.personaId)).size, PERSONA_COUNT);
+  assert.notEqual(choices[0].context, choices[1].context);
+  const session = createScenarioSession({ variantPools: variants, storyChoice: { personaId: 'new-hire', context: 'during a Friday release' }, random: () => 0, optionalSlots: [] });
+  assert.match(session.prefix, /^As a new hire during a Friday release, I need to .+ and .+,$/);
 });

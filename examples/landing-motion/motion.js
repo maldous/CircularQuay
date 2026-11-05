@@ -1,4 +1,5 @@
-import { createScenarioSession, createOptionalSchedule, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { motionCatalog } from './motion-catalog.js';
+import { createScenarioSession, createOptionalSchedule, createVariantRotation, createStoryRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const root = document.documentElement;
 const journey = document.querySelector('.journey');
@@ -11,6 +12,8 @@ const storyPrefix = document.querySelector('[data-story-prefix]');
 const storyClauses = document.querySelector('[data-story-clauses]');
 const storyAlternative = document.querySelector('[data-story-alternative]');
 const optionalSchedule = createOptionalSchedule();
+const storyRotation = createStoryRotation();
+let variantRotation;
 const routes = [];
 const iconStates = new Map();
 let inView = false;
@@ -41,7 +44,10 @@ function initialiseNodes() {
     const current = node.querySelector('[data-icon-current]');
     const next = node.querySelector('[data-icon-next]');
     if (!current || !next) return;
-    iconStates.set(node.dataset.node, { node, current, next, name: node.querySelector('.node-name'), variants: parseVariants(node) });
+    const name = node.querySelector('.node-name'), role = node.querySelector('.node-role');
+    name?.removeAttribute('data-i18n'); role?.removeAttribute('data-i18n');
+    node.lang = 'en'; node.dir = 'ltr';
+    iconStates.set(node.dataset.node, { node, current, next, name, role, variants: motionCatalog[node.dataset.node] || parseVariants(node) });
   });
 }
 
@@ -274,9 +280,12 @@ function applySelection(selection, animate = false) {
     const state = iconStates.get(nodeKey);
     if (!state || !variant.asset) return Promise.resolve(true);
     const commit = () => {
-      state.current.src = variant.asset; state.current.alt = variant.name;
+      state.current.src = variant.asset; state.current.alt = variant.fullName || variant.name;
       state.next.src = variant.asset; state.next.alt = '';
-      if (state.name) state.name.textContent = variant.name;
+      if (state.name) { state.name.textContent = variant.name; state.name.title = variant.fullName || variant.name; }
+      if (state.role && variant.role) state.role.textContent = variant.role;
+      state.node.dataset.integrationId = variant.id || '';
+      state.node.dataset.integrationGroup = variant.group || '';
       state.node.classList.remove('is-changing', 'is-committing');
     };
     if (!animate || state.current.src === new URL(variant.asset, document.baseURI).href) {
@@ -305,6 +314,9 @@ function applySelection(selection, animate = false) {
 }
 
 function variantPools() { return Object.fromEntries([...iconStates].map(([key, state]) => [key, state.variants])); }
+function nextScenario(previous = null) {
+  return createScenarioSession({ variantPools: variantPools(), previous, optionalSlots: optionalSchedule(), variantSelection: variantRotation(), storyChoice: storyRotation() });
+}
 function revealStory() {
   if (!story || story.dataset.storyReady === 'true') return;
   story.dataset.storyReady = 'true';
@@ -321,7 +333,7 @@ async function queueNextSession() {
   if (preparingSession) return;
   preparingSession = true;
   clearDelivered();
-  const next = createScenarioSession({ variantPools: variantPools(), previous: session, optionalSlots: optionalSchedule() });
+  const next = nextScenario(session);
   story?.classList.add('is-transitioning');
   updateFrame();
   if (!(await preload(next.selection))) {
@@ -390,20 +402,22 @@ function updateFrame() {
   if (motionEnabled() && !preparingSession) frame = requestAnimationFrame(tick);
 }
 
-initialiseNodes(); initialiseRoutes();
+initialiseNodes();
+variantRotation = createVariantRotation({ variantPools: variantPools() });
+initialiseRoutes();
 preparingSession = true;
 async function prepareFirstScene() {
   journey?.setAttribute('aria-busy', 'true');
   await document.fonts?.ready;
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools(), optionalSlots: optionalSchedule() });
+  const firstSession = isReducedMotion() ? staticScenario(variantPools()) : nextScenario();
   session = firstSession;
   reserveStoryHeight();
   const ready = await preload(firstSession.selection);
   if (ready) {
     beginSession(firstSession, isReducedMotion(), false);
   } else {
-    beginSession(staticScenario(variantPools()), true, false, false);
+    beginSession(staticScenario(variantPools()), true, false);
   }
   root.dataset.layoutReady = 'true';
   journey?.setAttribute('aria-busy', 'false');
