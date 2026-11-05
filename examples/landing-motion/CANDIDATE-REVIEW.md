@@ -26,7 +26,7 @@ Nine viewport layouts were inspected: 390×844, 360×740, 820×1180, 673×841, 1
 
 Explore now uses the current local documentation captured on 5 November, rather than the older published GitHub revision. The portable source freeze contains 55 Markdown documents and four referenced SVGs, rendered as 85 reader parts. Exact raw bytes and SHA-256 values are committed under explore-source; normal builds/checks use that freeze. An explicit --refresh-local-source is required to replace it.
 
-The README displays CQ and the cq command. Recorded output-only editorial mappings change cquay-sdk to cq-sdk and remove the obsolete pronunciation guide while preserving raw source bytes. Source-bound import namespaces, configuration identifiers and skill paths remain as captured until the separately owned canonical technical rename is committed. Repository-context links explicitly disclose that their contents may differ from this local snapshot. All 611 reader links resolve; 53 non-reader references have qualified repository links and no inert anchors remain.
+The README displays CQ and the cq command. The Explore snapshot is based on canonical commit `15f368a9f8ac4b45f5d92772c492e863b0a0f5f9`, with source-freeze SHA-256 `abb8878ee734dbe398f98c15c8abd22de1e3a511e1620d2de9917f4fd0d16b45`. Current guides use `cq`, `cq-sdk`, Python `from cq import` and TypeScript `@maldous/cq-sdk` directly. Genuine dated engineering records retain their revision-specific paths and tool versions. Repository-context links explicitly disclose that their contents may differ from this local snapshot. All 611 reader links resolve; 53 non-reader references have qualified repository links and no inert anchors remain.
 
 ## Verification and remaining limits
 

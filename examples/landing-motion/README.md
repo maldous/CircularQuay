@@ -14,7 +14,7 @@ Both vault labels read **Encrypted**. Vendor icons are larger and centred; in da
 
 Explore opens `/explore`, the canonical home pane for 55 raw public Markdown documents and four SVGs frozen under `explore-source/`. The portable local snapshot is based on the dirty local working tree at `b0abadd`; its manifest SHA-256 is `88a4d936a47bc09e2f909121c7265c8a9e6efd7a7b6e7f96b65267e7227b2377`. It renders 85 parts. The default builder and `--check` consume this frozen snapshot; only explicit `--refresh-local-source` recaptures it.
 
-The editorial output applies the `cquay-sdk` → `cq-sdk` overlay in five files and 21 replacements. Raw source remains untouched and hash-recorded. Link count B is under current checking, so no earlier published link qualification is asserted here.
+The Explore snapshot is based on canonical commit `15f368a9f8ac4b45f5d92772c492e863b0a0f5f9`, with source-freeze SHA-256 `abb8878ee734dbe398f98c15c8abd22de1e3a511e1620d2de9917f4fd0d16b45`. Current guides use `cq`, `cq-sdk`, Python `from cq import` and TypeScript `@maldous/cq-sdk` directly. Genuine dated engineering records retain their revision-specific paths and tool versions.
 
 Explore home groups all 55 documents into six task groups with breadcrumbs and group rails. It has no native-document or Chapter dropdown. “In this guide” contains only genuine multipart links. The same compact six-group menu is shared by the landing on desktop, tablet and foldable layouts.
 
