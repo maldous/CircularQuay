@@ -33,7 +33,8 @@ jobs:
           check-latest: false
       - name: Install the reviewed documentation-renderer closure
         shell: bash
-        run: python -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r examples/landing-motion/requirements-explore.txt
+        run: |
+          python -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r examples/landing-motion/requirements-explore.txt
       - name: Verify public behavior and standalone export
         shell: bash
         run: |
