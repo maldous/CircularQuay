@@ -1,57 +1,306 @@
 # Development session handoff
 
-Status: CQ v1 development is active and **not production qualified**.
-No release, package-index publication, production deployment, system/service
-installation, credential migration, operational infrastructure change, or
-live-provider qualification has occurred.
-Do not claim a passed gate without its retained evidence.
+## Current handover — 6 November 2026 (Australia/Melbourne)
 
-The final naming clarification is **Circular Quay** (long product name), **CQ**
-(short product name) and lowercase **`cq`** for owned technical names. Valid
-short-name copy remains valid. The real repository/module URL and existing
-registered/package/security identities require their actual consumer review;
-they are not silently renamed. Quick-start directory corrections change example
-clone/navigation strings, not the active checkout. Historical naming receipts
-retain their original bytes and meaning.
+The user requested a handover because of the token limit. Implementation is
+paused for transfer; all workers stopped. Resume the already-approved correction
+pass from this checkout. **The PR is not merged and the new corrections have not
+been pushed or runtime-qualified.** This section supersedes historical status,
+authentication, publication and hosting descriptions below.
 
-The infrastructure owner coordinates preparation of `circularquay.aldous.info` and `cq.aldous.info` for
-the future managed service. The retained evidence establishes no verified CircularQuay hosting site; the selected destination/site identity is unresolved. The bounded
-source read independently found no verified target in current operator records,
-receipt `checkpoint57/cq-netlify-target-readonly-identification.json`, SHA-256
-`04b0f270b65b7ec71ba89cf562ccd9c51ba740ddf0dfa75dd38295b82b979512`.
-This does not claim an external account inventory. No DNS, site, domain, proxy,
-deployment or paid mutation occurred here. Bind both names only to the same
-authorized verified target before applying provider-required DNS. Account/zone
-identifiers remain private; no placeholder records or unrelated-site reuse.
-Domain preparation does not gate the existing safe local developer review.
+### Repository and publication identity
 
-## Public frontend and requested integration
+- Checkout: `/home/user/src/2026-11-03/circularquay-dev`.
+- Branch: `feature/initial-implementation`; remote:
+  `https://github.com/maldous/CircularQuay.git`.
+- Last implementation/preparation HEAD:
+  `5437e019d262a8cf56ca909ba3cd12333ddffe7c`, tree
+  `98cca2476fc38abd646c8faf0da146ede45500b8`. The subsequent handover commit
+  contains this document and the next-agent prompt; read actual HEAD with Git.
+- Published PR head:
+  `071e06b7b57cde41e22c58e51b178459f76beea7`, tree
+  `02b130e39cbcf74b3b1acf1ab79866e76fad28f5`.
+- [PR #1](https://github.com/maldous/CircularQuay/pull/1) targets `develop`, is
+  open and ready for review. Latest API readback: `mergeable=true`,
+  `mergeable_state=blocked`. Its title covers runtime, SDKs, documentation and
+  public frontend integration.
+- Remote `develop` remains empty-init commit
+  `faf8e0242847d9a0026139762d6558ecd39debac`; no local `origin/develop` tracking
+  ref exists. Use the remote API or an ordinary fetch when needed.
+- Git/gh authentication now works through the existing keyring as `maldous`.
+  Do not ask the user to authenticate again unless an actual request fails.
+  Never print tokens or inspect credential stores.
+- Earlier publication preserved 19 local commits intact. No force push, merge,
+  tag or release occurred in this correction pass.
 
-The current public frontend is live at `https://circularquay.aldous.info/` and
-its proxied CNAME alias `https://cq.aldous.info/`. Its exact source checkpoint is
-`dfb51b1f64849746113d248d80a069d42a058117`; Cloudflare Worker version
-`32c9376b-5ea9-4c1a-9388-457e069b2e21` serves only the allowlisted landing,
-Login, Explore, search, Help and information assets. Authentication/provisioning,
-managed-service backends and the rest of the application remain later work.
-The approved frontend deployment is an exception to the older no-deployment
-status below, which remains historical for native/backend qualification.
+Three completed local commits await publication:
 
-The user now authorizes committing, pushing and merging completed CircularQuay
-work. Follow the existing feature-to-`develop` PR route and preserve mandatory
-review, status and security gates; this does not authorize bypassing protections,
-a release to `main`, version tags or registry publication. The global Git CLI is
-not authenticated at this checkpoint; the connected GitHub app remains available
-for PR inspection and management. Preserve the existing local commit history
-when publishing. Current native/SDK/Sonar results still refer to the old published
-`b30f1308` candidate, not the newer local source or the deployed frontend.
+| Commit | Change | Verification limit |
+| --- | --- | --- |
+| `e7475f4dc11b9ba245a451aed2542979a370adb4` | Owned Python stdin cleanup; canonical temporary fixtures; Python/TypeScript contract coverage; native source/OTEL/Go SDK boundary tests; diagnostic test-module allowlist; shared CLI diagnostic literal | Source review, AST and pinned gofmt/diff checks; hosted execution pending |
+| `aae0129c7487bfb64e117bc78272d9854761449e` | Canonical Help implementations with small landing facades; bounded static export aliases; Sonar source corrections; hosted public frontend checks and hash-pinned renderer closure | Independent source review; hosted generators, 35 Node tests and export verification pending |
+| `5437e019d262a8cf56ca909ba3cd12333ddffe7c` | Execution-boundary redesign document; exact Darwin Intel source-policy validator and preparatory hosted closure workflow | Design/preparation only, no production runtime replacement or dependency-lock remediation |
 
-Older worktrees include uncommitted and divergent experiments. Preserve their
-source and review identity rather than treating all branch contents as accepted
-integration inputs. The existing host resource hold remains: no local Go builds,
-tests, analyzers, resolvers, Java/Docker or SDK runtime under this integration
-assignment. Bounded source review and static checks do not qualify runtime
-behavior. Existing branch/qualification receipts remain in the same checkpoint57
-store; no new Linear issue, controller or status ledger is created here.
+The tree was clean after these three commits. Verify it again; do not reset
+unfamiliar edits. Root is the sole committer/publisher/merger. Other old worktrees
+contain unrelated dirty experiments and must remain untouched. Historical branch
+patches `6ee00b5` and `308670c` were patch-equivalent; other earlier browser
+experiments were superseded. No additional branch merge is currently justified.
+
+### User decisions and retained constraints
+
+The user explicitly authorized committing, pushing and merging completed
+CircularQuay work, then approved this CI correction pass. The subsequent choices
+are binding:
+
+1. **Keep zero Gosec exceptions; redesign the affected features.**
+2. **Preserve existing capabilities while replacing implementations.** Do not
+   disable arbitrary workload execution, providers, Git transport or user quota
+   enforcement to make checks pass.
+3. **Prepare the narrow Darwin Intel source-build lane** for the fixed
+   cryptography release, retaining Intel support, hashes and strict audit.
+
+No repeated approval request is needed for those choices. This does not permit
+weakening gates, hiding findings, adding broad exclusions, bypassing review,
+merging to `main`, tagging, package publication, paid service activation, or
+shipping native/backend/authentication services. Do not create a new Linear
+issue, controller, tracker or duplicate evidence ledger for this landing-page
+exemption. OffMenu instructions are conditional and do not apply to this work.
+
+The Foo resource hold remains: no local Go invocation/build/test/analyzer,
+resolver/install, Java/Docker, SDK/application runtime, or broad test execution.
+Use hosted CI for runtime verification. Bounded source/Git/API reads, Python
+stdlib AST/JSON metadata checks and the already-cached pinned gofmt are allowed.
+This pass used Go 1.27.3's cached formatter only, not the Go command. One worker
+ran three small stdlib tests and CLI/syntax checks for the new standalone policy
+validator before being told to stop; these are not SDK/runtime qualification.
+No local SDK, native or UI runtime verification occurred in this pass.
+
+Keep the existing 5182 preview process (`2628781`) running; do not stop/restart it
+under the retained owner hold. Its startup asset map predates the new `/web/*`
+aliases, so it is **not evidence for the new export**; Help/search may require an
+owner-authorized preview restart later. Do not mistake the unchanged deployed
+frontend for the unpublished CI correction candidate.
+
+### Immediate continuation order
+
+1. Read AGENTS.md, contribution/security guidance and this section; inspect
+   actual branch/HEAD/dirty tree and the four newest commits (including handover).
+2. Review the completed source batch and preparatory workflow, then perform the
+   already-authorized ordinary push with history intact. Do not include the
+   archived incomplete executable probe as an active workflow.
+3. Read fresh source and PR-merge identities and exact run/job/artifact IDs.
+   Evaluate the newly added public frontend job, SDK coverage/platform jobs,
+   source coverage, security and Sonar. Never reuse the old candidate's results
+   to qualify the new source.
+4. Fix genuine hosted regressions before extending the architecture. Resolve
+   the Python review thread only after its regression is actually verified.
+5. Inspect Darwin build-closure proposals, review immutable toolchain acquisition
+   and only then implement isolated source builds and refresh affected locks.
+6. Continue the capability-preserving execution/quota redesign from
+   [the design](execution-boundary-redesign.md), beginning with native host
+   probes. No runtime replacement has been implemented yet.
+7. Preserve exact evidence in the existing checkpoint57 store. Merge PR #1 to
+   `develop` only after all protected checks, conversation resolution and the
+   required independent GitHub approval pass. Do not bypass the rules.
+
+### PR protections and unresolved review
+
+Ruleset `26444118` protects `main`, `develop` and `release/**`. It requires one
+approval from someone other than the last pusher, dismisses stale approvals,
+requires resolved conversations and CodeQL acceptance, and has no bypass actors.
+Repository auto-merge is disabled; do not silently enable it. The last normal
+merge attempt at source `071e06b` returned GitHub 405 for approval/check/scanning
+requirements. Agent review does not satisfy provider approval.
+
+Required check contexts:
+
+- Source assurance gate
+- Linux synthetic tests
+- Windows synthetic tests
+- macOS synthetic tests
+- Go security toolchain
+- CodeQL Go security and quality
+- Hosted ephemeral SonarQube gate
+- SDK qualification
+
+Unresolved thread `PRRT_kwDOVhN5Ec60Fkh6`:
+[Python captured stdin ownership](https://github.com/maldous/CircularQuay/pull/1#discussion_r4481040367).
+The fix in `e7475f4` moves cancellable stdin write/drain/close into the owned
+consume phase after process assignment. `_start_captured` now launches only.
+Synthetic regressions cover cancellation and BrokenPipe for `config_set` and
+`config_replace`, checking stdin close and child terminate/wait. No claim is made
+that native configuration cannot have been applied after bytes were written.
+Do not resolve the thread merely to unblock merging.
+
+GitGuardian is an external failing check. Per the CI skill, report its details
+URL only (`https://dashboard.gitguardian.com`); do not investigate that external
+service, inspect operational secrets or waive it to merge.
+
+### Candidate-bound CI findings to carry forward
+
+All following observations concern published source `071e06b`, **not** the new
+local correction commits. Its PR merge revision is
+`63e4254015e695908b948fd0f9a42610eb8984de`, parents `faf8e024` + `071e06b`;
+its tree exactly matches source tree `02b130e`.
+
+| Family | Run | Important evidence |
+| --- | --- | --- |
+| Source push / PR | `42035819115` / `42035829159` | Jobs `127273564364` / `127273601221`; full direct API logs prove format/unit/vet pass and coverage failure. Earlier generic-log interpretation was incomplete. |
+| Security | `42035828271` | Staticcheck, govulncheck, CodeQL passed; Gosec found six G204 and two G103. |
+| SDK | `42035828268` | TypeScript's 32 tests passed but strict coverage failed; Python Linux tests passed but coverage failed, and macOS/Windows shared 20 fixture failures. |
+| Sonar | `42035828283` | Artifact `13417404689`; exact profile, issues, duplication and scanner warnings retained. |
+| Browser / WireMock / dependency review | `42035828454` / `42035828286` / `42035828397` | Earlier scoped passes are historical for the new batch. |
+
+Native statement coverage is **8676/10425 = 83.223021583%**, with 1749 missing
+statements. Largest missing package counts: CLI 308, assurance 292,
+observability 191, source 145, Go SDK 134, configuration 125, keyservice 117,
+repository 94, policy 88, platform 86. New tests cover source HTTP/cloud, OTEL
+and Go SDK local boundaries, but their actual coverage improvement is unverified.
+Do not claim the 100% gate is closed.
+
+TypeScript old coverage: statements/lines 98.81%, functions 99.27%, branches
+87.78%. New tests exercise the public MCP adapter schema/signal/options paths.
+Two proven unreachable internal branches were removed; public JSON size limits
+remain. Independent source review found no material regression. Hosted lint,
+typecheck, tests and 100% coverage are still required.
+
+Python old source coverage: local.py 79%, client.py 86%, types.py 92%. New
+contract tests cover parser/redaction/immutability/error boundaries. The bounded
+CI diagnostic allowlist now includes `test_types`. Both macOS and Windows had
+exactly the same 20 failures, all tests in two classes that construct the local
+client in setUp. Their temporary roots were not canonicalized while production
+identity rejects noncanonical executable paths. Fixtures now use `.resolve()`;
+production identity is unchanged. This is strongly supported source diagnosis,
+not verified platform closure. Raw assertions are deliberately suppressed by
+the bounded helper; if needed, add only closed-set exception/category diagnostics,
+never messages, raw traceback, credentials or arbitrary paths.
+
+### Sonar corrections and remaining blockers
+
+The old report contains 73 issues: 29 Web:S6819, 24 JS:S9383, 11 S8786,
+4 JS:S2871, 2 JS:S5868, one JS:S7737, one Go:S1192 and one Web:S6845.
+Sonar measured coverage 55.8%, duplication 7.5%, 73 violations, zero hotspots,
+three scanner warnings and gate ERROR. Native Go coverage and Sonar's project
+coverage are different denominators.
+
+The new source batch deduplicates four full Help implementations and the release
+module: five `client-help/*` files are tiny `../../../web/*` re-export facades.
+Exactly five `/web/*` aliases expose canonical modules; preview/export maps are
+closed allowlists, and standalone export materializes all required bytes.
+Direct Node imports remain valid. The unused help-catalog route was removed:
+900 - 1 + 5 = **904 expected routes**. No directory serving or scan exclusion
+was introduced. Hosted tests must verify the complete export and facade paths.
+
+Other fixes address real Promise, parser/regex, sort and HTML semantics issues.
+Twelve custom search `role=listbox` findings intentionally remain unresolved:
+removing that role breaks the ARIA combobox's controls/options/active-descendant
+contract. Do not erase accessibility semantics to silence S6819. No Sonar issue
+was accepted, suppressed or automatically marked false positive.
+
+Three old warnings also remain unclosed: Python 3.15 is not explicitly supported
+by the pinned released analyzer (it falls back to 3.14), and generated
+motion-catalog.js produces two CPD reference-truncation warnings. Do not drop the
+supported Python declaration, exclude data or lower thresholds without a real
+reviewed contract change. Do not claim all 73 findings were fixed from source
+review; run the exact new candidate first.
+
+### Darwin dependency preparation
+
+Cryptography 48.0.1 remains vulnerable in six Darwin locks:
+`ci-darwin-py314.txt` and runtime Darwin py311 through py315. Linux/Windows
+already select 50.0.2. PYSEC-2026-3552/3553/3554 require at least 50.0.0 to cover
+all three. Official 50.0.2 has no Intel/universal2 wheel; borrowing ARM hashes,
+dropping Intel or retaining the vulnerable lock is not an allowed fix.
+
+The committed policy admits exactly cryptography 50.0.2's named PyPI sdist,
+SHA-256 `7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5`,
+only on Darwin x86_64. `.github/workflows/python-darwin-source.yml` is an
+**evidence-preparation lane**, not source-build qualification. It checks current
+primary release identity/yanked state, downloads and hashes the approved archive,
+reads one bounded pyproject member without extraction/execution, resolves only
+wheel build-dependency proposals for Python 3.11–3.15, and records observed
+Xcode/clang identities. It installs/builds nothing and changes no runtime locks.
+It has not run yet. Proposals must be reviewed before consumers use them.
+
+Current official acquisition candidates are retained privately: Rust 1.99.1
+Darwin Intel archive from dated 2026-10-15 manifest, SHA-256
+`ca9900354aeaa5d31c47ce8e07ac90e9fb7377b39ca10e3981a85d6008679522`;
+OpenSSL 3.5.9 source, SHA-256
+`603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a`.
+These are candidates, not complete native toolchain provenance. See primary
+metadata receipt for exact URLs/manifest checksums. Required later work includes
+reviewed build closure, native acquisition, no-build-isolation installation,
+package-specific source admission, strict audits, linkage/import/runtime checks,
+and a second clean hosted reproduction before regenerating six consumer locks.
+The optional MCP/qualification path needs this closure; the minimal SDK base has
+no ordinary dependencies.
+
+### Execution redesign preparation
+
+The six G204 launch points and two G103 quota pointers are unchanged in
+production source. The user rejected exceptions and capability loss.
+[execution-boundary-redesign.md](execution-boundary-redesign.md) gives the
+preservative replacement and acceptance/rollout requirements.
+
+Linux retained executable FD + literal `/proc/self/fd/3` + ExtraFiles can close
+pathname TOCTOU while preserving cwd/argv/env/lifecycle. Windows held no-write/no-
+delete image handle + native CreateProcess needs native proof. Darwin `/dev/fd/3`
+needs actual target acceptance; do not silently fall back to checked path reopen.
+Current UID user quota via `quotactl_fd` has no equivalent maintained Go wrapper;
+project quotas change semantics and privilege. A narrow UID-bound FD-passing
+native quota helper is the concrete design, with build/distribution/security
+acceptance still pending. No arbitrary provider/Git rewrite is required if a
+shared verified execution capability preserves their contracts.
+
+An unfinished experimental workflow was archived outside active workflows at
+`final/executable-capability-probe.workflow-draft.yml` in the existing private
+store. Its proposed fixture paths do **not** exist: the worker stopped before
+creating them. Do not publish that draft as a runnable workflow. The planned
+synthetic probe hashes an opened target, replaces its pathname, launches through
+FD 3, and checks cwd/argv/clean environment/exit17/cancellation on Linux and
+Darwin. No probe, production API or quota helper was implemented.
+
+### Existing evidence and live frontend
+
+Use the same private store, never a new tracker:
+
+`/home/user/src/2026-11-03/circularquay-dev/.local/qualification/checkpoint57/landing-motion-review/candidate-after/final/`
+
+Key current records: `integration-publication.json`, `ci-current-checks.json`,
+`ci-review-thread-investigation.json`, `ci-python-investigation.json`,
+`ci-typescript-investigation.json`, `ci-native-investigation.json`,
+`python-sdk-owned-child-cleanup-source.json`,
+`ci-python-coverage-correction-source-review.json`,
+`typescript-sdk-coverage-correction.json`, `typescript-pending-review.json`,
+`go-sdk-local-coverage-correction.json`,
+`python-darwin-toolchain-primary-metadata.json`, and
+`sonar-071e-a-20261106/` plus the breadth remediation JSON.
+The actual exact coverage profile is
+`sonar-071e-a-20261106/artifact/coverage.out`; all-issues, metrics, duplication
+and scanner.log are alongside it. Do not substitute stale Nov3 profiles.
+Root owns the canonical publication receipt. `/tmp/cq-071e-source-job.log` holds
+the full aggregate source proof if still present; durable source identity and
+inventory are in the private receipts and Sonar artifact.
+
+The public frontend remains live at
+[canonical](https://circularquay.aldous.info/) and
+[CNAME alias](https://cq.aldous.info/). Deployed source is
+`dfb51b1f64849746113d248d80a069d42a058117`, Worker version
+`32c9376b-5ea9-4c1a-9388-457e069b2e21`, deployment
+`9d5fb71d-b3ea-4bb7-ab27-ee728d0b37ba`. Only static public frontend assets are
+served; rest of app/auth/backend is later. The new CI correction commits have
+not been deployed. Noindex and disabled external service adapters remain.
+Previous 35 scoped frontend tests and device/browser evidence qualify only their
+recorded source, not this batch or the whole product. Existing intentional
+Inter/ivory branding and precise Impeccable hook exceptions remain; do not
+redesign the user-approved page merely because of an old attribution-unknown
+hook finding.
+
+## Historical context — not current publication or qualification state
+
+The following retained notes are historical. When they conflict with the current
+handover above, use the current handover and exact new readback.
 
 ## English help and verifier CI correction
 
