@@ -23,8 +23,8 @@ const maximumAssetBytes = 4 * 1024 * 1024;
 const maximumReloadListeners = 32;
 
 function acceptsBrotliEncoding(header) {
-  return String(header || '').split(',').some(value => {
-    const [coding, ...parameters] = value.trim().split(';');
+  return String(header || '').split(',').some(encoding => {
+    const [coding, ...parameters] = encoding.trim().split(';');
     if (coding.toLowerCase() !== 'br' || parameters.length > 1) return false;
     if (!parameters.length) return true;
     const quality = parameters[0].trim();
