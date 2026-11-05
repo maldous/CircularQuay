@@ -49,6 +49,30 @@ const OPTIONALS = [
   { route: 'optional-audit', request: 'forward', response: 'reverse', text: 'log an audit event', references: [] },
 ];
 
+export function createOptionalSchedule({ random = Math.random } = {}) {
+  const masks = [[], [0], [1], [0, 1]];
+  let first = true;
+  let bag = [];
+  const shuffle = values => {
+    const copy = values.map(mask => [...mask]);
+    for (let index = copy.length - 1; index > 0; index--) {
+      const swap = Math.floor(random() * (index + 1));
+      [copy[index], copy[swap]] = [copy[swap], copy[index]];
+    }
+    return copy;
+  };
+  return function nextMask() {
+    if (!bag.length) {
+      if (first) {
+        first = false;
+        const initial = random() < .5 ? [0] : [1];
+        bag = [initial, ...shuffle(masks.filter(mask => mask.join() !== initial.join()))];
+      } else bag = shuffle(masks);
+    }
+    return [...bag.shift()];
+  };
+}
+
 function choose(list, random) { return list[Math.floor(random() * list.length)]; }
 function pickVariant(list, previousAsset, random, unavailable = new Set()) {
   const all = Array.isArray(list) ? list.filter(item => item?.name && item?.asset) : [];
@@ -81,15 +105,16 @@ function task({ identity, source, target, optional, lead, selection, workloadInd
 }
 
 /** Creates two connected workloads from only page-supplied variants. */
-export function createScenarioSession({ variantPools = {}, previous = null, random = Math.random, optionalProbability = OPTIONAL_PROBABILITY } = {}) {
+export function createScenarioSession({ variantPools = {}, previous = null, random = Math.random, optionalProbability = OPTIONAL_PROBABILITY, optionalSlots } = {}) {
   const persona = choose(PERSONAS.filter(item => item.id !== previous?.id), random);
   const selection = {};
   selection.identity = pickVariant(variantPools.identity, previous?.selection?.identity?.asset, random);
   selection['identity-2'] = pickVariant(variantPools['identity-2'], previous?.selection?.['identity-2']?.asset, random, new Set([selection.identity.asset]));
   Object.entries(variantPools).filter(([node]) => node !== 'identity' && node !== 'identity-2').forEach(([node, variants]) => { selection[node] = pickVariant(variants, previous?.selection?.[node]?.asset, random); });
   const [targetOne, targetTwo] = persona.targets;
-  const firstOptional = random() < optionalProbability ? choose(OPTIONALS, random) : null;
-  const secondOptional = random() < optionalProbability ? choose(OPTIONALS.filter(optional => optional.route !== firstOptional?.route), random) : null;
+  const slots = Array.isArray(optionalSlots) ? new Set(optionalSlots.filter(slot => slot === 0 || slot === 1)) : null;
+  const firstOptional = slots ? (slots.has(0) ? choose(OPTIONALS, random) : null) : (random() < optionalProbability ? choose(OPTIONALS, random) : null);
+  const secondOptional = slots ? (slots.has(1) ? choose(OPTIONALS.filter(optional => optional.route !== firstOptional?.route), random) : null) : (random() < optionalProbability ? choose(OPTIONALS.filter(optional => optional.route !== firstOptional?.route), random) : null);
   const firstIdentity = choose(['identity', 'identity-2'], random);
   const firstSource = choose(['local', 'remote'], random);
   const secondIdentity = firstIdentity === 'identity' ? 'identity-2' : 'identity';

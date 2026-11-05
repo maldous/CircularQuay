@@ -1,4 +1,4 @@
-import { createScenarioSession, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { createScenarioSession, createOptionalSchedule, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const root = document.documentElement;
 const journey = document.querySelector('.journey');
@@ -10,6 +10,7 @@ const story = document.querySelector('#session-story');
 const storyPrefix = document.querySelector('[data-story-prefix]');
 const storyClauses = document.querySelector('[data-story-clauses]');
 const storyAlternative = document.querySelector('[data-story-alternative]');
+const optionalSchedule = createOptionalSchedule();
 const routes = [];
 const iconStates = new Map();
 let inView = false;
@@ -320,7 +321,7 @@ async function queueNextSession() {
   if (preparingSession) return;
   preparingSession = true;
   clearDelivered();
-  const next = createScenarioSession({ variantPools: variantPools(), previous: session });
+  const next = createScenarioSession({ variantPools: variantPools(), previous: session, optionalSlots: optionalSchedule() });
   story?.classList.add('is-transitioning');
   updateFrame();
   if (!(await preload(next.selection))) {
@@ -395,7 +396,7 @@ async function prepareFirstScene() {
   journey?.setAttribute('aria-busy', 'true');
   await document.fonts?.ready;
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools() });
+  const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools(), optionalSlots: optionalSchedule() });
   session = firstSession;
   reserveStoryHeight();
   const ready = await preload(firstSession.selection);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PERSONA_COUNT, STEP_DURATION, createScenarioSession, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { PERSONA_COUNT, STEP_DURATION, createOptionalSchedule, createScenarioSession, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const variants = {
   identity: [{ name: 'GitHub', asset: 'github.svg' }, { name: 'Okta', asset: 'okta.svg' }],
@@ -79,6 +79,28 @@ test('optional steps are sparse, can be absent, and all feature copies remain re
     'check signing', 'limit MCP access', 'log an audit event',
     'read SCIM groups', 'request KMS access', 'use an age key',
   ]);
+});
+
+test('the balanced optional schedule leads with one visible feature and covers each four-scene mask', () => {
+  const next = createOptionalSchedule({ random: seeded(41) });
+  const first = [next(), next(), next(), next()];
+  assert.ok(first[0].length === 1);
+  assert.deepEqual(first.map(mask => mask.join()).sort(), ['', '0', '0,1', '1']);
+  const following = Array.from({ length: 8 }, next);
+  assert.equal([...first, ...following].flat().length, 12);
+  const sequence = seed => Array.from({ length: 12 }, createOptionalSchedule({ random: seeded(seed) }), mask => mask.join());
+  assert.deepEqual(sequence(91), sequence(91));
+});
+
+test('optional slot masks compose none, one, or both optional workload clauses', () => {
+  for (const [slots, clauseCount] of [[[], 6], [[0], 7], [[1], 7], [[0, 1], 8]]) {
+    const session = createScenarioSession({ variantPools: variants, random: seeded(23), optionalSlots: slots });
+    const optionalClauses = session.clauses.filter(item => item.legs[0].route.startsWith('optional-'));
+    assert.equal(session.clauses.length, clauseCount);
+    assert.deepEqual(optionalClauses.map(item => item.workloadIndex), slots);
+    assert.ok(optionalClauses.every(item => item.legs.length === 2 && item.legs[0].direction !== item.legs[1].direction));
+    assert.deepEqual(session.legs.map(leg => leg.clauseIndex), session.clauses.flatMap((_, index) => [index, index]));
+  }
 });
 
 test('the static reduced-motion example stays on the basic connected flow', () => {

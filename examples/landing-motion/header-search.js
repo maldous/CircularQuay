@@ -65,6 +65,7 @@ function initialise() {
     const query = input.value.trim(); const current = ++request;
     if (!query) { results = []; status.textContent = ''; close(); return; }
     status.textContent = 'Searching locally…';
+    list.replaceChildren(); popup.hidden = false; input.setAttribute('aria-expanded', 'true');
     try {
       const [help, guides] = await Promise.all([store.search(query), Promise.resolve(documentationSuggestions(query))]);
       if (current !== request) return;
