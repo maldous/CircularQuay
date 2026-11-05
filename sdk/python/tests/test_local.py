@@ -68,6 +68,18 @@ class _FinishedProcess:
         return self.returncode
 
 
+class _CapturedProcess(_FinishedProcess):
+    def __init__(self, code: int, output: bytes, error: bytes) -> None:
+        super().__init__(code)
+        self.stdin = None
+        self.stdout = asyncio.StreamReader()
+        self.stdout.feed_data(output)
+        self.stdout.feed_eof()
+        self.stderr = asyncio.StreamReader()
+        self.stderr.feed_data(error)
+        self.stderr.feed_eof()
+
+
 class _InputWriter:
     def __init__(self, failure: BaseException | None = None) -> None:
         self.failure = failure
@@ -258,6 +270,120 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(process.killed)
         self.assertTrue(process.stderr.cancelled)
 
+    async def test_captured_commands_classify_exit_without_disclosing_stderr(self) -> None:
+        events: list[object] = []
+        self.client._observer = events.append
+        cases = (
+            (0, b'{"workload":"alpha"}', b"", None),
+            (1, b"", b'{"error":"access_denied"}', ErrorCategory.DENIED),
+            (1, b"", b"", ErrorCategory.PROCESS),
+            (1, b"", b"synthetic-private-diagnostic", ErrorCategory.PROTOCOL),
+        )
+        for code, output, error, category in cases:
+            with self.subTest(category=category):
+                process = _CapturedProcess(code, output, error)
+                with mock.patch(
+                    "cq.local.asyncio.create_subprocess_exec",
+                    new=mock.AsyncMock(return_value=process),
+                ):
+                    if category is None:
+                        self.assertEqual({"workload": "alpha"}, await self.client.status("alpha"))
+                    else:
+                        with self.assertRaises(CircularQuayError) as captured:
+                            await self.client.status("alpha")
+                        self.assertEqual(category, captured.exception.category)
+                        self.assertNotIn("synthetic-private", str(captured.exception))
+        self.assertEqual(4, len(events))
+
+    async def test_launch_failures_have_safe_categories_and_observations(self) -> None:
+        events: list[object] = []
+        self.client._observer = events.append
+        for failure, category in (
+            (TimeoutError("synthetic-private"), ErrorCategory.UNAVAILABLE),
+            (OSError("synthetic-private"), ErrorCategory.PROCESS),
+            (RuntimeError("synthetic-private"), ErrorCategory.PROCESS),
+        ):
+            with self.subTest(category=category):
+                with mock.patch(
+                    "cq.local.asyncio.create_subprocess_exec",
+                    new=mock.AsyncMock(side_effect=failure),
+                ):
+                    with self.assertRaises(CircularQuayError) as captured:
+                        await self.client.status("alpha")
+                self.assertEqual(category, captured.exception.category)
+                self.assertNotIn("synthetic-private", str(captured.exception))
+                self.assertEqual(str(category), events[-1].outcome)
+
+    async def test_cancellation_during_launch_propagates_without_an_owned_child(self) -> None:
+        with mock.patch(
+            "cq.local.asyncio.create_subprocess_exec",
+            new=mock.AsyncMock(side_effect=asyncio.CancelledError),
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.client.status("alpha")
+
+    async def test_missing_stdin_pipe_fails_and_reaps_owned_child(self) -> None:
+        process = _InputProcess(_InputWriter())
+        process.stdin = None
+        with mock.patch(
+            "cq.local.asyncio.create_subprocess_exec",
+            new=mock.AsyncMock(return_value=process),
+        ):
+            with self.assertRaises(CircularQuayError) as captured:
+                await self.client.config_replace({"version": 1})
+        self.assertEqual(ErrorCategory.PROCESS, captured.exception.category)
+        self.assertTrue(process.terminated)
+        self.assertTrue(process.waited)
+
+    async def test_absent_output_stream_and_empty_cleanup_are_safe(self) -> None:
+        self.assertEqual((b"", False), await local._read_bounded(None))
+        await local._cleanup_reader_tasks(None)
+
+    async def test_overflow_with_unreapable_child_is_a_process_failure(self) -> None:
+        process = _HostileProcess()
+        with mock.patch.object(local, "_reap", new=mock.AsyncMock(return_value=False)):
+            with self.assertRaises(CircularQuayError) as captured:
+                await local._capture_process_output(process, "status")
+        self.assertEqual(ErrorCategory.PROCESS, captured.exception.category)
+        self.assertTrue(process.stderr.cancelled)
+
+    async def test_reader_failure_reaps_child_before_propagating(self) -> None:
+        process = _InputProcess(_InputWriter())
+        reader = mock.AsyncMock()
+        reader.read.side_effect = OSError("synthetic")
+        process.stdout = reader
+        with self.assertRaises(OSError):
+            await local._capture_process_output(process, "status")
+        self.assertTrue(process.terminated)
+        self.assertTrue(process.waited)
+
+    async def test_reaping_handles_exit_races_and_unresponsive_children(self) -> None:
+        self.assertTrue(await local._reap(_FinishedProcess(0)))
+        # A transport wait can time out after the exit code has already arrived.
+        # Cleanup must wait again without signalling an exited PID.
+        exited = _FinishedProcess(0)
+        with mock.patch(
+            "cq.local.asyncio.wait_for",
+            new=mock.AsyncMock(side_effect=[TimeoutError, 0]),
+        ):
+            self.assertTrue(await local._reap(exited))
+        for missing_on_kill in (False, True):
+            with self.subTest(missing_on_kill=missing_on_kill):
+                process = _HostileProcess()
+                process.terminate = mock.Mock(side_effect=ProcessLookupError)
+                if missing_on_kill:
+                    process.kill = mock.Mock(side_effect=ProcessLookupError)
+                with mock.patch.object(local, "_TERM_GRACE_SECONDS", 0.001):
+                    self.assertEqual(not missing_on_kill, await local._reap(process))
+                process.terminate.assert_called_once()
+
+    def test_identity_hash_rejects_nonregular_opened_descriptor(self) -> None:
+        # Model a descriptor whose opened object is not the checked regular file.
+        # A real directory open is rejected earlier by Windows itself.
+        with mock.patch("cq.local.os.fstat", return_value=self.root.stat()):
+            with self.assertRaises(OSError):
+                local._file_sha256(self.executable)
+
     async def test_cancelled_captured_input_closes_and_reaps_owned_child(self) -> None:
         for operation, expected_body, invoke in (
             (
@@ -275,11 +401,9 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
                 writer = _InputWriter()
                 process = _InputProcess(writer)
 
-                async def create_process(*_: object, **__: object) -> _InputProcess:
-                    return process
-
                 with mock.patch(
-                    "cq.local.asyncio.create_subprocess_exec", new=create_process
+                    "cq.local.asyncio.create_subprocess_exec",
+                    new=mock.AsyncMock(return_value=process),
                 ):
                     task = asyncio.create_task(invoke())
                     try:
@@ -306,10 +430,10 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
                 writer = _InputWriter(BrokenPipeError("synthetic"))
                 process = _InputProcess(writer)
 
-                async def create_process(*_: object, **__: object) -> _InputProcess:
-                    return process
-
-                with mock.patch("cq.local.asyncio.create_subprocess_exec", new=create_process):
+                with mock.patch(
+                    "cq.local.asyncio.create_subprocess_exec",
+                    new=mock.AsyncMock(return_value=process),
+                ):
                     with self.assertRaises(CircularQuayError) as captured:
                         await invoke()
                 self.assertEqual(ErrorCategory.PROCESS, captured.exception.category)

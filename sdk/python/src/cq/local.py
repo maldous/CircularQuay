@@ -525,12 +525,9 @@ def _pinned_config_arguments(
     digest: str | None,
     incomplete_operation: str,
 ) -> _RemotePinArguments | None:
-    pins = (source, ref, path, digest)
-    if any(item is not None for item in pins) and not all(item is not None for item in pins):
-        raise CircularQuayError(ErrorCategory.INVALID, incomplete_operation)
-    if source is None:
+    if source is None and ref is None and path is None and digest is None:
         return None
-    if ref is None or path is None or digest is None:
+    if source is None or ref is None or path is None or digest is None:
         raise CircularQuayError(ErrorCategory.INVALID, incomplete_operation)
     if not _valid_remote_source(source):
         raise CircularQuayError(ErrorCategory.INVALID, "config_source")
