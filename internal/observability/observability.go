@@ -20,7 +20,7 @@ import (
 type runtimeContextKey struct{}
 
 // Runtime owns one process-local telemetry pipeline. It is intentionally not a
-// global OpenTelemetry provider: CircularQuay can run beside an SDK consumer
+// global OpenTelemetry provider: CQ can run beside an SDK consumer
 // without replacing that consumer's telemetry ownership.
 type Runtime struct {
 	backend backend
@@ -234,7 +234,7 @@ func withCorrelation(ctx context.Context) context.Context {
 	return context.WithValue(ctx, correlationKey{}, correlation(ctx))
 }
 
-// OutcomeForError maps only CircularQuay's public error category. It never
+// OutcomeForError maps only CQ's public error category. It never
 // serializes Error(), which may contain provider-controlled sensitive text.
 func OutcomeForError(err error) Outcome {
 	if err == nil {

@@ -1,5 +1,5 @@
 // Package dpop verifies the restricted RFC 9449 sender-constraint profile used
-// by CircularQuay MCP resources. It never issues access tokens or holds a
+// by CQ MCP resources. It never issues access tokens or holds a
 // client private key.
 package dpop
 

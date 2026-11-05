@@ -33,7 +33,7 @@ func sonarFixture(writer http.ResponseWriter, request *http.Request) {
 		"/api/hotspots/search":             `{"paging":{"total":0}}`,
 		"/api/measures/component":          `{"component":{"measures":[{"metric":"coverage","value":"100"},{"metric":"duplicated_lines_density","value":"0"}]}}`,
 		"/api/authentication/validate":     `{"valid":true}`,
-		"/api/qualityprofiles/copy":        `{"key":"copied-profile","name":"CircularQuay Go comprehensive"}`,
+		"/api/qualityprofiles/copy":        `{"key":"copied-profile","name":"CQ Go comprehensive"}`,
 		"/api/user_tokens/generate":        `{"token":"synthetic-scanner-token"}`,
 	}
 

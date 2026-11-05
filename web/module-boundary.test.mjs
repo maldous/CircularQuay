@@ -1,7 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 import { createPreview } from './server.mjs';
+
+test('landing renders directly instead of nesting its main landmark in the task shell', async () => {
+  const source = await readFile(new URL('./ui.js', import.meta.url), 'utf8');
+  const start = source.indexOf('  function render() {');
+  const end = source.indexOf('\n  function bind() {', start);
+  assert.ok(start >= 0 && end > start);
+  const render = source.slice(start, end);
+  for (const local of [true, false]) {
+    let shellCalls = 0;
+    const root = {};
+    const markup = '<main>Existing landing landmark</main>';
+    vm.runInNewContext(render + '; render();', {
+      local, root, model: {}, getRoute: () => 'landing', applyTheme() {}, bind() {},
+      landing: () => markup, shell() { shellCalls += 1; return '<main>Task shell</main>'; },
+    });
+    assert.equal(shellCalls, 0);
+    assert.equal(root.innerHTML, markup);
+  }
+});
 
 function requestPreview(server, path) {
   return new Promise((resolve, reject) => {
@@ -93,7 +114,7 @@ test('remote entry static module closure contains no local client module', async
       if (left === right) return 0;
       return left < right ? -1 : 1;
     });
-    assert.deepEqual(paths, ['/help-launcher.js', '/remote/entry.js', '/remote/model.js', '/ui.js']);
+    assert.deepEqual(paths, ['/help-launcher.js', '/presentation-preferences.js', '/presentation.js', '/remote/entry.js', '/remote/model.js', '/ui.js']);
     assert.equal([...modules.keys()].some(path => path.startsWith('/local/')), false);
     assert.equal((await requestPreview(server, '/local/schema-tools.js')).status, 404);
     assert.equal((await requestPreview(server, '/local/policy-schema.json')).status, 404);
@@ -106,14 +127,14 @@ test('remote entry static module closure contains no local client module', async
   }
 });
 
-test('standalone help presentation entry is independent of app, account and client loading', async () => {
+test('public presentation entry is independent of app, account, client and help loading', async () => {
   const server = createPreview('remote'); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const modules = await staticModuleClosure(server, '/presentation-entry.js');
     assert.deepEqual([...modules.keys()].sort(), ['/presentation-entry.js', '/presentation-preferences.js', '/presentation.js']);
-    const html = (await requestPreview(server, '/help.html')).body.toString('utf8');
+    const html = (await requestPreview(server, '/')).body.toString('utf8');
     assert.ok(html.indexOf('/presentation-bootstrap.js') < html.indexOf('/style.css'));
-    assert.ok(html.indexOf('/presentation-entry.js') < html.indexOf('/help-page.js'));
+    assert.ok(html.indexOf('/presentation-entry.js') < html.indexOf('/remote/entry.js'));
     assert.ok(html.includes('rel="modulepreload" href="/presentation-preferences.js"'));
   } finally { await new Promise(resolve => server.close(resolve)); }
 });

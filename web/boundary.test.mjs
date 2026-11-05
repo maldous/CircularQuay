@@ -4,9 +4,50 @@ import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import http from 'node:http';
+import { brotliDecompressSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createPreview, reloadablePath, requestURL } from './server.mjs';
+
+test('public script compression preserves bytes, negotiation and trusted-file checks after a cache hit', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'cq-compression-'));
+  const outside = await mkdtemp(join(tmpdir(), 'cq-compression-outside-'));
+  const original = Buffer.from('export const message = "public synthetic code";\n'.repeat(100));
+  await writeFile(join(directory, 'ui.js'), original);
+  await writeFile(join(outside, 'private.js'), original);
+  const server = createPreview('local', directory);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const get = (encoding, method = 'GET') => new Promise((resolve, reject) => {
+    http.request({ host: '127.0.0.1', port: server.address().port, path: '/ui.js', method, headers: { 'Accept-Encoding': encoding } }, response => {
+      const chunks = []; response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks) }));
+    }).on('error', reject).end();
+  });
+  try {
+    const responses = await Promise.all([get('br'), get('gzip, br'), get('br;q=1')]);
+    for (const response of responses) {
+      assert.equal(response.status, 200); assert.equal(response.headers['content-encoding'], 'br');
+      assert.equal(response.headers.vary, 'Accept-Encoding');
+      assert.equal(response.headers['cache-control'], 'no-store');
+      assert.deepEqual(brotliDecompressSync(response.body), original);
+      assert.ok(response.body.length < original.length / 2);
+    }
+    for (const encoding of ['identity', 'br;q=0', 'br;q=invalid']) {
+      const response = await get(encoding);
+      assert.equal(response.headers['content-encoding'], undefined); assert.deepEqual(response.body, original);
+    }
+    const head = await get('br', 'HEAD'); assert.equal(head.body.length, 0); assert.equal(head.headers['content-encoding'], 'br');
+    const changed = Buffer.from('export const message = "new public code";\n'.repeat(100));
+    await writeFile(join(directory, 'ui.js'), changed);
+    assert.deepEqual(brotliDecompressSync((await get('br')).body), changed);
+    await fs.unlink(join(directory, 'ui.js'));
+    await symlink(join(outside, 'private.js'), join(directory, 'ui.js'));
+    assert.equal((await get('br')).status, 404, 'A cached encoding must never bypass the current trusted-file read.');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    await rm(directory, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true });
+  }
+});
 
 function requestPreview(server, path, method = 'GET') {
   return new Promise((resolve, reject) => {

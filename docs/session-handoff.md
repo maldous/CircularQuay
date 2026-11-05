@@ -25,6 +25,34 @@ authorized verified target before applying provider-required DNS. Account/zone
 identifiers remain private; no placeholder records or unrelated-site reuse.
 Domain preparation does not gate the existing safe local developer review.
 
+## Public frontend and requested integration
+
+The current public frontend is live at `https://circularquay.aldous.info/` and
+its proxied CNAME alias `https://cq.aldous.info/`. Its exact source checkpoint is
+`dfb51b1f64849746113d248d80a069d42a058117`; Cloudflare Worker version
+`32c9376b-5ea9-4c1a-9388-457e069b2e21` serves only the allowlisted landing,
+Login, Explore, search, Help and information assets. Authentication/provisioning,
+managed-service backends and the rest of the application remain later work.
+The approved frontend deployment is an exception to the older no-deployment
+status below, which remains historical for native/backend qualification.
+
+The user now authorizes committing, pushing and merging completed CircularQuay
+work. Follow the existing feature-to-`develop` PR route and preserve mandatory
+review, status and security gates; this does not authorize bypassing protections,
+a release to `main`, version tags or registry publication. The global Git CLI is
+not authenticated at this checkpoint; the connected GitHub app remains available
+for PR inspection and management. Preserve the existing local commit history
+when publishing. Current native/SDK/Sonar results still refer to the old published
+`b30f1308` candidate, not the newer local source or the deployed frontend.
+
+Older worktrees include uncommitted and divergent experiments. Preserve their
+source and review identity rather than treating all branch contents as accepted
+integration inputs. The existing host resource hold remains: no local Go builds,
+tests, analyzers, resolvers, Java/Docker or SDK runtime under this integration
+assignment. Bounded source review and static checks do not qualify runtime
+behavior. Existing branch/qualification receipts remain in the same checkpoint57
+store; no new Linear issue, controller or status ledger is created here.
+
 ## English help and verifier CI correction
 
 Latest GitHub approval is applied and independently read back. Active Gitflow

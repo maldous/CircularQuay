@@ -22,7 +22,7 @@ The canonical repository contracts remain `docs/product-guide.md`, `docs/impleme
 
 ## Operating Context
 
-Existing dependency-free JavaScript/HTML/CSS, Node 22+ development server. Two loopback listeners: local client on 5181, synthetic account/operator on 5180. Matt confirmed phone access through his existing authenticated Termux SSH forwarding. Each browser/origin owns its own saved state.
+Existing dependency-free JavaScript/HTML/CSS, Node 22+ development server. Two loopback listeners: local client on 5181, synthetic account/operator on 5180. The loopback preview supports authenticated Termux SSH forwarding. Each browser/origin owns its own saved state.
 
 ## Capabilities and Constraints
 
@@ -54,3 +54,25 @@ Pinned schema `local/policy-schema.json`; complete synthetic fixture `local/linu
 ## Accessibility & Inclusion
 
 Use native keyboard-operable controls, visible focus, non-color status text and labelled inputs. Verify relevant desktop and 320/390px browser layouts, sufficient text contrast and usable touch targets. Existing checks are not assistive-device certification.
+
+## Landing-page direction
+
+The user explicitly treats the CircularQuay landing page as greenfield and delegates its creative direction to Impeccable. OffMenu neon, palette, layout, animation and branding impose no constraint. Keep selected logo13/light-dark/native-SVG assets, truthful product capabilities and functional client/workbench requirements. The established operational UI is evidence for product truth, not visual authority for the landing page.
+
+## Local help delivery
+
+Search and retrieval run entirely in the client. Progressively load public static catalog/full-text data and on-demand versioned articles; no remote search API, query upload, user configuration, protected reference, secret or private evidence enters the index. Measure actual cold/warm bytes, latency, throughput and interaction responsiveness; prototype sizes do not qualify the complete corpus. UI/help delivery runs in parallel with BAU restoration and does not gate it. Current ownership continues until a separately verified per-unit transfer.
+
+## Initial language scope
+
+English (`en`) and Arabic (`ar`) are the initial locales, with Arabic exercising RTL. Do not invent regional variants. Translate product labels, actions, messages and help while preserving machine identifiers, user content and configuration syntax. Translation drafts and English fallback do not establish Arabic acceptance. Preserve the initial closed v1 authoring schema; locale selection and source/translation linkage require a separately reviewed initial-v1 manifest.
+
+Anonymous language/theme controls now use one direct current V1 device record and work without an account or application startup. Explicit choices take precedence; automatic choices use supported ordered browser preferences, with English fallback. Arabic controls carry a preview label while product/help content remains English. Changes preserve drafts. No workspace conversion, real profile adapter or GeoIP service is present.
+
+## Current name
+
+The product display name is CircularQuay; executables are `cq` and `cq-audit`. Product marks always use CircularQuay. A saved workspace brand is user-authored content, separate from the product mark; it is preserved. Repository/module/package/protocol identifiers and browser state paths retain their verified identities. Frozen evidence remains immutable. Native schema/help source titles and derived pins update only with their canonical owner’s coherent source package.
+
+## Accepted visual reference
+
+The existing owner record at `.local/qualification/cq-command-alignment-20261105/accepted-hero-materialization-receipt.json` identifies Library `libfile_7d0aa04ceab48191968164b516f9da9c`, version 0, SHA-256 `d478de9a8d7b007ad3bf4f325774aa0d5d29edd56528730e3c0cef4244442ca7`, as the accepted visual-direction reference. It records a historical materialization path in the separate frontend checkout; this checkout does not contain that artifact or assert a fresh inspection. The owner-recorded reference supplies warm architectural light surfaces, deep green alternatives, clear typography and spacious product composition. Preserve selected logo13; active product text is CircularQuay. Historical naming and illustrative commands/capabilities in the contact sheet do not become executable documentation or implemented behavior. This is visual input for the greenfield landing, not a screenshot of this application or functional acceptance. Existing workbench behavior and private-configuration boundaries remain required.

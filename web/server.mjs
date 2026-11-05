@@ -4,6 +4,11 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { constants, watch } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { createHash } from 'node:crypto';
+import { brotliCompress, constants as zlibConstants } from 'node:zlib';
+import { promisify } from 'node:util';
+
+const compressBrotli = promisify(brotliCompress);
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const shared = new Set(['ui.js', 'presentation.js', 'presentation-entry.js', 'presentation-preferences.js', 'presentation-bootstrap.js', 'style.css', 'logo.png', 'logo-light.svg', 'logo-dark.svg', 'help-launcher.js', 'help-release.js', 'help.js', 'help-store.js', 'help-contract.js', 'help-search.js', 'help-page.js', 'help.html', ...helpAssetPaths]);
@@ -121,6 +126,29 @@ export function requestURL(value) {
 export function createPreview(plane, sourceRoot = root) {
   if (!planes.has(plane)) throw new TypeError('preview plane');
   const directory = resolve(sourceRoot);
+  // Cache only encoded public bytes, after each request's trusted file read.
+  // Share concurrent encodes; bound retained memory and compression work.
+  const encodings = new Map();
+  const pendingEncodings = new Map();
+  let encodedBytes = 0;
+  async function encodedAsset(bytes) {
+    const key = createHash('sha256').update(bytes).digest('hex');
+    if (encodings.has(key)) return encodings.get(key);
+    if (pendingEncodings.has(key)) return pendingEncodings.get(key);
+    if (pendingEncodings.size >= 4) return null;
+    const pending = compressBrotli(bytes, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } }).then(encoded => {
+      if (encoded.length >= bytes.length) return null;
+      while (encodings.size && (encodings.size >= 32 || encodedBytes + encoded.length > 2 * 1024 * 1024)) {
+        const first = encodings.keys().next().value;
+        encodedBytes -= encodings.get(first).length;
+        encodings.delete(first);
+      }
+      if (encoded.length <= 2 * 1024 * 1024) { encodings.set(key, encoded); encodedBytes += encoded.length; }
+      return encoded;
+    }).catch(() => null).finally(() => pendingEncodings.delete(key));
+    pendingEncodings.set(key, pending);
+    return pending;
+  }
   return http.createServer(async (request, response) => {
     const headers = {
       'Cache-Control': 'no-store',
@@ -147,7 +175,7 @@ export function createPreview(plane, sourceRoot = root) {
     const name = url.pathname.slice(1);
     if (!name) {
       response.writeHead(200, { ...headers, 'Content-Type': 'text/html' });
-      response.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CircularQuay · ${plane === 'local' ? 'Local client' : 'Managed service demo'}</title><link rel="stylesheet" href="/style.css"></head><body><div id="app"></div><script type="module" src="/${plane}/entry.js"></script></body></html>`);
+      response.end(`<!doctype html><html lang="en" data-theme="system"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title lang="en">CircularQuay · ${plane === 'local' ? 'Local client' : 'Managed service demo'}</title><link rel="icon" type="image/svg+xml" href="/logo-light.svg"><script src="/presentation-bootstrap.js"></script><link rel="stylesheet" href="/style.css"><link rel="modulepreload" href="/presentation.js"><link rel="modulepreload" href="/presentation-preferences.js"><script type="module" src="/presentation-entry.js"></script></head><body><div id="app"></div><script type="module" src="/${plane}/entry.js"></script></body></html>`);
       return;
     }
     // Serving roots are explicit and disjoint: no repository browsing or local-client module on remote.
@@ -163,6 +191,13 @@ export function createPreview(plane, sourceRoot = root) {
       else bytes = await readTrustedAsset(directory, name);
       if (immutableHelp) headers.Vary = 'Accept-Encoding';
       if (!bytes) return reject(404);
+      if (/\.(?:js|css)$/.test(name) && bytes.length >= 1024) {
+        headers.Vary = 'Accept-Encoding';
+        if (acceptsBrotli) {
+          const encoded = await encodedAsset(bytes);
+          if (encoded) { bytes = encoded; headers['Content-Encoding'] = 'br'; }
+        }
+      }
       if (immutableHelp) headers['Cache-Control'] = 'public, max-age=31536000, immutable';
       response.writeHead(200, { ...headers, 'Content-Type': types[extname(name)] || 'application/octet-stream' });
       response.end(request.method === 'HEAD' ? undefined : bytes);

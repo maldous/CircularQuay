@@ -30,7 +30,7 @@ The current interface uses functional navigation, local typed editors and data t
 
 ## Colors
 
-The frontmatter records current `style.css` tokens. They may change through the authorized critique/plan workflow. Light/dark themes are user-selectable; the selected logo must remain visible in both. Do not invent unrelated marks or silently substitute a generic icon.
+The frontmatter records current `style.css` tokens. Token changes require a documented design and accessibility review. Light/dark themes are user-selectable; the selected logo must remain visible in both. Do not invent unrelated marks or silently substitute a generic icon.
 
 ## Typography
 
@@ -56,6 +56,7 @@ The current stylesheet uses small rounded controls and modest panel radii. These
 - **Configuration:** one-step removal undo restores the complete proposal and invalid numeric inputs until the next edit, save or document replacement. Original/proposal separation, explicit optional fields, schema/reference feedback, invalid-draft preservation and actionable failure states.
 - **Controls:** concise verbs, native semantics, stable disabled/error states, visible focus, Escape for the secondary-action disclosure.
 - **Service previews:** current model labels override stale persisted presentation metadata without replacing saved records.
+- **Language and theme:** native labelled selects in an expanded landing disclosure and compact task disclosure, with resolved outcome/source captions. Arabic is explicitly a preview; English product content retains its actual language metadata. Theme/language changes preserve forms. Controls load independently before app startup, with a pre-CSS theme/language bootstrap. Logical spacing and isolated code keep RTL and English machine text readable.
 
 ## Do's and Don'ts
 
@@ -63,3 +64,11 @@ The current stylesheet uses small rounded controls and modest panel radii. These
 - Keep “Load example” concise without reducing the canonical fixture.
 - Show task-specific facts instead of generic marketing copy.
 - Do not treat this file as permission for a backend, new process, paid connection, Live Mode, public exposure or production deployment.
+
+## Landing scope
+
+The landing page has a separately delegated greenfield creative direction. It does not inherit the operational palette/layout or any OffMenu visual constraint. Logo13 remains fixed; its transparent native light/dark SVGs must be retained. Impeccable chooses the landing composition and visual world while preserving truthful client/workbench behavior. Operational forms and help retain their task-focused requirements.
+
+## Accepted visual reference
+
+The existing owner record at `.local/qualification/cq-command-alignment-20261105/accepted-hero-materialization-receipt.json` identifies Library `libfile_7d0aa04ceab48191968164b516f9da9c`, version 0, SHA-256 `d478de9a8d7b007ad3bf4f325774aa0d5d29edd56528730e3c0cef4244442ca7`, as the accepted visual-direction reference. It records a historical materialization path in the separate frontend checkout; this checkout does not contain that artifact or assert a fresh inspection. The owner-recorded reference supplies warm architectural light surfaces, deep green alternatives, clear typography and spacious product composition. Preserve selected logo13; active product text is CircularQuay. Historical naming and illustrative commands/capabilities in the contact sheet do not become executable documentation or implemented behavior. This is visual input for the greenfield landing, not a screenshot of this application or functional acceptance. Existing workbench behavior and private-configuration boundaries remain required.
