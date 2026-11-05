@@ -1,6 +1,6 @@
 # Credential exposure and incident response
 
-Use this route for scanner reports, accidental publication or suspected unauthorized retrieval. Keep protected evidence private and never paste a detected value into an issue, agent conversation or public report.
+Use this route for scanner reports, accidental publication or suspected unauthorized retrieval. Keep protected evidence private and never paste a detected value into an issue, support exchange or public report or public report.
 
 1. Record the incident ID, repository/commit/location, detector type, affected workload alias and known exposure interval using metadata only.
 2. Confirm affected credential ownership and consumers without publishing the value.

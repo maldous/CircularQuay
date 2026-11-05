@@ -1,6 +1,6 @@
 # Composed configuration reference
 
-CQ accepts one self-contained policy or a JSON master that selects
+CircularQuay accepts one self-contained policy or a JSON master that selects
 pinned data-only fragments. The master remains the authority for grants,
 trust, integration settings and privileged commands. Resolution happens on
 the client and returns one fully validated policy; it does not upload

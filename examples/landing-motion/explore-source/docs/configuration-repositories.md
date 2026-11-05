@@ -7,11 +7,11 @@ Give `cq` a repository, tree, or file URL and select the configuration:
 
 ```sh
 cq bootstrap \
-  --config-source https://github.com/example-org/cquay-config/tree/FULL_COMMIT_SHA/github \
-  --config-path cquay.json \
+  --config-source https://github.com/example-org/cq-config/tree/FULL_COMMIT_SHA/github \
+  --config-path cq.json \
   --config-ref FULL_COMMIT_SHA \
   --config-sha256 CONFIGURATION_SHA256 \
-  --output ./cquay.json
+  --output ./cq.json
 ```
 
 Replace the example organization, repository, path and pins with reviewed values.
@@ -162,7 +162,7 @@ Entry-point/source selection precedence is distinct from the master's typed
 include-resolution rules. Selecting another entry file cannot widen a corporate
 grant, replace its enrolled trust root or bypass a lock for a corporate operation.
 
-Command options take precedence over `CQUAY_` configuration settings, local
+Command options take precedence over `CQ_` configuration settings, local
 configuration and enrolled discovery. Report safe provenance for the winning
 source without printing credentials or downloaded secret values. Local config
 is used before discovery when no override selects another source. An override
@@ -193,17 +193,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      CQUAY_CONFIG_SOURCE: https://github.com/example-org/cquay-config/tree/${{ vars.CQUAY_CONFIG_REF }}
-      CQUAY_CONFIG_PATH: github/cquay.json
-      CQUAY_CONFIG_REF: ${{ vars.CQUAY_CONFIG_REF }}
-      CQUAY_CONFIG_SHA256: ${{ vars.CQUAY_CONFIG_SHA256 }}
+      CQ_CONFIG_SOURCE: https://github.com/example-org/cq-config/tree/${{ vars.CQ_CONFIG_REF }}
+      CQ_CONFIG_PATH: github/cq.json
+      CQ_CONFIG_REF: ${{ vars.CQ_CONFIG_REF }}
+      CQ_CONFIG_SHA256: ${{ vars.CQ_CONFIG_SHA256 }}
     steps:
       - name: Run the configured build
         run: cq flow run --workload ci-build --non-interactive
 ```
 
-Set the repository or environment variables `CQUAY_CONFIG_REF` and
-`CQUAY_CONFIG_SHA256` to the reviewed full commit SHA and configuration-file
+Set the repository or environment variables `CQ_CONFIG_REF` and
+`CQ_CONFIG_SHA256` to the reviewed full commit SHA and configuration-file
 SHA-256, obtained through a trusted maintainer channel. The URL's commit must
 match the pin. Missing pins or a URL/commit mismatch stop retrieval; a
 configuration digest mismatch prevents use. Public readability alone cannot
@@ -217,10 +217,10 @@ the receiving authority's explicit policy. An optional identity integration
 uses that token; standalone configurations use their declared provider trust.
 
 The source URL can also come from a GitHub repository or environment variable,
-or from an earlier step that writes `CQUAY_CONFIG_SOURCE` to `$GITHUB_ENV`.
+or from an earlier step that writes `CQ_CONFIG_SOURCE` to `$GITHUB_ENV`.
 GitHub [makes that file's entries available to subsequent steps](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable). For an
 unattended first enrollment, both the full commit and configuration digest
-are required. `cq bootstrap --non-interactive --output ./cquay.json` materializes the
+are required. `cq bootstrap --non-interactive --output ./cq.json` materializes the
 selected configuration for later commands without putting secret values in it.
 
 Without an explicit source, `cq` checks local configuration, then uses
@@ -240,7 +240,7 @@ overrides, and support extensible discovery. Publishing values to later steps
 is an explicit policy-controlled operation through the CI provider's supported
 mechanism; the pipeline and subsequent steps then have access to those values.
 
-Explicit command options take precedence over `CQUAY_` configuration settings,
+Explicit command options take precedence over `CQ_` configuration settings,
 then local configuration, then enrolled discovery. With no override, an
 existing local configuration is used before discovery. Provenance diagnostics
 show which source won without printing credentials. Overrides cannot widen an
@@ -248,4 +248,4 @@ identity grant or bypass the enrolled trust policy. `cq bootstrap` offers
 a text interface and browser or displayed-URL authentication when interaction
 is needed, and starts only services authorized by the selected enrollment.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

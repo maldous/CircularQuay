@@ -4,7 +4,7 @@
 
 Assets include provider bootstrap identities, age private keys, application values, configuration authority, audit evidence, native service identities, and release provenance.
 
-The trusted computing base includes the chosen OS, compiler/runtime, upstream cryptographic tools, identity providers, SDK dependencies, protected policy, and authorized publishers. CQ does not protect an authorized value from a compromised endpoint administrator or client that has already received it.
+The trusted computing base includes the chosen OS, compiler/runtime, upstream cryptographic tools, identity providers, SDK dependencies, protected policy, and authorized publishers. CircularQuay does not protect an authorized value from a compromised endpoint administrator or client that has already received it.
 
 ## Invariants
 

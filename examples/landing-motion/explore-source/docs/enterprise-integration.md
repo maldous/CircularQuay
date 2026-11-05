@@ -1,6 +1,6 @@
 # Enterprise integration
 
-CQ is designed to fit an enterprise identity, audit and observability
+CircularQuay is designed to fit an enterprise identity, audit and observability
 estate without becoming the identity provider, SIEM, vault, key-management
 service or compliance assessor. It accepts a configured authorization authority,
 uses a declared provider identity for a workload, and releases only the exact
@@ -35,14 +35,14 @@ provider credential never authorizes a user or AI client.
 
 | Capability | v1 contract | Acceptance evidence |
 | --- | --- | --- |
-| Enterprise identity provider | Support a configured OAuth 2.0/OIDC authorization server that issues access tokens for the CQ protected resource. Keycloak, Entra ID, Okta, Auth0, Cloudflare Access and other conforming servers are optional operator choices. | Wrong issuer, signature, key, algorithm, token type, audience, client, subject, time claim, scope or role is denied before a source read. |
-| Resource-specific tokens | Configure a resource/audience that identifies CQ and verify it exactly. OAuth resource indicators and JWT access-token validation prevent a token minted for another API from being replayed here. [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html) and [RFC 9068](https://www.rfc-editor.org/info/rfc9068/) define the interoperable basis. | A token for a different resource, tenant or client reaches no workload, source, raw read or audit-success path. |
+| Enterprise identity provider | Support a configured OAuth 2.0/OIDC authorization server that issues access tokens for the CircularQuay protected resource. Keycloak, Entra ID, Okta, Auth0, Cloudflare Access and other conforming servers are optional operator choices. | Wrong issuer, signature, key, algorithm, token type, audience, client, subject, time claim, scope or role is denied before a source read. |
+| Resource-specific tokens | Configure a resource/audience that identifies CircularQuay and verify it exactly. OAuth resource indicators and JWT access-token validation prevent a token minted for another API from being replayed here. [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html) and [RFC 9068](https://www.rfc-editor.org/info/rfc9068/) define the interoperable basis. | A token for a different resource, tenant or client reaches no workload, source, raw read or audit-success path. |
 | Identity lifecycle | Authorities, grants, clients, subjects, roles, scopes, active windows and tenant mappings are explicit policy data. SCIM/directory sync may provision managed-service user/group metadata, but does not itself authorize a request. | Create/update/expiry/revocation/reconciliation and stale-directory tests prove that removed or changed membership cannot use an old mapping beyond the configured token/freshness boundary. |
 | Scoped access review | Effective access is reviewable by authority, tenant, subject/client, workload, operation, binding and active window. Review data names policy objects and decisions, never values or credentials. | Export and UI/API views agree with current policy; unauthorized reviewers cannot enumerate other tenants or hidden bindings. |
 | Tenant separation | Each authority/tenant domain, namespace, mapping, audit stream and storage partition is explicitly selected and checked server-side. A display name, request header or client-selected tenant is never an authorization boundary. | Cross-tenant names, IDs, tokens, host/path aliases, cache keys and concurrent updates fail closed with no value or metadata disclosure. |
 | Native custody | Native key stores, TPM/Secure Enclave, PIV/YubiKey and OS user presence may protect a selected local credential or perform a bounded operation. They do not convert a copied plaintext, age recipient or provider value into non-exportable custody. | Platform-specific enrollment, authorization, recovery, unattended operation, removal and rotation qualification records the actual device boundary. |
 
-CQ supports dynamic organization-specific scopes and associations; it
+CircularQuay supports dynamic organization-specific scopes and associations; it
 does not impose `dev` or `prod` as a security model. An organization defines
 its own environments, workload identities, groups, operation scopes, source
 connections and review cadence. Ambiguous, missing or unknown mappings grant
@@ -141,7 +141,7 @@ raw provider bodies or decrypted configuration. Human identity fields are
 minimized and operator-configurable under applicable privacy obligations.
 
 Operators choose retention, residency, legal hold, export destination and
-access controls. CQ records the configured retention/export policy
+access controls. CircularQuay records the configured retention/export policy
 and delivery result; it cannot make an external archive immutable or satisfy an
 organization's legal-retention obligation by itself.
 
@@ -161,7 +161,7 @@ redaction rules.
 
 ## Mandatory runtime observability and reporting
 
-CQ exposes configurable remote operational telemetry through OpenTelemetry from the initial release, using allowlisted resource attributes and semantic conventions. [OpenTelemetry
+CircularQuay exposes configurable remote operational telemetry through OpenTelemetry from the initial release, using allowlisted resource attributes and semantic conventions. [OpenTelemetry
 semantic conventions](https://opentelemetry.io/docs/concepts/semantic-conventions/)
 provide the shared vocabulary for traces, metrics, logs and events. Telemetry
 is best-effort and never becomes an authorization, audit-success or value
@@ -200,7 +200,7 @@ source of authorization or a substitute for a durable security audit.
 
 ## Official SDK contract
 
-CQ's Go core uses official OpenTelemetry APIs/SDKs. Its Go,
+CircularQuay's Go core uses official OpenTelemetry APIs/SDKs. Its Go,
 TypeScript and Python client SDKs expose safe observation hooks that
 applications connect to their own instrumentation and context propagation.
 These are the initial language set; OpenTelemetry publishes documentation for each.
@@ -211,7 +211,7 @@ are the interoperability references.
 
 | SDK obligation | Contract |
 | --- | --- |
-| Distribution | Go: `github.com/maldous/CircularQuay/sdk/go`; npm: `@maldous/cquay-sdk`; PyPI: `cquay-sdk`, imported as `cquay`. These package coordinates identify the release targets; registry availability, signatures and provenance are separately qualified. |
+| Distribution | Go: `github.com/maldous/CircularQuay/sdk/go`; npm: `@maldous/cq-sdk`; PyPI: `cq-sdk`, imported as `cq`. These package coordinates identify the release targets; registry availability, signatures and provenance are separately qualified. |
 | Authentication | Accept explicit, resource-specific credentials supplied by the caller or selected platform identity integration. Do not scan shell profiles, default credential chains, browser sessions or unrelated cloud CLI caches. |
 | Authorization | Treat scopes/roles/claims as server-verified input only. SDK convenience methods cannot grant access or select a hidden tenant/workload. |
 | Observability hooks | Expose hooks for traces, metrics and structured logs with documented safe attributes and correlation propagation. Hooks are additive, bounded and disabled/no-op safely when no provider is configured. |
@@ -229,7 +229,7 @@ applies an allowlist before data leaves the process.
 
 ## Update awareness and supported releases
 
-CQ provides policy-controlled release awareness, independently of
+CircularQuay provides policy-controlled release awareness, independently of
 artifact installation and publisher verification. A release-feed response is
 advisory metadata; it cannot authenticate an executable or authorize its use.
 The [operational guide](operational-configuration.md#release-awareness) defines
@@ -278,12 +278,12 @@ and [release/operator directions](../RELEASE.md) provide the detailed contracts.
 [ISO/IEC 27001:2022](https://www.iso.org/standard/27001) specifies requirements
 for an information security management system based on risk management. It
 applies to an organization and its ISMS, not to a standalone binary, SDK or
-feature. CQ does **not** claim ISO/IEC 27001 certification,
+feature. CircularQuay does **not** claim ISO/IEC 27001 certification,
 conformance or that a customer will satisfy the standard by deploying it.
 
 The product can supply technical evidence that supports a customer’s ISMS:
 
-| ISMS-supporting capability | Product evidence | Organizational responsibility outside CQ |
+| ISMS-supporting capability | Product evidence | Organizational responsibility outside CircularQuay |
 | --- | --- | --- |
 | Access control and least privilege | Explicit authority/audience, scoped grants, tenant isolation, source/provider identity separation and access-review export. | Risk treatment, joiner/mover/leaver process, account governance, approval and periodic review decisions. |
 | Logging and monitoring | Versioned redacted audit decisions, integrity/durability selection, SIEM export, OpenTelemetry health and correlation. | Retention, review, incident response, evidence handling, SOC operation and legal/regulatory obligations. |
@@ -328,6 +328,6 @@ export retry, redaction, cancellation, concurrency and recovery.
 
 A provider, IdP, SIEM, OpenTelemetry collector, SDK language or reporting
 destination is not added merely because it can exchange HTTP or JSON. It must
-preserve CQ's exact-map, explicit-identity and no-secret-diagnostics
+preserve CircularQuay's exact-map, explicit-identity and no-secret-diagnostics
 boundaries, and it must be documented with its supported version, operational
 owner, rollback approach and evidence before a release makes it available.

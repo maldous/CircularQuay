@@ -1,6 +1,6 @@
 # Architecture and trust boundaries
 
-CQ is an integration layer, not a vault, an identity provider, or a cryptographic implementation. Policy maps exact upstream values to one workload and separately authorizes offline export, native publication, and MCP disclosure.
+CircularQuay is an integration layer, not a vault, an identity provider, or a cryptographic implementation. Policy maps exact upstream values to one workload and separately authorizes offline export, native publication, and MCP disclosure.
 
 ```mermaid
 flowchart LR

@@ -14,9 +14,8 @@ they are not silently renamed. Quick-start directory corrections change example
 clone/navigation strings, not the active checkout. Historical naming receipts
 retain their original bytes and meaning.
 
-Morgan owns preparation of `circularquay.aldous.info` and `cq.aldous.info` for
-the future managed service. Human confirmation records that no CQ hosting site
-exists yet; the selected destination/site identity is unresolved. The bounded
+The infrastructure owner coordinates preparation of `circularquay.aldous.info` and `cq.aldous.info` for
+the future managed service. The retained evidence establishes no verified CircularQuay hosting site; the selected destination/site identity is unresolved. The bounded
 source read independently found no verified target in current operator records,
 receipt `checkpoint57/cq-netlify-target-readonly-identification.json`, SHA-256
 `04b0f270b65b7ec71ba89cf562ccd9c51ba740ddf0dfa75dd38295b82b979512`.
@@ -154,7 +153,7 @@ The existing frontend owner retains presentation preferences, pre-authentication
 accessibility and actual browser/device journeys; these are not in the integrated
 English-only snapshot. There is no actual profile API or coarse-country service.
 
-Matt's clarified prelaunch rule is one canonical ACTIVE V1, directly authored
+The current prelaunch contract requires one canonical active V1, directly authored
 current inputs and aligned producers/consumers/tests. No V2/V3 compatibility
 adapter, conversion or dual-version reader is authorized. Incompatible historical
 or rejected packets retain their original identity and are not consumed or
@@ -329,7 +328,7 @@ secrets or private qualification records.
 UIF-175 also explicitly retains the reusable selected-project acceptance,
 exact-candidate CI/coverage evidence reconciliation and ordered frontend
 integration procedures, with shared-contract ownership in UIF-177/178 and
-qualification in UIF-170/171/174. Source packaging of `cquay` does not prove
+qualification in UIF-170/171/174. Source packaging of `cq` does not prove
 client catalog/install/invoke/update/remove support; UIF-173 retains those
 actual artifact/client gates. The previously updated user-supplied UIF diagram
 and its private structural/visual receipts are preserved without duplicate
@@ -658,7 +657,7 @@ manually launched examples do not prove this operating model. Use existing
 ready issues and their real dependencies; do not manufacture work or weaken
 grants to demonstrate activity.
 
-Morgan/Gateway becomes purely supervisory after accepted handover: read
+The coordination role becomes supervisory after accepted handover: read
 progress, report exceptions and escalate actual blockers. That role does not
 routinely dispatch jobs or modify scheduling, policy, publisher or state;
 such an intervention requires new authority. Its normal operator surface is
@@ -1941,7 +1940,7 @@ qualification only.
 ## Start here
 
 - Product/module: **CQ** / `github.com/maldous/CircularQuay`. Commands
-  are `cq` and `cq-audit`; release assets use `cq` and the skill identifier remains `cquay`.
+  are `cq` and `cq-audit`; release assets use `cq` and the repository-owned skill identifier is `cq`.
 - Development branch: `feature/initial-implementation`. This continuation
   includes `4886fc8660706909376f3543ad7cab186d9256b9`; use `git rev-parse HEAD`
   and `git status` to establish the actual checkpoint and subsequent changes.
@@ -1962,8 +1961,8 @@ infrastructure or existing credentials, inspect operational secret values or
 shell-profile credentials, or interfere with OffMenu BAU recovery. Do not
 create broad persistent credentials to bypass an unavailable GitHub permission.
 
-The user authorized reversible development and free test tooling, not paid
-resources, production deployments, or a universal credential daemon. Keep
+The development scope permits reversible work and free test tooling. It excludes
+paid resources, production deployments and a universal credential daemon. Keep
 publishing, account, registry, and operator procedures in `RELEASE.md`; keep
 end-user/product material in `README.md`.
 

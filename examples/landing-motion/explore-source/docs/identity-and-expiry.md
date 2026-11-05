@@ -3,13 +3,13 @@
 The right identity, using the right application, receives only its approved
 secrets, for the permitted time.
 
-Use CQ on its own with local policy, or add an optional identity
+Use CircularQuay on its own with local policy, or add an optional identity
 provider for centrally approved access. The MCP connector is optional too;
-apps and services can use CQ directly.
+apps and services can use CircularQuay directly.
 
-With identity integration enabled, think of CQ as a collection desk:
+With identity integration enabled, think of CircularQuay as a collection desk:
 your identity provider establishes who you are, a signed permission ticket
-states what you may collect and when, and CQ checks that ticket
+states what you may collect and when, and CircularQuay checks that ticket
 against the exact key and workload before handing anything over.
 
 The [canonical hierarchy and group rules](configuration-governance.md) also
@@ -25,7 +25,7 @@ retain separate evidence and cannot recall keys or plaintext already copied.
 When identity integration is enabled, a person or service authenticates through
 the organization's identity provider (IdP). Its OAuth authorization server
 issues a signed, time-limited access
-grant for the registered application and CQ service. These roles
+grant for the registered application and CircularQuay service. These roles
 can belong to the same existing enterprise provider or to a self-hosted
 service such as Keycloak. The policy selects the trusted authority and its
 supported authentication profile.
@@ -55,9 +55,9 @@ flowchart TD
 
 The **identity provider** answers "Who are you?" The **authorization server**
 answers "What may this application do on your behalf, and until when?" One
-enterprise identity platform can perform both roles. CQ uses its
+enterprise identity platform can perform both roles. CircularQuay uses its
 OAuth and OpenID Connect integration to connect verified identities with
-explicitly configured permissions for the CQ service.
+explicitly configured permissions for the CircularQuay service.
 
 An organization can use its existing provider's API authorization service or
 operate its own authority, such as [Keycloak](https://www.keycloak.org/).
@@ -84,7 +84,7 @@ signals, not a substitute for that decision record. See [SDKs](sdks.md) and
 ### A cryptographic chain of trust
 
 The permission ticket binds the issuing authority, stable identity,
-application, intended service, permitted operations, and expiry. CQ
+application, intended service, permitted operations, and expiry. CircularQuay
 verifies the issuer's digital signature using its trusted public key and
 checks the complete association against local policy. Editing a signed
 identity, permission, or deadline invalidates the ticket. The foundation is
@@ -142,11 +142,11 @@ state and clock-rollback checks preserve the deadline across restarts.
 
 | Control | End-state behavior |
 | --- | --- |
-| Identity and application association | Verify the trusted issuer, stable subject, registered client, and intended CQ service. |
+| Identity and application association | Verify the trusted issuer, stable subject, registered client, and intended CircularQuay service. |
 | Exact permission | Match the configured context, workload, operation, and key before retrieving a value. |
 | Client key binding | Verify possession of the private key associated with the access token. |
 | Offline approval | Verify the signed association to the exact encrypted snapshot and policy. |
-| Permission lifetime | Enforce the earliest authorization, offline-window, or provider deadline for new access through CQ. |
+| Permission lifetime | Enforce the earliest authorization, offline-window, or provider deadline for new access through CircularQuay. |
 | Credential lifetime | Preserve the original provider's expiry, rotation, and revocation policy. |
 | Protected enforcement | Use OS access controls, protected state, and clock checks at the local trust boundary. |
 | Decision checks | Recheck authorization and value expiry before disclosure or workload launch; deny failed checks. |
@@ -157,4 +157,4 @@ The [identity architecture](hosted-identity.md),
 [security model](threat-model.md) describe its trust relationships and
 policy boundaries.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

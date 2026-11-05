@@ -1,14 +1,14 @@
-# CQ documentation
+# CircularQuay documentation
 
 Start with the guide that matches your task. The [project landing page](../README.md)
-introduces CQ; these guides explain how to configure, operate and
+introduces CircularQuay; these guides explain how to configure, operate and
 verify it.
 
 ## Get started
 
 - [Install, build and run a synthetic workload](getting-started.md)
 - [Choose online, offline or hybrid access](getting-started.md#choose-an-availability-policy)
-- [Understand how CQ works](product-guide.md)
+- [Understand how CircularQuay works](product-guide.md)
 - [Compare capabilities with existing tools](comparison.md)
 
 ## Configure and automate

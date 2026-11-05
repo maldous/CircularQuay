@@ -1,6 +1,6 @@
 # Security policy
 
-CQ handles sensitive configuration. No product capability, analyzer result or deployment implies production-security certification or a support SLA; actual qualification is recorded separately.
+CircularQuay handles sensitive configuration. No product capability, analyzer result or deployment implies production-security certification or a support SLA; actual qualification is recorded separately.
 
 ## Report privately
 

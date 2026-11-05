@@ -1,6 +1,6 @@
 # Policy configuration
 
-CQ policy version 1 declares authority and delivery intent. It never
+CircularQuay policy version 1 declares authority and delivery intent. It never
 contains secret values, provider passwords, OAuth refresh tokens, age private
 keys, bearer tokens, browser sessions, or a shell-evaluated command string. Keep those
 in separately protected operator-managed locations and reference their paths
@@ -117,7 +117,7 @@ for the native-storage and identity-profile boundaries.
 
 Unless `--state-dir PATH` is supplied, cq stores its private runtime
 metadata below the operating system's user configuration directory, in
-`cquay/state` (that is, `os.UserConfigDir()/cquay/state`). This location is
+`cq/state` (that is, `os.UserConfigDir()/cq/state`). This location is
 separate from the policy and from repository state declared in the policy. The
 default fails closed when the legacy `circularquay/state` directory exists or
 cannot be inspected; cq neither deletes nor migrates it. Select and protect
@@ -130,7 +130,7 @@ access boundaries differ.
 
 ## Editing a policy locally
 
-`cquay.json` is the default configuration name. `cq config init [--output
+`cq.json` is the default configuration name. `cq config init [--output
 PATH]` creates a protected JSON policy and its synthetic JSON fixture, refusing
 to overwrite either. The older top-level `init` command remains equivalent.
 Use `cq --config PATH config validate` to strict-decode and semantically
@@ -142,10 +142,10 @@ indexes and the same digest. Use that digest with `--expect-sha256` for a
 compare-and-swap write:
 
 ```sh
-cq --config cquay.json config get --pointer /workloads/demo
-cq --config cquay.json config set --pointer /workloads/demo --value-file - --expect-sha256 "<sha256 from get>"
-cq --config cquay.json config delete --pointer /grants/0 --expect-sha256 "<sha256 from get>"
-cq --config cquay.json config replace --file complete-policy.json --expect-sha256 "<sha256 from get>"
+cq --config cq.json config get --pointer /workloads/demo
+cq --config cq.json config set --pointer /workloads/demo --value-file - --expect-sha256 "<sha256 from get>"
+cq --config cq.json config delete --pointer /grants/0 --expect-sha256 "<sha256 from get>"
+cq --config cq.json config replace --file complete-policy.json --expect-sha256 "<sha256 from get>"
 ```
 
 `set` accepts exactly one JSON value through `--value-json` or `--value-file
@@ -394,7 +394,7 @@ meaning to a project or environment name:
 HTTP access also remains bounded by the verified access token's expiry. Its
 deadline caps the request context and is checked again before disclosure or
 workload launch after provider resolution. These deadlines stop new access
-through CQ; they do not recall plaintext or revoke an upstream
+through CircularQuay; they do not recall plaintext or revoke an upstream
 credential already delivered to another process.
 
 `release_authorized` records durable authorization for a plaintext release
@@ -405,7 +405,7 @@ a final expiry, revocation, or cancellation check can still withhold the respons
 | --- | --- | --- |
 | `resource` | HTTPS resource URL | Public MCP resource identifier with a non-root path, independent of the token audience. Used with `authorities`. Loopback HTTP is allowed for the local resource only. |
 | `authorities` | named object, 1–8 entries | Explicit access-token issuers and permission mappings described below. Cannot be mixed with the single-issuer fields. |
-| `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cquay:mcp` plus `cquay:list`, `cquay:status`, `cquay:run`, or `cquay:read`. Prefer named authorities for custom audiences or roles. |
+| `issuer`, `audience`, `jwks_url` | URLs | Compact single-issuer alternative: all three are required together; `audience` is also the protected resource URL. Its scope names are `cq:mcp` plus `cq:list`, `cq:status`, `cq:run`, or `cq:read`. Prefer named authorities for custom audiences or roles. |
 | `address` | `host:port` string | Optional listener address. Bind and exposure decisions remain operator-controlled. |
 | `origins` | unique HTTPS URL array | Request `Origin` allowlist for HTTP mode. It is an origin check, not a CORS implementation: this profile does not emit browser CORS permission headers. |
 | `hosts` | unique string array | Allowed Host values, without wildcard/URL syntax. |
@@ -478,7 +478,7 @@ access token. Its embedded public JWK must be P-256 with ES256 or RSA
 The request path must equal the configured resource path and contain no query.
 The actual request `Host` must equal the configured resource host: an entry in
 `mcp.hosts` does not create a DPoP resource alias. If a request uses an absolute
-URL, its scheme and host must also equal the configured resource. CQ
+URL, its scheme and host must also equal the configured resource. CircularQuay
 still takes the protected resource from policy, not from `Host`, `Forwarded`, or
 related proxy headers. A trusted local TLS proxy must preserve the external
 canonical `Host`. The replay/nonce binding also includes the named authority's
@@ -511,7 +511,7 @@ When `sender_constraint` is omitted, that authority is strict bearer: it
 accepts `Authorization: Bearer` only and rejects DPoP authorization, DPoP
 proof headers, and access tokens carrying a `cnf` confirmation claim. DPoP
 does not add client key custody, login, token issuance, mTLS, or private-key
-JWT support to CQ.
+JWT support to CircularQuay.
 
 The current protected policy is rechecked before provider access and effects.
 Changing an authority's trust, audience, required claims or permission mapping
@@ -527,8 +527,8 @@ public GitHub tree, blob or raw URL. Supply `--config-ref` with the full 40-hex
 commit and `--config-sha256` with a digest obtained through a trusted maintainer
 channel. The URL's commit marker must equal the ref. `--config-path` is the
 repository-relative file path. Equivalent environment settings are
-`CQUAY_CONFIG_SOURCE`, `CQUAY_CONFIG_REF`, `CQUAY_CONFIG_PATH` and
-`CQUAY_CONFIG_SHA256`; explicit flags take precedence.
+`CQ_CONFIG_SOURCE`, `CQ_CONFIG_REF`, `CQ_CONFIG_PATH` and
+`CQ_CONFIG_SHA256`; explicit flags take precedence.
 
 Retrieval denies redirects, bounds the response to 1 MiB, verifies the digest,
 strictly validates the policy for its destination, and creates it exclusively.

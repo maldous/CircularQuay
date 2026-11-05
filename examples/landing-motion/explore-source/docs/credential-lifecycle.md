@@ -1,6 +1,6 @@
 # Identity lifecycle, exposure and provider remediation
 
-CQ's complete v1 contract joins provisioning, exposure decisions and
+CircularQuay's complete v1 contract joins provisioning, exposure decisions and
 authorized provider-native remediation through the
 [one canonical configuration](configuration-governance.md). These are typed
 resources in that policy graph, not separate scanner, directory or agent policy
@@ -105,7 +105,7 @@ freshness and unavailable/unknown behavior. Admit only qualified policies with
 approved builtins/network behavior; no arbitrary policy upload or remote
 credential discovery follows from enabling an evaluator. Send no secrets,
 secret-derived hashes, raw tokens or provider/scanner bodies, and constrain its
-own decision logs and traces as well as CQ telemetry.
+own decision logs and traces as well as CircularQuay telemetry.
 
 Treat an explicit well-typed allow as only one necessary condition. HTTP 200
 alone is not an allow: OPA can return an undefined result without a `result`

@@ -1,6 +1,6 @@
 # Provider interoperability
 
-The provider registry resolves exact source declarations. Existing managers stay authoritative. CQ does not need to copy all values into OpenBao. See [credential and identity boundaries](credential-boundaries.md) for native-storage, explicit workload-identity, hosted-connection and excluded-profile boundaries.
+The provider registry resolves exact source declarations. Existing managers stay authoritative. CircularQuay does not need to copy all values into OpenBao. See [credential and identity boundaries](credential-boundaries.md) for native-storage, explicit workload-identity, hosted-connection and excluded-profile boundaries.
 
 ## Separate capabilities
 
@@ -35,7 +35,7 @@ provider session.
 
 For vendor CLIs, Bitwarden is a fixed `bws secret get` invocation using a
 machine-account access token, and 1Password is a fixed service-account `op
-read` invocation. CQ does not use desktop approval, a user vault
+read` invocation. CircularQuay does not use desktop approval, a user vault
 session, `op run`, `op inject`, or 1Password Environments. Infisical reads an
 exact value with imports and reference expansion disabled; its Universal Auth
 and OIDC exchanges are separate identity profiles, not implicit behavior of this adapter. These boundaries are

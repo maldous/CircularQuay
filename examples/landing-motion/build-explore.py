@@ -21,8 +21,12 @@ from markdown_it import MarkdownIt
 # This explorer deliberately snapshots the current local public-documentation
 # worktree. BASE_REVISION is repository context only: generated source links
 # must never claim that dirty local source is published at that revision.
-BASE_REVISION = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parent.parent.parent, text=True).strip()
-REPOSITORY_CONTEXT_REF = subprocess.check_output(["git", "branch", "--show-current"], cwd=Path(__file__).resolve().parent.parent.parent, text=True).strip() or BASE_REVISION
+CURRENT_HEAD = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parent.parent.parent, text=True).strip()
+CURRENT_BRANCH = subprocess.check_output(["git", "branch", "--show-current"], cwd=Path(__file__).resolve().parent.parent.parent, text=True).strip() or CURRENT_HEAD
+# These are reassigned from explore-source/manifest.json for every ordinary
+# build. They only observe current Git state during --refresh-local-source.
+BASE_REVISION = ""
+REPOSITORY_CONTEXT_REF = "feature/initial-implementation"
 REPOSITORY_REFERENCE_NOTE = "Repository reference (may differ from this local snapshot)"
 REVISION = "working-tree"
 REPOSITORY = "https://github.com/maldous/CircularQuay"
@@ -37,12 +41,24 @@ ROOT_MARKDOWN = {
     "README.md", "RELEASE.md", "SECURITY.md", "SUPPORT.md",
     "CODE_OF_CONDUCT.md", "CONTRIBUTING.md",
 }
-EDITORIAL_REPLACEMENTS = (
-    ("@maldous/cquay-sdk", "@maldous/cq-sdk"),
-    ("cquay-sdk", "cq-sdk"),
-    (", pronounced\n“c-key”", ""),
-    (", pronounced “c-key”", ""),
+# Presentation-only copy for the landing explorer. Frozen source bytes and
+# their recorded hashes remain the source of historical/documentary truth.
+PRESENTATION_COPY = (
+    ("The right secrets, ready for your apps.", "Get the right secrets ready."),
+    ("Get the right secrets ready for your apps.", "Get the right secrets ready."),
 )
+
+
+def presentation_copy(source: str) -> tuple[str, list[dict[str, int | str]]]:
+    """Apply only the approved landing slogan while preserving frozen source."""
+    rendered = source
+    mappings: list[dict[str, int | str]] = []
+    for old, new in PRESENTATION_COPY:
+        count = rendered.count(old)
+        if count:
+            rendered = rendered.replace(old, new)
+            mappings.append({"from": old, "to": new, "replacements": count})
+    return rendered, mappings
 
 
 def local_paths() -> list[str]:
@@ -76,8 +92,8 @@ def refresh_local_source() -> None:
         records.append({"path": path, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)})
     SOURCE.mkdir(parents=True, exist_ok=True)
     SOURCE_MANIFEST.write_text(json.dumps({
-        "sourceState": "working-tree-dirty", "baseRevision": BASE_REVISION,
-        "snapshotDate": SNAPSHOT_DATE, "files": records,
+        "sourceState": "working-tree-dirty", "baseRevision": CURRENT_HEAD,
+        "repositoryContextRef": CURRENT_BRANCH, "snapshotDate": SNAPSHOT_DATE, "files": records,
     }, indent=2) + "\n")
 
 
@@ -90,21 +106,6 @@ def doc_id(path: str) -> str:
     if path == "README.md":
         return "readme"
     return re.sub(r"[^a-z0-9]+", "-", path[:-3].lower()).strip("-")
-
-
-def editorial_overlay(source: str) -> tuple[str, int]:
-    """Apply only the user's requested public SDK distribution-name correction.
-
-    Raw frozen source remains untouched; implementation identifiers such as the
-    Python `cquay` import namespace are deliberately outside this mapping.
-    """
-    result = source
-    count = 0
-    for old, new in EDITORIAL_REPLACEMENTS:
-        occurrences = result.count(old)
-        result = result.replace(old, new)
-        count += occurrences
-    return result, count
 
 
 def category(path: str) -> str:
@@ -403,10 +404,13 @@ def sanitize_rendered_html(rendered: str) -> str:
 
 
 def build(check: bool = False, refresh_local: bool = False) -> None:
+    global BASE_REVISION, REPOSITORY_CONTEXT_REF
     if refresh_local:
         refresh_local_source()
     source_freeze_bytes = SOURCE_MANIFEST.read_bytes()
     source_freeze = json.loads(source_freeze_bytes)
+    BASE_REVISION = source_freeze["baseRevision"]
+    REPOSITORY_CONTEXT_REF = source_freeze.get("repositoryContextRef", "feature/initial-implementation")
     paths = frozen_paths()
     source_bytes = {path: frozen_blob(path) for path in paths}
     expected_hashes = {item["path"]: item["sha256"] for item in source_freeze["files"]}
@@ -415,12 +419,12 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
         if expected != hashlib.sha256(data).hexdigest():
             raise SystemExit(f"frozen source hash mismatch: {path}")
     sources: dict[str, str] = {}
-    editorial_records = []
+    presentation_records = []
     for path, data in source_bytes.items():
-        rendered, count = editorial_overlay(data.decode("utf-8"))
+        rendered, mappings = presentation_copy(data.decode("utf-8"))
         sources[path] = rendered
-        if count:
-            editorial_records.append({"path": path, "replacements": count, "renderedSha256": hashlib.sha256(rendered.encode()).hexdigest()})
+        if mappings:
+            presentation_records.append({"path": path, "mappings": mappings})
     paths = reader_order(paths, sources)
     docs: list[dict] = []
     by_path: dict[str, dict] = {}
@@ -558,7 +562,7 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
         "sourceState": "working-tree-dirty", "snapshotDate": SNAPSHOT_DATE,
         "repositoryContextRef": REPOSITORY_CONTEXT_REF, "repositoryReferenceNote": REPOSITORY_REFERENCE_NOTE,
         "sourceFreeze": "./explore-source/manifest.json", "sourceFreezeManifestSha256": hashlib.sha256(source_freeze_bytes).hexdigest(),
-        "editorialOverlay": {"rawSourceUnchanged": True, "mappings": [{"from": old, "to": new} for old, new in EDITORIAL_REPLACEMENTS], "files": editorial_records},
+        "presentationCopy": {"mappings": [{"from": old, "to": new} for old, new in PRESENTATION_COPY], "files": presentation_records},
         "documents": manifest_docs,
     }
     planned[ROOT / "explore-manifest.js"] = ("export const documentation=" + json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + ";\n").encode()
@@ -572,7 +576,7 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
         "sourceState": "working-tree-dirty", "snapshotDate": SNAPSHOT_DATE,
         "repositoryContextRef": REPOSITORY_CONTEXT_REF, "repositoryReferenceNote": REPOSITORY_REFERENCE_NOTE,
         "sourceFreezeManifestSha256": hashlib.sha256(source_freeze_bytes).hexdigest(),
-        "editorialOverlay": {"rawSourceUnchanged": True, "mappings": [{"from": old, "to": new} for old, new in EDITORIAL_REPLACEMENTS], "files": editorial_records},
+        "presentationCopy": {"mappings": [{"from": old, "to": new} for old, new in PRESENTATION_COPY], "files": presentation_records},
         "documentCount": len(docs), "sourcePaths": [{"path": doc["path"], "sha256": doc["sourceSha256"], "parts": len(doc["parts"])} for doc in docs],
         "assets": sorted({json.dumps(item, sort_keys=True): item for item in asset_records}.values(), key=lambda item: item["file"]),
         "rawHtmlSanitized": raw_html, "externalImagesRenderedAsLinks": external_images,
@@ -582,12 +586,16 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
     }
     planned[CONTENT / "manifest.json"] = (json.dumps(provenance, indent=2, ensure_ascii=False) + "\n").encode()
 
+    generated_assets = {path for path in planned if path.parent == ASSETS}
+    stale_assets = [path for path in ASSETS.glob("*") if path.is_file() and path not in generated_assets]
     if check:
         missing = [str(path.relative_to(ROOT)) for path, data in planned.items() if not path.exists() or path.read_bytes() != data]
-        extras = [path for path in CONTENT.glob("*.js") if path not in planned]
+        extras = [path for path in CONTENT.glob("*.js") if path not in planned] + stale_assets
         if missing or extras:
             raise SystemExit("explore snapshot is stale: " + ", ".join(missing + [str(path.relative_to(ROOT)) for path in extras]))
         return
+    for path in stale_assets:
+        path.unlink()
     for path, data in planned.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)

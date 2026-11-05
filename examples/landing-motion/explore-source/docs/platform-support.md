@@ -1,6 +1,6 @@
 # Platform support
 
-CQ's first public release line is **v1**. The first release
+CircularQuay's first public release line is **v1**. The first release
 candidate is `v1.0.0-rc.1`; the first stable target is `v1.0.0`. An archive is
 never a statement that a platform has completed native, provider, reboot, or
 security qualification.

@@ -1,8 +1,8 @@
 # Compatibility gateway
 
-CQ can optionally present a narrow compatibility endpoint for a
+CircularQuay can optionally present a narrow compatibility endpoint for a
 legacy application that already speaks Azure Key Vault Secrets or Google Secret
-Manager. The endpoint is a CQ resource: it authorizes the caller
+Manager. The endpoint is a CircularQuay resource: it authorizes the caller
 against an approved workload policy, reads one declared binding through that
 workload's configured provider identity, and records a redacted release
 receipt before returning a value.
@@ -35,7 +35,7 @@ The gateway validates the client token for its own configured issuer, audience,
 client, subject, expiry and any selected sender constraint. An Azure or Google
 bearer token is never accepted simply because the request looks like a cloud
 API. Where an operator needs an existing enterprise authorization server, it
-is configured as a CQ authority; any token exchange is explicit,
+is configured as a CircularQuay authority; any token exchange is explicit,
 scoped and independently qualified.
 
 The upstream provider sees only the declared workload's provider identity. The
@@ -45,7 +45,7 @@ client certificates or arbitrary request headers to the secret provider.
 ## Exact mapping and isolation
 
 A named gateway namespace maps one external identifier to one declared
-CQ workload binding. The mapping is exact: there are no wildcards,
+CircularQuay workload binding. The mapping is exact: there are no wildcards,
 prefix searches, provider discovery, default workload, nearest-name fallback
 or cross-tenant lookup. The namespace is selected by a verified authority and
 configured host policy, never by a caller-controlled vault name, Google project
@@ -53,7 +53,7 @@ name, host header or path.
 
 The effective permission is the intersection of the gateway authority,
 configured tenant namespace, verified subject/client, current grant, `read`
-operation, workload and binding. CQ checks authorization before the
+operation, workload and binding. CircularQuay checks authorization before the
 provider read, bounds the operation by the earliest relevant expiry, rechecks
 after the provider returns, writes the required durable audit receipt, and
 rechecks before plaintext release. A token or binding revoked while a provider
@@ -74,7 +74,7 @@ The first compatibility scope is deliberately small.
 | Optional Google Secret Manager gRPC profile | Exposes only `AccessSecretVersion` for its explicitly qualified clients. [Google RPC](https://cloud.google.com/secret-manager/docs/reference/rpc/google.cloud.secretmanager.v1) | Reflection, broad generated-service exposure, unauthenticated gRPC and every other RPC. |
 
 A compatibility response uses the selected protocol's documented read envelope
-only. It does not assert that CQ owns an Azure vault or Google
+only. It does not assert that CircularQuay owns an Azure vault or Google
 project, and it does not reproduce provider control-plane semantics.
 
 ## Local developer composition
@@ -93,7 +93,7 @@ replacements:
   per-instance CA. It is developer-test evidence only.
 
 Every SDK endpoint, custom test root and test credential is explicit in the
-isolated test profile. CQ does not rewrite DNS, edit hosts files,
+isolated test profile. CircularQuay does not rewrite DNS, edit hosts files,
 install a permanent trust root, disable TLS validation, use an insecure SDK
 transport or obtain credentials from a shell profile. The provider identity,
 gateway audience and compatibility endpoint are distinct; a request cannot

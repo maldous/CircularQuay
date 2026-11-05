@@ -1,29 +1,28 @@
 # Official SDKs
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
 
-Use CQ directly from a Go, TypeScript or Python application. The SDKs
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
+
+Use CircularQuay directly from a Go, TypeScript or Python application. The SDKs
 let a service check its declared workload, run an approved action, or manage a
 local configuration without parsing terminal output or writing shell commands.
 
 | Language | Package | Guide |
 | --- | --- | --- |
 | Go | `github.com/maldous/CircularQuay/sdk/go` | [Go examples and API](../sdk/go/README.md) |
-| TypeScript | `@maldous/cquay-sdk` | [TypeScript examples and API](../sdk/typescript/README.md) |
-| Python | `cquay-sdk`, imported as `cquay` | [Python examples and API](../sdk/python/README.md) |
+| TypeScript | `@maldous/cq-sdk` | [TypeScript examples and API](../sdk/typescript/README.md) |
+| Python | `cq-sdk`, imported as `cq` | [Python examples and API](../sdk/python/README.md) |
 
 Select an exact qualified version from its release. Installation, registry
 ownership, trusted publishing and provenance verification are covered in
@@ -33,9 +32,9 @@ ownership, trusted publishing and provenance verification are covered in
 
 | Connection | Execution boundary | Your application supplies |
 | --- | --- | --- |
-| Go local | The linked CQ core runs in-process. | Explicit policy/state locations and caller cancellation; verify the containing module and linked-core version. |
+| Go local | The linked CircularQuay core runs in-process. | Explicit policy/state locations and caller cancellation; verify the containing module and linked-core version. |
 | TypeScript or Python local | A separate, explicitly selected native `cq` process. | Absolute executable location, expected SHA-256, policy/state locations and an explicit child environment. |
-| MCP, in any SDK | An application-owned official MCP session to the selected CQ server. | Transport, authentication when required, resource-specific authorization and session lifecycle. |
+| MCP, in any SDK | An application-owned official MCP session to the selected CircularQuay server. | Transport, authentication when required, resource-specific authorization and session lifecycle. |
 
 Local adapters do not require an MCP server. Language-package installation does
 not install or authenticate a native executable; select and verify it separately
@@ -53,10 +52,10 @@ The **MCP adapter** uses a connected official MCP session owned by your
 application. Your application selects transport, authentication, cancellation
 and session shutdown. Discovery, workload listing, status and approved actions
 use the same server-enforced policy as other MCP clients. Identity-provider
-integration and MCP remain optional features of CQ.
+integration and MCP remain optional features of CircularQuay.
 
 The SDK cannot authorize an operation that the server or local policy denies.
-A caller's inbound CQ access token never becomes a provider credential.
+A caller's inbound CircularQuay access token never becomes a provider credential.
 The managed service uses the same authorization boundaries; these adapters do
 not invent administrative endpoints or grant remote policy-writing permission.
 

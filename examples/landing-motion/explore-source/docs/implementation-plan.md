@@ -1,20 +1,18 @@
 # Implementation and qualification plan
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Production
-custom UI remains outside deployment authorization; the separately authorized
-synthetic frontend work proceeds in its isolated checkout. Real backend tests
-remain separate from static design and preview evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
+
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
 
 This is the durable engineering contract, not a completion report. Implementation and qualification use explicitly selected, isolated development environments; verify the actual executor and checkout for each session. Operators install on their own infrastructure and supply host-specific feedback; existing operational hosts and active recovery work are not changed by this implementation task.
 
@@ -40,7 +38,7 @@ release/qualification records.
 - SOPS/age offline, optional OpenBao Transit online, explicitly authorized hybrid snapshots, and separately labeled native deployed snapshots.
 - Native Linux/systemd, Windows, Termux, container, Windmill, Stokowski and cloud recipes/adapters, qualified individually.
 - Optional local/hosted authenticated MCP with filtered metadata, registered actions and separate per-user/client/key raw-read permissions.
-- Provider-independent identity authorization: use an existing OAuth authorization server directly when it supports a registered CQ API, or a self-hosted server such as Keycloak. No particular identity product, hosted broker or paid plan is a runtime prerequisite.
+- Provider-independent identity authorization: use an existing OAuth authorization server directly when it supports a registered CircularQuay API, or a self-hosted server such as Keycloak. No particular identity product, hosted broker or paid plan is a runtime prerequisite.
 - Named issuer trust and typed access-token profiles, configurable scope/role mappings, exact principal/client/resource associations and bounded lifetimes. Context names and permissions are operator-defined; development/production labels are examples only.
 - Standard asymmetric client authentication and sender constraints where qualified: private-key JWT, DPoP and mutual TLS. Offline identity authorization requires an issuer-authorized artifact binding and an explicit clock/revocation trust contract; an ordinary login token or OAuth refresh permission does not establish it.
 - No extra recurring paid provider dependency for the personal reference; free testing accounts authorized, no automatic paid conversion.
@@ -93,8 +91,8 @@ automatically provisioned on authorized profile enrollment. This supersedes the
 earlier age-only baseline, with explicit window checks, usage classes and an
 opt-in subscription opportunity. It does not include enterprise config
 orchestration or every optional integration by default. Preserve those as separately selected
-CQ capabilities and independently costed deployments. The user
-clarified KVM/PVM meant **KMS**, configured per user profile. Implement the
+CircularQuay capabilities and independently costed deployments. **KMS** is
+configured per user profile. Implement the
 [separate custody contract](managed-key-service.md#per-profile-age-and-kms-custody);
 current source does not yet establish cloud-KMS support.
 
@@ -203,7 +201,7 @@ integration, never a server proxy or silent unsupported options. Save locally.
 Hosted state includes authenticated profile→KMS/age associations, crypto operations
 and necessary enrollment/window/metering/billing. Protect keys without display
 or logging. CLI/config disable before network supports fully client-only use.
-The user clarified PVM/KVM meant KMS. Per-profile KMS is a required capability,
+Per-profile KMS is a required capability,
 not an existing enum/flag or permission for live key provisioning here.
 Qualify compatible KMS/age ciphertext, recipient/key versions and independent
 key IDs/windows for separately protected domains before hybrid activation.
@@ -391,7 +389,7 @@ identity require explicit typed validation and mapping before they can grant
 an operation. The v1 JSON schema, Go model, validator, runtime, negative tests
 and operator reference change together; no accepted field may be ignored or
 claim support for an unimplemented integration. External provider entitlements
-and free-tier limits remain deployment prerequisites, not CQ gates
+and free-tier limits remain deployment prerequisites, not CircularQuay gates
 that can be bypassed by broadening trust.
 
 The initial public product and policy contract are v1. Release stabilization
@@ -619,7 +617,7 @@ cannot establish cross-file integrity or completeness.
 
 [RELEASE.md](../RELEASE.md#product-go-live-and-commercialization-service-provisioning)
 is the single operator procedure for product go-live, commercialization,
-publisher accounts and applicable service provisioning. Separate CQ
+publisher accounts and applicable service provisioning. Separate CircularQuay
 projects, approved owners, environments, entitlements, protected references and
 independent readback cover selected diagnostics, consent/privacy, advertising,
 analytics, hosting/identity, support/email/feedback and status/discovery services.
@@ -643,7 +641,7 @@ Actual outcomes are machine-readable audit reports and [qualification receipts](
 
 ## Agent packaging and documentation acceptance
 
-The portable cquay skill, skill UI metadata and client-plugin instructions share
+The portable cq skill, skill UI metadata and client-plugin instructions share
 one capability vocabulary with CLI, SDK and optional MCP. Package only contained,
 versioned references and verified runtime connections; no manifest or skill can
 create authority. [Agent integration](agent-integrations.md) defines installation,

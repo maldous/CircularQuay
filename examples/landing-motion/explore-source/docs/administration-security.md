@@ -1,6 +1,6 @@
 # Administration security
 
-CQ administration changes who can receive secrets and what a workload
+CircularQuay administration changes who can receive secrets and what a workload
 can do. It therefore has a separate security boundary from configuration
 download, login, ordinary workload execution and raw disclosure. These v1
 requirements apply to the UI, API, CLI, official SDKs and optional management
@@ -13,7 +13,7 @@ The [security profiles](security-profiles.md) define product-wide enforcement;
 All configuration is client-side: retrieval through the user's network/VPN,
 source authentication, composition, validation and local save do not send raw
 or resolved policy, source credentials or protected references to a hosted
-CQ service, proxy, analytics or logs. The hosted service manages
+CircularQuay service, proxy, analytics or logs. The hosted service manages
 separate authenticated key-service and age-private-key associations, remote
 key wrap/unwrap, permitted age-key retrieval and necessary enrollment, metering
 and billing. Its administration never implies remote configuration custody.
@@ -295,7 +295,7 @@ dashboard is never an end-customer account portal. Provider administration
 credentials remain outside clients and model context. Customer-facing services
 use only their actual qualified features and entitlements.
 
-Payment entry uses an established provider-hosted flow without CQ
+Payment entry uses an established provider-hosted flow without CircularQuay
 card custody. Payment/subscription events authenticate their exact provider,
 account, tenant and event identity; bounded replay/idempotency controls and
 durable reconciliation handle duplicates, reordered events and uncertain

@@ -1,15 +1,13 @@
 # Managed key service
 
-The latest authorized launch provides **a hosted SOFTWARE crypto/key service
-and authenticated age-private-key retrieval**, using only existing minimum-cost
-paid Cloudflare/Netlify resources. It does not require paid AWS/GCP/Azure KMS,
+The launch profile specifies **a hosted software key service and authenticated
+age-private-key retrieval** on Cloudflare or Netlify. It does not require paid AWS/GCP/Azure KMS,
 new paid identity, upgrades or external services at launch. Authorized profile
 enrollment provisions both crypto and age associations; this does not release
 an offline key, activate hybrid or grant arbitrary decrypt/billing authority.
-Spoken KVM/PVM meant KMS, but the launch custody claim is explicitly **software**.
+KMS is configured per profile; the launch custody claim is explicitly **software**.
 
-The user has explicitly accepted the launch tradeoff: a versioned software
-wrapping key stays in protected host secrets **outside the database**, with
+The software custody profile uses a versioned wrapping key held in protected host secrets **outside the database**, with
 independently random per-profile DEKs. Vetted maintained crypto performs the
 actual wrap/unwrap operations. A secrets store alone is not a key service.
 The runtime can access/use its software key; shared KEK or authorized-runtime
@@ -21,7 +19,7 @@ Profiles requiring stronger hardware/non-exportability remain unavailable here.
 
 Future managed/HSM custody is retained as an explicit funded migration path,
 not silently claimed for the launch. Mode/first-run choices remain explicit;
-earlier remote-first recommendations are not a human-selected default. Synthetic/mock functional user, account, operator and administrator UI previews
+a remote-first mode is not inferred from configuration or provider availability. Synthetic/mock functional user, account, operator and administrator UI previews
 may be developed separately, including loopback dashboard local-configuration
 edits and simulations. They remain non-production: no real backend, operational
 key, provider or account access, deployment, purchase or account connection is
@@ -46,7 +44,7 @@ flow for actual operations.
 The base service needs the user/client/domain association, owner-authorized key
 mapping/storage/retrieval, access-window decisions, safe operational records and
 metering. Enterprise hierarchy, SCIM, GitHub/GitGuardian gates, provider rotation,
-workload federation, posture and OPA are optional CQ capabilities,
+workload federation, posture and OPA are optional CircularQuay capabilities,
 not assumed base-subscription components or costs. Exact-bundle remote
 authorization and a wider management control plane remain separate explicitly
 chosen profiles; genuine hosted KMS itself is now required.
@@ -120,12 +118,11 @@ launch nor later migration can claim an earlier copied key never existed.
 
 ## Per-profile age and KMS custody
 
-The user explicitly corrected spoken KVM/PVM to **KMS** and requires it configured
-in the **user profile**. Treat custody choice and workload availability mode as
+**KMS** is configured in the **user profile**. Treat custody choice and workload availability mode as
 separate validated decisions. These names describe contracts, not invented
 runtime enum values. Both associations are provisioned by the required hosted enrollment behavior;
 selection of active custody/mode remains explicit. This capability is not yet
-implemented by the inspected CQ SOPS adapter.
+implemented by the inspected CircularQuay SOPS adapter.
 
 | Profile custody choice | Required configuration and authority | Boundary |
 | --- | --- | --- |
@@ -148,7 +145,7 @@ The inspected `internal/source/sops.go` explicitly rejects SOPS `kms`, `gcp_kms`
 or Transit-only paths; snapshot creation supplies age recipients only. Its
 isolated subprocess environment is not a cloud-KMS identity implementation.
 Upstream [SOPS supports cloud KMS backends](https://getsops.io/docs/), but this
-does not establish support in CQ. Existing cloud secret-reader SDKs
+does not establish support in CircularQuay. Existing cloud secret-reader SDKs
 likewise do not establish a KMS adapter. Require actual schema, source, help,
 identity and executable qualification before offering a provider choice.
 
@@ -300,7 +297,7 @@ per-adapter acceptance requirements, not assumed migration capabilities.
 Upstream [SOPS key management](https://getsops.io/docs/usage/key-management/)
 distinguishes updating master-key recipients from rotating the data key and
 re-encrypting values. Reuse those actual mechanisms with a pinned supported
-adapter; the current CQ adapter still rejects cloud-KMS/key-group
+adapter; the current CircularQuay adapter still rejects cloud-KMS/key-group
 metadata. Neither a hosted KMS endpoint nor a target key reference proves
 SOPS/plugin/OS ciphertext compatibility. Maintain per-format migration support
 and independent native/provider integration evidence; unsupported cases deny.
@@ -581,9 +578,9 @@ rotation to contain an already disclosed credential.
 
 ## Established integration mechanisms
 
-CQ reuses existing cryptography. These upstream mechanisms have
+CircularQuay reuses existing cryptography. These upstream mechanisms have
 separate compatibility and custody boundaries; their existence is not a
-qualification receipt for a CQ adapter.
+qualification receipt for a CircularQuay adapter.
 
 | Mechanism | Established capability and boundary |
 | --- | --- |
@@ -633,18 +630,16 @@ the managed login screen alone does not authorize a mapping mutation.
 <a id="explicitly-confirmed-ui-design-implementation-deferred"></a>
 ### Explicitly confirmed UI design and bounded preview work
 
-The following is the user's explicit design confirmation, distinct from earlier
-author-proposed administration screens. A separate frontend checkout is
-authorized to build synthetic/mock functional user, account, operator and
-administrator previews, plus loopback dashboard local-configuration edits and
-simulations. This does **not** authorize a real backend or host proxy,
+The frontend development boundary covers synthetic user, account, operator and
+administrator previews in a separate checkout, plus loopback dashboard
+configuration editing and simulations. This does **not** authorize a real backend or host proxy,
 operational keys, provider or account access, production deployment, purchase,
 account setup, or a new test suite. Production custom UI operation remains
 unapproved until the functional baseline and its qualification are complete.
 
 The public landing is a single screen derived from the README's reasoning:
 **“The right secrets, ready for your apps.”** Use a concise, broadly appealing
-summary of how CQ connects existing secret providers to approved
+summary of how CircularQuay connects existing secret providers to approved
 apps, and a clear functionality diagram. Call out optional official SDKs,
 MCP, enterprise integration, SCIM and other independently approved features
 without implying that every integration is in the base hosted subscription.
@@ -1287,8 +1282,8 @@ actual entitlements and a qualified existing/free customer issuer are verified.
 Otherwise evaluate existing Netlify included Identity without buying anything,
 with DB active-hours and missing storage tariff made explicit. No current
 account/project/issuer facts establish a qualified selected deployment. The
-software KEK/runtime/shared-domain risk remains the user's explicit launch
-tradeoff; keep keys outside DB and enforce fundamental auth/isolation/audit/
+selected launch custody tradeoff retains software KEK/runtime/shared-domain
+risk; keep keys outside DB and enforce fundamental auth/isolation/audit/
 recovery/tests. Funded managed/HSM migration stays versioned and staged, not a
 silent assumption of present non-exportability. Synthetic/mock previews remain
 separate from unapproved production UI.

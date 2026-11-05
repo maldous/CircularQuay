@@ -1,62 +1,43 @@
 {
   "repository": "https://github.com/maldous/CircularQuay",
   "revision": "working-tree",
-  "baseRevision": "b0abadd71347bfba98dd043aa946d5c937f6d807",
+  "baseRevision": "15f368a9f8ac4b45f5d92772c492e863b0a0f5f9",
   "sourceState": "working-tree-dirty",
   "snapshotDate": "2026-11-05",
   "repositoryContextRef": "feature/initial-implementation",
   "repositoryReferenceNote": "Repository reference (may differ from this local snapshot)",
-  "sourceFreezeManifestSha256": "88a4d936a47bc09e2f909121c7265c8a9e6efd7a7b6e7f96b65267e7227b2377",
-  "editorialOverlay": {
-    "rawSourceUnchanged": true,
+  "sourceFreezeManifestSha256": "abb8878ee734dbe398f98c15c8abd22de1e3a511e1620d2de9917f4fd0d16b45",
+  "presentationCopy": {
     "mappings": [
       {
-        "from": "@maldous/cquay-sdk",
-        "to": "@maldous/cq-sdk"
+        "from": "The right secrets, ready for your apps.",
+        "to": "Get the right secrets ready."
       },
       {
-        "from": "cquay-sdk",
-        "to": "cq-sdk"
-      },
-      {
-        "from": ", pronounced\n“c-key”",
-        "to": ""
-      },
-      {
-        "from": ", pronounced “c-key”",
-        "to": ""
+        "from": "Get the right secrets ready for your apps.",
+        "to": "Get the right secrets ready."
       }
     ],
     "files": [
       {
-        "path": "docs/agent-integrations.md",
-        "replacements": 1,
-        "renderedSha256": "9b4a21998c3e3d29d6c043b5b87c5157c8be83fe6f8396bd8041d45ce850c25a"
+        "path": "README.md",
+        "mappings": [
+          {
+            "from": "The right secrets, ready for your apps.",
+            "to": "Get the right secrets ready.",
+            "replacements": 1
+          }
+        ]
       },
       {
-        "path": "docs/enterprise-integration.md",
-        "replacements": 2,
-        "renderedSha256": "6c6bfa76cba6b9a65d9201c98817104ba58fa82c4f21a07e938d64e174a6568d"
-      },
-      {
-        "path": "docs/sdks.md",
-        "replacements": 2,
-        "renderedSha256": "a5a1ac2c82ba06526fb7a3f107d7cfaa34565cce385bccb1fa19d48c89cfbd7a"
-      },
-      {
-        "path": "RELEASE.md",
-        "replacements": 8,
-        "renderedSha256": "713a828291ee92823761cb34693c15c47cd17ca0450cf59f2559b0a54bbae488"
-      },
-      {
-        "path": "sdk/python/README.md",
-        "replacements": 5,
-        "renderedSha256": "1d7bd0f4436695ba581c23c2df3873d7b98e27b3bb3e654d696375596fe31738"
-      },
-      {
-        "path": "sdk/typescript/README.md",
-        "replacements": 4,
-        "renderedSha256": "462314188a3cce376473335d51777728fccd34c0182c75d15bc69d7cf139235b"
+        "path": "docs/managed-key-service.md",
+        "mappings": [
+          {
+            "from": "The right secrets, ready for your apps.",
+            "to": "Get the right secrets ready.",
+            "replacements": 1
+          }
+        ]
       }
     ]
   },
@@ -64,62 +45,77 @@
   "sourcePaths": [
     {
       "path": "README.md",
-      "sha256": "2848deed3387ea2158c40d6d6c86fefcec494e1e4639f272fb761df626da0cff",
+      "sha256": "e57279dfee48a49068d9677403381b0bda246e7d401e5806df6d06a6fcb0e896",
       "parts": 1
     },
     {
       "path": "docs/README.md",
-      "sha256": "4bedbdd0b85a89fcadd502a4e32e30f6edd777bcf049c2c1d92cf2768620679e",
+      "sha256": "64891f80933cb3d6a22b5c8398f083a13382e86157086f7872d54c90fc71b414",
       "parts": 1
     },
     {
       "path": "docs/getting-started.md",
-      "sha256": "422e9724622ccdc6d9c9fa9e8f7b35751c0347406c7f4fd3c35193eb983635c3",
+      "sha256": "f75dffe2c84ce64d084d5bfbb6bc3ce2b8d06fa4c829112a8eeaa29f81a528ee",
       "parts": 1
     },
     {
       "path": "docs/product-guide.md",
-      "sha256": "4866399f01ed1566c8fa6f693b638a64734b2c2ad520f845ac19d4fcc9554a80",
+      "sha256": "1515097fd5d1c23f28266d28867b973f6801ce00b292d9a7d17dc6be21083b2d",
       "parts": 1
     },
     {
       "path": "docs/architecture.md",
-      "sha256": "019d8b6c82efa4748daa98de494c6611bb03a02b66a46ff407ad1c5f454f346d",
+      "sha256": "2b3771b3600b676570c5c02a468f1a94de28bca09a9ab5d9c6f3f364471f143d",
       "parts": 1
     },
     {
       "path": "docs/comparison.md",
-      "sha256": "e1d2ac28873cd2f262651fdda3c04cce78a51471ed9c3867f6bf8420947d615a",
+      "sha256": "48c1858d40c0a0e263d39d911234d0e607061412df854f78d6b7fcb71d85bc2d",
       "parts": 1
     },
     {
       "path": "docs/configuration.md",
-      "sha256": "99a361a489b701f53f8c40a11852b3a0ea052d4c6c6b221930e9a6ed78ed7a0c",
+      "sha256": "200a81dadcf30ec039925cbac6eff7a30066f0ae37cb3506fc40d7c86334b5df",
       "parts": 3
     },
     {
       "path": "docs/providers.md",
-      "sha256": "6e4eaf1dc8925145ec17a4d8fca3c010ef20d35c96dcf399e09f602aa368c89f",
+      "sha256": "20306bc5250043715315a0c66af59a723000758d3edb3c2851be6500868c59ff",
       "parts": 1
     },
     {
       "path": "docs/identity-and-expiry.md",
-      "sha256": "ee5775ea466323b8fe68a25fd3a29319b9a1cdc6e702cda90cb2b05822afa3d2",
+      "sha256": "4c7cf9fe151e46f9efb6cdd718b0670f91f1ad4efcced43896881a6c025b289b",
       "parts": 1
     },
     {
       "path": "docs/integrations.md",
-      "sha256": "e81b1382ed1ce67d6e6eb0845b5f74da2566783236d6ed31d628e295f869a098",
+      "sha256": "0fc331d4da0b5f5f73fbf486d984b9835f2052a05e0428810d131df2654f8205",
       "parts": 2
     },
     {
       "path": "docs/sdks.md",
-      "sha256": "288eda1252b883a387eae6f4edd4a3f119e3ddd8bfc0a293cff1ba2692b44162",
+      "sha256": "d07cdd4f2b24ab5ae7d517d6b3933b5b1ae3ede240609c622692412fbe942b20",
+      "parts": 1
+    },
+    {
+      "path": "sdk/go/README.md",
+      "sha256": "6327ee481e880393379e49df6212d651103025e142374eb81ed29af6c11261e0",
+      "parts": 1
+    },
+    {
+      "path": "SUPPORT.md",
+      "sha256": "00f843c32654b065d5e2ec42e41f5cfdf35daf261f86f916f3e0fcbf3a3c1044",
+      "parts": 1
+    },
+    {
+      "path": "sdk/typescript/README.md",
+      "sha256": "f9e9916e2062cd45508549776f4e4f6095758ca0fbb0cc8f64ae46d582861005",
       "parts": 1
     },
     {
       "path": "CODE_OF_CONDUCT.md",
-      "sha256": "3f7d0d2c435a4ba5261d8ed5cefaa2a4347852145964c31d08b7a1491afbd9e1",
+      "sha256": "94cf038ad26f7ae24b3500baa1c941c0b16960323d0ed6cffb5d32aaac720117",
       "parts": 1
     },
     {
@@ -128,23 +124,8 @@
       "parts": 1
     },
     {
-      "path": "sdk/go/README.md",
-      "sha256": "0790dbcf969a4e0abaed68db541643c53d0de3836543a85ed3aa79219850b859",
-      "parts": 1
-    },
-    {
-      "path": "SUPPORT.md",
-      "sha256": "0ec6e9228201c3c135c855a41ca126cbbbc904ce3b96e0be1bf04780510abefb",
-      "parts": 1
-    },
-    {
-      "path": "sdk/typescript/README.md",
-      "sha256": "5310726893950f95a82fe8e7068df12dc7d2c9fe725918444e8ab1bb99314c3a",
-      "parts": 1
-    },
-    {
       "path": "sdk/python/README.md",
-      "sha256": "8205bff1b65e8b6a6499e3f620a69c665e42ce7d61d528a9a64c933bdad5b402",
+      "sha256": "e1e6c634549a360770d7a63dc5a5c821dd7e6804a336ce514c642309d26f206f",
       "parts": 1
     },
     {
@@ -154,27 +135,27 @@
     },
     {
       "path": "docs/integrations/cloud-provider-validation.md",
-      "sha256": "6a218ed294d9bef02df7028f9cfb18960ad2e543476c946d219af4d070d9db29",
+      "sha256": "ccc53d6bd305484d8ffed6bd9ba6f5e0dbaeb83b99b198a8480b4cb56768aae1",
       "parts": 1
     },
     {
       "path": "docs/integrations/compatibility-gateway.md",
-      "sha256": "985e73bf0d2a9d25550caf692191a19efcbe576621b982c696572b8a5c8fb96c",
+      "sha256": "ef64c5d59258679955ceae2b02ffb3f7aba67f789c873a05f721d30c9e08b1c4",
       "parts": 1
     },
     {
       "path": "docs/enterprise-integration.md",
-      "sha256": "d2b8c6be46131936e83c23b903bab11bcfa73c905d3a1fe1879ec55c61b9933e",
+      "sha256": "a3a0c4dfadabb67fec362875442b47ddf8a475f6b4799cb7ae2569cceaa5d80a",
       "parts": 2
     },
     {
       "path": "docs/hosted-identity.md",
-      "sha256": "b055b7161af0ed640d8923c6802a95d2a2831618e8c84298c299feb74a57278d",
+      "sha256": "5a0147c88d9c348c459af170bbf0ffa79c474761b7fb119b536daed165468069",
       "parts": 1
     },
     {
       "path": "docs/integrations/identity-and-provider-fixtures.md",
-      "sha256": "43b5d970a2b2121cce0de66636349747bf2cf36464e0608ea2d6deeb7d25500c",
+      "sha256": "599f70de1688b81f092026edcf1fe5c1efed24d06719af7478f632ee50874ae2",
       "parts": 1
     },
     {
@@ -184,7 +165,7 @@
     },
     {
       "path": "docs/administration-security.md",
-      "sha256": "e908b2b180e57bbceb0c6965526288b7be6868585fe6270fe589984544cf96f4",
+      "sha256": "1b220fe95d8f053b8aced1c6f640a0bbb360de460153f6ad7da5913fac486b7e",
       "parts": 2
     },
     {
@@ -194,37 +175,37 @@
     },
     {
       "path": "docs/credential-boundaries.md",
-      "sha256": "8ff715add51058f5571ad3b9925e1646c55a55e5f025cd34a14db1f528b30804",
+      "sha256": "4f84b5b86e2d12ca44e2dde7e22b16ee9a99c4603e91280e0f6a65457f324070",
       "parts": 2
     },
     {
       "path": "SECURITY.md",
-      "sha256": "272a178af621900796a9526812541a643dc405c390def1e1c52cf3ea1a1dea02",
+      "sha256": "6d165a56d368a59710bbfe367f860190ccdb016198cc88a82d2dd3f1dbc02c89",
       "parts": 1
     },
     {
       "path": "docs/security-profiles.md",
-      "sha256": "227884e0d4a35223dd88010857456493992840643e030e696c881c39997448b6",
+      "sha256": "888e80ca0338ca202c87d5633fc9d5485280e354472ffcc3cbfbe8cee7f5266f",
       "parts": 2
     },
     {
       "path": "docs/threat-model.md",
-      "sha256": "9531356581d27c8049043bc024e9749eb825ca459e8e6e78c3517020f8c9059d",
+      "sha256": "a8f965cb0466678e44dcc5923905ccb775568f520102e0cd5a9a6473e88ee8d2",
       "parts": 1
     },
     {
       "path": "docs/operators/providers.md",
-      "sha256": "e2a1cea86a0555e9a0201118dda3eb062c3afdfa6b83bb62d90e7b66a798371f",
+      "sha256": "0a98e165b494570204dfd5c54abaeb0c1f09e430e35733e70ff9cf5f81382fb2",
       "parts": 1
     },
     {
       "path": "docs/operators/incident-response.md",
-      "sha256": "d7a24991a1185cb183373b7e3746d51c17a2c68b04530343d83883f9f80c02b9",
+      "sha256": "0764b284863244c6078892d2bbd7b6b7a379607d758cbe8c2a9365d4dbe87ebc",
       "parts": 1
     },
     {
       "path": "docs/operators/mcp.md",
-      "sha256": "a38fcd410b9f2f2cf9dc3ce243c85b3dc1efb101eea34e78394cfc76bff6cb56",
+      "sha256": "3f73bfdb1491a36596740781f16b718cf0465fedbadf567427741b526d3a6ce0",
       "parts": 1
     },
     {
@@ -234,7 +215,7 @@
     },
     {
       "path": "docs/operators/recovery.md",
-      "sha256": "890333cad45dd257c6c0ec3c0b45931a3a09f9936d62a97c385d9563d13da32d",
+      "sha256": "9249f6b744aa24cd995235d1d2549901c152bb97a82bfb6938689c99b78b843e",
       "parts": 1
     },
     {
@@ -244,32 +225,32 @@
     },
     {
       "path": "docs/agent-onboarding.md",
-      "sha256": "bdfddda0278420f64a5ade071340d7e31c3672681a5837a5c47435d9ac5249bc",
+      "sha256": "5c30f9665c8bb92b8ce1e3682b3075565dd3be07fa296c258339025a292b63da",
       "parts": 2
     },
     {
       "path": "docs/agent-integrations.md",
-      "sha256": "a79bfc8da3e924481af57172c5e13996027ab45e58aff2c71df33ed59f63094f",
+      "sha256": "4c353f94c3cade9213138fae22e5ce277ff8f7baaaa76b9d59bc3e6b31313e6f",
       "parts": 1
     },
     {
       "path": "docs/commands.md",
-      "sha256": "7c384e3fe8ff9317df4557e7f61b5a5af414789fc314ac0908ead55d1330b2ed",
+      "sha256": "21f54e7da6497f285ff86ca3fbbe319a91d143e36423ff306a0a19eb831aba84",
       "parts": 1
     },
     {
       "path": "docs/composition-reference.md",
-      "sha256": "31dcaf6b88da6be6c4b4174b4da68131cc331608f66513c552344e081e24e80b",
+      "sha256": "208e238795c30ff272b92f6391b5d557d79d1fb803e942c3f0a9fec121258cd3",
       "parts": 1
     },
     {
       "path": "docs/configuration-repositories.md",
-      "sha256": "5fc814bea350af6fe61e3ffad109dc33ab61df6e7a5b1fb5f9074ac182288d36",
+      "sha256": "9cad82f8c119a631da9191d2bba4fe29b1711ce83e6e86f1f322b683db0e2424",
       "parts": 1
     },
     {
       "path": "docs/session-handoff.md",
-      "sha256": "c26dc66eb157808a1f12004ffad146f8edb88440c42a264ed339653c9886986b",
+      "sha256": "0e84082db5d4d989e00f95eba801c767d1b52cf73cc8667b74d0780b77f2443d",
       "parts": 5
     },
     {
@@ -279,62 +260,62 @@
     },
     {
       "path": "docs/management-and-discovery.md",
-      "sha256": "7e3c89f4434fdca79190319d95d1169236f2e45615e9338e3a24034717497800",
+      "sha256": "8a7304fb284f1f86aa9bebe0f4d8067b04e2d50912b6ddcc1750744559e51970",
       "parts": 2
     },
     {
       "path": "docs/credential-lifecycle.md",
-      "sha256": "12fb8cbc519f3f6d5bfd57bcef99d4da4c9fa2e707772d275e9c2dce53b14a92",
+      "sha256": "54bef36581229293d61eaf956a1aa993c8a7b2e8a68c723bf3f1e593a52650dc",
       "parts": 2
     },
     {
       "path": "docs/implementation-plan.md",
-      "sha256": "2809520c427d1279aef53b6647e158aaf9287bb563cd61214a4a4f456ed0fb82",
+      "sha256": "15a81f7c34c6cbb18a20984cec4b385560c6f5c5992027dd75f584e676787b11",
       "parts": 3
     },
     {
       "path": "docs/integration-testing.md",
-      "sha256": "7172454bc330f8aed2e2f29ccf51876f790834f11c14bee8902fa342afc028a2",
+      "sha256": "edececc90609797c85617f57041d510e72136ce4b4c112b20a3f0d1181c2bfff",
       "parts": 1
     },
     {
       "path": "docs/managed-key-service.md",
-      "sha256": "f603e6592c28f5f4fd196118a5eb75cef34196a54db44761ec0a5ad1cd823c94",
+      "sha256": "af992ce756d63c7683f4f87cd8f1cbcf87446b9958170483b09e56f49b262930",
       "parts": 6
     },
     {
       "path": "docs/operational-configuration.md",
-      "sha256": "c64abd6236f65ffbbd65edcf144c56741b3d5d39666dd16355e62b3fc0ef8169",
+      "sha256": "0bdddfb30675ecd121116e3722cd7c09ee82d21fc51d1054d6699939cb983608",
       "parts": 1
     },
     {
       "path": "docs/configuration-governance.md",
-      "sha256": "4f1323b9f9dc524b6083d20d0e5157c3ed931c51d6080a2eb973089c015ca8b1",
+      "sha256": "1d6c6c84e6010334972e7289b04ba99989f94542a256defe9b3f849228b19343",
       "parts": 2
     },
     {
       "path": "docs/platform-support.md",
-      "sha256": "35fd8a03f66ed86b5e5aa761b939fff85f05f32836041972825450e4f67457c8",
+      "sha256": "76c84a84badeef36f62341498d6d8e998027f346d343f14e833b4860450533f0",
       "parts": 1
     },
     {
       "path": "docs/runtime-boundaries.md",
-      "sha256": "23ae9a4ae48fad8132fb7406e7946a0594e721f923f73b4f75365dd0d116686e",
+      "sha256": "115d8166c58b6293693ddf5eff0aa1ad56af231ba1a7e6501f5f4b5568a9da64",
       "parts": 1
     },
     {
       "path": "docs/qualification.md",
-      "sha256": "9e60a79c02aa8a44b5d814e0a8dfcd72fbc7388efd5f367aa55aeeb25244082b",
+      "sha256": "a0db21f87d6551a16d79cbe3a589a11916f6e31e5c05a08910755bfd143307cc",
       "parts": 6
     },
     {
       "path": "docs/verification.md",
-      "sha256": "053610c4fd2d7dea8f99b51bced83b8496f0942c56537221b728e29697c24902",
+      "sha256": "8792c07bf5cb4f587f783f50ac37560ca5173ef3fad2e5dfccfbd6b9fa98c3e0",
       "parts": 1
     },
     {
       "path": "RELEASE.md",
-      "sha256": "e22dd873320d5d44be561665cb26828b226ff933905ab8d89620cdd03054c99f",
+      "sha256": "96b4f9d5b999f31ba98ac20688570c14d95cf90ff9473591b50a40a15b4fef3f",
       "parts": 4
     }
   ],
@@ -630,8 +611,8 @@
     },
     {
       "document": "docs/agent-onboarding.md",
-      "target": "../integrations/skills/cquay/",
-      "fallback": "https://github.com/maldous/CircularQuay/tree/feature%2Finitial-implementation/integrations/skills/cquay"
+      "target": "../integrations/skills/cq/",
+      "fallback": "https://github.com/maldous/CircularQuay/tree/feature%2Finitial-implementation/integrations/skills/cq"
     },
     {
       "document": "docs/agent-onboarding.md",
@@ -660,13 +641,13 @@
     },
     {
       "document": "docs/agent-integrations.md",
-      "target": "../integrations/skills/cquay/SKILL.md",
-      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/integrations/skills/cquay/SKILL.md"
+      "target": "../integrations/skills/cq/SKILL.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/integrations/skills/cq/SKILL.md"
     },
     {
       "document": "docs/agent-integrations.md",
-      "target": "../integrations/skills/cquay/agents/openai.yaml",
-      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/integrations/skills/cquay/agents/openai.yaml"
+      "target": "../integrations/skills/cq/agents/openai.yaml",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/integrations/skills/cq/agents/openai.yaml"
     },
     {
       "document": "docs/composition-reference.md",
@@ -727,8 +708,8 @@
     },
     {
       "path": "explore-content/code-of-conduct.js",
-      "sha256": "b6eafc0d972af65de681e4b8fa80d8d76a42dcf3681072d9f3c501bd0c627013",
-      "bytes": 1389
+      "sha256": "076b4ad90b00bc551d031e994f3985d303a5f8aa1b552fb8db469def5c44934d",
+      "bytes": 1399
     },
     {
       "path": "explore-content/contributing.js",
@@ -737,8 +718,8 @@
     },
     {
       "path": "explore-content/docs-administration-security.js",
-      "sha256": "bc95ce0103050f18c7bf99e341b1e73f7b09e56f4562fcbf54df29c713847fdb",
-      "bytes": 29199
+      "sha256": "b3130bb8ff659674ae7c47d4878ee035b18d62a40fd37b125beeb59563d3921b",
+      "bytes": 29229
     },
     {
       "path": "explore-content/docs-adr-0001-language-and-assurance.js",
@@ -747,18 +728,18 @@
     },
     {
       "path": "explore-content/docs-agent-integrations.js",
-      "sha256": "d8c803a838fdcf6873ca0605c6c65239f2c487515581f4c9691338d6d3c8a0ad",
-      "bytes": 19333
+      "sha256": "f8ab104d425d7c8cb3d6f916d79ad1d290fcfcb51f533b453535d8892c977e37",
+      "bytes": 19007
     },
     {
       "path": "explore-content/docs-agent-onboarding.js",
-      "sha256": "c0a397d5e36f461f7a1424096a2932b226d6770779e27395ec0a6b049317bc29",
-      "bytes": 34751
+      "sha256": "9409d998b4f5e2ad021602e7fb363075b5924e4089cb4ad83fa8b1e29737ec66",
+      "bytes": 34550
     },
     {
       "path": "explore-content/docs-architecture.js",
-      "sha256": "ce2688b416e4ddf3d8247bbe9408e056cf7777453d528312d5d03d782ef030bf",
-      "bytes": 9132
+      "sha256": "b67c87782dec48f1735cded76f1a24b28aa0171931419d19ae602c420d23cdae",
+      "bytes": 9142
     },
     {
       "path": "explore-content/docs-assets-readme.js",
@@ -772,88 +753,88 @@
     },
     {
       "path": "explore-content/docs-commands.js",
-      "sha256": "2c2c182d90ab5ae38d35da7dfed352237107030031fb8065c143f1e6ea15657e",
-      "bytes": 17236
+      "sha256": "f3bb6de61bb3f5c05c5f0b6af9462f535a210c9ffad12b4ce7eecf4d113030f1",
+      "bytes": 17182
     },
     {
       "path": "explore-content/docs-comparison.js",
-      "sha256": "f0692b5ab4f9483824ccd79d2eb57742d1b981bd778201951e37aab5dbfed571",
-      "bytes": 12701
+      "sha256": "7fa7e256b5a0e437677bf9a94a4c44adeda6ee7a6de012a4b1682ce5202fd6cd",
+      "bytes": 12801
     },
     {
       "path": "explore-content/docs-composition-reference.js",
-      "sha256": "543259ee7af3aa7fdfff4aaf6a1fa68e4ff4662c8ca0ed4f6245a627e75ed44f",
-      "bytes": 9124
+      "sha256": "e5187dc252ec56eb08d48330cb9ea16ee4dcdeaf5490ff9c13cabc6eb853831c",
+      "bytes": 9134
     },
     {
       "path": "explore-content/docs-configuration-governance.js",
-      "sha256": "5ddc02bbd1904f1a5bd370f002055c1ad21309d602b99e0cb8ddf78c51a8b6db",
-      "bytes": 26285
+      "sha256": "e2e55b491398f95a218164b4acf54864f02562d5a1e469a8ac52a5e47a44a4bf",
+      "bytes": 26335
     },
     {
       "path": "explore-content/docs-configuration-repositories.js",
-      "sha256": "6dc109ec47f9ff994ce51975c32eb7a1e9dbec39be8dd89503303d247d17ddb3",
-      "bytes": 16961
+      "sha256": "844fc4ede2e1214b2675a231080c89085a302b1038664493b1f46f456d24a872",
+      "bytes": 16917
     },
     {
       "path": "explore-content/docs-configuration.js",
-      "sha256": "1bbc58abbf7c200514d70866c93ea4c55f514dc1aaf98076073711da603e7df8",
-      "bytes": 51217
+      "sha256": "1555697e600d6b13bdd69126fdb9e8b9b32e89c1e438135058bc0abdd159bc54",
+      "bytes": 51209
     },
     {
       "path": "explore-content/docs-credential-boundaries.js",
-      "sha256": "7d9ce4dc7716d9e2ac850a1f13e7531eebd8b08342495ba4e7d1af3626a427ef",
-      "bytes": 29181
+      "sha256": "4164295e3d0be907252b0b5762fcda6ba3e5c598572942e28b1c1c1a8f7c85bb",
+      "bytes": 29216
     },
     {
       "path": "explore-content/docs-credential-lifecycle.js",
-      "sha256": "06ccc8eb80a5aac5ee82593a39212d6b8d060892102a1dd25b4967f53adbe2d8",
-      "bytes": 22055
+      "sha256": "fb6419b8448e4dbdcd6d0cae3d85fda87c098c8556562e11aa1fc8ece29278bd",
+      "bytes": 22075
     },
     {
       "path": "explore-content/docs-enterprise-integration.js",
-      "sha256": "092a6dd2b7e49a4c47c2ffd5d4bcc5c7b413ce7d5b3f9a9750e588beae5c641d",
-      "bytes": 30715
+      "sha256": "09021883975724f51a6897ef7cd88ce31098eb5ad729f0153300121d7f80b17b",
+      "bytes": 30822
     },
     {
       "path": "explore-content/docs-getting-started.js",
-      "sha256": "04e4942e83b68cd628eb3f5757bac74e84d1f484fc256e0293ddd2740311ac35",
-      "bytes": 9872
+      "sha256": "36b152b707d773c0159c151d5aa4a3f13e5e6143bfbb1c40bf79f7f2b8153175",
+      "bytes": 9855
     },
     {
       "path": "explore-content/docs-hosted-identity.js",
-      "sha256": "e11fbeb0606875fa6b85b1f63e03b841e0fbe2cd339ed3dd3f93fa5b82eaabf8",
-      "bytes": 16066
+      "sha256": "3394c17a59032cbf5e1345d7da0104ba0e06f1aa59219d7d0f235e71ca026736",
+      "bytes": 16166
     },
     {
       "path": "explore-content/docs-identity-and-expiry.js",
-      "sha256": "e875dd78f1d6bf0f5c1359f4dc3ee63041d6b1aad019c648013509e9474b8854",
-      "bytes": 10712
+      "sha256": "a94fbd0d0ade6bc68362ba2890948e1f4b76a4a5bdebe4e6e9ccd2415764c1dd",
+      "bytes": 10822
     },
     {
       "path": "explore-content/docs-implementation-plan.js",
-      "sha256": "c798ee542e8e26ea68a7f54dda3c86f009cf3bc56472998fab9892924693decb",
-      "bytes": 53921
+      "sha256": "c5bc2c788a3871d414aa7024ae4ac9ea7be9a12ac083d9e6d33d10b2302eb958",
+      "bytes": 53558
     },
     {
       "path": "explore-content/docs-integration-testing.js",
-      "sha256": "496965f71423473b251ebf994404caa5f0c699af6af49693ed484e83c94ae00a",
-      "bytes": 23173
+      "sha256": "ea403c215aa05601fcdc7c0496efa300c9691a27310f60362febd3e73fdf797f",
+      "bytes": 22935
     },
     {
       "path": "explore-content/docs-integrations-cloud-provider-validation.js",
-      "sha256": "91892853882e6ff2e217628a9ea55e79a38abd81dcb9e879b2d5e732b343c0ff",
-      "bytes": 21054
+      "sha256": "8af5aa154656f458aab20a510d52de4e9c9c3dd0e3ea727ec69dd2d5604a4270",
+      "bytes": 21104
     },
     {
       "path": "explore-content/docs-integrations-compatibility-gateway.js",
-      "sha256": "b7b6055c80101280d4e334d7a3e7ac1f333d086b5a9ec59fe63685bab7341da2",
-      "bytes": 8950
+      "sha256": "de2b9ccce7ae3d36730d4656662f61e3820e7222b402b7b1d8273230bab9c499",
+      "bytes": 9020
     },
     {
       "path": "explore-content/docs-integrations-identity-and-provider-fixtures.js",
-      "sha256": "e11c39b48cc670c9c8fab04bea3d549a242f5697ffc7e62982b8993f624db34f",
-      "bytes": 14072
+      "sha256": "d7d4af7859514c0869fd22a110c2fce55f2f3944ba6cbe3b32e7c4acce2f52a5",
+      "bytes": 14162
     },
     {
       "path": "explore-content/docs-integrations-supply-chain.js",
@@ -862,28 +843,28 @@
     },
     {
       "path": "explore-content/docs-integrations.js",
-      "sha256": "6046f87482e5574b614f6b99428e7496f6667e7e990b6afa0bd2a859da98e083",
-      "bytes": 26955
+      "sha256": "cee1267a4ee2141013fab4267563556c5a7d635357b139df3f74403d8bf35f1e",
+      "bytes": 27115
     },
     {
       "path": "explore-content/docs-managed-key-service.js",
-      "sha256": "8fa1bb05f0dc5d32b50f8998d8a6694ea309eb816fa4c2b3fe826d0520363a98",
-      "bytes": 118179
+      "sha256": "dfecf32a304b9deebdce5c026011c72da744067ca254562eb40e1589b332289f",
+      "bytes": 117953
     },
     {
       "path": "explore-content/docs-management-and-discovery.js",
-      "sha256": "a3586b623da4c237cdec891ea7b9e875b70bb58433226c657bbddc18b87b88f7",
-      "bytes": 32927
+      "sha256": "e69749965793b5b1d9f382f4e8c69f72c56b5b9b12408f3d382f3eb9cdaf75ef",
+      "bytes": 32745
     },
     {
       "path": "explore-content/docs-operational-configuration.js",
-      "sha256": "870f29db09e91df145cdd58bab7b7c20e77a9bc8240abd3c10826bd95de7f5b9",
-      "bytes": 10710
+      "sha256": "17bfa742f7c2505112fa9c8164bb72a830f09886cfc9b75e4bd201195ba5f3b5",
+      "bytes": 10725
     },
     {
       "path": "explore-content/docs-operators-incident-response.js",
-      "sha256": "29c113a81a3a1dbb2240aaf6ee1a5418bd7d3e6e5b6367dfcd80659cc804f10d",
-      "bytes": 4872
+      "sha256": "429d49bc134d13281cfa96ab39d420669e12be3304f90649e1e44566c70fc75c",
+      "bytes": 4887
     },
     {
       "path": "explore-content/docs-operators-installation.js",
@@ -892,83 +873,83 @@
     },
     {
       "path": "explore-content/docs-operators-mcp.js",
-      "sha256": "b348f1edea4a3fc68d7d8df6247d96b2a0f7f634dbff57ea21f9274b6b3bb726",
-      "bytes": 11629
+      "sha256": "bfee0ec8bda0e8a48c3a75029f4252c405702bd0dd90a5fa383cf3f221eb261c",
+      "bytes": 11649
     },
     {
       "path": "explore-content/docs-operators-providers.js",
-      "sha256": "d48afcaf88dba75d2aa205d4d7f5d33471a3244626f521e5dce15fb1c9ab13f1",
-      "bytes": 6996
+      "sha256": "cc766957386a6f2f1299a8f1c3c7a794bda5f20e7e37661eddcb3737761cf8ec",
+      "bytes": 7006
     },
     {
       "path": "explore-content/docs-operators-recovery.js",
-      "sha256": "a28628d993930a04fa2f63a50d162fab68c76524b1eaea70bd4df6bc78aa7d6b",
-      "bytes": 5872
+      "sha256": "caa7c53ccbd510e22d8a4e51c352bf24e69dfeb00d8f568361b4a6f29053ccf5",
+      "bytes": 5882
     },
     {
       "path": "explore-content/docs-platform-support.js",
-      "sha256": "8dded5cb9f9853d3d3d201fbd0e640df99784fb9d3cd6e498699f4b80116cdaa",
-      "bytes": 3995
+      "sha256": "906068d70e5259e056ac2cd042d3fd6b71de4941a9bf5a0915a264b141dcfa96",
+      "bytes": 4005
     },
     {
       "path": "explore-content/docs-product-guide.js",
-      "sha256": "01303049fd3d345473074869ab659797ecb3fe8a4f4f6a1bd23dc0c534db1552",
-      "bytes": 19511
+      "sha256": "437079c1f270a70c45d7e22a3cb2bb92ff20c03eac16a279a4bcfe2ab0ed10dd",
+      "bytes": 19705
     },
     {
       "path": "explore-content/docs-providers.js",
-      "sha256": "f40d2141f18b29dabbf93bfb7335a1785f3b8487cca1a0021936bb337d350f65",
-      "bytes": 5546
+      "sha256": "2f8d48ebf89c81c22bf75d72baa1efcc4ad2d910dbd308f42de0696476ae0ada",
+      "bytes": 5566
     },
     {
       "path": "explore-content/docs-qualification.js",
-      "sha256": "f8a6286231fb554bdc8066c225af3719a4a8aeff725bfdcc018187653ff22c82",
-      "bytes": 151301
+      "sha256": "2efb5d263e4b57ec99e758f1040eb0858433fee277dac28baffffae5d78b4ab6",
+      "bytes": 151339
     },
     {
       "path": "explore-content/docs-readme.js",
-      "sha256": "2235e8382dba81e628422a8ccebf0860a8b70d85095eaea0adac88913b19ad82",
-      "bytes": 7123
+      "sha256": "35d821ce06a2af700fce60deec520d9edead6af410a3b3368e7a7c2334f122b2",
+      "bytes": 7183
     },
     {
       "path": "explore-content/docs-runtime-boundaries.js",
-      "sha256": "50c9c46c85d0d0fdd5ebd308057499d6336a9f893ef5ca1e87eacf0164d261ce",
-      "bytes": 4609
+      "sha256": "3cf18c280d24118e7b81e11ce9b265c1861af5b4d606fa3510b5db793d69f9c4",
+      "bytes": 4639
     },
     {
       "path": "explore-content/docs-sdks.js",
-      "sha256": "38c2e1ff30eb9abca4ffb8fdc6e5dac56648085b311d9efed6b6c3f00fa97b39",
-      "bytes": 16052
+      "sha256": "1e75c90bba0010386b9bc9cab519fa07ad2c92fd4ed00e32f908eb0cbbf338f6",
+      "bytes": 15867
     },
     {
       "path": "explore-content/docs-security-profiles.js",
-      "sha256": "bcc1b0c8991e1d76b923f7ec4172ffa86baf1012473eff4826901a6ed01e5bdb",
-      "bytes": 37439
+      "sha256": "162f474ebf98e8fce1170a3bf3b359c477abc9fe38df0a57bd4d05636f89914b",
+      "bytes": 37459
     },
     {
       "path": "explore-content/docs-session-handoff.js",
-      "sha256": "692e63040a276bdda83f1255b86f7d11270f73c65fdd63c98795784fc4b95d4b",
-      "bytes": 178582
+      "sha256": "d8c75e8d87b2f54b76a024287d7c552c726240183a280d8ff3eedb86866f5ee1",
+      "bytes": 178633
     },
     {
       "path": "explore-content/docs-threat-model.js",
-      "sha256": "55671307cc72bd99f881f066f59f0124309e9293c38158464b0a1cc64b5fea15",
-      "bytes": 15066
+      "sha256": "e23024dc65612c794c0fafed728dfd72f184a20df0584402c257663fef2e0548",
+      "bytes": 15076
     },
     {
       "path": "explore-content/docs-verification.js",
-      "sha256": "665eacc326201ee83d454661777c7be5f546f98c92d1e92bd7d78a876c32dd1f",
-      "bytes": 5844
+      "sha256": "b5635b9ff6df514298635b6d1ae75575b21562b6719c448d8107616a79a21c95",
+      "bytes": 5854
     },
     {
       "path": "explore-content/readme.js",
-      "sha256": "63db70e9708c8fc7c315df353a0a53a4524d233e0299efe93b48f3532ff75526",
-      "bytes": 15751
+      "sha256": "37d950521c6630780b8a97e82f419c0e35a8e3a8437e72befcd400d3860e0b80",
+      "bytes": 15740
     },
     {
       "path": "explore-content/release.js",
-      "sha256": "4d1007754f027d9ba3bb832c54dedde841b8b1b54edcf67aedcce6a08e72549e",
-      "bytes": 87570
+      "sha256": "59b13ec447f31ea2f31b8d2030e7b373ec0722e65c5140e195a25acc9b59b834",
+      "bytes": 87764
     },
     {
       "path": "explore-content/sdk-conformance-readme.js",
@@ -977,33 +958,33 @@
     },
     {
       "path": "explore-content/sdk-go-readme.js",
-      "sha256": "59091585d909af055c7967d5211704c1c9ee3d64868aa25b09fabee73606d059",
-      "bytes": 5673
+      "sha256": "5b355642778dd69958f0439ff7e014ecd376083bf291ceb4133a2e63945925a6",
+      "bytes": 5697
     },
     {
       "path": "explore-content/sdk-python-readme.js",
-      "sha256": "5e28ef269c8f7603462f32f783046239af0b99986a0b5846f08f11f393574593",
-      "bytes": 9222
+      "sha256": "d6a21854d5578fca9acf8ea855dc3b571447487c72c2111fe6c9ed678bc20ed7",
+      "bytes": 9187
     },
     {
       "path": "explore-content/sdk-typescript-readme.js",
-      "sha256": "f78a760e661fcf09d15fb643181b4f7de9fd2c5cc8eab2684bf4570a05465342",
-      "bytes": 6075
+      "sha256": "a5d7ba3ad7c98dcefcbb1ff20d806753ba736ee7b125c1153b3f2afc907414e6",
+      "bytes": 6107
     },
     {
       "path": "explore-content/security.js",
-      "sha256": "890ca7f64f37d847c850e4d2fec66f3e229ca1e66027af094830734b5c865667",
-      "bytes": 6812
+      "sha256": "382d4e6b5521084d69c87d3f4e508f4097819995c602bf971fcf8265410b8ede",
+      "bytes": 6822
     },
     {
       "path": "explore-content/support.js",
-      "sha256": "1b95528edbcd83d952bf75106508915eb08b8c5959c2aeb6e0ceefc94cd83b6b",
-      "bytes": 4146
+      "sha256": "f7e82525d777ae0b1e73b2e006c219a9510812ca098122a882e5384de9496ff7",
+      "bytes": 4168
     },
     {
       "path": "explore-manifest.js",
-      "sha256": "1bc380ed7533825c8fdba42cd4140b18894a0e7105a8279027195b3a5f701850",
-      "bytes": 65227
+      "sha256": "3f74ce76744227de08d54ad675346c9b87c2fb8273c424e34c5e18258400c2cf",
+      "bytes": 64953
     }
   ],
   "generatedFiles": [

@@ -1,7 +1,7 @@
 # Credential and identity boundaries
 
 This document defines credential, identity and custody boundaries for the v1
-product. Artifact and platform qualification are recorded separately. CQ maps an already-authorized
+product. Artifact and platform qualification are recorded separately. CircularQuay maps an already-authorized
 identity to exact reads and deliveries. It does not become the identity
 provider, credential broker, vault, mobile application, or hosted connection
 manager.
@@ -64,10 +64,10 @@ second table under the same all-powerful credential is not such a boundary.
 This host-internal custody choice is separate from an explicitly selected
 [user-profile KMS](managed-key-service.md#per-profile-age-and-kms-custody), which
 is now a required hosted capability with dual association provisioning in the
-authorized product flow. It does not authorize live provider setup in this task.
-The user now explicitly authorizes an initial SOFTWARE crypto service using
-protected host secrets outside DB plus vetted crypto and random profile DEKs,
-only within existing paid Cloudflare/Netlify resources. Secret storage alone is
+product flow. This design does not establish a configured provider.
+The launch custody profile uses a software crypto service with protected host
+secrets outside the database, vetted crypto and random per-profile DEKs within
+an existing paid Cloudflare or Netlify allocation. Secret storage alone is
 not KMS. Runtime/shared KEK compromise can expose all reachable DEKs: this launch
 tradeoff does not meet independent non-exportable/HSM custody unchanged. No
 external paid KMS is required at launch; stronger profiles remain unavailable
@@ -128,7 +128,7 @@ driver/pool. RLS can contain query mistakes; a compromised application credentia
 that can set arbitrary trusted context can still impersonate tenants. Scope
 credentials/stores or use independently enforced identity where that threat must
 be contained. No PostgreSQL version, RLS privilege or pooled-context behavior has
-been verified for a deployed CQ target.
+been verified for a deployed CircularQuay target.
 
 ### Compromise model and residual risk
 
@@ -195,7 +195,7 @@ profile when the declared machine identity is unavailable.
 The 1Password profile selects the narrow service-account CLI form in
 [1Password's scripting guidance](https://developer.1password.com/docs/cli/secrets-scripts/).
 It does **not** support 1Password Environments even though that product can be
-used by `op run` outside CQ.
+used by `op run` outside CircularQuay.
 
 Bitwarden machine accounts are provider-managed non-human identities scoped to
 projects/secrets and have provider event logs; their access token remains
@@ -215,7 +215,7 @@ provider identity and exact resource mapping. A production association is not
 inherited from development because names happen to match. The provider remains
 authoritative for account membership, consent, token issuance, revocation, MFA,
 hardware authenticators, audit retention, and provider-side rotation.
-CQ receives only the configured identity path and never stores a
+CircularQuay receives only the configured identity path and never stores a
 user's provider password, browser session, recovery code, or OAuth refresh
 token in policy.
 
@@ -241,7 +241,7 @@ than file permissions. See [Kubernetes secret good practices](https://kubernetes
 
 ## Lifecycle and audit boundary
 
-CQ validates expiry and preserves lease/renewable metadata. It does
+CircularQuay validates expiry and preserves lease/renewable metadata. It does
 not snapshot, publish, or disclose a leased/renewable value through MCP, and
 it rejects expired values. It does not renew a lease, create dynamic
 credentials, rotate a provider secret, revoke a provider identity, or run a

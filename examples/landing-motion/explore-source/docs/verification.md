@@ -49,4 +49,4 @@ actual branch status and does not assert a security or release pass.
 
 See [integration testing](integration-testing.md) for disposable provider validation and [security reporting](../SECURITY.md) for private vulnerability handling.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

@@ -1,6 +1,6 @@
-# cquay-sdk
+# cq-sdk
 
-`cquay-sdk` is the official Python v1 client contract for CQ.  It
+`cq-sdk` is the official Python v1 client contract for CircularQuay.  It
 offers two deliberately separate adapters:
 
 - `CircularQuayClient` speaks to an already connected, caller-owned official
@@ -12,7 +12,7 @@ offers two deliberately separate adapters:
   surface: init, configuration CRUD, doctor, plan, status, run, snapshot,
   apply, sync, bootstrap, flow, version and providers.
 
-The package distribution name is `cquay-sdk` and it imports as `cquay`.
+The package distribution name is `cq-sdk` and it imports as `cq`.
 
 ## Install
 
@@ -21,8 +21,8 @@ optional because applications own their selected official MCP transport and its
 authentication lifecycle.
 
 ```sh
-python -m pip install 'cquay-sdk==1.0.0'
-python -m pip install 'cquay-sdk[mcp]==1.0.0'
+python -m pip install 'cq-sdk==1.0.0'
+python -m pip install 'cq-sdk[mcp]==1.0.0'
 ```
 
 Use a pinned public registry, an allowlisted index URL, and the release's
@@ -42,15 +42,15 @@ import asyncio
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from cquay import CircularQuayClient, MCPClientSessionAdapter
+from cq import CircularQuayClient, MCPClientSessionAdapter
 
 
 async def main() -> None:
     params = StdioServerParameters(
         command="/absolute/operator-verified/cq",
         args=[
-            "--config", "/absolute/protected/cquay.json",
-            "--state-dir", "/absolute/protected/cquay-state",
+            "--config", "/absolute/protected/cq.json",
+            "--state-dir", "/absolute/protected/cq-state",
             "mcp", "serve", "--transport", "stdio",
         ],
         env={},  # explicit minimal environment; never inherit provider credentials
@@ -58,10 +58,10 @@ async def main() -> None:
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            cquay = CircularQuayClient(MCPClientSessionAdapter(session))
-            tools = await cquay.discover_tools()
+            cq = CircularQuayClient(MCPClientSessionAdapter(session))
+            tools = await cq.discover_tools()
             if tools.includes("list_workloads"):
-                print(await cquay.list_workloads())
+                print(await cq.list_workloads())
 
 
 asyncio.run(main())
@@ -77,7 +77,7 @@ to a secret provider or treats an IdP login as provider authorization.
 interface makes the plaintext boundary visible in review:
 
 ```python
-disclosure = await cquay.disclosures().read_secret("payments", "PAYMENT_API_KEY")
+disclosure = await cq.disclosures().read_secret("payments", "PAYMENT_API_KEY")
 deliver_to_the_authorized_consumer(disclosure.reveal())
 audit_metadata = disclosure.redacted_dict()  # never serializes plaintext
 ```
@@ -102,23 +102,23 @@ passes child standard streams through without capture because child output can
 contain values.
 
 ```python
-from cquay import LocalCLIClient, RunStdio
+from cq import LocalCLIClient, RunStdio
 
-cquay = LocalCLIClient(
+cq = LocalCLIClient(
     executable="/absolute/operator-verified/cq",
     expected_sha256="<64 lowercase hexadecimal characters from the release verification route>",
-    config="/absolute/protected/cquay.json",
-    state_dir="/absolute/protected/cquay-state",
+    config="/absolute/protected/cq.json",
+    state_dir="/absolute/protected/cq-state",
     environment={},
 )
 
-review = await cquay.config_get("/workloads/payments")
-await cquay.config_set(
+review = await cq.config_get("/workloads/payments")
+await cq.config_set(
     "/workloads/payments/environment",
     {"APP_MODE": "production"},
     expect_sha256=review["sha256"],
 )
-await cquay.run("payments", stdio=RunStdio.INHERIT)
+await cq.run("payments", stdio=RunStdio.INHERIT)
 ```
 
 The optional `environment` is explicit and starts empty.  The SDK never copies

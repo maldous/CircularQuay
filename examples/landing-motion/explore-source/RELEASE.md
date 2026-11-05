@@ -12,15 +12,15 @@ All commands use a chosen immutable version. `v1.0.0` below is an example until 
 | Runtime command | `github.com/maldous/CircularQuay/cmd/cq` |
 | Audit command | `github.com/maldous/CircularQuay/cmd/cq-audit` |
 | Go SDK package | `github.com/maldous/CircularQuay/sdk/go` (root module) |
-| TypeScript SDK | npm `@maldous/cquay-sdk` |
-| Python SDK | PyPI `cquay-sdk`, import `cquay` |
+| TypeScript SDK | npm `@maldous/cq-sdk` |
+| Python SDK | PyPI `cq-sdk`, import `cq` |
 | Native executables | `cq`, `cq-audit` (`.exe` on Windows) |
-| Public OCI package | `ghcr.io/maldous/circularquay` |
-| Official MCP Registry name | `io.github.maldous/circularquay` |
+| Public OCI package | `ghcr.io/maldous/cq` |
+| Official MCP Registry name | `io.github.maldous/cq` |
 
 Record application/tag, policy schema, runtime MCP protocol, Registry descriptor schema, SDK, native artifacts, OCI digest, MCP bundles, skill/plugin package and audit-profile versions separately. A Registry schema date is not an MCP protocol version.
 
-Circular Quay is the long product name; CQ is the short name. Owned technical names use lowercase `cq`, including the native executables `cq` and `cq-audit` and release-asset prefix. Actual SDK package coordinates, configuration/state namespaces and the `cquay` operations skill retain their documented identities pending their own coordinated identity changes. These names do not provide an alternate CLI executable. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
+CircularQuay is the long product name; CircularQuay is the short name. Owned technical names use lowercase `cq`, including the native executables `cq` and `cq-audit` and release-asset prefix. Actual SDK package coordinates, configuration/state namespaces and the `cq` operations skill retain their documented identities pending their own coordinated identity changes. These names do not provide an alternate CLI executable. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
 
 ### Release and qualification records
 
@@ -91,7 +91,7 @@ Each release must provide:
 
 - A title such as `Circular Quay v1.0.0-rc.1`, maturity label, exact source commit, release date, changelog and links to reviewed changes.
 - A platform/architecture table with direct links to each qualified asset, its size, verification instructions and required external tools. Never label a cross-build as a native acceptance pass.
-- `cq_<version>_<os>_<arch>.tar.gz` for Linux/macOS and `.zip` for Windows. Each archive includes `cq`, `cq-audit`, the `cquay` skill, license, release/install instructions, security/support guidance and qualification matrix.
+- `cq_<version>_<os>_<arch>.tar.gz` for Linux/macOS and `.zip` for Windows. Each archive includes `cq`, `cq-audit`, the `cq` skill, license, release/install instructions, security/support guidance and qualification matrix.
 - `cq_<version>_checksums.txt`, authenticated provenance and a complete SBOM including shipped external executables. Publish offline verification inputs when supported. A checksum beside a download is not independent publisher authentication.
 - Source archive, exact toolchain/build inputs and audit evidence for the release commit. Record artifact digests and reproducibility scope.
 - Installation, upgrade, removal, migration and recovery directions; known limitations; compatibility changes; security-advisory links; and the community/private-support routes.
@@ -176,10 +176,10 @@ from a key-service interface or SOPS metadata parser alone.
 The [authorized launch profile](docs/security-profiles.md#authorized-launch-custody)
 uses software custody within the verified existing paid Cloudflare or Netlify
 allocation. It requires no paid external KMS or plan upgrade. Qualify the actual
-host's runtime/secret/database/identity entitlement and CQ-specific capacity
+host's runtime/secret/database/identity entitlement and CircularQuay-specific capacity
 before selection; a paid plan label alone does not establish included credits,
 database allowance, spare capacity or zero incremental cost. Do not change
-shared-account limits or pause unrelated applications to enforce CQ's budget.
+shared-account limits or pause unrelated applications to enforce CircularQuay's budget.
 Keep the runtime wrapping key outside the database, use independently random
 profile data keys and vetted authenticated encryption, and publish the shared
 runtime/KEK compromise boundary. A strict non-exportability/independent-custody
@@ -284,7 +284,7 @@ Each environment uses its own approved accounts, project registrations, grants
 and consent records. Independently review any reused integration for licensing,
 compatibility and the client/account/operator data-protection boundary.
 
-Before activating a service, record its CQ environment and surface,
+Before activating a service, record its CircularQuay environment and surface,
 purpose and data flow, accountable operator, actual existing entitlement and
 allowance, approved administrative route, protected configuration references,
 verification owner and cleanup/withdrawal procedure. Use separate development,
@@ -300,7 +300,7 @@ for the separately recorded cost/allowance assumptions. These supporting
 contracts do not move the main provisioning plan out of this document. Product
 prices, paid support, payment/CRM provider selection and actual allowances
 remain explicit decisions; operator hosting invoices are not customer billing.
-Register only the selected CQ-specific applications/projects through their
+Register only the selected CircularQuay-specific applications/projects through their
 verified owners, with separately authorized setup and environment access.
 
 Use explicit per-service states: **pending applicability**, **not applicable
@@ -311,7 +311,7 @@ state/evidence in the candidate's existing qualification and operator records,
 not credential values or account identifiers in this public document.
 
 The managed service uses `circularquay.aldous.info` and `cq.aldous.info` only
-after an authorized CQ hosting target is identified and independently verified.
+after an authorized CircularQuay hosting target is identified and independently verified.
 Register both names on that same target before applying the provider's exact
 DNS requirements. Keep account, zone and site identifiers in protected operator
 records. Do not create placeholder or dangling DNS records, infer a site from
@@ -320,14 +320,14 @@ service records. Domain preparation does not activate a managed service or
 expose a local developer preview. Record actual target, TLS, origin, issuer,
 redirect and DNS readbacks in the existing qualification record before use.
 
-| Service/category | CQ-specific provisioning and applicability | Initial disposition until evidence exists |
+| Service/category | CircularQuay-specific provisioning and applicability | Initial disposition until evidence exists |
 | --- | --- | --- |
-| Sentry/technical diagnostics | Verify the CQ project/environment, protected destination reference, operator access and actual allowance. Choose browser/server event purposes separately, fixed release identity, sampling/retention, source-map access and redaction before sending. A filtered code-only server envelope does not establish a full browser SDK, replay or source-map setup. | Pending purpose, configuration and entitlement verification; no automatic replay, raw error/stack collection or private-context capture. |
-| iubenda/privacy consent | Verify the CQ site/policy registration, licensed policy languages and region/purpose settings. Optional collection defaults off; consent notices and controls must be accessible/localized and support withdrawal. | Pending CQ configuration and licensed policy coverage. An Arabic UI translation does not establish an Arabic legal policy or vendor support. |
-| AdSense/advertising | Decide suitability per surface and verify CQ site approval, slots, policy and the selected consent/TCF requirements before any load or placement. Secret/configuration/account/operator pages do not inherit advertising applicability from a public landing. | Pending explicit applicability/approval; mark unsuitable surfaces not applicable with rationale. No ads, charges or site approval are inferred. |
-| Zaraz/optional analytics | Verify a CQ-specific purpose and allowlisted coarse events, consent enforcement and actual platform allowance. No event properties containing user/context data or help/search queries. | Pending purpose and configuration; collection remains off. Do not add Google Analytics by inference. |
-| Support/transactional email or feedback | Select the actual approved CQ support route and, only where applicable, a separately qualified sender, verified-recipient policy, confirmation and uncertain-delivery reconciliation. Verify the selected native support or external feedback route; do not enable a second route from historical settings. | Pending product route/sender/entitlement; synthetic tickets are not delivered messages. No duplicate helpdesk, vendor signup or automatic diagnostic attachments. |
-| Cloudflare/Netlify application services | Verify the actual CQ project, issuer/app registration, environment bindings, database/storage custody, roles and included capacity. Hosting-account administration, application login and workload/key permission are distinct. | Pending actual project/issuer/entitlement evidence. Native publication targets and synthetic UI roles do not establish a connected client service. |
+| Sentry/technical diagnostics | Verify the CircularQuay project/environment, protected destination reference, operator access and actual allowance. Choose browser/server event purposes separately, fixed release identity, sampling/retention, source-map access and redaction before sending. A filtered code-only server envelope does not establish a full browser SDK, replay or source-map setup. | Pending purpose, configuration and entitlement verification; no automatic replay, raw error/stack collection or private-context capture. |
+| iubenda/privacy consent | Verify the CircularQuay site/policy registration, licensed policy languages and region/purpose settings. Optional collection defaults off; consent notices and controls must be accessible/localized and support withdrawal. | Pending CircularQuay configuration and licensed policy coverage. An Arabic UI translation does not establish an Arabic legal policy or vendor support. |
+| AdSense/advertising | Decide suitability per surface and verify CircularQuay site approval, slots, policy and the selected consent/TCF requirements before any load or placement. Secret/configuration/account/operator pages do not inherit advertising applicability from a public landing. | Pending explicit applicability/approval; mark unsuitable surfaces not applicable with rationale. No ads, charges or site approval are inferred. |
+| Zaraz/optional analytics | Verify a CircularQuay-specific purpose and allowlisted coarse events, consent enforcement and actual platform allowance. No event properties containing user/context data or help/search queries. | Pending purpose and configuration; collection remains off. Do not add Google Analytics by inference. |
+| Support/transactional email or feedback | Select the actual approved CircularQuay support route and, only where applicable, a separately qualified sender, verified-recipient policy, confirmation and uncertain-delivery reconciliation. Verify the selected native support or external feedback route; do not enable a second route from historical settings. | Pending product route/sender/entitlement; synthetic tickets are not delivered messages. No duplicate helpdesk, vendor signup or automatic diagnostic attachments. |
+| Cloudflare/Netlify application services | Verify the actual CircularQuay project, issuer/app registration, environment bindings, database/storage custody, roles and included capacity. Hosting-account administration, application login and workload/key permission are distinct. | Pending actual project/issuer/entitlement evidence. Native publication targets and synthetic UI roles do not establish a connected client service. |
 | Status/discovery and engineering services | Select applicable status/monitoring links and property verification. Provision the required engineering services with their own owners, protected CI identities and allowances. | Pending actual service evidence; a verification tag/status link is not monitoring acceptance. Historical scans do not qualify the selected candidate or waive required Sonar/CodeQL and other engineering gates. |
 | Browser/PWA/Android considerations | Identify actual shipped platform/package, permissions, offline/cache behavior, accessibility and vendor policy obligations. | Pending platform applicability; no native app or AdMob integration is implied by browser support. |
 
@@ -351,7 +351,7 @@ and MFA/recovery custody. Separate public routing settings from administrative
 credentials; public settings still need origin, shape and purpose validation.
 Provision only the services selected for that environment and surface:
 
-1. **Diagnostics:** select the CQ organization/project in Sentry and
+1. **Diagnostics:** select the CircularQuay organization/project in Sentry and
    obtain its routing configuration through the authorized owner. Set the
    environment, immutable release identity, allowance, retention, access and
    alert recipient. Review the pinned SDK's complete automatically collected
@@ -365,7 +365,7 @@ Provision only the services selected for that environment and surface:
    [data-filtering](https://github.com/getsentry/sentry-docs/blob/master/platform-includes/configuration/before-send/javascript.mdx)
    and [integration inventory](https://github.com/getsentry/sentry-docs/blob/master/platform-includes/configuration/integrations/javascript.mdx)
    for the actual SDK, not assumed defaults.
-2. **Privacy and consent:** register the selected CQ website/app in
+2. **Privacy and consent:** register the selected CircularQuay website/app in
    the approved iubenda account. Declare actual purposes/vendors and verify
    licensed policy languages, regional coverage and retention with the privacy
    owner. Configure notices and prior blocking in that site's Privacy Controls
@@ -391,7 +391,7 @@ Provision only the services selected for that environment and surface:
    contract; exclude page/query/configuration/user properties. Verify no tool
    loads before required consent and that withdrawal blocks later events.
    See [Zaraz consent setup](https://developers.cloudflare.com/zaraz/consent-management/enable-consent-management/).
-5. **Hosting and application identity:** provision the chosen CQ
+5. **Hosting and application identity:** provision the chosen CircularQuay
    project with isolated preview/production bindings, database/storage,
    approved domains/redirects/issuers and least-privilege deployment identities.
    Verify actual capacity, restore, tenant isolation and runtime secret access.
@@ -451,7 +451,7 @@ Prefer repository-scoped ephemeral Actions credentials with only the job permiss
 
 For every account, record purpose, owner action, official route, confirmed free tier/quota, least-privilege scope, verification, expiry and cleanup. Keep account identifiers and bootstrap values in protected local records, not this public file.
 
-Create an isolated `cquay-audit` project with fabricated allowed/denied resources. Use separate scoped test identities. Verify retrieval, denial, rotation and revocation. Audit claims require actual native events and retention evidence. Akeyless API-key authentication is documented for temporary/POC use, not a production recommendation.
+Create an isolated `cq-audit` project with fabricated allowed/denied resources. Use separate scoped test identities. Verify retrieval, denial, rotation and revocation. Audit claims require actual native events and retention evidence. Akeyless API-key authentication is documented for temporary/POC use, not a production recommendation.
 
 Stop if the free entitlement cannot be confirmed or billing/automatic conversion is required. Mark the connected test unqualified. Do not share a privileged identity to evade quotas. AWS/Azure/GCP and paid-provider live tests require a separately authorized existing account and budget; they are not core installation dependencies.
 
@@ -559,7 +559,7 @@ arguments, reports or support messages. Fork PRs receive no analysis credential.
 
 Configure and read back a dedicated
 [quality gate and profile](https://docs.sonarsource.com/sonarqube-cloud/standards/managing-quality-gates/introduction-to-quality-gates)
-with the unchanged CQ requirements: 100% owned coverage, zero
+with the unchanged CircularQuay requirements: 100% owned coverage, zero
 duplication, zero owned issues/hotspots/warnings/dispositions, and both complexity
 ceilings of 10. Retain overall-code assertions alongside PR new-code checks.
 Qualify every declared language version against the actual analyzer; scanner
@@ -605,7 +605,7 @@ and service activation. Preserve pending/not-applicable/blocked services in the
 existing evidence rather than reporting the whole baseline enabled.
 
 1. Bind the exact client/service artifact, configuration schema and release
-   identifier to the approved CQ-specific environment and protected settings.
+   identifier to the approved CircularQuay-specific environment and protected settings.
    Recheck current allowance, purpose, role/tenant boundaries and approved
    provider administrative route without exposing credentials in readback.
 2. Verify disabled/no-consent behavior by observing requests, scripts, frames,
@@ -654,7 +654,7 @@ existing evidence rather than reporting the whole baseline enabled.
    outcomes without automatic replay. Keep support delivery separate from an
    optional email-copy failure. Real outbound tests need their own authority.
 9. Rehearse disabling the selected service, withdrawing consent, revoking only
-   its CQ-specific grant/reference and restoring the last qualified client
+   its CircularQuay-specific grant/reference and restoring the last qualified client
    version/configuration. Preserve unrelated tenants and their grants. Record
    observed results, limitations and remaining owners in the candidate's
    existing qualification evidence before marking the service verified.
@@ -682,7 +682,7 @@ Do not publish a tag merely to test whether the code works. A public Go tag may 
 
 Use the pinned GoReleaser configuration. Stage native archives, installers, offline audit bundles, checksums, SBOMs and provenance before publishing an immutable release. Verify anonymous downloads and inspect exact archive contents.
 
-Publish the public image to `ghcr.io/maldous/circularquay`, linked to the source repository using `org.opencontainers.image.source`. Public packages are free under current GitHub terms; package visibility still needs verification. Prove an anonymous digest-pinned pull. Do not assume public repository visibility made the image public.
+Publish the public image to `ghcr.io/maldous/cq`, linked to the source repository using `org.opencontainers.image.source`. Public packages are free under current GitHub terms; package visibility still needs verification. Prove an anonymous digest-pinned pull. Do not assume public repository visibility made the image public.
 
 Keyless signing and release attestations should bind the expected repository/workflow. Signing, MCPB certificate trust and checksum verification are separate assurances. Document every required permission and remove temporary credentials after use.
 
@@ -739,7 +739,7 @@ The authorized registry owner completes these actions through each registry's
 normal authenticated account interface. Record account custody, MFA/recovery,
 package maintainers, protected release environment and expected repository
 identity without recording credentials. Confirm real ownership of `maldous`
-on GitHub, the npm `@maldous` scope, and the PyPI `cquay-sdk` project. Name
+on GitHub, the npm `@maldous` scope, and the PyPI `cq-sdk` project. Name
 availability alone is not ownership. Resolve any conflict before changing
 consumer instructions; never publish a misleading alternate namespace.
 
@@ -765,7 +765,7 @@ Do not create a broad token to bypass missing ownership. See
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
 
 For PyPI, configure an existing or pending trusted publisher for project
-`cquay-sdk`, GitHub owner `maldous`, repository `CircularQuay`, the reviewed
+`cq-sdk`, GitHub owner `maldous`, repository `CircularQuay`, the reviewed
 workflow filename and the protected PyPI environment. Configure TestPyPI
 separately with its own environment/publisher. Use the official pinned PyPA
 publishing action with OIDC and attestations enabled. It uploads previously
@@ -813,13 +813,13 @@ has actually been published and independently verified:
 
 ```sh
 go get github.com/maldous/CircularQuay/sdk/go@v1.0.0
-npm install --save-exact @maldous/cquay-sdk@1.0.0
-python -m pip install 'cquay-sdk==1.0.0'
+npm install --save-exact @maldous/cq-sdk@1.0.0
+python -m pip install 'cq-sdk==1.0.0'
 ```
 
 Verify `pkg.go.dev/github.com/maldous/CircularQuay/sdk/go@v1.0.0`,
-`npmjs.com/package/@maldous/cquay-sdk/v/1.0.0`, and
-`pypi.org/project/cquay-sdk/1.0.0/` against the release receipt. Production
+`npmjs.com/package/@maldous/cq-sdk/v/1.0.0`, and
+`pypi.org/project/cq-sdk/1.0.0/` against the release receipt. Production
 consumers use their approved package mirror/registry, dependency lock and
 hash/provenance policy. Language packages do not silently fetch or install a
 native executable. TypeScript/Python local adapters require a separately
@@ -846,12 +846,12 @@ route and issue a higher corrective version; cached copies cannot be recalled.
 
 ## 6. Publish MCP distribution
 
-The official MCP Registry hosts metadata, not executable packages. It currently supports OCI/MCPB and other ecosystems but not a native Go package type. CQ therefore uses its real native/OCI artifacts rather than a JavaScript/Python wrapper created solely for listing.
+The official MCP Registry hosts metadata, not executable packages. It currently supports OCI/MCPB and other ecosystems but not a native Go package type. CircularQuay therefore uses its real native/OCI artifacts rather than a JavaScript/Python wrapper created solely for listing.
 
 ### OCI-first Registry route
 
 1. Publish and independently verify the immutable public image.
-2. Include exact ownership metadata `io.modelcontextprotocol.server.name="io.github.maldous/circularquay"`.
+2. Include exact ownership metadata `io.modelcontextprotocol.server.name="io.github.maldous/cq"`.
 3. Generate `packaging/mcp/server.json` using the pinned official schema, independently from the runtime MCP protocol.
 4. Set exact namespace/version/repository, OCI digest, stdio transport and arguments equivalent to `mcp serve --transport stdio`.
 5. Include no operational endpoints, credentials, broad host mounts or undeclared grants.
@@ -906,7 +906,7 @@ product contract.
 
 ## 7. Skills and client-specific plugins
 
-The versioned Agent Skills package lives at `integrations/skills/cquay/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.
+The versioned Agent Skills package lives at `integrations/skills/cq/`. Validate `SKILL.md` metadata, references and actual prerequisites, then test installation/reload/removal in each claimed client. The standard does not establish one universal public skills index. Tagged repository/archive distribution is a valid route; host-specific marketplaces need their own qualification.
 
 Skill instructions cannot grant provider or MCP authority. Experimental `allowed-tools` metadata does not replace server authorization. No package should instruct an agent to solicit passwords, bypass scopes, dump environments or perform rotations by default.
 
@@ -920,7 +920,7 @@ selected transport; it contains no operational credentials or invented App ID.
 
 For any client plugin channel record its packaging schema, account/namespace requirements, supported interfaces, privacy disclosures, reviewer/sample-data route, positive/negative tests, update/removal flow and external eligibility.
 
-Current OpenAI public-plugin guidelines restrict processing authentication secrets and unofficial pass-through connectors. Public acceptance of CQ's full `read_secret` surface is not promised. A reduced wrapper is not automatically accepted either. Desktop-only submission has external eligibility requirements. Preserve direct/local MCP functionality, mark the public channel policy-gated, and do not hide capability to bypass review.
+Current OpenAI public-plugin guidelines restrict processing authentication secrets and unofficial pass-through connectors. Public acceptance of CircularQuay's full `read_secret` surface is not promised. A reduced wrapper is not automatically accepted either. Desktop-only submission has external eligibility requirements. Preserve direct/local MCP functionality, mark the public channel policy-gated, and do not hide capability to bypass review.
 
 References: <https://agentskills.io/specification>, <https://developers.openai.com/plugins/plugin-guidelines>, <https://developers.openai.com/plugins/deploy/desktop-only>.
 
@@ -934,10 +934,10 @@ Publication across native releases, Go proxies, OCI and Registry metadata is not
 - Registry logout removes local credentials, not necessarily server-side tokens; perform explicit revocation/expiry cleanup.
 - Remove test grants/accounts and private temporary files while retaining required evidence.
 - Do not roll back to revoked, expired or compromised configuration.
-- Disable/revoke optional client services under their CQ-specific consent,
+- Disable/revoke optional client services under their CircularQuay-specific consent,
   retention and credential boundaries. Remove only the approved project scripts,
   slots/settings and grants, verify network/storage behavior after withdrawal,
-  and retain required audit evidence. Withdraw only the selected CQ
+  and retain required audit evidence. Withdraw only the selected CircularQuay
   grant; disabling a UI control does not establish provider-side data deletion.
 
 If a credential enters a public asset or module, revoke/rotate at the issuer first. Tag deletion, retraction, descriptor withdrawal, or Git history rewriting does not make an exposed credential safe. Follow [incident response](docs/operators/incident-response.md).
@@ -950,7 +950,7 @@ Every remaining step needs a state, owner action, prerequisite, official route, 
 
 
 Commercial go-live additionally needs a source-bound readback for each required
-applicable service: selected CQ project/application, verified owner and current
+applicable service: selected CircularQuay project/application, verified owner and current
 entitlement, protected setting references, observed consent/redaction/CSP and
 post-deployment checks, withdrawal/recovery evidence and remaining limits.
 Required pending, blocked, failed or unverified capabilities block their

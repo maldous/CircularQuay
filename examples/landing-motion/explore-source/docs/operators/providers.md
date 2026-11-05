@@ -67,7 +67,7 @@ Collector/update credentials are separately scoped operational material. Keep
 them in protected referenced files, never provider bindings delivered to an app.
 Synthetic tests confirm that SDK hooks, telemetry, errors, native process output
 and support receipts expose no bootstrap credential. Required provider auditing
-and CQ's decision audit each retain their own configured guarantees.
+and CircularQuay's decision audit each retain their own configured guarantees.
 
 ## Publication
 

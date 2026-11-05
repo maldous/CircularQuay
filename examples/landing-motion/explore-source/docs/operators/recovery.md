@@ -21,7 +21,7 @@ re-enabling fetches; restoring a backup must not resurrect revoked grants.
 
 Back up canonical encrypted artifacts, protected policy/trust anchors, required native store state and independently protected OpenBao data/configuration/seal material. Machine-bound credential blobs alone are not sufficient.
 
-Export upstream manager values only when explicitly permitted. Native upstream backup responsibility stays with that manager's operator; CQ does not silently clone every secret store.
+Export upstream manager values only when explicitly permitted. Native upstream backup responsibility stays with that manager's operator; CircularQuay does not silently clone every secret store.
 
 Keep recovery authority off ordinary workload hosts. Recovery shares do not replace permanently lost auto-unseal key material. Verify both backup integrity and an isolated decryption/restore before relying on retention.
 

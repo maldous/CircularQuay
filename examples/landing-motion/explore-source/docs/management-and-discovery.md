@@ -1,21 +1,20 @@
 # Discovery and management
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
 
-CQ provides one v1 management contract across self-hosted and managed
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
+
+CircularQuay provides one v1 management contract across self-hosted and managed
 deployments. Operators, applications and approved agents can find their service,
 manage declared access and inspect the resulting decisions. Client enrollment
 requires its own authorization and authenticated trust profile; a general
@@ -215,7 +214,7 @@ does not silently replace the enrolled trust root.
 The signed enrollment/service-discovery object constrains accepted resource
 and authorization-server metadata. RFC 9728/8414 and OIDC documents are
 separately retrieved and validated under their standard TLS/issuer/origin
-rules; they are not required to carry a CQ signature. They cannot
+rules; they are not required to carry a CircularQuay signature. They cannot
 introduce an unenrolled issuer, root, audience, tenant, registration or redirect.
 
 ## One typed administration model
@@ -293,8 +292,8 @@ Interactive clients use the enrolled issuer's supported secure login profile;
 automation uses a declared machine/workload profile. Client registration
 supports explicitly selected preregistration and qualified metadata-based
 profiles, with compatibility registration where required. No flow requires a
-user's password to be copied into CQ. The issuer remains responsible
-for token issuance; CQ does not need to become a general-purpose IdP.
+user's password to be copied into CircularQuay. The issuer remains responsible
+for token issuance; CircularQuay does not need to become a general-purpose IdP.
 
 Delegation attenuates the intersection of the grantor's current authority,
 recipient constraints, target resource and requested operation. Time windows,
@@ -302,7 +301,7 @@ maximum lifetime, delegation depth, audience, sender constraints and approval
 requirements are policy-defined. Actor and subject remain separately auditable.
 An optional [OAuth token-exchange profile](https://www.rfc-editor.org/rfc/rfc8693.html)
 uses a qualified authorization server and preserves those semantics; inbound
-CQ tokens are never reused as provider credentials.
+CircularQuay tokens are never reused as provider credentials.
 
 High-impact operations support separation of duties, approval quorum,
 transaction-bound step-up authentication and tightly scoped emergency access.

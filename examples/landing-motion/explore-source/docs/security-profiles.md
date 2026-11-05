@@ -6,7 +6,7 @@ records the selected revision's controls and gaps. The design uses present-tense
 product behavior as the North Star, without asserting that an unavailable
 profile or deployment has passed verification.
 
-CQ applies one security engineering and qualification contract to the
+CircularQuay applies one security engineering and qualification contract to the
 whole v1 product: native runtime, providers, encrypted offline state, identity,
 administration, SDKs, optional MCP, agent packages, telemetry and distribution.
 Security profiles select enforceable operational requirements. They do not
@@ -146,7 +146,7 @@ record encryption, random profile-key provisioning and storage are separate
 qualified boundaries. Cross-language interoperability and platform/runtime
 qualification require actual vectors and tests, not the library names alone.
 
-An **application KMS profile** belongs to the enrolled CQ user or
+An **application KMS profile** belongs to the enrolled CircularQuay user or
 workload profile. It is not an operating-system `USERPROFILE`, home directory,
 cloud CLI profile or ambient credential chain. Its qualified connection binds
 provider, account/tenant/project, endpoint and trust, key identity/version,

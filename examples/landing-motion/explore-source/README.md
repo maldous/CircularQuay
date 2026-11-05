@@ -1,4 +1,4 @@
-# Circular Quay (CQ)
+# CircularQuay
 
 **The right secrets, ready for your apps.**
 
@@ -8,12 +8,12 @@ containers, Windows sessions, CI runners, and hosted applications introduced
 different startup and identity boundaries. Multiple AI providers and agent
 workflows added more keys, scopes, and places to configure them.
 
-CQ grew out of the frustration of joining those pieces repeatedly. It
+CircularQuay grew out of the frustration of joining those pieces repeatedly. It
 connects existing providers, established encryption, and native runtime
 delivery through one workload-scoped policy. You choose where online
 authorization is required and where an encrypted offline copy is appropriate.
 
-CQ gets the right secrets to the right apps, wherever they run.
+CircularQuay gets the right secrets to the right apps, wherever they run.
 Keep your existing secret stores, choose what each app can access, and manage
 it all from one configuration. The command is **`cq`** (the letters **C,Q**).
 
@@ -51,17 +51,17 @@ its own first-run authentication and opt-out contract, described below.
 
 ```sh
 umask 077
-cq init --output cquay.json
-cq --config cquay.json doctor
-cq --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello from cq.'
+cq init --output cq.json
+cq --config cq.json doctor
+cq --config cq.json run --workload demo -- /usr/bin/printf '%s\n' 'Hello from cq.'
 ```
 
 **Windows PowerShell**
 
 ```powershell
-.\cq.exe init --output cquay.json
-.\cq.exe --config cquay.json doctor
-.\cq.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Hello from cq.'
+.\cq.exe init --output cq.json
+.\cq.exe --config cq.json doctor
+.\cq.exe --config cq.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Hello from cq.'
 ```
 
 On first run, the product checks existing configuration, then trusted discovery,
@@ -90,7 +90,7 @@ or [edit your JSON policy with the CLI](docs/commands.md#configuration-crud).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-overview-dark.svg">
-  <img alt="CQ connects existing secret providers to approved apps, with optional identity-provider access controls and an optional MCP connector for AI tools." src="docs/assets/architecture-overview-light.svg">
+  <img alt="CircularQuay connects existing secret providers to approved apps, with optional identity-provider access controls and an optional MCP connector for AI tools." src="docs/assets/architecture-overview-light.svg">
 </picture>
 
 ## One policy, wherever you work
@@ -196,5 +196,5 @@ key that an authorized application has already copied.
 
 [All documentation](docs/README.md) · [Release and operator guide](RELEASE.md)
 
-CQ is licensed under [Apache-2.0](LICENSE). Dependencies retain their
+CircularQuay is licensed under [Apache-2.0](LICENSE). Dependencies retain their
 own licenses and notices.

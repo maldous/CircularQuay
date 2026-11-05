@@ -1,6 +1,6 @@
-# CQ integrations
+# CircularQuay integrations
 
-CQ v1 is an integration layer. It reads exactly declared values from
+CircularQuay v1 is an integration layer. It reads exactly declared values from
 existing systems, applies a workload-scoped policy, and delivers a complete
 generation through an approved local or hosted boundary. It does not become a
 vault, identity provider, universal credential broker, or general automation
@@ -41,14 +41,14 @@ deployment adapters and the real secret provider each require their own evidence
 
 ## Identity, authorization and workload trust
 
-CQ is a protected resource. It uses an existing authorization server
-when that server can issue an access token for a registered CQ API;
+CircularQuay is a protected resource. It uses an existing authorization server
+when that server can issue an access token for a registered CircularQuay API;
 it does not require Keycloak, Cloudflare Access, Netlify Identity, or any paid
 broker. An OpenID Connect login alone is insufficient.
 
 | Capability | V1 contract | Required configuration and enforcement |
 | --- | --- | --- |
-| OAuth 2.0/OIDC access tokens | A named issuer and typed access-token profile authenticate a caller for the registered CQ resource. RFC 9068 access-token JWT profiles are supported where their issuer-specific contract is configured. | Pin trusted issuer discovery/JWKS, algorithm/key selection, audience/resource, token type, issuer, time claims, subject and client/authorized-party bindings. An ID token, a token for another API, or caller-provided key URL is denied. [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068) defines the interoperable JWT access-token profile. |
+| OAuth 2.0/OIDC access tokens | A named issuer and typed access-token profile authenticate a caller for the registered CircularQuay resource. RFC 9068 access-token JWT profiles are supported where their issuer-specific contract is configured. | Pin trusted issuer discovery/JWKS, algorithm/key selection, audience/resource, token type, issuer, time claims, subject and client/authorized-party bindings. An ID token, a token for another API, or caller-provided key URL is denied. [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068) defines the interoperable JWT access-token profile. |
 | Scope, role and claim mapping | The policy maps verified claims to exact operations, workloads, source connections and managed-key mappings. | Claim names, value matching, issuer and client association are typed policy, never an implicit `dev`/`prod` convention. Unknown or ambiguous claims grant nothing. |
 | DPoP and mutual TLS sender constraints | A named authority can require a sender-constrained access credential for remote API/MCP use. | DPoP validates proof signature, `htu`, `htm`, access-token `cnf.jkt`, bounded age, replay state and nonce behavior; mTLS validates the configured client certificate and token binding where the selected profile supports it. Both are optional profiles, not a global assumption. See [MCP operations](operators/mcp.md#optional-dpop-authority-profile). |
 | Token exchange and introspection | Where an authorization server offers them, exchange and introspection are optional named authority capabilities for a configured resource and grant. | The client authentication method, requested audience/resource, actor/subject-token rules, issuer endpoint and cache/revocation bound are explicit. Introspection never silently changes a local JWT profile into an unbounded network dependency. [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693) and [RFC 7662](https://www.rfc-editor.org/rfc/rfc7662) define these different protocols. |
@@ -80,7 +80,7 @@ environment/protection context where available.
 ## Local platform, key custody and human presence
 
 Protected local files, native projections and host key stores solve different
-problems. CQ makes the operator choose the boundary rather than
+problems. CircularQuay makes the operator choose the boundary rather than
 claiming a uniform security property across platforms.
 
 | Integration | V1 contract | Boundary |
@@ -108,23 +108,23 @@ management.
 
 Cloudflare and Netlify are optional adapters for the managed UI/API. They
 may supply hosting, ingress authentication, previews and local adapter
-emulation. They never replace CQ's Go policy core or become the
+emulation. They never replace CircularQuay's Go policy core or become the
 authoritative source of a secret-provider value, a key mapping, or an access
 decision merely by hosting a page.
 
 | Platform capability | Intended use | Configuration, test and portability boundary |
 | --- | --- | --- |
 | Cloudflare Workers, Wrangler and the Workers Vitest integration | Host an optional thin API/UI adapter; use `@cloudflare/vitest-plugin` with Miniflare for deterministic adapter unit/integration tests against simulated bindings. | Cloudflare recommends the Vitest integration for Workers and Pages Functions; it runs tests in the Workers runtime and isolates storage per test file. Default CI uses local simulated bindings; remote bindings are a distinct preview/staging profile with synthetic data and explicit write authority. [Workers Vitest](https://developers.cloudflare.com/workers/testing/vitest-integration/) and [local-development security limits](https://developers.cloudflare.com/workers/local-development/) apply: Miniflare is not a hardened sandbox. |
-| Cloudflare Access | Protect an optional deployed UI/API with an existing enterprise IdP and issue an application assertion to the adapter. | Validate issuer, signature, audience and expiry inside the receiving service; a header alone is insufficient. Access controls ingress and session lifecycle, but does not decide a CQ mapping/grant. Signing keys rotate and validation must follow the configured trust contract. [Cloudflare Access JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/) is the primary integration reference. |
-| Cloudflare Go SDK and Terraform provider | Optional narrow operator adapter and reviewed desired-state delivery for Cloudflare resources. | Use least-privilege, operator-owned credentials; never put credentials in CQ policy or make IaC state a runtime authorization proof. The [Go SDK](https://developers.cloudflare.com/api/go/) and [Terraform provider](https://developers.cloudflare.com/terraform/) are platform APIs, not an entitlement to alter an account. |
+| Cloudflare Access | Protect an optional deployed UI/API with an existing enterprise IdP and issue an application assertion to the adapter. | Validate issuer, signature, audience and expiry inside the receiving service; a header alone is insufficient. Access controls ingress and session lifecycle, but does not decide a CircularQuay mapping/grant. Signing keys rotate and validation must follow the configured trust contract. [Cloudflare Access JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/) is the primary integration reference. |
+| Cloudflare Go SDK and Terraform provider | Optional narrow operator adapter and reviewed desired-state delivery for Cloudflare resources. | Use least-privilege, operator-owned credentials; never put credentials in CircularQuay policy or make IaC state a runtime authorization proof. The [Go SDK](https://developers.cloudflare.com/api/go/) and [Terraform provider](https://developers.cloudflare.com/terraform/) are platform APIs, not an entitlement to alter an account. |
 | Netlify Dev, `@netlify/vite-plugin` and Deploy Previews | Develop the web UI/API locally and run disposable PR preview browser/a11y/e2e checks with synthetic tenants and keys. | `netlify dev`/the Vite plugin are adapter-development environments, not a substitute for the Go core. Preview deployments use separate audience, storage, identity and audit namespaces; no production mappings, custody or secret values enter them. [Netlify local function execution](https://docs.netlify.com/api-and-cli-guides/cli-guides/manage-functions/) and [Deploy Previews](https://docs.netlify.com/deploy/deploy-types/deploy-previews/) define those facilities. |
-| Netlify Database | Optional managed-service transactional state for mappings, grants and audit metadata where an operator selects Netlify. | The local CLI/Vite flow uses a real Postgres-compatible local database; migrations, tenant isolation, backup/restore and rollback remain CQ acceptance gates. It is a provider service, not a free/portable persistence guarantee. [Local Database development](https://docs.netlify.com/build/data-and-storage/netlify-database/local-development/) is the primary reference. |
-| Netlify Identity, external JWT and team SSO/SCIM | Use either Netlify Identity or an enterprise external-JWT/SSO profile to authenticate a hosted UI as selected by the operator. | Netlify Identity is an optional application-user service, not the required enterprise IdP; Netlify documents that its external-JWT RBAC alternative cannot run with Identity on the same project. Netlify team SSO/SCIM manages platform users, not CQ grants. [Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/overview/), [external JWT RBAC](https://docs.netlify.com/manage/security/secure-access-to-sites/role-based-access-control/) and [team SSO](https://docs.netlify.com/manage/security/secure-netlify-access/configure-team-saml-sso/) are the current constraints. |
+| Netlify Database | Optional managed-service transactional state for mappings, grants and audit metadata where an operator selects Netlify. | The local CLI/Vite flow uses a real Postgres-compatible local database; migrations, tenant isolation, backup/restore and rollback remain CircularQuay acceptance gates. It is a provider service, not a free/portable persistence guarantee. [Local Database development](https://docs.netlify.com/build/data-and-storage/netlify-database/local-development/) is the primary reference. |
+| Netlify Identity, external JWT and team SSO/SCIM | Use either Netlify Identity or an enterprise external-JWT/SSO profile to authenticate a hosted UI as selected by the operator. | Netlify Identity is an optional application-user service, not the required enterprise IdP; Netlify documents that its external-JWT RBAC alternative cannot run with Identity on the same project. Netlify team SSO/SCIM manages platform users, not CircularQuay grants. [Identity](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/overview/), [external JWT RBAC](https://docs.netlify.com/manage/security/secure-access-to-sites/role-based-access-control/) and [team SSO](https://docs.netlify.com/manage/security/secure-netlify-access/configure-team-saml-sso/) are the current constraints. |
 | Netlify Functions and Blobs | A Netlify-hosted UI may use Functions for its adapter API and Blobs only for non-secret, non-authoritative UI artifacts where its consistency model fits. | Go Functions remain supported but Go Functions cannot access Netlify Blobs. Blobs are last-write-wins with configurable consistency and have a sandboxed local store; they are not key/policy/audit authority. [Function configuration](https://docs.netlify.com/build/functions/configuration/) and [Blobs limitations](https://docs.netlify.com/build/data-and-storage/netlify-blobs/) are controlling references. |
 
 Provider charges, account entitlements, access seats, preview availability and
 remote-binding effects are deployment prerequisites. They are never bypassed
-by treating a local emulator, dashboard role or browser session as CQ
+by treating a local emulator, dashboard role or browser session as CircularQuay
 authorization. Platform adapters are tested at three levels: local synthetic
 emulation, isolated preview with synthetic identities/data, and separately
 approved production qualification.
@@ -167,7 +167,7 @@ integration is enabled or connected merely because it appears in this design.
 
 ## Integration acceptance contract
 
-Before a new integration enters a v1 configuration schema, CQ requires
+Before a new integration enters a v1 configuration schema, CircularQuay requires
 all of the following:
 
 1. A user-facing benefit that cannot be safely supplied by an existing generic

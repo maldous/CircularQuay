@@ -19,10 +19,10 @@ cd cq
 go version # requires Go 1.27.3
 go build -o ./cq ./cmd/cq
 
-./cq init --output cquay.json
-./cq --config cquay.json doctor
-./cq --config cquay.json plan
-./cq --config cquay.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
+./cq init --output cq.json
+./cq --config cq.json doctor
+./cq --config cq.json plan
+./cq --config cq.json run --workload demo -- /usr/bin/printf '%s\n' 'Synthetic workload completed.'
 ```
 
 ## Windows PowerShell
@@ -34,10 +34,10 @@ Set-Location cq
 go version # requires Go 1.27.3
 go build -o .\cq.exe .\cmd\cq
 
-.\cq.exe init --output cquay.json
-.\cq.exe --config cquay.json doctor
-.\cq.exe --config cquay.json plan
-.\cq.exe --config cquay.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Synthetic workload completed.'
+.\cq.exe init --output cq.json
+.\cq.exe --config cq.json doctor
+.\cq.exe --config cq.json plan
+.\cq.exe --config cq.json run --workload demo -- C:\Windows\System32\cmd.exe /d /c 'echo Synthetic workload completed.'
 ```
 
 The final command runs an explicitly named, trusted operating-system program
@@ -115,7 +115,7 @@ file. After that policy and its prerequisites are valid, use its declared
 workload ID with the normal lifecycle commands:
 
 ```sh
-CONFIG=/absolute/operator-owned/cquay.json
+CONFIG=/absolute/operator-owned/cq.json
 cq --config "$CONFIG" plan
 cq --config "$CONFIG" run --workload reference-api -- /absolute/path/to/your/workload
 cq --config "$CONFIG" snapshot --workload reference-api
@@ -144,4 +144,4 @@ On Windows, use an absolute native executable rather than assuming Bash exists. 
 
 Native archives and verified offline bundles are the consumer installation route. Only enabled features need their dependencies. The normal CLI does not require an installed Go, Python, Node, Java, or Docker runtime. Source builds require the pinned Go toolchain; the independent audit environment has additional prerequisites.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

@@ -32,7 +32,7 @@ installation or bypass a minimum-version policy. See [SDKs](sdks.md),
 
 ## MCP and AI agents
 
-CQ's MCP interface is optional. Local stdio uses the OS-user/launcher boundary. Separately configured HTTP requires a qualified OAuth issuer, the correct resource audience, and current authorization on each operation.
+CircularQuay's MCP interface is optional. Local stdio uses the OS-user/launcher boundary. Separately configured HTTP requires a qualified OAuth issuer, the correct resource audience, and current authorization on each operation.
 
 - List/status results are filtered by current grants.
 - Named actions do not accept arbitrary commands or provider URLs.
@@ -40,8 +40,8 @@ CQ's MCP interface is optional. Local stdio uses the OS-user/launcher boundary. 
 - Bootstrap keys, refresh credentials, and server identities must not be exposed as readable aliases.
 - Raw action stdout/stderr is not an authorized substitute for a secret-read permission.
 
-**An authorized raw read deliberately releases plaintext to the MCP client.** It can enter model context, transcripts, or the client's retention systems. CQ cannot control that value after delivery. Grants prevent future toolkit access; they cannot erase previous disclosures.
+**An authorized raw read deliberately releases plaintext to the MCP client.** It can enter model context, transcripts, or the client's retention systems. CircularQuay cannot control that value after delivery. Grants prevent future toolkit access; they cannot erase previous disclosures.
 
 Self-reported agent names are not identity. Strong separation between agents sharing one OS user requires an additional OS or authenticated-service boundary. A coding agent running caller-controlled code with injected credentials has disclosure-capable authority.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

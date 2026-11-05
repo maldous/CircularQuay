@@ -1,6 +1,6 @@
 # Observability and release awareness
 
-CQ's v1 policy includes optional `observability` and `updates`
+CircularQuay's v1 policy includes optional `observability` and `updates`
 objects. An absent object makes no exporter or release-feed connection.
 These controls are independent of provider authentication and required audit.
 The [canonical schema](../internal/policy/schema/policy-v1.schema.json) and
@@ -32,7 +32,7 @@ and `workloads`. This example selects all three OTLP/HTTP signals:
 }
 ```
 
-The collector endpoint is an HTTPS origin. CQ selects `/v1/metrics`,
+The collector endpoint is an HTTPS origin. CircularQuay selects `/v1/metrics`,
 `/v1/traces` and `/v1/logs`; it does not accept URL credentials, arbitrary
 headers, arbitrary resource maps or ambient `OTEL_*` configuration. Declare
 each signal explicitly; a disabled signal contains only `"enabled": false`.
@@ -110,10 +110,10 @@ non-interactive sessions and no background download, installation or restart.
 Use the same check explicitly from automation:
 
 ```sh
-cq --config cquay.json update check --json
+cq --config cq.json update check --json
 ```
 
-The default feed is the public CQ GitHub releases API. An enterprise
+The default feed is the public CircularQuay GitHub releases API. An enterprise
 may select a credential-free HTTPS `feed_endpoint` with compatible release
 metadata and optional protected `token_file` and pinned CA references.
 Checks and responses are bounded; redirects and ambient proxies are denied.
@@ -164,10 +164,10 @@ identity. No browser or model receives key material as a configuration field.
 Read the current object and its document hash:
 
 ```sh
-cq --config cquay.json config get --pointer /updates
-cq --config cquay.json config set --pointer /updates --value-file updates.json --expect-sha256 "<document sha256>"
-cq --config cquay.json config validate
-cq --config cquay.json doctor
+cq --config cq.json config get --pointer /updates
+cq --config cq.json config set --pointer /updates --value-file updates.json --expect-sha256 "<document sha256>"
+cq --config cq.json config validate
+cq --config cq.json doctor
 ```
 
 Use the same commands from PowerShell with the selected `cq.exe` path.

@@ -1,10 +1,10 @@
-# How CQ fits with existing tools
+# How CircularQuay fits with existing tools
 
-CQ brings provider access, session setup, CI automation, native
+CircularQuay brings provider access, session setup, CI automation, native
 delivery, and agent permissions into one workload policy. The rows below show
 the capabilities together, including where existing tools already overlap.
 
-For CQ, the column describes the complete intended v1 contract.
+For CircularQuay, the column describes the complete intended v1 contract.
 A mark does not assert current source availability, a hosted deployment or a
 qualified release. Use [revision-bound qualification](qualification.md) to
 confirm the selected artifact before relying on a capability.
@@ -14,7 +14,7 @@ in its footnote; **—** = unknown, not established as equivalent, or outside th
 compared product's scope. A dash is not a claim that a feature is absent.
 Vendor features may require a particular edition, integration, or subscription.
 
-| Capability | CQ | OpenBao[^compare-bao] | Vault[^compare-vault] | Infisical[^compare-infisical] | Doppler[^compare-doppler] | 1Password[^compare-onepassword] | SOPS + age[^compare-sops] |
+| Capability | CircularQuay | OpenBao[^compare-bao] | Vault[^compare-vault] | Infisical[^compare-infisical] | Doppler[^compare-doppler] | 1Password[^compare-onepassword] | SOPS + age[^compare-sops] |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | Read multiple existing providers without migrating their values | ✓ | — | — | — | — | — | — |
 | Bind selected fields or secret references to workload variables | ✓ | ✓ | ✓ | — | — | ✓ | ✓ |
@@ -47,7 +47,7 @@ Vendor features may require a particular edition, integration, or subscription.
 | Audited agent-to-agent runtime delegation with scope and a deadline | ✓ | — | — | — | — | — | — |
 | Independent audit command and reproducible qualification evidence | ✓ | — | — | — | — | — | — |
 
-The combination is CQ's value: one configuration connects an approved
+The combination is CircularQuay's value: one configuration connects an approved
 identity and workload to existing providers, online or authorized offline use,
 and the right runtime delivery path. Stopping future delivery does not recall
 an already issued credential; its original provider controls revocation and
@@ -76,6 +76,6 @@ separately in the [qualification evidence](qualification.md).
 
 [SOPS](https://getsops.io/) supplies encryption, [age](https://age-encryption.org/) supplies portable recipients, and [OpenBao](https://openbao.org/) supplies established authorization and key-management capabilities. [Teller](https://github.com/tellerops/teller), [vals](https://github.com/helmfile/vals), and [Chamber](https://github.com/segmentio/chamber) already make provider retrieval and environment injection easier. [sops-nix](https://github.com/Mic92/sops-nix) and [Flux](https://fluxcd.io/flux/guides/mozilla-sops/) demonstrate native lifecycle integration.
 
-CQ focuses on their operational intersection: explicit inheritance and export policy, lifecycle-aware offline copies, native service delivery, optional authenticated disclosure, and evidence-backed recovery. It does not claim to invent provider interoperability or to replace those projects.
+CircularQuay focuses on their operational intersection: explicit inheritance and export policy, lifecycle-aware offline copies, native service delivery, optional authenticated disclosure, and evidence-backed recovery. It does not claim to invent provider interoperability or to replace those projects.
 
-[Documentation](README.md) · [CQ](../README.md)
+[Documentation](README.md) · [CircularQuay](../README.md)

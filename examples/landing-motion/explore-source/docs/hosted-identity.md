@@ -1,12 +1,12 @@
 # Hosted identity and application connections
 
-CQ's HTTP interface is an OAuth protected MCP resource. Authentication
-comes from an external authorization server; CQ decides which exact
+CircularQuay's HTTP interface is an OAuth protected MCP resource. Authentication
+comes from an external authorization server; CircularQuay decides which exact
 workload, operation and key that authenticated caller may access. Provider
 credentials remain separately bound to declared source and target identities.
 This separation also applies when the authorization server is self-hosted.
 
-Keycloak is an optional implementation of that external role, not a CQ
+Keycloak is an optional implementation of that external role, not a CircularQuay
 dependency. An existing IdP can supply the role directly when it can register a
 custom API and issue access tokens for that API's audience and permissions. No
 additional hosted broker is required for that arrangement. A provider's OIDC
@@ -15,7 +15,7 @@ login support alone does not establish custom-API authorization support.
 Auth0's RFC 9068 API profile, Keycloak's explicitly configured access-token
 profile, Microsoft Entra's v2 custom-API scopes/roles, and a suitably entitled
 Okta custom authorization server are integration choices. Select the matching
-typed profile and register a dedicated CQ API audience; a login
+typed profile and register a dedicated CircularQuay API audience; a login
 application's token is not a substitute. Account and publication prerequisites
 belong in [RELEASE.md](../RELEASE.md). See the primary
 [Auth0 token-profile reference](https://auth0.com/docs/get-started/apis/configure-access-token-profile),
@@ -63,7 +63,7 @@ and interactive authentication are described in
 A named authority can opt into the version-1 DPoP profile with its
 `sender_constraint`; the issuer remains responsible for issuing the access
 token. For that authority, it must issue an RFC 9449 `cnf.jkt` confirmation
-claim for the client's DPoP public key. CQ accepts the token only as
+claim for the client's DPoP public key. CircularQuay accepts the token only as
 the `DPoP` authorization scheme with a proof whose embedded JWK thumbprint
 matches that claim. The profile permits ES256 with a P-256 key or RS256 with a
 2048--8192-bit RSA key, verifies the proof's bounded `jti` and `iat`, exact
@@ -83,7 +83,7 @@ disclosed, protect a compromised client private key, or defend against an OS
 administrator who can inspect the running client or protected local state.
 Issuer-side JWT revocation still has the signed-token expiry bound described
 above unless a separately qualified online revocation or introspection channel
-is available. CQ does not implement key custody, login, token
+is available. CircularQuay does not implement key custody, login, token
 issuance, mTLS, or private-key JWT authentication for this profile.
 
 ## Managed key access and administration
@@ -128,9 +128,9 @@ or environment parameter cannot establish that boundary.
 The external IdP/authorization server owns human login, MFA/passkeys, client
 registration, consent, token issuance and session lifecycle. SAML federation
 can terminate there rather than introducing a second login implementation in
-CQ. Browser/native clients use an appropriately registered OAuth
+CircularQuay. Browser/native clients use an appropriately registered OAuth
 flow, exact redirect binding and PKCE. The authorization server issues access
-tokens for the exact CQ resource. The
+tokens for the exact CircularQuay resource. The
 [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
 defines resource metadata, discovery and client-registration interoperability;
 [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) describes OAuth security
@@ -145,7 +145,7 @@ authorization server.
 
 Machines use separately enrolled non-human identities, with provider-native
 workload federation where supported. A CI assertion, cloud identity token or
-SPIFFE identity is not automatically an access token for CQ. An
+SPIFFE identity is not automatically an access token for CircularQuay. An
 authorized issuer must establish the exact trust and resource binding.
 Provisioning and group synchronization are administrative inputs, not automatic
 permission grants. Offboarding includes local emergency disable and a defined
@@ -160,7 +160,7 @@ Creation, modification, linking, approval and removal have distinct audited
 administrative permissions. Metadata discovery also requires filtering because
 provider accounts and resource names can disclose sensitive structure.
 
-Inbound CQ bearer tokens are never forwarded as provider credentials.
+Inbound CircularQuay bearer tokens are never forwarded as provider credentials.
 Where on-behalf-of access is supported by an upstream system, a qualified
 external authorization server performs a resource-bound exchange with explicit
 subject/actor and downscoped authority. [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693.html)

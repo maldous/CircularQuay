@@ -1,6 +1,6 @@
-# CQ support
+# CircularQuay support
 
-CQ is the project. Its commands are `cq` and `cq-audit`; the operations skill retains the name `cquay`.
+CircularQuay provides the `cq` and `cq-audit` commands and the `cq` operations skill.
 
 Use the selected version's qualified platform/provider/client matrix and
 release notes to determine support. Certification, response-time commitments

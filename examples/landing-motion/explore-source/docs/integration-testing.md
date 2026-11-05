@@ -1,19 +1,18 @@
 # Integration testing
 
-The user explicitly authorized initial hosted SOFTWARE crypto + age using only
-existing minimum paid Cloudflare/Netlify: vetted crypto, protected KEK outside
-DB, independently random profile DEKs and scoped auth/tenant isolation/required
-audit. Runtime/shared-KEK compromise may expose all reachable DEKs; this is not
-independent non-exportable/HSM custody. Stronger required profiles are unavailable
-here, with versioned managed/HSM migration retained. No paid external KMS/IdP/
-monitor/helpdesk/upgrade or account connection is a launch prerequisite or
-authorized now. Actual existing tiers/issuer metadata is unverified; conditional
-CF-first versus Netlify-included-Identity must be qualified, not invented. The
-current forecast is hosting-only, with product tiers distinct from provider plans,
-allocated versus already-paid incremental spend and allowance/DB-active inflections;
-no labor, CRM/payment fees or customer price/margin is embedded. Synthetic/mock
-frontend previews may be developed separately; real backend tests remain
-separate from static design evidence.
+The launch custody profile uses software KMS and age-key custody on Cloudflare
+or Netlify. A protected runtime wrapping key stays outside the database, and
+each profile has an independently random data key. Scoped authorization,
+tenant isolation and required audit apply. Runtime or shared-key compromise
+can expose reachable profile keys; software custody does not provide independent
+HSM or non-exportability guarantees.
+
+Each deployment must verify provider plans, issuer metadata, entitlements and
+required custody. Additional services or upgrades require separate operator
+approval. Hosting forecasts exclude labor, CRM/payment fees and customer pricing.
+Synthetic frontend previews do not establish a connected backend or production
+service. Implementation and qualification evidence must match the selected
+release and deployment.
 
 The complete v1 contract is tested at distinct boundaries: deterministic core
 and adapter cases, disposable process/emulator fixtures, installed SDK/client
@@ -53,7 +52,7 @@ On Linux or macOS, run:
 
 ```sh
 umask 077
-CQUAY_WIREMOCK_JAR=/absolute/path/wiremock-standalone-3.13.2.jar \
+CQ_WIREMOCK_JAR=/absolute/path/wiremock-standalone-3.13.2.jar \
 go test -p 1 -tags=integration ./internal/integration
 ```
 
@@ -65,7 +64,7 @@ $jar = 'C:\absolute\wiremock-standalone-3.13.2.jar'
 Invoke-WebRequest $manifest.wiremock.jar -OutFile $jar
 if ((Invoke-WebRequest $manifest.wiremock.source).Content.Split()[0] -ne $manifest.wiremock.sha256) { throw "Published digest differs from the tracked manifest" }
 if ((Get-FileHash -Algorithm SHA256 $jar).Hash.ToLower() -ne $manifest.wiremock.sha256) { throw "Downloaded JAR digest mismatch" }
-$env:CQUAY_WIREMOCK_JAR = $jar
+$env:CQ_WIREMOCK_JAR = $jar
 go test -p 1 -tags=integration ./internal/integration
 ```
 

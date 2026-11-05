@@ -2,7 +2,7 @@
 
 Treat contributors and users respectfully. Discuss technical decisions on their merits, welcome constructive disagreement, and give people room to correct mistakes. Harassment, discrimination, threats, personal attacks, spam and publication of another person's private information are not acceptable.
 
-Keep public discussions and issues relevant to CQ. Protect sensitive information: use the private reporting route in [SECURITY.md](SECURITY.md) for security matters and never post real credentials.
+Keep public discussions and issues relevant to CircularQuay. Protect sensitive information: use the private reporting route in [SECURITY.md](SECURITY.md) for security matters and never post real credentials.
 
 Repository maintainers may edit or remove inappropriate material, close threads, limit participation or block accounts where needed to protect the community. They should explain decisions when safe and proportionate. Community support does not grant permission to test someone else's system or access their data.
 

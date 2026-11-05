@@ -1,6 +1,6 @@
 # One configuration, governed access
 
-CQ uses one client-resolved canonical v1 policy graph for organisational defaults,
+CircularQuay uses one client-resolved canonical v1 policy graph for organisational defaults,
 groups, environments, workloads, permitted user choices and optional
 integrations. CLI, API, UI, SDK and optional MCP operate on the same typed,
 versioned resources and authorization rules. A tool-specific settings file is
@@ -38,7 +38,7 @@ or a permitted browser client reads files/URLs using the user's own network,
 VPN and explicitly selected source credentials, resolves and validates the
 complete graph, then saves locally. Neither raw nor resolved configuration,
 personal includes, source credentials or protected reference details enter a
-CQ hosted backend, server proxy, analytics or logs. Local validation
+CircularQuay hosted backend, server proxy, analytics or logs. Local validation
 cannot silently become remote configuration administration.
 
 The hosted key service accepts the authenticated profile's separate KMS and
@@ -253,7 +253,7 @@ GitGuardian instance/workspace/source and incident identifier. Its provenance
 states the independently authorized nonsecret metadata and approval used to
 establish the association. Operator attestation is not falsely described as a
 cryptographic value match. GitGuardian's internal `secret_hash` is not a local
-hash lookup protocol and is not used as a CQ value-derived identifier.
+hash lookup protocol and is not used as a CircularQuay value-derived identifier.
 Unknown or ambiguous associations require review and cannot target another
 credential or produce a clean bill of health.
 
@@ -269,7 +269,7 @@ credential or produce a clean bill of health.
 
 GitGuardian [incident statuses](https://docs.gitguardian.com/internal-monitoring/detect/incident-statuses)
 and [remediation/validity checks](https://docs.gitguardian.com/internal-monitoring/remediate/remediate-incidents)
-describe scanner workflow and selected provider capabilities. CQ
+describe scanner workflow and selected provider capabilities. CircularQuay
 records exposure, vendor workflow, vendor/custom validity, issuer revocation
 and verified rotation separately. None is silently substituted for another.
 Custom validity overrides have explicit provenance and cannot masquerade as
@@ -326,7 +326,7 @@ qualified bounded decision under the canonical policy. Its authenticated
 endpoint, signed policy/bundle revision, safe input/output schema, deadlines,
 freshness and failure rules are explicit. It receives only approved identity,
 resource and context metadata. It cannot see secret values, execute arbitrary
-embedded code or widen CQ's tenant, grant, profile, approval or
+embedded code or widen CircularQuay's tenant, grant, profile, approval or
 revocation ceilings. External decisions combine with the local mandatory
 checks; stale/unknown or conflicting required decisions deny. Decision
 provenance and authority generation are rechecked before protected effects.
