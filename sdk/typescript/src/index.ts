@@ -390,13 +390,11 @@ function sorted(values: readonly string[]): boolean {
   return true;
 }
 function isAbort(value: unknown): boolean { return typeof value === "object" && value !== null && (value as { name?: unknown }).name === "AbortError"; }
-function flags<T extends object>(input: T, names: Readonly<Partial<Record<keyof T, string>>>): string[] {
+function flags(input: object, names: Readonly<Record<string, string>>): string[] {
   const result: string[] = [];
-  for (const key of Object.keys(names) as (keyof T)[]) {
-    const flag = names[key];
-    const value = (input as Record<keyof T, unknown>)[key];
+  for (const [key, flag] of Object.entries(names)) {
+    const value = (input as Record<string, unknown>)[key];
     if (value !== undefined) {
-      if (flag === undefined) continue;
       validateFlagValue(value);
       result.push(flag, value);
     }
@@ -418,10 +416,8 @@ function targetFlag(target: string | undefined): string[] {
   return ["--target", target];
 }
 function validateRemotePin(value: RemotePin): void {
-  if (!hasRemotePin(value)) return;
   if (!completeRemotePin(value)) throw new CqError("invalid");
 }
-function hasRemotePin(value: RemotePin): boolean { return Object.values(value).some(item => item !== undefined); }
 function completeRemotePin(value: RemotePin): boolean {
   return validRemoteSource(value.configSource) && validRemotePath(value.configPath) && /^[a-f0-9]{40}$/.test(value.configRef ?? "") && HEX_64.test(value.configSHA256 ?? "");
 }
@@ -595,18 +591,23 @@ async function hashRegularFile(path: string): Promise<string> {
 async function observe<T>(observer: Observer | undefined, action: Observation["action"], signal: AbortSignal | undefined, operation: () => Promise<T>): Promise<T> {
   const startedAt = Date.now();
   let outcome: Observation["outcome"] = "unavailable";
+  let result: T;
   try {
     if (signal?.aborted) throw new CqError("cancelled");
-    const result = await operation();
+    result = await operation();
     outcome = "success";
-    return result;
   } catch (error) {
     const safe = observationError(error, signal);
     outcome = safe.category;
     throw safe;
   } finally {
-    if (observer !== undefined) try { await observer({ action, outcome, durationMs: Math.max(0, Date.now() - startedAt) }); } catch { /* observer failure cannot affect operation */ }
+    if (observer !== undefined) {
+      try {
+        await observer({ action, outcome, durationMs: Math.max(0, Date.now() - startedAt) });
+      } catch { /* observer failure cannot affect operation */ }
+    }
   }
+  return result;
 }
 function observationError(error: unknown, signal: AbortSignal | undefined): CqError {
   if (error instanceof CqError) return error;
@@ -614,7 +615,7 @@ function observationError(error: unknown, signal: AbortSignal | undefined): CqEr
   return new CqError("unavailable");
 }
 function boundedJSON(text: string): unknown {
-  if (encodedLength(text) > MAX_RESPONSE_BYTES) throw new CqError("protocol");
+  // Captured stdout is already byte-bounded by ProcessState before this parser runs.
   const value = JSON.parse(text) as unknown;
   if (!safeJSON(value)) throw new CqError("protocol");
   return value;
@@ -678,7 +679,7 @@ class ProcessState {
     if (this.#settled || this.#killTimer !== undefined) return;
     try { child.kill("SIGTERM"); } catch { /* wait for close */ }
     this.#killTimer = setTimeout(() => { killChild(child, "SIGKILL"); }, 5000);
-    this.#fallbackTimer = setTimeout(() => { this.finish(this.terminalError() ?? new CqError("process"), { exitCode: 1, stdout: "" }); }, 6000);
+    this.#fallbackTimer = setTimeout(() => { this.finish(this.closeError(1, false), { exitCode: 1, stdout: "" }); }, 6000);
   }
   finish(error: CqError | undefined, result: LocalResult): void {
     if (this.#settled) return;
