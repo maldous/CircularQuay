@@ -555,6 +555,88 @@ and warm transfer size/latency, repeated-query throughput and editing/input
 responsiveness on the supported desktop/mobile routes. Static public content
 delivery is distinct from transmitting a user's search query to a service.
 
+The client binds the reviewed help distribution root and expected content
+version before accepting a manifest or its article graph. Per-article hashes
+cannot authenticate a manifest that declares its own replacement hashes.
+Reject mixed, stale, substituted or over-limit distributions before use. This
+asset binding does not protect a client whose executable bundle or publisher
+trust has itself been replaced.
+
+## Language and direction
+
+The initial v1 locale set is English (`en`) and one Arabic (`ar`) locale for
+RTL testing, without regional variants. The locale architecture supports
+additional reviewed languages. Human-facing landing, client, account,
+operator, help/manual/search, support, validation, error, accessibility,
+notice and communication text uses maintained catalogs. CLI/SDK/API/MCP human
+descriptions share that vocabulary; machine identifiers, structured error
+codes, JSON/schema keys, commands, signatures and example code remain stable.
+
+Locale handling includes plural rules, dates, time zones, numbers and currency,
+text expansion, logical layout, direction-aware controls and bidi isolation
+for identifiers, URLs and code. Verify keyboard, screen-reader, browser and
+device journeys in LTR and RTL. Arabic uses actual translated content;
+pseudolocalization, untranslated fallback and catalog presence do not establish
+language quality or complete journeys. Review translation meaning and technical
+accuracy, track missing/stale text against its source digest and record explicit
+fallback behavior. Vendor-policy language coverage is verified independently
+of application translations.
+
+Language and light/dark/system theme controls are available before
+authentication on landing and sign-in journeys as well as relevant client,
+account and operator pages. Each field resolves an explicit device/session
+choice first, then an actual active profile preference where supported, then
+the browser's ordered supported language preferences or system theme. Clearing
+a device override follows profile/browser defaults; an explicit `system`
+selection follows the browser even when a profile preference exists. Persist
+only explicit device choices, never resolved defaults or profile overlays.
+Logout/account switching removes the old profile overlay without copying it
+to anonymous storage or replacing in-progress forms/configuration.
+
+Language and region are separate. A browser region is a display hint, not
+country of origin, nationality, billing address, time zone or authorization.
+An already available trusted coarse-country signal can supply a regional
+fallback when no browser region exists; no country-to-language mapping is
+assumed. Missing signals use safe defaults. No precise-location prompt, new
+IP-sharing provider, blocking lookup or disruptive late default switch is
+required. Keep explicit choices visible and reversible.
+
+Validate blocked/failing storage, unsupported/multiple browser locales, profile
+and anonymous precedence, reload/account switch, system changes and slow first
+load/theme flash. Native semantic controls support keyboard, screen readers and
+browser text-to-speech; no proprietary TTS widget is implied. Check contrast,
+zoom/reflow, forced colors, high contrast and reduced motion against WCAG 2.2 AA
+as a validation reference, without claiming certification.
+
+Locale catalogs and their manifest use explicitly reviewed initial-v1 contracts.
+Consumers bind the selected schema/content hashes, enforce canonical local
+paths and byte limits, unique locales/IDs, source/translation relationships,
+file hashes and current source digests. No locale path creates a remote fetch,
+private configuration lookup or telemetry permission. Schema validation alone
+cannot establish cross-file integrity or completeness.
+
+## Browser services and go-live provisioning
+
+[RELEASE.md](../RELEASE.md#product-go-live-and-commercialization-service-provisioning)
+is the single operator procedure for product go-live, commercialization,
+publisher accounts and applicable service provisioning. Separate CircularQuay
+projects, approved owners, environments, entitlements, protected references and
+independent readback cover selected diagnostics, consent/privacy, advertising,
+analytics, hosting/identity, support/email/feedback and status/discovery services.
+Source hooks, configuration, deployment, activation and entitlement are distinct
+states; an optional service can be not applicable with an explicit rationale.
+
+Optional collection defaults off until its purpose, authority/consent, data
+flow and surface suitability are qualified. Public landing approval does not
+make advertising or analytics appropriate on configuration/account/operator
+surfaces. Required security audit remains independently mandatory. No private
+configuration, keys, credentials, source selectors, protected references, raw
+errors or help/search queries enter vendor events, URLs or attachments.
+Qualify exact CSP origins, retention/deletion, withdrawal, safe failure and
+release/source-map/sampling settings on the actual supported platforms. Reused
+integration patterns do not transfer another product's tenant credentials,
+consent records, service approval or hosting entitlement.
+
 ## Evidence and remaining work
 
 Actual outcomes are machine-readable audit reports and [qualification receipts](qualification.md), not checkmarks added to this plan. Current live-account, native-host, client and publication status is recorded in `RELEASE.md`. Claims must stay narrower than the observed evidence.

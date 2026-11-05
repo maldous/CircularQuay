@@ -274,6 +274,154 @@ is not a running service or a production acceptance result; consult the
 
 Basic offline installation and synthetic local auditing require no external secret-provider account. OpenBao and SonarQube can run on the operator's own infrastructure without a SaaS subscription. Do not modify an unrelated operational host to satisfy an audit kernel setting or resource requirement; use an isolated machine with the documented prerequisites.
 
+### Product go-live and commercialization: service provisioning
+
+This same release/operator document owns the product go-live and
+commercialization provisioning procedure, alongside package-publisher account
+setup and production enrollment. The browser/client baseline includes
+project-specific observability, privacy and applicable external-service setup.
+Each environment uses its own approved accounts, project registrations, grants
+and consent records. Independently review any reused integration for licensing,
+compatibility and the client/account/operator data-protection boundary.
+
+Before activating a service, record its CircularQuay environment and surface,
+purpose and data flow, accountable operator, actual existing entitlement and
+allowance, approved administrative route, protected configuration references,
+verification owner and cleanup/withdrawal procedure. Use separate development,
+preview and production projects/settings where applicable. Reuse the verified
+existing Cloudflare/Netlify allocation only within its actual entitlement;
+this checklist authorizes no new account, paid signup, subscription, credential
+acquisition, deployment or provider activation.
+
+Use the existing [managed-service contract](docs/managed-key-service.md#end-customer-accounts-subscriptions-and-support)
+for customer identity, usage/history, invoices/subscriptions and support
+boundaries, and its [hosting economics](docs/managed-key-service.md#hosting-economics-and-capacity-assumptions)
+for the separately recorded cost/allowance assumptions. These supporting
+contracts do not move the main provisioning plan out of this document. Product
+prices, paid support, payment/CRM provider selection and actual allowances
+remain explicit decisions; operator hosting invoices are not customer billing.
+Register only the selected CQ-specific applications/projects through their
+verified owners, with separately authorized setup and environment access.
+
+Use explicit per-service states: **pending applicability**, **not applicable
+with rationale**, **blocked with prerequisite**, **configured**, **deployed**
+and **independently verified**. A source hook or valid disabled example is not
+configured; configured is not deployed; deployed is not verified. Record actual
+state/evidence in the candidate's existing qualification and operator records,
+not credential values or account identifiers in this public document.
+
+| Service/category | CQ-specific provisioning and applicability | Initial disposition until evidence exists |
+| --- | --- | --- |
+| Sentry/technical diagnostics | Verify the CQ project/environment, protected destination reference, operator access and actual allowance. Choose browser/server event purposes separately, fixed release identity, sampling/retention, source-map access and redaction before sending. A filtered code-only server envelope does not establish a full browser SDK, replay or source-map setup. | Pending purpose, configuration and entitlement verification; no automatic replay, raw error/stack collection or private-context capture. |
+| iubenda/privacy consent | Verify the CQ site/policy registration, licensed policy languages and region/purpose settings. Optional collection defaults off; consent notices and controls must be accessible/localized and support withdrawal. | Pending CQ configuration and licensed policy coverage. An Arabic UI translation does not establish an Arabic legal policy or vendor support. |
+| AdSense/advertising | Decide suitability per surface and verify CQ site approval, slots, policy and the selected consent/TCF requirements before any load or placement. Secret/configuration/account/operator pages do not inherit advertising applicability from a public landing. | Pending explicit applicability/approval; mark unsuitable surfaces not applicable with rationale. No ads, charges or site approval are inferred. |
+| Zaraz/optional analytics | Verify a CQ-specific purpose and allowlisted coarse events, consent enforcement and actual platform allowance. No event properties containing user/context data or help/search queries. | Pending purpose and configuration; collection remains off. Do not add Google Analytics by inference. |
+| Support/transactional email or feedback | Select the actual approved CQ support route and, only where applicable, a separately qualified sender, verified-recipient policy, confirmation and uncertain-delivery reconciliation. Verify the selected native support or external feedback route; do not enable a second route from historical settings. | Pending product route/sender/entitlement; synthetic tickets are not delivered messages. No duplicate helpdesk, vendor signup or automatic diagnostic attachments. |
+| Cloudflare/Netlify application services | Verify the actual CQ project, issuer/app registration, environment bindings, database/storage custody, roles and included capacity. Hosting-account administration, application login and workload/key permission are distinct. | Pending actual project/issuer/entitlement evidence. Native publication targets and synthetic UI roles do not establish a connected client service. |
+| Status/discovery and engineering services | Select applicable status/monitoring links and property verification. Provision the required engineering services with their own owners, protected CI identities and allowances. | Pending actual service evidence; a verification tag/status link is not monitoring acceptance. Historical scans do not qualify the selected candidate or waive required Sonar/CodeQL and other engineering gates. |
+| Browser/PWA/Android considerations | Identify actual shipped platform/package, permissions, offline/cache behavior, accessibility and vendor policy obligations. | Pending platform applicability; no native app or AdMob integration is implied by browser support. |
+
+Do not copy another project's service endpoints or broaden CSP to unrelated vendor
+origins. Transfer only reviewed source patterns with compatible ownership,
+licensing, data protection and current contracts. The client configuration and
+keys remain local under the existing [client ownership boundary](docs/configuration.md#client-side-configuration-ownership).
+Keep private help/search input, configuration/source credentials, environment
+values, protected references, tokens and key material out of vendor events,
+URLs, error payloads, source maps and support attachments. Diagnostics require
+an allowlisted metadata schema and separate privacy/security review; a higher
+verbosity or an installed SDK cannot relax it.
+
+#### Authorized setup routes and operator readback
+
+Use the selected release's supported configuration contract; do not invent a
+CLI flag, client setting or remote administration command from a vendor recipe.
+Record the exact reviewed SDK/tool version when one is used. Authenticate
+through the approved provider interface, with least-privilege operator access
+and MFA/recovery custody. Separate public routing settings from administrative
+credentials; public settings still need origin, shape and purpose validation.
+Provision only the services selected for that environment and surface:
+
+1. **Diagnostics:** select the CircularQuay organization/project in Sentry and
+   obtain its routing configuration through the authorized owner. Set the
+   environment, immutable release identity, allowance, retention, access and
+   alert recipient. Review the pinned SDK's complete automatically collected
+   fields and integrations; disabling default PII alone is insufficient.
+   Enforce the application's allowlisted event projection before export, drop
+   unknown fields and keep replay, raw exceptions, user context, breadcrumbs
+   and tracing disabled unless separately qualified. Upload only the selected
+   public source maps with an isolated build credential; keep private maps and
+   upload credentials out of served assets. Verify a synthetic allowed event
+   and rejected canaries at the destination. Use the official
+   [data-filtering](https://github.com/getsentry/sentry-docs/blob/master/platform-includes/configuration/before-send/javascript.mdx)
+   and [integration inventory](https://github.com/getsentry/sentry-docs/blob/master/platform-includes/configuration/integrations/javascript.mdx)
+   for the actual SDK, not assumed defaults.
+2. **Privacy and consent:** register the selected CircularQuay website/app in
+   the approved iubenda account. Declare actual purposes/vendors and verify
+   licensed policy languages, regional coverage and retention with the privacy
+   owner. Configure notices and prior blocking in that site's Privacy Controls
+   and Cookie Solution, then project only approved public configuration into
+   the client. Verify decline, purpose-specific acceptance and withdrawal with
+   actual network/storage inspection. Follow the official
+   [setup guide](https://www.iubenda.com/en/help/1177-cookie-solution-getting-started/).
+   A generated banner or vendor account does not establish legal compliance.
+3. **Advertising, when approved:** the authorized publisher adds the chosen
+   public site in AdSense, verifies ownership through a selected supported
+   method and requests review. Record actual site approval and applicable
+   privacy/messaging/CMP requirements before loading advertisements. Keep
+   rejected or pending sites and inappropriate surfaces disabled; use vendor
+   test procedures rather than clicking live ads. The official
+   [site connection and approval procedure](https://support.google.com/adsense/answer/7584263?hl=en)
+   distinguishes verification from approval. It does not grant permission to
+   monetize protected configuration or administration pages.
+4. **Optional analytics:** in the selected Cloudflare zone, configure the
+   approved Zaraz tools and consent purposes, bind each tool to its purpose and
+   provide reviewed English/Arabic notices where supported. If another CMP is
+   selected, qualify its consent synchronization and withdrawal behavior rather
+   than presenting conflicting consent choices. Permit only the coarse event
+   contract; exclude page/query/configuration/user properties. Verify no tool
+   loads before required consent and that withdrawal blocks later events.
+   See [Zaraz consent setup](https://developers.cloudflare.com/zaraz/consent-management/enable-consent-management/).
+5. **Hosting and application identity:** provision the chosen CircularQuay
+   project with isolated preview/production bindings, database/storage,
+   approved domains/redirects/issuers and least-privilege deployment identities.
+   Verify actual capacity, restore, tenant isolation and runtime secret access.
+   For Workers, use [secret bindings](https://developers.cloudflare.com/workers/configuration/secrets/)
+   and the selected [D1 setup](https://developers.cloudflare.com/d1/get-started/)
+   where applicable. Ordinary `wrangler secret put` deploys immediately;
+   stage with the documented versioned-secret route when separate promotion
+   is required. Do not run a secret-setting command as a harmless preflight.
+   For Netlify application login, use the project's
+   [Identity setup](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/get-started/)
+   and [registration/provider settings](https://docs.netlify.com/manage/security/secure-access-to-sites/identity/registration-login/).
+   Select the approved registration policy and callback origins explicitly.
+   Dashboard SSO, site access gating and application authentication do not
+   confer workload/key authorization. Verify every protected action separately.
+6. **Support and delivery:** select the approved native support route first.
+   If transactional email is required, the authorized sender owner verifies
+   the chosen domain, sender and delivery allowance; for Brevo use its official
+   [domain authentication procedure](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC).
+   Stage DNS changes through the domain owner and verify them independently.
+   Store delivery credentials in a protected server reference. Exercise only
+   authorized synthetic-recipient tests, including rejection and uncertain
+   delivery. A feedback widget needs its own selected provider, consent and
+   privacy review; it is not enabled merely because support exists.
+7. **Status, discovery and engineering:** the service owner selects the actual
+   monitoring/status provider, alert destination, public health projection and
+   website property. Verify ownership through that provider's official route
+   without placing administrative tokens in public metadata. Exercise a safe
+   alert and recovery before advertising monitoring. Configure required
+   repository/CI analysis services for the exact repository and candidate;
+   retain the independent [qualification gates](docs/qualification.md).
+   Search-engine verification is separate from health monitoring, and neither
+   is an engineering or security pass.
+
+The operator receipt records each selected service, environment/surface,
+accountable owner, approved setup route, protected reference, observed state,
+verification artifact and next action. Keep administrative configuration and
+provider data outside the public repository. Recheck current provider terms,
+entitlements and actual settings at the release cut; documentation establishes
+no account ownership or completed provisioning.
+
 ### GitHub and publishing
 
 An independent maintainer can create a free account at <https://github.com/signup>, verify email, configure MFA/passkey and recovery custody, and create a public repository. A fork published under another owner must change module, OCI, MCP and signing identities consistently; it must not impersonate `maldous`.
@@ -439,6 +587,67 @@ An installed binary is not an enrolled environment. Complete these operator acti
 14. Choose update channel/feed or disable checks, and record any local minimum
     runtime requirement. Verify offline behavior and recovery commands before
     enabling that requirement. See [operational configuration](docs/operational-configuration.md).
+
+### Client-service and post-deployment verification
+
+Perform these checks only for an explicitly authorized candidate/environment
+and service activation. Preserve pending/not-applicable/blocked services in the
+existing evidence rather than reporting the whole baseline enabled.
+
+1. Bind the exact client/service artifact, configuration schema and release
+   identifier to the approved CQ-specific environment and protected settings.
+   Recheck current allowance, purpose, role/tenant boundaries and approved
+   provider administrative route without exposing credentials in readback.
+2. Verify disabled/no-consent behavior by observing requests, scripts, frames,
+   cookies and storage. Optional services must not collect before their
+   qualified purpose/authority/consent. Keep consent state separate from private
+   application state; define retention, deletion and access owners.
+3. Verify only the selected script/connect/frame/image origins in CSP. Inspect
+   actual delivered policy and network behavior; source configuration alone
+   does not prove deployment. Test failed/missing/malformed settings and vendor
+   outage without losing the current configuration/workbench draft.
+4. With synthetic canaries, verify diagnostic redaction and release/environment
+   mapping, bounded sampling/export budgets and selected source-map visibility.
+   No config, key, user identifier, raw response, authorization material or
+   help/search query may escape through telemetry or URLs. Keep native required
+   audit qualification independent of best-effort client diagnostics.
+5. For an approved optional service, verify opt-in and withdrawal, later consent
+   changes and reload/cache behavior. Missing or invalid required consent must
+   deny collection. Test third-party loading and advertising only on the
+   specifically approved surfaces; retained vendor in-memory state may require
+   reload after disabling, which the UI must explain.
+6. Verify initial English and one Arabic locale across notices, settings,
+   errors, accessible labels, help/search and applicable communications. Require
+   complete reviewed translations for the declared scope, stable machine IDs,
+   locale-aware plurals/number/date/time/currency behavior, RTL/bidi isolation,
+   text expansion and keyboard/screen-reader/device checks. Explicit English
+   fallback is not a completed Arabic translation; pseudolocalization is not
+   language-quality evidence. Record licensed vendor-policy language gaps
+   separately from app translation coverage.
+   Exercise language and light/dark/system selectors before authentication and
+   through landing, sign-in and client journeys, including keyboard/screen-reader,
+   zoom/reflow, forced-color and reduced-motion behavior. Verify explicit device
+   choices, actual profile preference scope where supported, browser defaults,
+   reset/logout/account switching and blocked storage without losing form or
+   configuration work. Country/region hints are approximate display defaults,
+   never identity evidence; do not provision a new GeoIP service or send IPs
+   merely to select a language or theme. Retain actual browser/assistive-technology
+   evidence and missing support; a synthetic profile is not an authentication or
+   profile-persistence pass.
+7. Check client-local full-text help/search and progressively loaded public
+   articles for no query/config upload, missing/stale/mixed-version behavior,
+   cold/warm bytes, result latency and repeated-query responsiveness. Search
+   corpus and locale completeness must reflect actual reviewed shipped text,
+   not topic/control counts alone.
+8. For applicable support/email, verify preview/confirmation, account/tenant and
+   recipient checks, metadata-only idempotency, denied access and uncertain
+   outcomes without automatic replay. Keep support delivery separate from an
+   optional email-copy failure. Real outbound tests need their own authority.
+9. Rehearse disabling the selected service, withdrawing consent, revoking only
+   its CQ-specific grant/reference and restoring the last qualified client
+   version/configuration. Preserve unrelated tenants and their grants. Record
+   observed results, limitations and remaining owners in the candidate's
+   existing qualification evidence before marking the service verified.
 
 Platform details: [installation](docs/operators/installation.md), [MCP](docs/operators/mcp.md), [recovery](docs/operators/recovery.md).
 
@@ -715,6 +924,11 @@ Publication across native releases, Go proxies, OCI and Registry metadata is not
 - Registry logout removes local credentials, not necessarily server-side tokens; perform explicit revocation/expiry cleanup.
 - Remove test grants/accounts and private temporary files while retaining required evidence.
 - Do not roll back to revoked, expired or compromised configuration.
+- Disable/revoke optional client services under their CQ-specific consent,
+  retention and credential boundaries. Remove only the approved project scripts,
+  slots/settings and grants, verify network/storage behavior after withdrawal,
+  and retain required audit evidence. Withdraw only the selected CircularQuay
+  grant; disabling a UI control does not establish provider-side data deletion.
 
 If a credential enters a public asset or module, revoke/rotate at the issuer first. Tag deletion, retraction, descriptor withdrawal, or Git history rewriting does not make an exposed credential safe. Follow [incident response](docs/operators/incident-response.md).
 
@@ -723,3 +937,15 @@ If a credential enters a public asset or module, revoke/rotate at the issuer fir
 A developer unfamiliar with this project must be able to use only the tagged source and this document to install locally, run synthetic assurance on their infrastructure, understand unqualified capabilities, enroll one isolated free provider test, exercise optional MCP authorization, identify/publish eligible channels, and upgrade/remove test state safely.
 
 Every remaining step needs a state, owner action, prerequisite, official route, expected result, verification, cleanup and qualification consequence. Missing resources remain **not run**, not successful. Credentials, MFA recovery codes, private grants and raw secret responses never appear in this ledger or public review material.
+
+
+Commercial go-live additionally needs a source-bound readback for each required
+applicable service: selected CQ project/application, verified owner and current
+entitlement, protected setting references, observed consent/redaction/CSP and
+post-deployment checks, withdrawal/recovery evidence and remaining limits.
+Required pending, blocked, failed or unverified capabilities block their
+commercial activation; record them without claiming the full product ready.
+A not-applicable disposition explains service/surface suitability and does not
+waive the agreed v1 feature set. Keep package-channel publication, hosted-service
+readiness, client integration and commercial/customer acceptance separately
+observed, with accountable owners in the existing qualification records.

@@ -53,6 +53,82 @@ Record each qualification receipt with a source commit, artifact digest, platfor
 
 Existing operational machines are outside this implementation's deployment scope. Operators install from documented artifacts and provide their own installation feedback.
 
+## Exact 77435c34 hosted evidence
+
+Published source `77435c34a8bce5b7f23f9577c8eeaaf5c98cd5ee`, tree
+`d884d7be255674a3c7877d50c8b6f57c9315a8c7`, has public readback of 25 selected
+files and all 459 working files, clean at publication. The bounded hosted
+receipt binds synthetic merge `e7af96be22d9df0230ccce7bd42e9028df319d1c` to
+that same tree. This evidence qualifies neither later source bytes nor a release.
+
+[Source run 41933069506](https://github.com/maldous/CircularQuay/actions/runs/41933069506)
+passes source identity before/after checks, repository policy, formatting,
+unit tests and vet. Linux synthetic complexity and Windows synthetic tests
+pass. Owned coverage is **8,500/10,224 statements (83.13771518%)**, failing the
+unchanged 100% gate; required tagged integration is `not_run`. Returned selected
+cross-build successes are compile evidence only, not native installation or
+reboot/custody acceptance. The connector's first job page does not establish
+unreturned matrix entries.
+
+All nine returned
+[Browser jobs](https://github.com/maldous/CircularQuay/actions/runs/41933069656)
+pass across Node 22.23.4, 24.22.2 and 26.13.0 on macOS, Windows and Ubuntu.
+That is workflow evidence, not a browser coverage or full product acceptance.
+All three returned
+[WireMock jobs](https://github.com/maldous/CircularQuay/actions/runs/41933069630)
+and [Dependency Review](https://github.com/maldous/CircularQuay/actions/runs/41933069548)
+pass in their recorded scope. Individual current Security and SDK conclusions
+were not fetched in this snapshot and remain unknown.
+
+[Sonar run 41933069542](https://github.com/maldous/CircularQuay/actions/runs/41933069542)
+completes CE and exact current-analysis/revision fencing with **zero issues,
+zero hotspots and zero duplication groups**. Its quality gate remains
+**ERROR**: coverage is **63.9%**, required new-code metrics are absent, and
+the Python 3.15-to-3.14 analyzer warning remains. Scanner exit 3 is a failure.
+The Go and Sonar percentages have different denominators; no unsupported
+attribution explains their difference. No gate or target has been weakened.
+`checkpoint56/77435c34-hosted-evidence.json`, SHA-256
+`de73f1436c576b9fd8f11079d9bd3dda5f0be118f226e37aa5e6f37cfa426a32`,
+retains the exact bounded observation. No workflow was rerun or cancelled.
+
+## Signed-context and operator source boundary
+
+The source adds a pure `internal/securitycontext` verifier with closed v1
+envelope/claims schemas. It uses maintained JOSE verification, protected-only
+headers, explicit algorithm/key/purpose, distinct actual public-key material,
+threshold signatures, exact bindings and graph digest, canonical predecessor
+generations and freshness checks. The opaque result is explicitly unadmitted:
+caller-supplied trust/input does not establish protected enrollment or authority.
+Its public summary omits graph, payload, provenance and fence digests.
+Declared capabilities are requirements, not measured runtime satisfaction.
+
+Two independent behavior reviews and a separate comment/schema-description
+review bind the integrated six-file snapshot. Pinned `gofmt` passes; compilation,
+test execution, coverage, analyzers and runtime qualification have not run for
+these new files. `checkpoint56/securitycontext-source-integration.json` retains
+their exact hashes and preservation of all 459 preceding tracked files. The
+protected compiler, store, approval/bootstrap/recovery and unified enforcement
+remain required; no CLI flag, profile field or strict-mode pass follows.
+
+The same source candidate extends the existing [release/operator guide](../RELEASE.md#product-go-live-and-commercialization-service-provisioning)
+with reviewed project-specific commercialization/service provisioning and
+official setup routes. Its consent/privacy/CSP/redaction, English/Arabic,
+post-deployment and withdrawal procedures are operator requirements. Source
+review establishes no vendor account, entitlement, service activation, legal
+compliance, deployment or commercial readiness.
+
+Private help source review binds 333 English entries and accepts exactly forty
+punctuation corrections. It does not establish every field's conditional
+semantics, actual UI/action coverage, translation quality or search acceptance.
+The separate local-help candidate has producer-scoped 47-test/browser receipts
+and sound article/corpus hashes, but its unpinned distribution manifest blocks
+integration. Article hashes alone cannot authenticate a replacement manifest.
+The initial English/Arabic manifest also remains blocked pending deterministic
+cross-file semantic validation and actual bounded consumer/fallback evidence.
+Three Arabic guide drafts, zero reviewed translations and 330 missing entries
+are incomplete. All initial contracts remain v1; the incompatible private v2
+draft is rejected, not consumed or published.
+
 ## Exact eac85a1 source and evidence boundary
 
 Published source `eac85a1e642adc164c79fe85f1b8e4f0831d271f`, tree

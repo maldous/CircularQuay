@@ -6,6 +6,116 @@ installation, credential migration, operational infrastructure change, or
 live-provider qualification has occurred.
 Do not claim a passed gate without its retained evidence.
 
+## Signed-context and commercialization continuation
+
+The current published parent is `77435c34a8bce5b7f23f9577c8eeaaf5c98cd5ee`,
+tree `d884d7be255674a3c7877d50c8b6f57c9315a8c7`, on
+`feature/initial-implementation`, draft PR #1 to `develop`. The next reviewed
+source snapshot integrates six pure security-context verifier/schema files
+and project-specific service provisioning in the existing `RELEASE.md`.
+No protected compiler/runtime profile, provider account or production service
+is qualified by these additions. The [exact hosted observation](qualification.md#exact-77435c34-hosted-evidence)
+is for the parent only: source 83.13771518% and Sonar 63.9% fail required gates,
+despite nine Browser jobs, three WireMock jobs and zero Sonar issues/hotspots.
+Current individual Security/SDK results remain unknown in that bounded receipt.
+
+`checkpoint56/securitycontext-source-integration.json` SHA-256
+`c4ac32fb8bfc1ca2bd16ea3f875fa89fc4384097e699140422ca8283b59c9756`
+binds the exact pure verifier, two independent behavior reviews, final comment
+review and pinned formatter. It preserves all 459 preceding tracked files.
+It returns an unadmitted value and safe routing summary, not an authorization
+proof. Actual-key distinctness, canonical generations, signed requirement
+lifetimes and maintained ECDSA public-key encoding are source-reviewed;
+compilation/tests/coverage/analyzers remain unrun for those bytes. A separate
+independently reviewed test file adds maintained ES384/Ed25519 and hostile signed
+wire vectors without changing those six files. Receipt
+`checkpoint56/securitycontext-adversarial-tests-integration.json` binds that
+unexecuted test source; no coverage claim follows. Preserve the
+original rejected packets, staging-drift correction and withdrawn mixed-byte
+acceptance. The original pre-drift bytes were not retained independently;
+their old hashes must not be described as retrievable source snapshots.
+
+The graph/compiler design moves include acquisition behind independently
+protected approval of exact root bytes, captured configuration/installation
+identity, finite include/release authority and current generation/fences.
+Its independent revision review `05422a4f...` requires an opaque approved root
+or internal rebinding at `ResolveApproved` before any include/repository/token
+I/O; caller pairing is insufficient. Later top-level repository access needs
+the same approval. Generic parsing, explicit local bootstrap and quarantined
+public GitHub templates remain distinct from authority. Private implementation
+continues in its existing owner; no unprotected proof constructor or permissive
+fallback can stand in for the protected state/enrollment boundary.
+
+The actual confirmed initial locale set is `en` and one `ar` for RTL testing,
+without region variants. All initial product/schema commitments remain v1.
+The private incompatible schemaVersion 2 proposal is rejected and unconsumed.
+Separate same-shape v1 indexes and a closed locale manifest preserve source
+IDs/digests, but their initial packet is blocked for cross-file semantic
+validation and bounded consumer/fallback parity. Three Arabic drafts and
+330 missing entries, with zero reviewed translations, do not establish Arabic
+completion. Existing docs/frontend owners retain full content, UI/action,
+translation, accessibility and device acceptance.
+
+The English 333-entry corpus contains sixteen guides, 187 schema-pattern and
+130 collection-field articles. Independent review `b4ee34de...` verifies source
+bindings but finds forty repeated double periods. The additive correction
+`5ae1df27...` is accepted by review `5294ca99...` for exactly those forty changes;
+source references and the other 293 entries remain unchanged. The 714-file
+local-help candidate and four-file field-context supplement remain separate
+private packets. Producer 47/48-test and browser/performance receipts are not
+root or hosted acceptance. Distribution-root pinning is a concrete integration
+blocker, independently confirmed; per-article hashes alone are insufficient.
+The first review receipt was overwritten by a second reviewer using the same
+filename. Retain its explicitly labelled reconstruction `7cbb81a4...` and the
+separate confirmation, not a claim that the original receipt bytes survive.
+Subsequent receipts use unique reviewer-specific names and frozen source.
+
+Existing UIF-170/171/172/174/175/176 descriptions now include confirmed en/ar,
+source-bound browser-service applicability and the SAME canonical go-live
+document, `RELEASE.md`. Its integrated SHA-256 is
+`0b3efcd57548be07daacfe269a78c758ee4545bec979df495e646cf5ff2ae89b`
+before the additive pre-authentication presentation acceptance paragraph;
+independent source/text review `e0dc3d35...` accepts that base operator procedure.
+The final paragraph requires its own exact source review before publication.
+The verified inventory `908c6da2...` observes historical local source, not fresh
+accepted deployment/entitlement. No tenant IDs, DSNs or operational secrets were
+inspected/copied; no service was activated. Required and optional service states,
+owners, official routes, consent/CSP/privacy and post-deployment/withdrawal
+evidence stay in that existing release guide.
+
+Actual full Linear readbacks bring the observed aggregate to **44 successful
+mutation calls across the same 18 existing issues**, with zero new issues,
+status/assignee/lease/admission changes. Receipt
+`checkpoint56/linear-en-ar-client-provisioning-readback.json`, SHA-256
+`72bb4fe67231bc30a4c3809b05e36336dafa27f2c05f8894e0b0bbce8336c760`,
+retains before/update/readback, including provider expansion of two descriptions'
+issue references into typed links. Root remains sole source integrator,
+feature publisher and Linear writer; current frontend/docs owners continue.
+The subsequent no-auth language/theme/profile/accessibility/defaults updates
+to the same UIF-170/175 bring the actual total to **46 mutations**. Full
+readbacks are retained in `checkpoint56/linear-accessible-preferences-readback.json`,
+SHA-256 `291836f4961f6d2c6248d7be374902148ee3690f930ca960d656cac07f77baeb`;
+no status, assignee, lease or admission changes. The agreed source/UI adapter
+contract is closed optional en/ar/system and light/dark/system preferences,
+explicit device/session field before actual profile before browser defaults,
+with clear/reset and profile overlays never copied into anonymous state.
+Country-to-language inference is not wired; region hints remain separate and
+there is no actual coarse-country service/profile API. Source implementation
+and full accessibility/RTL/browser/device acceptance remain in the existing
+frontend lane. No proprietary TTS widget or new GeoIP provider is implied.
+The actual independent landing brief is `web/.impeccable/briefs/landing.md`
+in the existing private frontend copy, SHA-256 `ffe4ac5d...`; no OffMenu visual
+constraint or new design approval gate is introduced. All product lanes proceed
+in parallel; UI/help/i18n/review/publication do not gate BAU restoration.
+
+Continue exact source review and bounded static checks under the existing
+resource hold: no local Go invocation/build/test/analyzer/resolver/install,
+Java/Docker or SDK application runtime. Pinned formatter, source/Git and Python
+stdlib checks remain permitted; frontend retains its separately authorized sole
+preview exception. Preserve in-flight packets and ownership. Publish reviewed
+source to the existing feature branch only, then collect exact automatic hosted
+evidence; do not merge, tag, release, publish registries or deploy production.
+
 ## UIF migration and delivery closure
 
 This is CircularQuay's canonical migration/impact checklist, within the existing
@@ -65,13 +175,13 @@ relations are retained in `checkpoint52/linear-created-issues-readback.json`.
 | Native delivery, synchronization and recovery | [UIF-165](https://linear.app/maldous/issue/UIF-165) | Source owner; shared CLI/MCP preflight, finite hashing and regressions independently source-reviewed | Qualify exact native behavior; cold boot/service/custody/recovery and pathname limits remain |
 | Identity and enterprise credential lifecycle | [UIF-166](https://linear.app/maldous/issue/UIF-166) | Source owner; selected identity/DPoP/MCP source and complete optional-integration contracts | Complete dynamic issuer/resource/action/lifetime and declared enterprise/native integration profiles |
 | Managed software KMS and age service | [UIF-167](https://linear.app/maldous/issue/UIF-167) | Source owner; internal JWE/Transit core and reviewed Transit refactor | Real authorized service/storage/provisioning/audit/API integration remains unimplemented or unqualified |
-| Signed administration, hierarchy and strict enforcement | [UIF-168](https://linear.app/maldous/issue/UIF-168) | Source owner; consolidated context design independently accepted; pure verifier/generation implementation staged privately | Unified strict engine, protected state/bootstrap, hierarchy and cross-interface implementation/qualification remain blockers |
+| Signed administration, hierarchy and strict enforcement | [UIF-168](https://linear.app/maldous/issue/UIF-168) | Source owner; pure verifier/generation source independently reviewed and integrated; protected graph/compiler boundary remains private | Unified strict engine, protected state/bootstrap, hierarchy and cross-interface implementation/qualification remain blockers |
 | Local-to-managed custody migration | [UIF-169](https://linear.app/maldous/issue/UIF-169) | Source owner; complete migration contract | Implement full synthetic workflow; no operational inventory, key inspection/upload or migration authority inferred |
 | Client, account and operator interfaces | [UIF-170](https://linear.app/maldous/issue/UIF-170) | Existing frontend owner; thirty-file corrective snapshot independently reviewed and integrated; help/control mapping active in existing lane | Qualify exact published frontend matrix and complete searchable help; synthetic previews do not qualify a managed backend |
 | Official SDK qualification | [UIF-171](https://linear.app/maldous/issue/UIF-171) | Source owner; reviewed TS boundary tests; e103 Node24 Windows 27/27 tests, failed coverage | Full matrix/100%/native/install gates; fixed cryptography Intel source-build proposal needs qualified toolchain/build closure |
 | Observability, telemetry and release awareness | [UIF-172](https://linear.app/maldous/issue/UIF-172) | Source owner; native source and synthetic presentation | Complete safe diagnostics/export/fault/shutdown/audit/release evidence; material OTel coverage remains |
 | Native, SDK, OCI and client distribution | [UIF-173](https://linear.app/maldous/issue/UIF-173) | Source owner; release/build/install/registry configuration and instructions | Exact RC/stable artifacts, provenance/signatures/SBOM, clean consumer installs and registry/account readiness remain gated |
-| Whole-product security and independent qualification | [UIF-174](https://linear.app/maldous/issue/UIF-174) | Source owner and independent reviewers; eac85 Sonar 64.1%/three issues, Go statement coverage 83.147386964%, eight gosec findings remain open | Qualify the reviewed correction candidate and complete exact coverage/security/native/provider/artifact/audit evidence |
+| Whole-product security and independent qualification | [UIF-174](https://linear.app/maldous/issue/UIF-174) | Source owner and independent reviewers; 77435c34 Sonar 63.9%/zero issues, Go statement coverage 83.13771518%; current Security/SDK individual results unknown in the bounded receipt | Complete exact coverage/security/native/provider/artifact/audit evidence; prior failed security findings are not cleared by an unread current result |
 | Public support, release documentation and repository controls | [UIF-175](https://linear.app/maldous/issue/UIF-175) | Source owner; supporting docs/skill packet integrated; qualification/command/handoff changes independently reviewed | Qualify actual support/install/client/protection behavior and maintain exact evidence; retain permission gaps |
 | Managed hosting and operational readiness | [UIF-176](https://linear.app/maldous/issue/UIF-176) | Source owner; conditional software-custody hosting forecast only | Qualify selected plan/runtime/state/budgets and controlled lifecycle; no paid/account/production effect authorized |
 | Controlled general-UIF adoption | [UIF-177](https://linear.app/maldous/issue/UIF-177) | Existing CQ owner and UIF Root; no transferred CQ lease or admitted/executed/accepted unit | Actual normal autonomous useful-result and successor/recovery cycles without external manual dispatch; existing UIF Root owns shared changes |
