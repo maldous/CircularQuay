@@ -76,8 +76,8 @@ test('optional steps are sparse, can be absent, and all feature copies remain re
   const none = createScenarioSession({ variantPools: variants, random: () => .9 });
   assert.equal(none.clauses.some(clause => clause.legs[0].route.startsWith('optional-')), false);
   assert.deepEqual([...seen].sort(), [
-    'check a signed policy', 'limit MCP access', 'record an audit event',
-    'request KMS access', 'sync SCIM group access', 'use an age key',
+    'check signing', 'limit MCP access', 'log an audit event',
+    'read SCIM groups', 'request KMS access', 'use an age key',
   ]);
 });
 

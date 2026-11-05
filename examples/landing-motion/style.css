@@ -86,7 +86,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round
 .language-control > svg { width: 17px; height: 17px; position: absolute; inset-inline-start: 8px; pointer-events: none; }
 .language-control select { padding: 10px 20px 10px 31px; min-height: 44px; max-width: 123px; color: var(--ink); background: transparent; border: 0; border-radius: 7px; font-size: 12px; }
 [dir=rtl] .language-control select { padding-inline-start: 31px; padding-inline-end: 20px; }
-.explore-action, .login-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 11px 19px; border-radius: 8px; font-size: 13px; font-weight: 570; text-decoration: none; white-space: nowrap; }
+.explore-action, .download-action, .login-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 11px 19px; border-radius: 8px; font-size: 13px; font-weight: 570; text-decoration: none; white-space: nowrap; }
 .explore-action { color: var(--action-text); background: var(--action); }
 .explore-action:hover { filter: brightness(1.1); }
 .login-action { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
@@ -193,7 +193,7 @@ h1 { font-size: clamp(38px, 3.6vw, 56px); line-height: 1.08; font-weight: 630; l
   .header-actions { gap: 7px; }
   .language-control { min-width: 92px; }
   .language-control select { max-width: 100px; font-size: 11px; }
-  .explore-action, .login-action { font-size: 12px; padding-inline: 14px; }
+  .explore-action, .download-action, .login-action { font-size: 12px; padding-inline: 14px; }
   .landing-pane { min-height: calc(100svh - 76px); }
   .hero { display: flex; flex-direction: column; justify-content: space-evenly; gap: 24px; padding-block: 24px; }
   .hero-copy { width: 100%; padding: 0; }
@@ -245,7 +245,7 @@ h1 { font-size: clamp(38px, 3.6vw, 56px); line-height: 1.08; font-weight: 630; l
   .language-control { min-width: 82px; }
   .language-control select { max-width: 90px; padding-inline-end: 13px; font-size: 10px; }
   .theme-toggle { width: 40px; }
-  .explore-action, .login-action { padding-inline: 12px; font-size: 11px; }
+  .explore-action, .download-action, .login-action { padding-inline: 12px; font-size: 11px; }
 }
 @media (max-width: 420px) {
   .header-actions { gap: 4px; }
@@ -253,7 +253,7 @@ h1 { font-size: clamp(38px, 3.6vw, 56px); line-height: 1.08; font-weight: 630; l
   .language-control select { max-width: 84px; padding-inline-start: 27px; }
   .language-control > svg { inset-inline-start: 6px; width: 15px; }
   .theme-toggle { width: 36px; }
-  .explore-action, .login-action { padding-inline: 11px; }
+  .explore-action, .download-action, .login-action { padding-inline: 11px; }
   .hero { gap: 20px; }
   h1 { font-size: 32px; }
   .node-face { width: 56px; height: 52px; }
@@ -567,3 +567,71 @@ body.landing-page { height: 100svh; height: 100dvh; min-height: 100svh; min-heig
 [data-playing=false] .is-delivered .optional-face::after { animation-play-state: paused; }
 /* The measured narration slot stays fixed while each use case plays. */
 .session-story { align-self: start; height: var(--story-reserved-height, auto); }
+.session-story:not([data-story-ready=true]) { opacity: 0; }
+/* Reserve the narration before the first visible graph; completed lines stay steady. */
+[data-layout-ready=false] .journey { visibility: hidden; }
+/* A neutral branded loading state gives way to the complete settled page. */
+.landing-page > :is(.site-header, main, .site-footer) { opacity: 1; visibility: visible; transition: opacity .3s ease .16s; }
+[data-layout-ready=false] .landing-page > :is(.site-header, main, .site-footer) { opacity: 0; visibility: hidden; }
+.scene-loading { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s ease, visibility 0s .28s; }
+/* In the 176×157 mark, the keyhole is centred at (72.5,79). */
+.loading-brand { position: relative; width: min(50vw, 84dvh); aspect-ratio: 176 / 157; color: #818683; transform: translate(8.806818%, -.318471%); }
+.loading-brand img { position: absolute; inset: 0; width: 100%; height: 100%; filter: grayscale(1); opacity: .35; animation: loading-brand 1.8s ease-in-out infinite paused; }
+.loading-orbit { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.loading-orbit circle { fill: none; stroke: currentColor; stroke-width: 8; stroke-dasharray: 2 98; stroke-dashoffset: -13.2; opacity: .65; animation: loading-orbit 2.4s linear infinite paused; }
+[data-layout-ready=false] .scene-loading { opacity: 1; visibility: visible; transition: none; }
+[data-layout-ready=false] .loading-brand img, [data-layout-ready=false] .loading-orbit circle { animation-play-state: running; }
+@keyframes loading-brand { 0%,100% { opacity: .25; } 50% { opacity: .5; } }
+@keyframes loading-orbit { to { stroke-dashoffset: -113.2; } }
+@media(prefers-reduced-motion:reduce) {
+  [data-layout-ready=false] .loading-brand img, [data-layout-ready=false] .loading-orbit circle { animation: none; }
+  .landing-page > :is(.site-header, main, .site-footer), .scene-loading { transition: none; }
+}
+.is-delivered path[data-delivered=true] { animation: none; }
+
+/* One-line motto and generous diagram gutters keep the opening quiet. */
+.landing-page h1 { white-space: nowrap; font-size: clamp(20px, 2.15vw, 32px); letter-spacing: -.03em; line-height: 1.15; }
+.session-story { border-top: 0; padding-top: 18px; }
+@media(max-width:900px) and (orientation:portrait), (max-width:760px) {
+  .landing-page .hero { row-gap: 16px; }
+  .landing-page .flow-node { height: clamp(62px, calc(25% - 18px), 88px); }
+  .landing-page .node-face { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; justify-items: center; align-items: center; gap: 2px; padding: 6px 3px; }
+  .landing-page .node-icon { position: static; transform: none; grid-column: 1; grid-row: 1; width: 28px; height: 28px; max-height: 100%; }
+  .landing-page .node-name { grid-row: 2; line-height: 1.15; }
+  .landing-page .node-role { grid-row: 3; line-height: 1.15; }
+}
+@media(min-width:640px) and (max-height:480px) {
+  body.landing-page { height: auto; }
+  .landing-page > main, .landing-page .landing-pane { flex: 0 0 auto; }
+  .landing-page .hero { height: 300px; min-height: 300px; flex: none; }
+  .landing-page .journey { min-height: 280px; }
+  .landing-page .flow-node { height: 52px; }
+  .landing-page .node-face { height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto auto; justify-items: center; gap: 1px; padding: 4px 2px; }
+  .landing-page .node-icon { position: static; transform: none; grid-column: 1; grid-row: 1; width: 20px; height: 20px; max-height: 100%; }
+  .landing-page .node-name { grid-row: 2; line-height: 1.1; }
+  .landing-page .node-role { grid-row: 3; line-height: 1.1; }
+}
+@media(max-width:350px) {
+  .optional-face { width: 38px; height: 38px; }
+}
+
+/* Keep the footer to one discreet line; its links remain touch/keyboard scrollable. */
+.site-footer nav { scrollbar-width: none; }
+.site-footer nav::-webkit-scrollbar { display: none; }
+@media(max-width:430px) and (max-height:760px) {
+  .optional-age, .optional-kms, .optional-signed { top: 0; }
+  .optional-directory, .optional-clients, .optional-audit { bottom: 0; }
+}
+
+.download-action { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.download-action:hover { background: var(--rule); }
+@media(max-width:640px) { .site-header .wordmark bdi { display: none; } }
+@media(max-width:430px) {
+  .site-header { padding-inline: 16px; gap: 6px; }
+  .site-header .header-actions { gap: 3px; }
+  .site-header .theme-toggle { width: 32px; }
+  .site-header .language-control { min-width: 58px; width: 58px; }
+  .site-header .language-control select { width: 58px; max-width: 58px; padding-inline-start: 21px; padding-inline-end: 0; font-size: 11px; }
+  .site-header .language-control > svg { inset-inline-start: 1px; width: 13px; }
+  .site-header .explore-action, .site-header .download-action, .site-header .login-action { min-height: 44px; padding-inline: 7px; font-size: 11px; }
+}

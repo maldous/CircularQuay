@@ -2,7 +2,7 @@ const storageKey = 'circularquay-motion-language';
 
 const copy = {
   en: {
-    optionalConnections: 'Optional connections', title1: 'The right secrets,', title2: 'ready for your apps.', explore: 'Explore', login: 'Log in',
+    optionalConnections: 'Optional connections', title1: 'Get the right', title2: 'secrets ready.', explore: 'Explore', download: 'Download', login: 'Login',
     navFlow: 'How it works', navEcosystem: 'Ecosystem', roleAuth: 'Authentication',
     roleLocal: 'Encrypted', roleRemote: 'Encrypted', roleShell: 'Shell',
     roleContainer: 'Containers', roleCloud: 'Cloud', roleCI: 'CI / CD', localFile: 'Local file',
@@ -24,7 +24,7 @@ const copy = {
     loginStatus: 'Sign-in isn’t connected in this local design preview.', languageLabel: 'Language',
   },
   ar: {
-    optionalConnections: 'اتصالات اختيارية', title1: 'الأسرار الصحيحة،', title2: 'جاهزة لتطبيقاتك.', explore: 'استكشف', login: 'تسجيل الدخول',
+    optionalConnections: 'اتصالات اختيارية', title1: 'جهّز الأسرار', title2: 'الصحيحة.', explore: 'استكشف', download: 'تنزيل', login: 'تسجيل الدخول',
     navFlow: 'كيف يعمل', navEcosystem: 'النظام البيئي', roleAuth: 'المصادقة',
     roleLocal: 'مشفّر', roleRemote: 'مشفّر', roleShell: 'سطر الأوامر',
     roleContainer: 'الحاويات', roleCloud: 'السحابة', roleCI: 'التكامل / النشر المستمر', localFile: 'ملف محلي',
@@ -66,6 +66,8 @@ function applyLocale(locale, persist = true) {
     select.setAttribute('aria-label', strings.languageLabel);
     select.disabled = false;
   }
+  const flag = document.querySelector('.language-flag');
+  if (flag) flag.src = language === 'ar' ? 'assets/flag-ar.svg' : 'assets/flag-en.svg';
   const status = document.querySelector('#login-status');
   if (status && !status.hidden) status.textContent = strings.loginStatus;
   if (persist) try { localStorage.setItem(storageKey, language); } catch { /* local preview remains usable */ }

@@ -30,23 +30,23 @@ const PERSONAS = [
 ];
 const TARGET_ACTIONS = {
   cloud: name => `deploy to ${name}`,
-  container: name => `start a workload in ${name}`,
+  container: name => `run on ${name}`,
   shell: name => `run ${name}`,
-  ci: name => `run a job through ${name}`,
+  ci: name => `run a job in ${name}`,
 };
 const TARGET_INTENTS = {
   cloud: 'deploy an app',
-  container: 'start a container workload',
-  shell: 'open a terminal session',
-  ci: 'run a delivery pipeline',
+  container: 'run a container',
+  shell: 'open a terminal',
+  ci: 'run a pipeline',
 };
 const OPTIONALS = [
   { route: 'optional-age', request: 'reverse', response: 'forward', text: 'use an age key', references: ['age'] },
   { route: 'optional-kms', request: 'reverse', response: 'forward', text: 'request KMS access', references: ['KMS'] },
-  { route: 'optional-signed', request: 'reverse', response: 'forward', text: 'check a signed policy', references: [] },
-  { route: 'optional-directory', request: 'forward', response: 'reverse', text: 'sync SCIM group access', references: ['SCIM'] },
+  { route: 'optional-signed', request: 'reverse', response: 'forward', text: 'check signing', references: [] },
+  { route: 'optional-directory', request: 'forward', response: 'reverse', text: 'read SCIM groups', references: ['SCIM'] },
   { route: 'optional-clients', request: 'forward', response: 'reverse', text: 'limit MCP access', references: ['MCP'] },
-  { route: 'optional-audit', request: 'forward', response: 'reverse', text: 'record an audit event', references: [] },
+  { route: 'optional-audit', request: 'forward', response: 'reverse', text: 'log an audit event', references: [] },
 ];
 
 function choose(list, random) { return list[Math.floor(random() * list.length)]; }

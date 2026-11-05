@@ -22,7 +22,7 @@ const pages = {
 const footer = `<footer class="site-footer page-width" lang="en">\n  <p class="footer-brand">© CircularQuay</p>\n  <nav aria-label="Footer navigation — scroll horizontally for more links">${links.map(([label, route]) => `<a href="${route}">${label}</a>`).join('')}<a href="/cookies">Privacy settings</a></nav>\n</footer>\n`;
 
 const landing = await readFile(new URL('index.html', directory), 'utf8');
-const headerMatch = landing.match(/<header class="site-header page-width">[\s\S]*?<\/header>/);
+const headerMatch = landing.match(/<header class="site-header page-width(?: has-help-search)?">[\s\S]*?<\/header>/);
 if (!headerMatch) throw new Error('Could not find the current landing-page header');
 const header = `<!-- site-header:start -->\n${headerMatch[0]
   .replace('href="#main"', 'href="/"')
@@ -30,7 +30,7 @@ const header = `<!-- site-header:start -->\n${headerMatch[0]
   .replaceAll('href="#ecosystem"', 'href="/#ecosystem"')}\n<!-- site-header:end -->`;
 
 function page(slug, [label, heading, description]) {
-  return `<!doctype html>\n<html lang="en" dir="ltr" data-theme="light">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n  <meta name="robots" content="noindex,nofollow">\n  <meta name="description" content="${label} information for the CircularQuay local design preview. Content pending production review.">\n  <title>${label} | CircularQuay</title>\n  <link rel="icon" href="assets/logo-light.svg" type="image/svg+xml">\n  <script src="preference-bootstrap.js"></script>\n  <link rel="stylesheet" href="style.css">\n  <script type="module" src="appearance.js"></script>\n  <script type="module" src="locale.js"></script>\n</head>\n<body>\n  <a class="skip-link" href="#main">Skip to content</a>\n  ${header}\n  <main id="main" class="information-page page-width" lang="en" dir="ltr">\n    <h1>${heading}</h1>\n    <p>To be completed before production.</p>\n    <p>${description}</p>\n    <p>Content, ownership and publication approval are pending.</p>\n  </main>\n  ${footer}\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="en" dir="ltr" data-theme="light">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n  <meta name="robots" content="noindex,nofollow">\n  <meta name="description" content="${label} information for the CircularQuay local design preview. Content pending production review.">\n  <title>${label} | CircularQuay</title>\n  <link rel="icon" href="assets/logo-light.svg" type="image/svg+xml">\n  <script src="preference-bootstrap.js"></script>\n  <link rel="stylesheet" href="style.css">\n  <link rel="stylesheet" href="header-search.css">\n  <script type="module" src="appearance.js"></script>\n  <script type="module" src="header-search.js"></script>\n  <script type="module" src="locale.js"></script>\n</head>\n<body>\n  <a class="skip-link" href="#main">Skip to content</a>\n  ${header}\n  <main id="main" class="information-page page-width" lang="en" dir="ltr">\n    <h1>${heading}</h1>\n    <p>To be completed before production.</p>\n    <p>${description}</p>\n    <p>Content, ownership and publication approval are pending.</p>\n  </main>\n  ${footer}\n</body>\n</html>\n`;
 }
 
 const outputs = {

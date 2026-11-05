@@ -14,6 +14,6 @@ export function groupForDocument(documentId) {
 }
 
 export function exploreHomeMarkup({ compact = false } = {}) {
-  const entries = `<ul class="explore-topic-menu${compact ? ' is-compact' : ''}">${navigationGroups.map(group => `<li><a href="/explore#group=${encodeURIComponent(group.id)}"><span><strong>${group.title}</strong><span class="topic-description topic-description-long">${group.description}</span><span class="topic-description topic-description-short" aria-hidden="true">${group.shortDescription}</span></span>${arrow}</a></li>`).join('')}</ul>`;
+  const entries = `<ul class="explore-topic-menu${compact ? ' is-compact' : ''}">${navigationGroups.map(group => `<li><a href="${compact ? `/explore#doc=${encodeURIComponent(group.featured[0])}&amp;part=part-1` : `/explore#group=${encodeURIComponent(group.id)}`}"><span><strong>${group.title}</strong><span class="topic-description topic-description-long">${group.description}</span><span class="topic-description topic-description-short" aria-hidden="true">${group.shortDescription}</span></span>${arrow}</a></li>`).join('')}</ul>`;
   return compact ? entries : `<nav aria-label="Explore topics"><h2>Choose a starting point</h2>${entries}</nav>`;
 }

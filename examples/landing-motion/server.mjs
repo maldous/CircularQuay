@@ -12,6 +12,15 @@ const root = resolve(import.meta.dirname);
 // evidence and repository files outside this allowlist.
 const assets = new Map([
   ['/login', 'login.html'],
+  ['/help', 'help.html'],
+  ['/help.html', 'help.html'],
+  ['/help.css', 'help.css'],
+  ['/help-page.js', 'help-page.js'],
+  ['/header-search.js', 'header-search.js'],
+  ['/header-search.css', 'header-search.css'],
+  ['/motion-emphasis.css', 'motion-emphasis.css'],
+  ['/assets/flag-en.svg', 'assets/flag-en.svg'],
+  ['/assets/flag-ar.svg', 'assets/flag-ar.svg'],
   ['/login.html', 'login.html'],
   ['/about', 'about.html'],
   ['/about.html', 'about.html'],
@@ -78,8 +87,23 @@ for (const file of documentationManifest.publicFiles) {
   assets.set(`/${file.path}`, file.path);
 }
 
+// Reuse the client distribution at its pinned absolute paths. No directory serving.
+const helpDirectory = new URL('client-help/', import.meta.url);
+const helpManifest = JSON.parse(await readFile(new URL('generated/manifest.json', helpDirectory), 'utf8'));
+const helpCatalog = JSON.parse(await readFile(new URL(`generated/${helpManifest.catalog.path.split('/').pop()}`, helpDirectory), 'utf8'));
+for (const name of ['help-release.js', 'help-search.js', 'help-store.js', 'help-contract.js', 'help.js', 'help-catalog.js']) {
+  assets.set(`/client-help/${name}`, `client-help/${name}`);
+}
+for (const path of ['/help/generated/manifest.json', helpManifest.catalog.path, helpManifest.search.path, ...helpCatalog.documents.map(item => item.article.path)]) {
+  if (!/^\/help\/generated\/(?:manifest|(?:catalog|search|article-[a-z][a-z0-9.-]{0,100})-[a-f0-9]{64})\.json$/.test(path)) throw new Error('Invalid public help asset path');
+  const file = `client-help/generated/${path.split('/').pop()}`;
+  assets.set(path, file);
+  assets.set(`/${file}`, file);
+}
+
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml; charset=utf-8',
@@ -88,7 +112,7 @@ const contentTypes = {
 };
 
 const securityHeaders = {
-  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'",
   'Cross-Origin-Resource-Policy': 'same-origin',
   'Referrer-Policy': 'no-referrer',
   'X-Content-Type-Options': 'nosniff',

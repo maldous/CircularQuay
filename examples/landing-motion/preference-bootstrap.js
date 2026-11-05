@@ -1,4 +1,5 @@
 document.documentElement.dataset.reducedMotion = String(matchMedia('(prefers-reduced-motion: reduce)').matches);
+document.documentElement.dataset.layoutReady = 'false';
 
 try {
   const saved = localStorage.getItem('circularquay-motion-theme');

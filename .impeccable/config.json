@@ -49,6 +49,24 @@
         ],
         "createdAt": "2026-11-05T09:02:18.294Z",
         "reason": "User explicitly pinned the existing warm ivory CircularQuay palette and provided the visual reference; preserve product branding."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "examples/landing-motion/help.html"
+        ],
+        "createdAt": "2026-11-05T11:18:11.825Z",
+        "reason": "User explicitly requires existing CircularQuay branding and fonts across Help, search, Explore and Markdown pages; preserve the shared Inter/platform stack."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "examples/landing-motion/help.html"
+        ],
+        "createdAt": "2026-11-05T11:18:11.885Z",
+        "reason": "User explicitly requires existing CircularQuay branding across all pages; the existing warm ivory surface is intentional."
       }
     ]
   }

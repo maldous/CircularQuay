@@ -16,6 +16,7 @@ let inView = false;
 let pausedByFocus = false;
 let pausedByEscape = false;
 let geometryDirty = true;
+let geometrySignature = '';
 let frame = 0;
 let lastTime = null;
 let lastPaint = 0;
@@ -30,7 +31,7 @@ let storyReservationKey = '';
 let reservationFrame = 0;
 
 function isReducedMotion() { return root.dataset.reducedMotion === 'true'; }
-function motionEnabled() { return !isReducedMotion() && inView && !document.hidden && !pausedByFocus && !pausedByEscape; }
+function motionEnabled() { return root.dataset.layoutReady === 'true' && !isReducedMotion() && inView && !document.hidden && !pausedByFocus && !pausedByEscape; }
 function updateMotionState() { root.dataset.playing = String(motionEnabled() && !preparingSession); }
 function parseVariants(node) { try { return JSON.parse(node.dataset.variants || '[]').filter(item => item?.name && item?.asset); } catch { return []; } }
 
@@ -49,6 +50,7 @@ function initialiseRoutes() {
     const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     marker.classList.add('flow-marker'); marker.setAttribute('aria-hidden', 'true');
+    marker.style.display = 'none';
     ring.setAttribute('r', '9'); label.setAttribute('dominant-baseline', 'central'); label.setAttribute('text-anchor', 'middle');
     marker.append(ring, label); svg.querySelector('.packets')?.append(marker);
     routes.push({ id: path.dataset.route || `optional-${path.dataset.optionalRoute}`, path, packet: marker, markerLabel: label, kind: path.dataset.kind || 'optional', samples: [], hubProgress: .5 });
@@ -58,7 +60,7 @@ function initialiseRoutes() {
 function pointFor(rect, area) { return { left: rect.left - area.left, right: rect.right - area.left, top: rect.top - area.top, bottom: rect.bottom - area.top }; }
 function cachePath(route, start, end, vertical = false) {
   const dx = end.x - start.x, dy = end.y - start.y;
-  const bend = Math.min(90, Math.max(30, (vertical ? Math.abs(dy) : Math.abs(dx)) * .42));
+  const bend = Math.min(90, (vertical ? Math.abs(dy) : Math.abs(dx)) * .42);
   const first = vertical ? { x: start.x, y: start.y + Math.sign(dy || 1) * bend } : { x: start.x + Math.sign(dx || 1) * bend, y: start.y };
   const second = vertical ? { x: end.x, y: end.y - Math.sign(dy || 1) * bend } : { x: end.x - Math.sign(dx || 1) * bend, y: end.y };
   route.path.setAttribute('d', `M${start.x} ${start.y} C${first.x} ${first.y} ${second.x} ${second.y} ${end.x} ${end.y}`);
@@ -69,6 +71,9 @@ function cachePath(route, start, end, vertical = false) {
 function refreshGeometry() {
   if (!ecosystem || !svg || !hub) return;
   const area = ecosystem.getBoundingClientRect();
+  const signature = [area.width, area.height, innerWidth, innerHeight].join('|');
+  if (signature === geometrySignature) { geometryDirty = false; return; }
+  geometrySignature = signature;
   svg.setAttribute('viewBox', `0 0 ${area.width} ${area.height}`);
   const hubRect = pointFor(hub.getBoundingClientRect(), area);
   const hubCenter = { x: (hubRect.left + hubRect.right) / 2, y: (hubRect.top + hubRect.bottom) / 2 };
@@ -202,9 +207,7 @@ function reserveStoryHeight() {
     refs.alternative.style.fontWeight = '650';
   }
   probe.remove();
-  const actionStyle = getComputedStyle(storyClauses);
-  const actionLineHeight = Number.parseFloat(actionStyle.lineHeight) || Number.parseFloat(actionStyle.fontSize) * 1.45;
-  const reserved = `${Math.ceil(maximum + actionLineHeight)}px`;
+  const reserved = `${Math.ceil(maximum) + 3}px`;
   story.style.setProperty('--story-reserved-height', reserved);
   story.style.height = reserved; story.style.minHeight = reserved;
   geometryDirty = true;
@@ -301,12 +304,17 @@ function applySelection(selection, animate = false) {
 }
 
 function variantPools() { return Object.fromEntries([...iconStates].map(([key, state]) => [key, state.variants])); }
+function revealStory() {
+  if (!story || story.dataset.storyReady === 'true') return;
+  story.dataset.storyReady = 'true';
+  story.removeAttribute('aria-hidden');
+}
 function beginSession(next, complete = false, animate = false, applyIcons = true) {
   clearDelivered();
   session = next; sessionElapsed = 0; renderedStoryKey = '';
   if (applyIcons) applySelection(session.selection, animate);
   setStory(complete ? session.clauses.length - 1 : 0, complete);
-  if (complete) { updateWordReveals(session.clauses.length - 1, 1, true); showDelivered(); }
+  if (complete) { updateWordReveals(session.clauses.length - 1, 1, true); showDelivered(); revealStory(); }
 }
 async function queueNextSession() {
   if (preparingSession) return;
@@ -343,6 +351,7 @@ function easeInOut(progress) {
 function paintSession() {
   routes.forEach(route => { route.packet.style.display = 'none'; route.path.dataset.active = 'false'; });
   if (!session || isReducedMotion()) { setActiveRoute(null); hub?.style.setProperty('--activity', '0'); return; }
+  if (motionEnabled() && !preparingSession) revealStory();
   const state = sessionStep(session, sessionElapsed);
   setStory(state.clauseIndex, state.settled);
   const route = routes.find(item => item.id === state.leg.route);
@@ -381,18 +390,35 @@ function updateFrame() {
 }
 
 initialiseNodes(); initialiseRoutes();
-const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools() });
 preparingSession = true;
-preload(firstSession.selection).then(ready => { preparingSession = false; if (ready) { beginSession(firstSession, isReducedMotion(), false); reserveStoryHeight(); } updateFrame(); });
+async function prepareFirstScene() {
+  journey?.setAttribute('aria-busy', 'true');
+  await document.fonts?.ready;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const firstSession = isReducedMotion() ? staticScenario(variantPools()) : createScenarioSession({ variantPools: variantPools() });
+  session = firstSession;
+  reserveStoryHeight();
+  const ready = await preload(firstSession.selection);
+  if (ready) {
+    beginSession(firstSession, isReducedMotion(), false);
+  } else {
+    beginSession(staticScenario(variantPools()), true, false, false);
+  }
+  root.dataset.layoutReady = 'true';
+  journey?.setAttribute('aria-busy', 'false');
+  preparingSession = false;
+  updateFrame();
+}
+prepareFirstScene();
 journey?.addEventListener('focusin', () => { pausedByFocus = true; updateFrame(); });
 journey?.addEventListener('focusout', () => { pausedByFocus = false; updateFrame(); });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { pausedByEscape = !pausedByEscape; updateFrame(); } });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !event.defaultPrevented) { pausedByEscape = !pausedByEscape; updateFrame(); } });
 document.addEventListener('visibilitychange', updateFrame);
-window.addEventListener('appearance:reduced-motion', () => { if (isReducedMotion()) { const staticSession = staticScenario(variantPools()); preload(staticSession.selection).then(ready => { if (ready) { beginSession(staticSession, true); paintSession(); } updateFrame(); }); } else updateFrame(); });
+window.addEventListener('appearance:reduced-motion', () => { if (root.dataset.layoutReady !== 'true') return; if (isReducedMotion()) { const staticSession = staticScenario(variantPools()); preload(staticSession.selection).then(ready => { if (ready) { beginSession(staticSession, true); paintSession(); } updateFrame(); }); } else updateFrame(); });
 window.addEventListener('resize', scheduleStoryReservation, { passive: true });
 window.addEventListener('localechange', () => { storyReservationKey = ''; scheduleStoryReservation(); });
-document.fonts?.ready?.then(() => { storyReservationKey = ''; scheduleStoryReservation(); });
+document.fonts?.addEventListener('loadingdone', () => { storyReservationKey = ''; scheduleStoryReservation(); });
 const resizeObserver = new ResizeObserver(() => { geometryDirty = true; if (!motionEnabled()) refreshGeometry(); });
 if (ecosystem) resizeObserver.observe(ecosystem);
 if ('IntersectionObserver' in window) new IntersectionObserver(entries => { inView = entries[0].isIntersecting; updateFrame(); }, { threshold: .15 }).observe(journey); else inView = true;
-refreshGeometry(); paintSession(); updateFrame();
+updateFrame();
