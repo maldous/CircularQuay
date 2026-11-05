@@ -6,11 +6,11 @@ import { readFile } from 'node:fs/promises';
 
 const host = '127.0.0.1';
 const port = 5182;
-const root = resolve(import.meta.dirname);
+export const root = resolve(import.meta.dirname);
 
 // This preview is deliberately a closed, static asset set. Keep documents,
 // evidence and repository files outside this allowlist.
-const assets = new Map([
+export const assets = new Map([
   ['/login', 'login.html'],
   ['/help', 'help.html'],
   ['/help.html', 'help.html'],
@@ -102,7 +102,7 @@ for (const path of ['/help/generated/manifest.json', helpManifest.catalog.path, 
   assets.set(`/${file}`, file);
 }
 
-const contentTypes = {
+export const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -112,7 +112,7 @@ const contentTypes = {
   '.xml': 'application/xml; charset=utf-8',
 };
 
-const securityHeaders = {
+export const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'",
   'Cross-Origin-Resource-Policy': 'same-origin',
   'Referrer-Policy': 'no-referrer',
@@ -161,7 +161,7 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(port, host, () => {
+if (!process.env.CQ_EXPORT_ROUTE_MAP) server.listen(port, host, () => {
   process.stdout.write(`CircularQuay landing-motion preview: http://${host}:${port}/\n`);
 });
 
@@ -171,5 +171,7 @@ function stop(signal) {
   process.stdout.write(`Received ${signal}; closing landing-motion preview.\n`);
 }
 
-process.once('SIGINT', () => stop('SIGINT'));
-process.once('SIGTERM', () => stop('SIGTERM'));
+if (!process.env.CQ_EXPORT_ROUTE_MAP) {
+  process.once('SIGINT', () => stop('SIGINT'));
+  process.once('SIGTERM', () => stop('SIGTERM'));
+}
