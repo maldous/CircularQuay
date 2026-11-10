@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "composition": {
+    "conflicts": "reject",
+    "includes": [
+      {
+        "id": "personal",
+        "namespace": "personal",
+        "sha256": "1947af97cd596553161ac099f57e4e6b1a3b1361a15959fee4d6b42785d44000",
+        "file": "personal.json",
+        "base_directory": ".",
+        "visibility": "local"
+      }
+    ],
+    "locks": [
+      {
+        "pointer": "/workloads/personal__demo/mode",
+        "value": "offline"
+      }
+    ]
+  }
+}

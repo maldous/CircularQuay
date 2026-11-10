@@ -1,0 +1,18 @@
+[
+  {
+    "name": "gcp-version-is-opaque",
+    "version": "projects/synthetic/secrets/fixture/versions/7"
+  },
+  {
+    "name": "bitwarden-rfc3339-version-is-opaque",
+    "version": "2026-11-04T12:30:45.123456Z"
+  },
+  {
+    "name": "mtime-colon-version-is-opaque",
+    "version": "2026-11-04T12:30:45+11:00"
+  },
+  {
+    "name": "c1-version-metadata-remains-opaque",
+    "version": "provider\u0085metadata"
+  }
+]

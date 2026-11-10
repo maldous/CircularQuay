@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://circularquay.dev/schema/security-context-claims-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "context_id", "profile_id", "profile_revision", "tenant", "issuer", "audience", "policy_graph_sha256", "policy_revision", "context_generation", "enrollment_generation", "authority_generation", "not_before", "expires_at", "revocation_fresh_until", "requirements", "capabilities"],
+  "properties": {
+    "version": {"const": 1},
+    "context_id": {"$ref": "#/$defs/id"}, "profile_id": {"$ref": "#/$defs/id"}, "profile_revision": {"$ref": "#/$defs/id"}, "tenant": {"$ref": "#/$defs/id"},
+    "issuer": {"$ref": "#/$defs/text"}, "audience": {"$ref": "#/$defs/text"}, "policy_graph_sha256": {"$ref": "#/$defs/hash"}, "policy_revision": {"$ref": "#/$defs/id"},
+    "context_generation": {"$ref": "#/$defs/contextGeneration"}, "enrollment_generation": {"$ref": "#/$defs/generationReference"}, "authority_generation": {"$ref": "#/$defs/generationReference"},
+    "not_before": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}, "revocation_fresh_until": {"type": "string", "format": "date-time"},
+    "requirements": {"type": "object", "additionalProperties": false, "required": ["audit_required", "approval_required", "custody", "offline_allowed", "recovery_required"], "properties": {"audit_required": {"type": "boolean"}, "approval_required": {"type": "boolean"}, "custody": {"$ref": "#/$defs/id"}, "offline_allowed": {"type": "boolean"}, "recovery_required": {"type": "boolean"}}},
+    "capabilities": {"type": "array", "maxItems": 32, "items": {"type": "object", "additionalProperties": false, "required": ["control_id", "implementation_id", "version", "platform", "expires_at"], "properties": {"control_id": {"$ref": "#/$defs/id"}, "implementation_id": {"$ref": "#/$defs/id"}, "version": {"$ref": "#/$defs/id"}, "platform": {"$ref": "#/$defs/id"}, "expires_at": {"type": "string", "format": "date-time"}}}}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000\\r\\n]+$"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^[^\\u0000\\r\\n]+$"},
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decimal": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$"},
+    "nonzeroDecimal": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+    "contextGeneration": {"type": "object", "additionalProperties": false, "required": ["recovery_epoch", "sequence", "previous_accepted_payload_sha256"], "properties": {"recovery_epoch": {"$ref": "#/$defs/decimal"}, "sequence": {"$ref": "#/$defs/nonzeroDecimal"}, "previous_accepted_payload_sha256": {"$ref": "#/$defs/hash"}}},
+    "generationReference": {"type": "object", "additionalProperties": false, "required": ["recovery_epoch", "sequence", "accepted_payload_sha256"], "properties": {"recovery_epoch": {"$ref": "#/$defs/decimal"}, "sequence": {"$ref": "#/$defs/decimal"}, "accepted_payload_sha256": {"$ref": "#/$defs/hash"}}}
+  },
+  "description": "Schema is structural only. The pure verifier enforces signed structure, enrolled trust, threshold signatures, canonical generations, declared requirement lifetimes, and freshness. Capability entries are signed requirements; the protected admission layer measures and satisfies them independently."
+}
