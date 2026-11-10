@@ -31,6 +31,13 @@ func TestOTelCoverageHeadersAndCollectorURLBoundaries(t *testing.T) {
 }
 
 func TestOTelCoverageCollectorClientAndDisabledBackendLifecycle(t *testing.T) {
+	assertCollectorClientDefaultsAndRedirectPolicy(t)
+	assertDisabledBackendLifecycle(t)
+}
+
+func assertCollectorClientDefaultsAndRedirectPolicy(t *testing.T) {
+	t.Helper()
+
 	client, health, err := collectorClient(model.Observability{TimeoutSeconds: 7}, nil)
 	if err != nil || health == nil || client.Timeout != 7*time.Second || client.Transport == nil || client.CheckRedirect == nil {
 		t.Fatalf("default collector client = %#v, health=%#v, err=%v", client, health, err)
@@ -42,6 +49,10 @@ func TestOTelCoverageCollectorClientAndDisabledBackendLifecycle(t *testing.T) {
 	if client.CheckRedirect(request, nil) == nil {
 		t.Fatal("collector client followed a redirect")
 	}
+}
+
+func assertDisabledBackendLifecycle(t *testing.T) {
+	t.Helper()
 
 	diagnostic := &diagnostic{level: "off"}
 	backend, err := newOTelBackend(context.Background(), model.Observability{Endpoint: "https://collector.example"}, "", "", diagnostic)
