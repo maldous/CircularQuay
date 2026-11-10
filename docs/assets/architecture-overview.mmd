@@ -1,0 +1,11 @@
+flowchart LR
+  P[CircularQuay policy core] --> R[Authorization and resolution]
+  F[Authenticated encrypted artifacts] --> R
+  V[Existing providers: exact resources] --> R
+  K[Approved native KMS or Transit] --> R
+  R --> G[Complete generation]
+  G --> L[Native workload delivery]
+  G --> D[Approved one-way publication]
+  G --> S[Authorized encrypted snapshot]
+  M[Authenticated MCP] --> R
+  R --> O[Scoped status, action or explicit read]

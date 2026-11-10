@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Static, local-only help distribution reused by the CircularQuay landing preview.",
+  "source": {
+    "repositoryRoot": "web",
+    "revision": "15f368a9f8ac4b45f5d92772c492e863b0a0f5f9",
+    "corpusReferences": 42,
+    "corpusBaseCommit": "503233860f0edb103e604f1f71bcff88903e6138",
+    "releaseCommit": "87be75afc2f25215bc5440c58be0d7112a76fd03",
+    "copiedAt": "2026-11-05"
+  },
+  "modules": {
+    "help-release.js": "d28c65803a2bd5d31b2f42000b21305b6beaeb89cb6c5e01a6df501d6010b319",
+    "help-search.js": "aee1f7fe6e6e25fc6b9147ec3adab0f0c2122010162d9ab13340514faf7768b4",
+    "help-store.js": "5c236bcdc48a919f2d631f972fface021a475505575bf13e5eac51922ab96d42",
+    "help-contract.js": "98ec41cd7f22c2d924eca4afd2f5ef62be6a0833ccb67e531381a5a6cc5488df",
+    "help.js": "fec69bed52b484aba3dff2833a28c393b04c0d42062251273dacc5f6b53fc27d"
+  },
+  "generated": {
+    "jsonAssetCount": 336,
+    "brotliCompanionsCopied": false,
+    "releaseManifestPath": "/help/generated/manifest.json",
+    "releaseManifestSha256": "7161768a212b09d3c3be7dac92d795acb15f7bc07f82351251fca3e136ee168d",
+    "contentVersion": "sha256:e0c00966bf7781d52c22e3a1a9f1b7da79fdf061764100da2dab97adf7803124"
+  },
+  "bridge": {
+    "module": "client-help/help-catalog.js",
+    "sourcePrefix": "/help/generated/",
+    "previewPrefix": "/client-help/generated/",
+    "actualUsage": "The planned preview server aliases /help/generated/ to the vendored assets so unmodified mountHelp can be used. This bridge is retained for namespace-scoped autocomplete consumers.",
+    "note": "The bridge maps only static asset paths. It does not add external requests, query URLs, storage, telemetry or credentials."
+  }
+}

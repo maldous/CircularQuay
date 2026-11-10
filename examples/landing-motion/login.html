@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f2f0e8">
+  <meta name="description" content="Login to the CircularQuay local preview.">
+  <title>Login to CircularQuay</title>
+  <link rel="icon" href="assets/logo-light.svg" type="image/svg+xml">
+  <script src="preference-bootstrap.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="header-search.css">
+  <link rel="stylesheet" href="login.css">
+  <script type="module" src="appearance.js"></script>
+  <script type="module" src="header-search.js"></script>
+  <script type="module" src="locale.js"></script>
+  <script type="module" src="login.js"></script>
+  <script type="module" src="site-services.js"></script>
+</head>
+<body class="page-login login-page">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <!-- site-header:start -->
+<header class="site-header page-width has-help-search">
+    <a class="wordmark" href="/" aria-label="CircularQuay home"><img class="logo-light" src="assets/logo-light.svg" width="42" height="38" alt=""><img class="logo-dark" src="assets/logo-dark.svg" width="42" height="38" alt=""><bdi>CircularQuay</bdi></a>
+    <nav aria-label="Main navigation"><a href="/explore#doc=docs-architecture&amp;part=part-1" data-i18n="navFlow">How it works</a></nav>
+    <div class="header-actions">
+      <button disabled id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg><svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.3A8.5 8.5 0 0 1 8.7 4 8.5 8.5 0 1 0 20 15.3Z"/></svg></button>
+      <label class="language-control"><img class="language-flag" src="assets/flag-en.svg" width="20" height="15" alt=""><span class="visually-hidden">Language</span><select id="language" aria-label="Language" disabled><option value="en" lang="en" aria-label="English">EN</option><option value="ar" lang="ar">العربية · معاينة</option></select></label>
+      <a class="explore-action" href="/explore"><span data-i18n="explore">Explore</span></a>
+      <a class="download-action" href="https://github.com/maldous/CircularQuay/releases/latest"><span data-i18n="download">Download</span></a>
+      <a href="/login" id="login" class="login-action"><span data-i18n="login">Login</span></a>
+    </div>
+    <div class="header-help-search" lang="en" dir="ltr">
+      <a class="help-action" href="/help">Help</a>
+      <form class="header-search" role="search" aria-label="Help and documentation" novalidate>
+        <label class="visually-hidden" for="site-search">Search help and documentation</label>
+        <input id="site-search" type="search" role="combobox" aria-autocomplete="list" aria-controls="site-search-results" aria-expanded="false" aria-describedby="site-search-hint" placeholder="Search" maxlength="256" autocomplete="off" spellcheck="false" disabled>
+        <button type="submit" aria-label="Search" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+        <span id="site-search-hint" class="visually-hidden">Use arrow keys to choose a result, Tab to complete its title, and Enter to open it.</span>
+        <div id="site-search-popup" class="search-suggestions" hidden>
+          <ul id="site-search-results" role="listbox" aria-label="Search suggestions"></ul>
+          <p id="site-search-status" aria-live="polite"></p>
+        </div>
+      </form>
+    </div>
+  </header>
+  <!-- site-header:end -->
+
+  <main id="main" class="login-main page-width">
+    <div class="login-layout" aria-label="Login options">
+    <section class="provider-panel" aria-label="Identity providers">
+      <p id="provider-status" class="provider-status" aria-live="polite"></p>
+      <fieldset class="provider-grid" aria-label="Identity provider choices" disabled>
+        <button type="button" class="provider-choice" data-provider="Google Workspace"><img src="assets/integrations/google.svg" alt="" width="24" height="24">Google Workspace</button>
+        <button type="button" class="provider-choice" data-provider="GitHub"><img src="assets/integrations/github.svg" alt="" width="24" height="24">GitHub</button>
+        <button type="button" class="provider-choice" data-provider="GitLab"><img src="assets/integrations/gitlab.svg" alt="" width="24" height="24">GitLab</button>
+        <button type="button" class="provider-choice" data-provider="Okta"><img src="assets/integrations/okta.svg" alt="" width="24" height="24">Okta</button>
+        <button type="button" class="provider-choice" data-provider="Auth0"><img src="assets/integrations/auth0.svg" alt="" width="24" height="24">Auth0</button>
+        <button type="button" class="provider-choice" data-provider="Keycloak"><img src="assets/integrations/keycloak.svg" alt="" width="24" height="24">Keycloak</button>
+        <button type="button" class="provider-choice" data-provider="FusionAuth"><img src="assets/integrations/fusionauth.svg" alt="" width="24" height="24">FusionAuth</button>
+        <button type="button" class="provider-choice" data-provider="authentik"><img src="assets/integrations/authentik.svg" alt="" width="24" height="24">authentik</button>
+        <button type="button" class="provider-choice" data-provider="Clerk"><img src="assets/integrations/clerk.svg" alt="" width="24" height="24">Clerk</button>
+        <button type="button" class="provider-choice" data-provider="Ory"><img src="assets/integrations/ory.svg" alt="" width="24" height="24">Ory</button>
+        <button type="button" class="provider-choice" data-provider="OpenID Connect"><img src="assets/integrations/openid.svg" alt="" width="24" height="24">OpenID Connect</button>
+        <button type="button" class="provider-choice" data-provider="WebAuthn / Passkeys"><img src="assets/integrations/webauthn.svg" alt="" width="24" height="24">WebAuthn / Passkeys</button>
+        <button type="button" class="provider-choice" data-provider="Firebase Authentication"><img src="assets/integrations/firebase.svg" alt="" width="24" height="24">Firebase Authentication</button>
+        <button type="button" class="provider-choice" data-provider="Supabase Auth"><img src="assets/integrations/supabase.svg" alt="" width="24" height="24">Supabase Auth</button>
+        <button type="button" class="provider-choice" data-provider="Apple sign-in"><img src="assets/integrations/apple.svg" alt="" width="24" height="24">Apple sign-in</button>
+        <button type="button" class="provider-choice" data-provider="Facebook Login"><img src="assets/integrations/facebook.svg" alt="" width="24" height="24">Facebook Login</button>
+        <button type="button" class="provider-choice" data-provider="Discord OAuth"><img src="assets/integrations/discord.svg" alt="" width="24" height="24">Discord OAuth</button>
+        <button type="button" class="provider-choice" data-provider="Twitch identity"><img src="assets/integrations/twitch.svg" alt="" width="24" height="24">Twitch identity</button>
+        <button type="button" class="provider-choice" data-provider="Reddit OAuth"><img src="assets/integrations/reddit.svg" alt="" width="24" height="24">Reddit OAuth</button>
+        <button type="button" class="provider-choice" data-provider="Steam OpenID"><img src="assets/integrations/steam.svg" alt="" width="24" height="24">Steam OpenID</button>
+        <button type="button" class="provider-choice" data-provider="Spotify OAuth"><img src="assets/integrations/spotify.svg" alt="" width="24" height="24">Spotify OAuth</button>
+        <button type="button" class="provider-choice" data-provider="Atlassian identity"><img src="assets/integrations/atlassian.svg" alt="" width="24" height="24">Atlassian identity</button>
+        <button type="button" class="provider-choice" data-provider="X OAuth"><img src="assets/integrations/x.svg" alt="" width="24" height="24">X OAuth</button>
+        <button type="button" class="provider-choice" data-provider="LINE Login"><img src="assets/integrations/line.svg" alt="" width="24" height="24">LINE Login</button>
+        <button type="button" class="provider-choice" data-provider="WeChat Login"><img src="assets/integrations/wechat.svg" alt="" width="24" height="24">WeChat Login</button>
+        <button type="button" class="provider-choice" data-provider="Kakao Login"><img src="assets/integrations/kakaotalk.svg" alt="" width="24" height="24">Kakao Login</button>
+        <button type="button" class="provider-choice" data-provider="Naver Login"><img src="assets/integrations/naver.svg" alt="" width="24" height="24">Naver Login</button>
+        <button type="button" class="provider-choice" data-provider="VK ID"><img src="assets/integrations/vk.svg" alt="" width="24" height="24">VK ID</button>
+        <button type="button" class="provider-choice" data-provider="Amazon Cognito"><img src="assets/integrations/amazonwebservices-original-wordmark.svg" alt="" width="24" height="24">Amazon Cognito</button>
+        <button type="button" class="provider-choice" data-provider="AWS IAM Identity Center"><img src="assets/integrations/amazonwebservices-original-wordmark.svg" alt="" width="24" height="24">AWS IAM Identity Center</button>
+      </fieldset>
+    </section>
+
+    <aside class="account-reserved" aria-label="Account access">
+      <div class="account-actions"><button type="button" data-mode="create" aria-pressed="true" data-i18n-login="createMode">New account</button><button type="button" data-mode="reset" aria-pressed="false" data-i18n-login="resetMode">Reset password</button></div>
+      <form id="account-form" novalidate>
+        <fieldset disabled aria-label="Account email form"><label for="email" data-i18n-login="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required><button id="account-submit" type="submit">Create account</button></fieldset>
+        <p id="account-status" aria-live="polite"></p>
+      </form>
+    </aside>
+    </div>
+  </main>
+
+  <!-- site-footer:start -->
+<footer class="site-footer page-width" lang="en">
+  <p class="footer-brand">© CircularQuay</p>
+  <nav aria-label="Footer navigation — scroll horizontally for more links"><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/cookies">Cookies</a><a href="/accessibility">Accessibility</a><a href="/security">Security</a><a href="/status">Status</a><a href="/cookies">Privacy settings</a></nav>
+</footer>
+  <!-- site-footer:end -->
+</body>
+</html>

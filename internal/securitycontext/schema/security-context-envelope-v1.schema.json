@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://circularquay.dev/schema/security-context-envelope-v1.json",
+  "title": "CircularQuay security context JWS envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "signatures"],
+  "properties": {
+    "payload": {"type": "string", "minLength": 1, "maxLength": 43692, "pattern": "^[A-Za-z0-9_-]+$"},
+    "signatures": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/signature"}}
+  },
+  "$defs": {
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protected", "signature"],
+      "properties": {
+        "protected": {"type": "string", "minLength": 1, "maxLength": 5464, "pattern": "^[A-Za-z0-9_-]+$"},
+        "signature": {"type": "string", "minLength": 1, "maxLength": 5464, "pattern": "^[A-Za-z0-9_-]+$"}
+      }
+    }
+  },
+  "description": "The Go verifier additionally enforces strict UTF-8 JSON, exact protected header closure (typ, cty, alg, kid, purpose), no crit or unprotected header members, exact enrolled trust routing, singleton maintained-library verification, and payload claim semantics."
+}

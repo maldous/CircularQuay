@@ -1,0 +1,12 @@
+{
+  "name": "cq-browser-development",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "check": "node check.mjs",
+    "build:help": "node tools/build-help.mjs",
+    "test": "node --test --test-concurrency=1 boundary.test.mjs configuration-undo.test.mjs guided-policy.test.mjs imported-json.test.mjs module-boundary.test.mjs schema.test.mjs help.test.mjs presentation-preferences.test.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

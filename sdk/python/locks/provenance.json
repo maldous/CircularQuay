@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "source_commit": "333a1c7e93cd8be93310f86633549fdc6a6891c9",
+  "source_tree": "55e43daf8fa1818376f64bcdfeea7f7a4d0a7099",
+  "workflow_run_id": 41765210485,
+  "synthetic_revision": "cfaf642be71f97aad6ae1a1ae104568f1ca93beb",
+  "requirements_file": "sdk/python/requirements-ci.txt",
+  "requirements_sha256": "f1c8388963130560f08550fe85740d0760e431fd13f9947b99d0c79865f4af95",
+  "purpose": "Static/security toolchain lock evidence; not SDK qualification.",
+  "locks": [
+    {
+      "file": "ci-darwin-py314.txt",
+      "python": "3.14.10",
+      "platform": "darwin",
+      "artifact_id": 13292337648,
+      "archive_sha256": "22d0e12b5c432390f9981ec43c353814e2fe9a3619d39fd14ea2e6adc1951730",
+      "lock_sha256": "8f490dfb1f8b0d61767f36efd2ed800d2328d402dc42ce8041a6ebcc6ea60f02",
+      "resolver_report_sha256": "517fdda60c65575581be832391988af362544f137394e098b49f3f8c514b03cf"
+    },
+    {
+      "file": "ci-linux-py314.txt",
+      "python": "3.14.10",
+      "platform": "linux",
+      "artifact_id": 13292755801,
+      "archive_sha256": "9fc330c13b8451b79f7fa59f3fb127eb5a85c9befdedfe8d2d6c514e117fab8c",
+      "lock_sha256": "75f0db659483de3ed44312ab63f2256aad7296a5d9e97c7cae6c082802d1382d",
+      "resolver_report_sha256": "faf0ae747113da4caf5f8b9962771b334b51943968cce0c319b6d23a9c2a4803"
+    },
+    {
+      "file": "ci-win32-py314.txt",
+      "python": "3.14.10",
+      "platform": "win32",
+      "artifact_id": 13292301957,
+      "archive_sha256": "6ed010901d9927c03fb2984f333bb3b7ef85ca4982a7bed87c6ed24f65dd35d6",
+      "lock_sha256": "a4f7c4430c4c9e980ea7db33a7a25c8e670739e87c0bc232bfee11ed3481f8b2",
+      "resolver_report_sha256": "2f1c2384844d117ee648a903dbf96ee53f38100ee18273e2277822e5aac8db8e"
+    }
+  ]
+}
