@@ -1,5 +1,31 @@
 # Development session handoff
 
+## Current startup and canonical transition
+
+Read `AGENTS.md`, the local shared worker policy and manifest, and
+`docs/next-agent-prompt.md` before selecting work. Verify the actual executor,
+checkout, Git common directory, origin, branch, HEAD, dirty state, current owner
+and relevant leases. Read fresh remote refs and PR state before publication.
+Dated handovers below preserve their original evidence; their paths, process
+identities, pending commits, push/resume instructions and test results are not
+current authority. Check commit ancestry and exact publication receipts before
+calling a historical commit unpublished or replaying its operation.
+
+During bootstrap, retain the PR #1 `feature/initial-implementation` baseline
+specified by `AGENTS.md`. The existing integration writer incorporates reviewed
+corrections and merges PR #1 into `develop` only when its actual required checks,
+resolved conversations and independent approval pass. Follow `CONTRIBUTING.md`
+and `RELEASE.md` for a separately qualified release into `main`; an initial
+integration merge is not stable-release, deployment or whole-product acceptance.
+
+Preserve retained roots, proof inputs, common-store registrations, aliases and
+consumer bindings through that transition. A source merge does not release an
+absolute-path consumer, migrate a saved environment or change the configuration
+editor's supported reference fields. Reconcile each current consumer and its
+owner before any qualified retirement or configuration change. Resource holds
+and action-specific permissions remain in force; independent authorized work
+continues while an affected transition is held.
+
 ## Current handover — 6 November 2026 (Australia/Melbourne)
 
 The user requested a handover because of the token limit. Implementation is
