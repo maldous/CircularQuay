@@ -52,6 +52,13 @@ func TestCoverageVaultValuePreservesLeaseOnlyForPositiveDuration(t *testing.T) {
 }
 
 func TestCoverageInfisicalURLAndValueBoundaries(t *testing.T) {
+	assertInfisicalURLBoundaries(t)
+	assertInfisicalValueBoundaries(t)
+}
+
+func assertInfisicalURLBoundaries(t *testing.T) {
+	t.Helper()
+
 	source := model.Source{Endpoint: "https://infisical.example.test", Project: "project", Environment: "prod", Path: "/app"}
 	binding := model.Binding{Resource: "TOKEN", Version: "9"}
 	got, err := infisicalURL(source, binding)
@@ -66,6 +73,11 @@ func TestCoverageInfisicalURLAndValueBoundaries(t *testing.T) {
 	if _, err := infisicalURL(source, binding); !fault.Is(err, fault.Invalid) {
 		t.Fatalf("invalid version error = %v, want invalid", err)
 	}
+}
+
+func assertInfisicalValueBoundaries(t *testing.T) {
+	t.Helper()
+
 	secret := `{"nested":"value"}`
 	for _, test := range []struct {
 		name string
