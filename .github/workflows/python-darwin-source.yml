@@ -1,0 +1,139 @@
+name: Darwin Intel source-build preparation
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+    paths:
+      - '.github/workflows/python-darwin-source.yml'
+      - '.github/scripts/sdk_python_darwin_source_policy.py'
+      - 'sdk/python/darwin-source-policy.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: darwin-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-closure-proposal:
+    name: Darwin Intel build-closure proposal (Python ${{ matrix.python }})
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          check-latest: false
+      - name: Propose an isolated, wheel-only build closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export CQ_SOURCE_PROPOSAL="$RUNNER_TEMP/cq-darwin-source-proposal"
+          mkdir -m 0700 "$CQ_SOURCE_PROPOSAL"
+          python - <<'PY'
+          import hashlib, io, json, os, platform, re, subprocess, sys, tarfile, tomllib
+          from pathlib import Path
+          from urllib.request import urlopen
+
+          sys.path.insert(0, str(Path('.github/scripts').resolve()))
+          from sdk_python_darwin_source_policy import load_policy, validate_source_proof
+          from sdk_python_lock import atomic_write, canonical_name, checked_version, lock_entries, read_json_report, receipt
+
+          if sys.platform != 'darwin' or platform.machine() != 'x86_64':
+              raise SystemExit('Darwin Intel runner required')
+          output = Path(os.environ['CQ_SOURCE_PROPOSAL'])
+          policy_path = Path('sdk/python/darwin-source-policy.json')
+          policy = load_policy(policy_path)
+          with urlopen(f'https://pypi.org/pypi/{policy.package}/{policy.version}/json', timeout=30) as response:
+              release_bytes = response.read(1024 * 1024 + 1)
+          if len(release_bytes) > 1024 * 1024:
+              raise SystemExit('Release metadata exceeds bound')
+          release = json.loads(release_bytes)
+          admitted = [item for item in release['urls'] if item.get('url') == policy.url]
+          if len(admitted) != 1 or admitted[0].get('yanked') is not False or admitted[0].get('digests', {}).get('sha256') != policy.sha256:
+              raise SystemExit('Published source identity changed or was withdrawn')
+          maximum = 16 * 1024 * 1024
+          with urlopen(policy.url, timeout=60) as response:
+              if response.geturl() != policy.url:
+                  raise SystemExit('Source redirect is not admitted')
+              source = response.read(maximum + 1)
+          if len(source) > maximum:
+              raise SystemExit('Source exceeds acquisition bound')
+          digest = hashlib.sha256(source).hexdigest()
+          validate_source_proof(policy, platform=sys.platform, architecture=platform.machine(),
+                                package=policy.package, version=policy.version,
+                                url=policy.url, sha256=digest)
+          # Read one known member without extracting or executing the source.
+          member_name = f'{policy.package}-{policy.version}/pyproject.toml'
+          with tarfile.open(fileobj=io.BytesIO(source), mode='r:gz') as archive:
+              member = archive.getmember(member_name)
+              if not member.isfile() or member.size > 64 * 1024:
+                  raise SystemExit('Invalid source build metadata')
+              with archive.extractfile(member) as metadata:
+                  project = tomllib.loads(metadata.read(64 * 1024 + 1).decode('utf-8'))
+          requirements = project['build-system']['requires']
+          allowed = {'maturin', 'cffi', 'setuptools'}
+          if not isinstance(requirements, list) or not 1 <= len(requirements) <= 8:
+              raise SystemExit('Invalid build requirements')
+          for requirement in requirements:
+              if not isinstance(requirement, str) or len(requirement) > 512:
+                  raise SystemExit('Invalid build requirement')
+              name = re.match(r'^[A-Za-z0-9_.-]+', requirement)
+              if name is None or canonical_name(name[0]) not in allowed or any(c in requirement for c in '@/\\\r\n'):
+                  raise SystemExit('Unreviewed build requirement')
+          atomic_write(output / 'upstream-build-requirements.txt', ('\n'.join(requirements) + '\n').encode())
+          report_path = output / 'resolver-report.json'
+          subprocess.run([sys.executable, '-m', 'pip', '--isolated', 'install', '--disable-pip-version-check',
+                          '--no-input', '--no-cache-dir', '--index-url', 'https://pypi.org/simple',
+                          '--dry-run', '--ignore-installed', '--only-binary=:all:',
+                          '--report', str(report_path), '-r', str(output / 'upstream-build-requirements.txt')],
+                         check=True, timeout=300)
+          report, report_sha = read_json_report(report_path)
+          # These proposed direct pins come from the hosted resolver; they are
+          # evidence for review, never an input to a qualification consumer.
+          pins = {canonical_name(item['metadata']['name']): checked_version(item['metadata']['version'])
+                  for item in report['install'] if item.get('requested') is True}
+          if not pins or not set(pins) <= allowed:
+              raise SystemExit('Unexpected direct build closure')
+          entries = lock_entries(report, pins)
+          atomic_write(output / 'build-closure.txt', ''.join(f'{n}=={v} --hash=sha256:{h}\n' for n, v, h in entries).encode())
+          atomic_write(output / 'build-direct-pins.txt', ''.join(f'{n}=={pins[n]}\n' for n in sorted(pins)).encode())
+          atomic_write(output / 'resolver-receipt.txt', receipt(report_sha, os.environ['GITHUB_SHA'], len(entries), report['pip_version']))
+          # Native tools are observed, not silently accepted as an immutable
+          # toolchain. No archive build or dependency installation occurs here.
+          identities = {}
+          for name, command in {'xcode': ['/usr/bin/xcodebuild', '-version'],
+                                'clang': ['/usr/bin/xcrun', 'clang', '--version']}.items():
+              completed = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
+              if len(completed.stdout) > 4096:
+                  raise SystemExit('Tool identity exceeds bound')
+              identities[name] = completed.stdout.decode('utf-8')
+          proposal = {'format': 'cq-darwin-build-closure-proposal-v1',
+                      'status': 'proposal-only-not-qualified', 'revision': os.environ['GITHUB_SHA'],
+                      'python': platform.python_version(), 'architecture': platform.machine(),
+                      'source_sha256': digest, 'policy_sha256': hashlib.sha256(policy_path.read_bytes()).hexdigest(),
+                      'release_metadata_sha256': hashlib.sha256(release_bytes).hexdigest(),
+                      'resolver_report_sha256': report_sha, 'native_tools_observed': identities,
+                      'pending': ['Review and commit build closure', 'Verify native toolchain acquisition',
+                                  'Build without isolation', 'Audit, linkage and runtime qualification',
+                                  'Repeat clean build before admitting runtime locks']}
+          atomic_write(output / 'proposal.json', (json.dumps(proposal, indent=2, sort_keys=True) + '\n').encode())
+          PY
+      - name: Retain proposal evidence for review
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: darwin-source-proposal-${{ github.sha }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-darwin-source-proposal
+          if-no-files-found: error
+          retention-days: 7

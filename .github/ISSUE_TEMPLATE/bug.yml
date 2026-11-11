@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible problem using synthetic configuration.
+title: '[Bug] '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never include actual credentials, operational ciphertext, environment dumps or private endpoints. Report vulnerabilities privately through SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: cq version or commit
+      description: Include the exact version and commit from cq version.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: OS/version, architecture and installation method.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Synthetic reproduction
+      description: Minimal fabricated configuration, commands and safe error categories.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
