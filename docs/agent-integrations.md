@@ -60,7 +60,9 @@ OAuth client or public-listing approval when preparing a package.
 
 ## General UIF project profiles
 
-The required shared UIF harness must distinguish the CircularQuay product from
+CircularQuay supports standalone build, run and delivery without UIF or another
+subproject. When the optional shared UIF operational lane is selected, its
+required harness controls must distinguish the CircularQuay product from
 OffMenu and other project profiles. Multi-project capability remains planned/
 unqualified until actual accepted-source/job/isolation evidence covers both
 affected profiles. Do not inherit another project's credentials, state/data

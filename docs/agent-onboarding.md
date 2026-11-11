@@ -26,9 +26,11 @@
 
 ### Shared harness classification and controlled transition
 
-Treat UIF as the general shared harness and CircularQuay as its own product/
-profile, not an OffMenu alias. Enhanced multi-project capability is required/
-planned until actual cross-project verification. Continue CircularQuay migration in
+CircularQuay's standalone build, run and delivery require neither UIF nor another
+subproject. When the optional shared operational lane is selected, treat UIF as
+the general shared harness and CircularQuay as its own product/profile, not an
+OffMenu alias. Enhanced multi-project capability is required/planned for that
+lane until actual cross-project verification. Continue CircularQuay migration in
 parallel with OffMenu config/data/BAU work; enforce only real affected-unit
 dependencies, not a global completion gate in either direction.
 

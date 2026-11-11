@@ -50,7 +50,16 @@ selected icon's original raster/provenance and a finished vector are distinct
 deliverables. Keep implementation/preview revisions separate until the owner
 integrates and requalifies them.
 
-## Required general UIF harness and project migration
+<a id="required-general-uif-harness-and-project-migration"></a>
+
+## Optional general UIF harness and project migration
+
+CircularQuay's standalone build, run and delivery do not require UIF or another
+subproject. UIF likewise operates without CircularQuay or any particular
+subproject. The shared-harness requirements below apply only when that optional
+operational lane is selected. UIF owns the shared Stokowski, Windmill, LangChain,
+GitHub and Linear integration across Foo-local and durable cloud operation;
+selecting that lane retains its ownership, admission and review controls.
 
 | Scope | Purpose and canonical project source | Project-specific boundary |
 | --- | --- | --- |
@@ -73,7 +82,8 @@ UIF is the **general shared harness**; CircularQuay is a product with its own
 project profile and acceptance requirements. Do not classify CircularQuay as
 OffMenu, borrow its data/credential/toolchain assumptions or treat another
 project's failed job as proof of a shared defect. General multi-project support
-is **required/planned**, not a verified capability merely because it is named.
+is **required/planned for the selected shared lane**, not a verified capability
+merely because it is named or a prerequisite for standalone CircularQuay work.
 
 CircularQuay migration work proceeds now in parallel with OffMenu configuration,
 data fixes and BAU adoption. Neither project's independent work waits for the
