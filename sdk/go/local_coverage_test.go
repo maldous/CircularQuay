@@ -197,6 +197,34 @@ func TestLocalEffectOperationsDiscardChildOutputAndKeepPinnedInputs(t *testing.T
 	}
 }
 
+func TestLocalClientRejectsInvalidContextsBeforeDispatch(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want Category
+	}{
+		{name: "nil context", ctx: nil, want: CategoryInvalid},
+		{name: "cancelled context", ctx: cancelled, want: CategoryCancelled},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := NewLocal(localTestOptions(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.run = func(context.Context, cli.Runner, []string) int {
+				t.Fatal("invalid context was dispatched")
+				return 0
+			}
+			if _, err := client.ConfigValidate(test.ctx); category(err) != test.want {
+				t.Fatalf("category=%q error=%v", category(err), err)
+			}
+		})
+	}
+}
+
 func TestLocalClientRejectsInvalidOrCancelledOperationsBeforeDispatch(t *testing.T) {
 	client, err := NewLocal(localTestOptions(t))
 	if err != nil {
@@ -221,7 +249,6 @@ func TestLocalClientRejectsInvalidOrCancelledOperationsBeforeDispatch(t *testing
 		err  error
 		want Category
 	}{
-		{"nil context", func() error { _, err := client.ConfigValidate(nil); return err }(), CategoryInvalid},
 		{"empty delete pointer", func() error { _, err := client.ConfigDelete(context.Background(), "", digest); return err }(), CategoryInvalid},
 		{"empty workload", func() error { _, err := client.Status(context.Background(), ""); return err }(), CategoryInvalid},
 		{"unsafe workload", func() error { _, err := client.Snapshot(context.Background(), ".."); return err }(), CategoryInvalid},
