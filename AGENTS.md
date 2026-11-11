@@ -35,3 +35,19 @@ separate authorization.
 Report exact changed paths, purpose, checks and their scope, unresolved gates,
 and the owner handoff/next action. Do not claim runtime verification from a
 source or documentation check.
+
+## Shared AI operating policy and bootstrap branch
+
+Circular Quay is one of the five dedicated project roles. At startup, read
+[the shared UIF worker policy](docs/agents/uif-worker-policy.md) and
+[its repository manifest](docs/agents/uif-worker-policy.json) alongside the
+project instructions above. Pass the policy version and hash to child agents.
+
+During initial bootstrap, use the guidance on `feature/initial-implementation`
+(PR #1), rather than the empty `develop` initialization tree. Verify the actual
+branch and revision before work; preserve existing work and coordinate with the
+implementation owner. This branch guidance does not authorize merging PR #1,
+starting services or treating the product as qualified. When PR #1 is completed
+and merged under its established controls, use current `develop` as the normal
+baseline described by the shared policy. Publication alone does not prove that
+existing agent checkouts or running sessions have adopted these instructions.

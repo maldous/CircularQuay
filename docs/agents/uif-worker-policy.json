@@ -1,0 +1,13 @@
+{
+  "schema": "uif-worker-policy-manifest-v1",
+  "policy_id": "uif-worker-policy",
+  "version": "1.1.1",
+  "repository": "maldous/CircularQuay",
+  "policy_path": "docs/agents/uif-worker-policy.md",
+  "sha256": "48c99b6a473922f16549d4ea70414bfd4b67acab047d655c27749c10e09fb06d",
+  "maintenance_repository": "maldous/uif",
+  "maintenance_path": "docs/agents/uif-worker-policy.md",
+  "distribution": "reviewed-local-copy",
+  "prior_agents_sha256": "402602876367086021f38314db5e72eca221eb6a6ec24337fc14475fabe7c7ee",
+  "base_commit": "3ecffe7cdd068da7ce034543b3a88058a6aeaffa"
+}
