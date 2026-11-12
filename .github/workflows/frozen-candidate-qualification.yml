@@ -533,6 +533,7 @@ jobs:
           import json
           import os
           import plistlib
+          import re
           import stat
           import subprocess
           import tarfile
@@ -619,11 +620,12 @@ jobs:
               expanded = work / "expanded"
               # Inspect the verified package; do not execute installer scripts or change system state.
               command("/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded))
+              package_id = f"org.python.Python.PythonFramework-{minor}"
               components = []
               for info in expanded.rglob("PackageInfo"):
                   attrib = ET.parse(info).getroot().attrib
                   payload = info.parent / "Payload"
-                  if "pythonframework" not in attrib.get("identifier", "").lower() or not payload.is_dir():
+                  if attrib.get("identifier") != package_id or not payload.is_dir():
                       continue
                   binaries = [p for p in payload.rglob(f"python{minor}") if p.parent.name == "bin" and p.is_file()]
                   for binary in binaries:
@@ -649,8 +651,18 @@ jobs:
               info, staged, binary = packaged_inputs()
               receipt["package_id"] = info["identifier"]
               receipt["component_version"] = info["version"]
-              if info["version"] not in {minor, version}:
-                  raise RuntimeError("Signed package component version differs")
+              # Apple component metadata is not the CPython patch version.
+              if info["version"] != "0":
+                  raise RuntimeError("Unexpected Python framework component metadata")
+              include = staged / "include"
+              headers = list(include.glob("python*/patchlevel.h"))
+              if len(headers) != 1 or not headers[0].resolve().is_relative_to(staged.resolve()):
+                  raise RuntimeError("Could not bind the signed CPython version header")
+              declared = re.findall(r'^#define[ \t]+PY_VERSION[ \t]+"([^"]+)"[ \t]*$', headers[0].read_text(encoding="ascii"), re.MULTILINE)
+              if declared != [version]:
+                  raise RuntimeError("Signed framework payload patch version differs")
+              receipt["package_python_version"] = declared[0]
+              receipt["patchlevel_header_sha256"] = file_hash(headers[0])
               library = (staged / "Python").resolve()
               receipt["package_interpreter_sha256"] = verify_binary(binary)
               receipt["package_framework_sha256"] = verify_binary(library)
@@ -673,8 +685,8 @@ jobs:
                   immutable_system_target(path)
               receipt["installed_interpreter"] = str(installed)
               installed_info = plistlib.loads(command("/usr/sbin/pkgutil", "--pkg-info-plist", info["identifier"]).encode())
-              if installed_info.get("pkg-version") != info["version"]:
-                  raise RuntimeError("Installed receipt version differs from signed component")
+              if (installed_info.get("pkgid"), installed_info.get("pkg-version")) != (info["identifier"], info["version"]):
+                  raise RuntimeError("Installed package receipt differs from signed component metadata")
               receipt["installed_receipt"] = {key: installed_info.get(key) for key in ("pkgid", "pkg-version", "volume", "install-location")}
               if verify_binary(installed) != receipt["package_interpreter_sha256"] or verify_binary(installed_library) != receipt["package_framework_sha256"]:
                   raise RuntimeError("Installed executable or framework differs from signed installer bytes")
