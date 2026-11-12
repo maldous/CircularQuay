@@ -15,10 +15,10 @@ import os
 import re
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
-
 
 MAX_REPORT_BYTES = 4 * 1024 * 1024
 MAX_REQUIREMENTS_BYTES = 256 * 1024
@@ -133,8 +133,109 @@ def wheel_hash(entry: dict[str, Any]) -> str:
     return digest
 
 
-def lock_entries(report: dict[str, Any], pins: dict[str, str]) -> list[tuple[str, str, str]]:
+def darwin_intake(
+    archive: Path, wheel: Path, python: str, custody: str
+) -> dict[str, Any]:
+    """Bind retained bytes to a reviewed native receipt; never fetch or extract."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:/._@+-]{0,511}", custody):
+        raise ValidationError("reviewed immutable custody identifier is required")
+    source = Path(__file__).resolve().parents[2] / "sdk/python"
+    qualified = json.loads((source / "darwin-qualified-wheels.json").read_bytes())
+    policy = hashlib.sha256(
+        (source / "darwin-source-policy.json").read_bytes()
+    ).hexdigest()
+    if qualified["source_policy_sha256"] != policy:
+        raise ValidationError("Darwin source policy changed")
+    choices = [
+        row for row in qualified["qualified_repeat_builds"] if row["python"] == python
+    ]
+    if len(choices) != 1:
+        raise ValidationError("Python patch has no qualified wheel")
+    selected = choices[0]
+    if not selected.get("custody") or custody != selected["custody"]:
+        raise ValidationError(
+            "native artifact has no matching reviewed immutable custody binding"
+        )
+    if wheel.name != selected["wheel"]:
+        raise ValidationError("wheel filename differs from qualified input")
+    if (
+        archive.stat().st_size > 128 * 1024 * 1024
+        or wheel.stat().st_size > 128 * 1024 * 1024
+    ):
+        raise ValidationError("native input exceeds size limit")
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != selected["artifact_sha256"]:
+        raise ValidationError("native archive digest differs")
+    digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    if digest != selected["wheel_sha256"]:
+        raise ValidationError("native wheel digest differs")
+    verify_archive_member(archive, wheel, digest)
+    return {
+        **selected,
+        "custody": custody,
+        "source_policy_sha256": policy,
+        "run_id": qualified["run_id"],
+        "workflow_head": qualified["workflow_head"],
+        "feature": qualified["feature"],
+        "wheel_uri": wheel.resolve().as_uri(),
+    }
+
+
+def verify_archive_member(archive: Path, wheel: Path, digest: str) -> None:
+    """Check membership without extracting untrusted archive paths."""
+    with zipfile.ZipFile(archive) as bundle:
+        members = [
+            item
+            for item in bundle.infolist()
+            if Path(item.filename).name == wheel.name and not item.is_dir()
+        ]
+        if len(members) != 1 or members[0].file_size != wheel.stat().st_size:
+            raise ValidationError(
+                "native archive must contain the exact qualified wheel once"
+            )
+        if hashlib.sha256(bundle.read(members[0])).hexdigest() != digest:
+            raise ValidationError("archive member differs from supplied wheel")
+
+
+def local_wheel_hash(entry: dict[str, Any], intake: dict[str, Any]) -> str:
+    """Admit only the byte-verified cryptography wheel at its explicit local URI."""
+    metadata = entry.get("metadata", {})
+    download = entry.get("download_info", {})
+    archive = download.get("archive_info") if isinstance(download, dict) else None
+    hashes = archive.get("hashes") if isinstance(archive, dict) else None
+    if (
+        not isinstance(metadata, dict)
+        or not isinstance(download, dict)
+        or not isinstance(hashes, dict)
+        or metadata.get("name") != "cryptography"
+        or metadata.get("version") != "50.0.2"
+        or download.get("url") != intake["wheel_uri"]
+        or hashes.get("sha256") != intake["wheel_sha256"]
+    ):
+        raise ValidationError("local wheel differs from reviewed Darwin intake")
+    return str(intake["wheel_sha256"])
+
+
+def verify_native_target(report: dict[str, Any], intake: dict[str, Any] | None) -> None:
+    """Keep the local-wheel exception confined to the qualified native target."""
+    if intake is not None:
+        environment = report.get("environment", {})
+        if (
+            not isinstance(environment, dict)
+            or environment.get("sys_platform") != "darwin"
+            or environment.get("platform_machine") != "x86_64"
+            or environment.get("implementation_name") != "cpython"
+            or environment.get("python_full_version") != intake["python"]
+        ):
+            raise ValidationError(
+                "local wheel requires its qualified native target report"
+            )
+
+
+def lock_entries(
+    report: dict[str, Any], pins: dict[str, str], intake: dict[str, Any] | None = None
+) -> list[tuple[str, str, str]]:
     """Validate report packages and return normalized sorted lock tuples."""
+    verify_native_target(report, intake)
     install = report.get("install")
     if not isinstance(install, list) or not install or len(install) > MAX_PACKAGES:
         raise ValidationError("report install list is invalid")
@@ -151,7 +252,14 @@ def lock_entries(report: dict[str, Any], pins: dict[str, str]) -> list[tuple[str
         version = checked_version(metadata.get("version"))
         if name in packages:
             raise ValidationError("report contains duplicate packages")
-        packages[name] = (version, wheel_hash(entry))
+        digest = (
+            local_wheel_hash(entry, intake)
+            if intake is not None and name == "cryptography"
+            else wheel_hash(entry)
+        )
+        packages[name] = (version, digest)
+    if intake is not None and "cryptography" not in packages:
+        raise ValidationError("Darwin closure omits qualified cryptography wheel")
     for name, version in pins.items():
         actual = packages.get(name)
         if actual is None or actual[0] != version:
@@ -238,6 +346,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--revision")
+    parser.add_argument("--darwin-archive", type=Path)
+    parser.add_argument("--darwin-wheel", type=Path)
+    parser.add_argument("--darwin-python")
+    parser.add_argument("--darwin-custody")
     parser.add_argument(
         "--requirements", type=Path, default=Path("sdk/python/requirements-ci.txt")
     )
@@ -260,17 +372,39 @@ def main() -> int:
         ):
             raise ValidationError("report lock arguments are incomplete")
         report, report_digest = read_json_report(options.report)
-        packages = lock_entries(report, pins)
+        native = [
+            options.darwin_archive,
+            options.darwin_wheel,
+            options.darwin_python,
+            options.darwin_custody,
+        ]
+        intake = None
+        if any(item is not None for item in native):
+            if not all(item is not None for item in native):
+                raise ValidationError("Darwin intake arguments are incomplete")
+            intake = darwin_intake(*native)
+        packages = lock_entries(report, pins, intake)
         lines = [
             f"{name}=={version} --hash=sha256:{digest}"
             for name, version, digest in packages
         ]
         atomic_write(options.output, ("\n".join(lines) + "\n").encode("utf-8"))
-        atomic_write(
-            options.receipt,
-            receipt(report_digest, options.revision, len(packages), report.get("pip_version")),
+        provenance = receipt(
+            report_digest, options.revision, len(packages), report.get("pip_version")
         )
-    except ValidationError as error:
+        if intake is not None:
+            # A runner path locates bytes only; it is not the durable artifact identity.
+            provenance += (
+                "darwin_intake="
+                + json.dumps(
+                    {key: value for key, value in intake.items() if key != "wheel_uri"},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            ).encode("utf-8")
+        atomic_write(options.receipt, provenance)
+    except (ValidationError, OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
     return 0

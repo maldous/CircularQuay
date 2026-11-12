@@ -354,9 +354,78 @@ Preserve ordinary packages' binary-only/hash gates; do not broaden the source
 allowance or make a local wheel look like an upstream PyPI artifact. No consumer
 enablement or workflow change is included in this input proposal.
 
-The remaining work is fresh CPython framework installation, binding the existing
-native input receipts, locked crate acquisition, native builds and
-their qualification, followed by reviewed consumer integration. Earlier
+Native inputs, builds and qualification must be bound to their original
+receipts before reviewed consumer integration. The qualified repeat-build
+record below supplies the later native output evidence; input preparation alone
+does not supply that evidence. Earlier
 inaccessible hosted artifacts are not required inputs to this plan and must not
 be recovered through a retry or alternate extraction route. Preparation and
 metadata checks are not native runtime results.
+
+## Qualified native wheel consumer intake
+
+`darwin-qualified-wheels.json` records only the five qualified repeat-build
+outputs from run 43167081230 (3.14.10 uses attempt 2). It binds the original
+native receipt, exact wheel and archive hashes, source policy and workflow.
+The receipt records execution on Intel macOS 15.7.9; the 10.15 wheel tag does
+not establish execution on 10.15 or a free-threaded interpreter.
+
+The retained artifact archives are an intake starting point. Before consumer
+adoption, the existing integration owner must bind their bytes to the project's
+approved immutable custody identifier. A task directory or expiring GitHub
+artifact alone does not name that durable destination. This source record
+creates no store, publication, grant or runtime adoption. Each entry currently
+has `custody: null`; the helper denies consumer intake until the existing owner
+records and reviews the actual immutable object/version identity there.
+
+On the admitted native executor, verify the retained archive and supplied
+wheel without fetching them again. Resolve the **complete** closure using the
+exact local wheel as an explicit resolver input, ordinary binary-only PyPI
+packages, and the corresponding requirements file. Retain the actual pip JSON
+report. Use the admitted exact interpreter and a fresh resolver environment;
+this resolves dependencies as well as the explicitly selected local wheel:
+
+```sh
+"$NATIVE_PYTHON" -m pip --isolated --disable-pip-version-check install \
+  --dry-run --ignore-installed --only-binary=:all: \
+  --index-url https://pypi.org/simple --report "$REPORT" \
+  -r "$REQUIREMENTS" "$QUALIFIED_WHEEL"
+```
+
+Generate its lock with the existing helper and these additional flags:
+
+```sh
+python .github/scripts/sdk_python_lock.py \
+  --report "$REPORT" --requirements "$REQUIREMENTS" \
+  --output "$PROPOSED_LOCK" --receipt "$LOCK_RECEIPT" --revision "$SOURCE_HEAD" \
+  --darwin-archive "$RETAINED_ARTIFACT_ZIP" --darwin-wheel "$QUALIFIED_WHEEL" \
+  --darwin-python "$EXACT_PYTHON_PATCH" --darwin-custody "$REVIEWED_IMMUTABLE_ID"
+```
+
+The custody value records the already-reviewed object/version identity; passing
+an arbitrary value does not approve a destination. It must exactly match the
+non-null binding in the reviewed qualified-wheel record. The helper hashes both
+inputs, verifies the wheel occurs exactly once in the qualified archive, and
+admits only that local cryptography50.0.2 wheel for the exact native
+Darwin/x86_64/Python-patch report. Other packages still require public PyPI
+wheel URLs and SHA-256 hashes. The receipt retains custody and native evidence,
+without treating the transient local wheel URI as artifact identity.
+
+Prepare runtime-darwin-py311 through py315 and ci-darwin-py314 separately. The
+static closure reuses the qualified3.14.10 wheel. Bind each complete resolver
+report/lock digest and intake record in the existing runtime/static lock
+provenance. Populate a reviewed wheelhouse with all locked binary dependencies,
+then verify fresh offline installation and audit each entire closure:
+
+```sh
+"$FRESH_CONSUMER_PYTHON" -m pip --isolated install \
+  --no-index --find-links "$REVIEWED_WHEELHOUSE" \
+  --require-hashes --only-binary=:all: -r "$PROPOSED_LOCK"
+"$AUDIT_PYTHON" -m pip_audit --strict --disable-pip --require-hashes -r "$PROPOSED_LOCK"
+```
+
+The audit interpreter uses the existing reviewed audit toolchain. Run these
+and the applicable existing SDK/installed native-client checks. Preserve all
+thresholds and denial/cleanup checks. No replacement consumer lock, workflow
+enablement, audit pass or installed-SDK result is supplied by this intake
+preparation itself.
