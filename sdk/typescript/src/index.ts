@@ -259,7 +259,7 @@ export class LocalCLIClient {
 
   flowRun(workload: string, pin: CompleteRemotePin, options: CallOptions = {}): Promise<LocalResult> {
     validateHandle(workload);
-    validateRemotePin(pin);
+    if (!completeRemotePin(pin)) throw new CqError("invalid");
     return this.invoke(["flow", "run", "--workload", workload, ...flags(pin, remoteFlags), "--non-interactive"], { ...options, inheritOutput: true });
   }
 
@@ -421,7 +421,7 @@ function validateRemotePin(value: RemotePin): void {
   if (!hasRemotePin(value)) return;
   if (!completeRemotePin(value)) throw new CqError("invalid");
 }
-function hasRemotePin(value: RemotePin): boolean { return Object.values(value).some(item => item !== undefined); }
+function hasRemotePin(value: RemotePin): boolean { return [value.configSource, value.configRef, value.configPath, value.configSHA256].some(item => item !== undefined); }
 function completeRemotePin(value: RemotePin): boolean {
   return validRemoteSource(value.configSource) && validRemotePath(value.configPath) && /^[a-f0-9]{40}$/.test(value.configRef ?? "") && HEX_64.test(value.configSHA256 ?? "");
 }
@@ -520,7 +520,7 @@ function safeJSON(value: unknown): boolean { return isSafeJSONValue(value, 0); }
 function isSafeJSONValue(value: unknown, depth: number): boolean {
   if (depth > MAX_JSON_DEPTH) return false;
   if (isSafeJSONScalar(value)) return true;
-  if (Array.isArray(value)) return value.length <= MAX_JSON_NODES && value.every(item => isSafeJSONValue(item, depth + 1));
+  if (Array.isArray(value)) return value.length <= MAX_JSON_NODES && Array.from(value).every(item => isSafeJSONValue(item, depth + 1));
   return isPlainObject(value) && Object.values(value).every(item => isSafeJSONValue(item, depth + 1));
 }
 function isSafeJSONScalar(value: unknown): boolean {
@@ -615,7 +615,8 @@ function observationError(error: unknown, signal: AbortSignal | undefined): CqEr
 }
 function boundedJSON(text: string): unknown {
   if (encodedLength(text) > MAX_RESPONSE_BYTES) throw new CqError("protocol");
-  const value = JSON.parse(text) as unknown;
+  let value: unknown;
+  try { value = JSON.parse(text) as unknown; } catch { throw new CqError("protocol"); }
   if (!safeJSON(value)) throw new CqError("protocol");
   return value;
 }

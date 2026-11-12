@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import fsPromises from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
@@ -87,11 +88,23 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       assert.equal(harness.latest().stdin.received, '{"enabled":true}');
     });
 
+    await t.test("malformed and unsafe native JSON stays a protocol error", async () => {
+      const client = await createClient(sdk, harness);
+      for (const stdout of ["not-json-synthetic-detail", '{"count":9007199254740992}']) {
+        harness.enqueue(child => queueMicrotask(() => finish(child, stdout, 0)));
+        await assert.rejects(client.providers(), error =>
+          error instanceof sdk.CqError && error.category === "protocol" && !error.message.includes(stdout));
+      }
+    });
+
     await t.test("maps bounded native failures without exposing diagnostics", async () => {
       const client = await createClient(sdk, harness);
       await assertProcessCategory(() => client.providers(), harness, '{"error":"access_denied"}', "denied", sdk);
       await assertProcessCategory(() => client.updateCheck(), harness, "malformed", "protocol", sdk);
       await assertProcessCategory(() => client.doctor(), harness, "", "process", sdk);
+      for (const stderr of ['{"error":false}', '{"error":"access_denied","extra":true}']) {
+        await assertProcessCategory(() => client.providers(), harness, stderr, "protocol", sdk);
+      }
     });
 
     await t.test("preserves an explicit effectful nonzero exit result", async () => {
@@ -160,6 +173,74 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
         await rm(directory, { force: true, recursive: true });
       }
       assert.equal(harness.children.length, before);
+    });
+
+    await t.test("cancellation during executable verification prevents child dispatch", async () => {
+      const client = await createClient(sdk, harness);
+      const before = harness.children.length;
+      const controller = new AbortController();
+      const pending = client.plan({ signal: controller.signal });
+      controller.abort();
+      await assert.rejects(pending, category(sdk, "cancelled"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("a signal-only process close remains a process failure", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => child.emit("close", null)));
+      await assert.rejects(client.providers(), category(sdk, "process"));
+    });
+
+    await t.test("non-files, empty files and a truncated executable fail integrity before dispatch", async () => {
+      const directory = await mkdtemp(join(tmpdir(), "cq-sdk-race-"));
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      const originalOpen = fsPromises.open;
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: directory }), category(sdk, "integrity"));
+        const file = join(directory, "synthetic-cq");
+        await writeFile(file, "");
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: file }), category(sdk, "integrity"));
+        await writeFile(file, "synthetic executable bytes");
+        const canonical = await fsPromises.realpath(file);
+        let closed = false;
+        fsPromises.open = async (...args: Parameters<typeof fsPromises.open>) => {
+          const handle = await originalOpen(...args);
+          if (args[0] === canonical) {
+            const stat = handle.stat.bind(handle);
+            const close = handle.close.bind(handle);
+            handle.stat = async () => { const observed = await stat(); await fsPromises.truncate(file, 0); return observed; };
+            handle.close = async () => { await close(); closed = true; };
+          }
+          return handle;
+        };
+        syncBuiltinESMExports();
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: canonical }), category(sdk, "integrity"));
+        assert.equal(closed, true);
+        assert.equal(harness.children.length, before);
+      } finally {
+        fsPromises.open = originalOpen;
+        syncBuiltinESMExports();
+        await rm(directory, { force: true, recursive: true });
+      }
+    });
+
+    await t.test("failed termination still settles safely and tolerates a later close", async childTest => {
+      childTest.mock.timers.enable({ apis: ["setTimeout"] });
+      const client = await createClient(sdk, harness);
+      const controller = new AbortController();
+      harness.enqueue(child => {
+        child.onKill = () => { throw new Error("synthetic signal delivery failure"); };
+        queueMicrotask(() => controller.abort());
+      });
+      const pending = client.plan({ signal: controller.signal });
+      await harness.waitFor(harness.children.length + 1);
+      childTest.mock.timers.tick(6000);
+      await assert.rejects(pending, category(sdk, "cancelled"));
+      const child = harness.latest();
+      child.emit("close", null);
+      child.stdin.emit("error", new Error("synthetic late pipe error"));
+      assert.deepEqual(child.signals, ["SIGTERM", "SIGKILL"]);
     });
 
     await t.test("cancellation reaps an unresponsive child through the bounded fallback", async childTest => {
