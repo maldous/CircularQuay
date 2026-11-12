@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin native wheels' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'integrated Go and Python' || inputs.candidate }})
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate:
-        description: Reviewed candidate to combine with the pinned feature tip
+        description: Qualification suite to run against its reviewed source pins
         required: true
         type: choice
         options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels]
@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'native-wheels' || 'manual' }}
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'integrated' || 'manual' }}
   cancel-in-progress: false
 
 env:
@@ -28,6 +28,10 @@ env:
   CQ_NATIVE_FEATURE_TREE: '00434f4681afc7b2584d628199c22287f7c9df01'
   CQ_NATIVE_INPUT_SHA: 'b8447db3be2c25e73671a13bfe3a86a0d286cbc3'
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
+  CQ_INTEGRATED_SHA: '0c6b06abb2f1f4427e94226db2a4adfa9351bb6e'
+  CQ_INTEGRATED_TREE: '179a3b30f312feff0486328f90df17ca8dfc879b'
+  CQ_HEALTH_MERGE_SHA: '404c21e1a8819b4d1770b5c23a3ece89cdc2cd24'
+  CQ_PYTHON_MERGE_SHA: '962f997539aa2e51efaddf5693ff07f3ebbc0f32'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
   CQ_GO_REPAIR_SHA: 'eeb1a8e6249cfee86dc657a98b68aef42dc3ccd9'
   CQ_ALIAS_SHA: '87bf5042c3707b93227b14f48c57ea8cda44a4f0'
@@ -38,7 +42,7 @@ env:
 jobs:
   health:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
     name: Candidate Go build, tests and analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -49,68 +53,55 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - &checkout_feature
-        name: Check out the reviewed feature history
+        name: Check out the reviewed integrated feature commit
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
-          ref: ${{ env.CQ_FEATURE_SHA }}
+          ref: ${{ env.CQ_INTEGRATED_SHA }}
           fetch-depth: 0
           persist-credentials: false
-      - &composite_checkout
-        name: Verify frozen refs and create the candidate composite
+      - &verify_integrated
+        name: Verify frozen feature and candidate ancestry
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           case "$CQ_CANDIDATE" in
-            health) ref=fix/cq-health-readiness; candidate="$CQ_HEALTH_SHA" ;;
-            python) ref=fix/cq-python-windows-portability; candidate="$CQ_PYTHON_SHA" ;;
+            health)
+              ref=fix/cq-health-readiness
+              candidate="$CQ_HEALTH_SHA"
+              incorporation="$CQ_HEALTH_MERGE_SHA"
+              test "$(git rev-parse "$incorporation^1")" = "$CQ_ALIAS_SHA"
+              test "$(git rev-parse "$CQ_ALIAS_SHA^")" = "$CQ_GO_REPAIR_SHA"
+              test "$(git rev-parse "$CQ_GO_REPAIR_SHA^")" = "$CQ_FEATURE_SHA"
+              ;;
+            python)
+              ref=fix/cq-python-windows-portability
+              candidate="$CQ_PYTHON_SHA"
+              incorporation="$CQ_PYTHON_MERGE_SHA"
+              test "$(git rev-parse "$incorporation^1")" = "$CQ_HEALTH_MERGE_SHA"
+              test "$(git rev-parse "$candidate^")" = "$CQ_PYTHON_PARENT_SHA"
+              ;;
             *) echo 'Unsupported candidate' >&2; exit 1 ;;
           esac
-          test "$(git rev-parse HEAD)" = "$CQ_FEATURE_SHA"
-          test "$(git rev-parse refs/remotes/origin/feature/initial-implementation)" = "$CQ_FEATURE_SHA"
-          test "$(git rev-parse "refs/remotes/origin/$ref")" = "$candidate"
-          go_ref=fix/cq-go-1.27.4
-          test "$(git rev-parse "refs/remotes/origin/$go_ref")" = "$CQ_GO_REPAIR_SHA"
-          test "$(git rev-parse "$CQ_GO_REPAIR_SHA^")" = "$CQ_FEATURE_SHA"
-          if test "$CQ_CANDIDATE" = python; then
-            test "$(git rev-parse "$candidate^")" = "$CQ_PYTHON_PARENT_SHA"
-          fi
-          integration="$CQ_GO_REPAIR_SHA"
-          if test "$CQ_CANDIDATE" = health; then
-            alias_ref=security/cq-gosec-boundaries
-            test "$(git rev-parse "refs/remotes/origin/$alias_ref")" = "$CQ_ALIAS_SHA"
-            test "$(git rev-parse "$CQ_ALIAS_SHA^")" = "$CQ_GO_REPAIR_SHA"
-            test "$(git ls-remote --exit-code origin "refs/heads/$alias_ref")" = "$(printf '%s\trefs/heads/%s' "$CQ_ALIAS_SHA" "$alias_ref")"
-            integration="$CQ_ALIAS_SHA"
-          fi
-          # A moved remote branch must fail closed, even after checkout.
-          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_FEATURE_SHA")"
-          test "$(git ls-remote --exit-code origin "refs/heads/$ref")" = "$(printf '%s\trefs/heads/%s' "$candidate" "$ref")"
-          test "$(git ls-remote --exit-code origin "refs/heads/$go_ref")" = "$(printf '%s\trefs/heads/%s' "$CQ_GO_REPAIR_SHA" "$go_ref")"
-          tree="$(git merge-tree --write-tree "$integration" "$candidate")"
-          # Keep the unpublished composite identity stable across jobs.
-          stamp="$(git show -s --format=%cI "$CQ_FEATURE_SHA")"
-          export GIT_AUTHOR_NAME='CircularQuay CI' GIT_AUTHOR_EMAIL='ci@example.invalid'
-          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
-          export GIT_AUTHOR_DATE="$stamp" GIT_COMMITTER_DATE="$stamp"
-          composite="$(printf 'Qualify frozen CircularQuay candidate\n' |
-            git -c commit.gpgSign=false commit-tree "$tree" -p "$integration" -p "$candidate")"
-          git -c core.hooksPath=/dev/null checkout --detach "$composite"
-          test "$(git rev-parse 'HEAD^{tree}')" = "$tree"
+          test "$(git rev-parse HEAD)" = "$CQ_INTEGRATED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_INTEGRATED_TREE"
+          test "$(git rev-parse "$incorporation^2")" = "$candidate"
+          git merge-base --is-ancestor "$incorporation" HEAD
           test -z "$(git status --porcelain)"
-          git diff --check "$CQ_FEATURE_SHA" HEAD
+          test "$(git rev-parse refs/remotes/origin/feature/initial-implementation)" = "$CQ_INTEGRATED_SHA"
+          test "$(git rev-parse "refs/remotes/origin/$ref")" = "$candidate"
+          # Reject moved branch tips even after the exact checkout.
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_INTEGRATED_SHA")"
+          test "$(git ls-remote --exit-code origin "refs/heads/$ref")" = "$(printf '%s\trefs/heads/%s' "$candidate" "$ref")"
+          test "$(git ls-remote --exit-code origin refs/heads/fix/cq-go-1.27.4)" = "$(printf '%s\trefs/heads/fix/cq-go-1.27.4' "$CQ_GO_REPAIR_SHA")"
+          if test "$CQ_CANDIDATE" = health; then
+            test "$(git ls-remote --exit-code origin refs/heads/security/cq-gosec-boundaries)" = "$(printf '%s\trefs/heads/security/cq-gosec-boundaries' "$CQ_ALIAS_SHA")"
+          fi
           {
-            printf 'Feature: %s\n\n' "$CQ_FEATURE_SHA"
-            printf 'Go repair: %s\n\n' "$CQ_GO_REPAIR_SHA"
-            if test "$CQ_CANDIDATE" = health; then
-              printf 'Alias repair: %s\n\n' "$CQ_ALIAS_SHA"
-            fi
+            printf 'Feature: %s\n\n' "$CQ_INTEGRATED_SHA"
+            printf 'Tree: %s\n\n' "$CQ_INTEGRATED_TREE"
             printf 'Candidate: %s\n\n' "$candidate"
-            if test "$CQ_CANDIDATE" = python; then
-              printf 'Original Python candidate: %s\n\n' "$CQ_PYTHON_PARENT_SHA"
-            fi
-            printf 'Composite: %s\n\n' "$composite"
-            printf 'Tree: %s\n' "$tree"
+            printf 'Incorporation: %s\n' "$incorporation"
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.1
         id: go_setup
@@ -196,7 +187,7 @@ jobs:
 
   native-platforms:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
     name: Candidate native launch compatibility (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
@@ -211,7 +202,7 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - *checkout_feature
-      - *composite_checkout
+      - *verify_integrated
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.1
         with:
           go-version: '1.27.4'
@@ -711,7 +702,7 @@ jobs:
 
   python-static-security:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
     name: Candidate Python static and security (3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -723,7 +714,7 @@ jobs:
       CQ_CANDIDATE: python
     steps:
       - *checkout_feature
-      - *composite_checkout
+      - *verify_integrated
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: '3.14', check-latest: true }
       - name: Install reviewed static-tool closure
@@ -814,7 +805,7 @@ jobs:
 
   python:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
     name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -830,7 +821,7 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - *checkout_feature
-      - *composite_checkout
+      - *verify_integrated
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
@@ -1390,7 +1381,7 @@ jobs:
   darwin-native-wheels:
     name: Native Intel Darwin cryptography wheel (CPython ${{ matrix.python }})
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-native-wheels')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-native-wheels' }}
     runs-on: macos-15-intel
     timeout-minutes: 150
     strategy:
@@ -2329,7 +2320,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-native-wheels' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
@@ -2351,6 +2342,12 @@ jobs:
             cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
             darwin-native-prerequisites) test "$DARWIN_NATIVE_PREREQUISITES_RESULT" = success ;;
             darwin-native-wheels) test "$DARWIN_NATIVE_WHEELS_RESULT" = success ;;
+            both)
+              test "$HEALTH_RESULT" = success
+              test "$NATIVE_RESULT" = success
+              test "$PYTHON_STATIC_RESULT" = success
+              test "$PYTHON_RESULT" = success
+              ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
