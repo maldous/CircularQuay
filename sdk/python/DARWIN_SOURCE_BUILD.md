@@ -416,7 +416,12 @@ Darwin/x86_64/Python-patch report. Other packages still require public PyPI
 wheel URLs and SHA-256 hashes. The receipt retains custody and native evidence,
 without treating the transient local wheel URI as artifact identity.
 
-Prepare runtime-darwin-py311 through py315 and ci-darwin-py314 separately. The
+The SDK workflow selects the qualified CPython patch on Intel macOS and stages
+the matching retained wheel. It downloads the full hash-locked wheelhouse and
+uses it for index-free SDK installation. The other platform jobs use their
+existing lock sources.
+
+Resolve runtime-darwin-py311 through py315 and ci-darwin-py314 separately. The
 static closure reuses the qualified 3.14.10 wheel. Bind each complete resolver
 report/lock digest and intake record in the existing runtime/static lock
 provenance. Populate a reviewed wheelhouse with all locked binary dependencies,

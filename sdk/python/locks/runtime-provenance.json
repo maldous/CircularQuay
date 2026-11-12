@@ -9,6 +9,8 @@
   "requirements_sha256": "305e804be0bd9038bcfbb0fe4d22d2718c142bdd09f347044fd19122f468a7de",
   "purpose": "Runtime-test lock evidence for CPython 3.11 through 3.15; not SDK qualification.",
   "line_ending_note": "lock_sha256 identifies raw committed bytes. Each recorded lock is LF-only; no canonical-LF hash is substituted for its raw hash.",
+  "darwin_lock_provenance": "darwin-consumer-provenance.json",
+  "darwin_history": "Darwin rows below are historical; the current Darwin locks use darwin_lock_provenance.",
   "locks": [
     {"file":"runtime-darwin-py311.txt","python":"3.11.9","platform":"darwin","artifact_id":13293971550,"archive_sha256":"65b99c5e3827cdb74ee63faa16fdf2b9ff4988728ed49d7fac69dfece64dbf79","lock_sha256":"f615b095957b779c3c4067e78497f6da27307d35ada9a98725e30f5107583c20","resolver_report_sha256":"dfb02a4fdbde6386b89d2b9fd01ff0a5561cca992bc005d1a3fa9b69a7a85beb","raw_line_endings":{"crlf":0,"lf":38,"bare_cr":0}},
     {"file":"runtime-darwin-py312.txt","python":"3.12.10","platform":"darwin","artifact_id":13294355193,"archive_sha256":"412c6f5270e3a875649f17c52c5117cb697e19cb054a79bdfc4706b009e144c1","lock_sha256":"a4413a18a03967a94169a6946128a34e7d6cf104a63cbdfb7baeef3dd342d9d1","resolver_report_sha256":"a0e3fb9295b11b1891c780a124d5acf7b8ab7e91adfe8630bffc3a06184e3e93","raw_line_endings":{"crlf":0,"lf":38,"bare_cr":0}},

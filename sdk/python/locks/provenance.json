@@ -7,6 +7,8 @@
   "requirements_file": "sdk/python/requirements-ci.txt",
   "requirements_sha256": "f1c8388963130560f08550fe85740d0760e431fd13f9947b99d0c79865f4af95",
   "purpose": "Static/security toolchain lock evidence; not SDK qualification.",
+  "darwin_lock_provenance": "darwin-consumer-provenance.json",
+  "darwin_history": "Darwin rows below are historical; the current Darwin locks use darwin_lock_provenance.",
   "locks": [
     {
       "file": "ci-darwin-py314.txt",

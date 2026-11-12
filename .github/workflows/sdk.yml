@@ -111,7 +111,18 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: { python-version: '3.14', check-latest: true }
+        with:
+          python-version: ${{ runner.os == 'macOS' && '3.14.10' || '3.14' }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - &stage_darwin_wheel
+        name: Stage the retained Intel macOS wheel for this interpreter
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          patch="$(python -I -c 'import platform,sys; assert (sys.platform, platform.machine(), sys.implementation.name) == ("darwin", "x86_64", "cpython"); print(platform.python_version())')"
+          python -E -s -B .github/scripts/sdk_python_darwin_wheel.py --python "$patch" --output "$RUNNER_TEMP/cq-darwin-intake"
       - name: Install reviewed static-tool closure
         id: static_tools
         shell: bash
@@ -121,7 +132,13 @@ jobs:
           lock="sdk/python/locks/ci-${p}-py314.txt"
           test -f "$lock"
           python .github/scripts/sdk_python_lock.py --verify-lock "$lock" --requirements sdk/python/requirements-ci.txt
-          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          if test "$RUNNER_OS" = macOS; then
+            house="$RUNNER_TEMP/cq-darwin-static-wheelhouse"
+            python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$lock"
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$lock"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          fi
       - name: Test lock helper
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
@@ -406,6 +423,12 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15-intel, windows-2025]
         python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - { os: macos-15-intel, python: '3.11', exact_python: '3.11.9' }
+          - { os: macos-15-intel, python: '3.12', exact_python: '3.12.10' }
+          - { os: macos-15-intel, python: '3.13', exact_python: '3.13.17' }
+          - { os: macos-15-intel, python: '3.14', exact_python: '3.14.10' }
+          - { os: macos-15-intel, python: '3.15', exact_python: '3.15.2' }
     env:
       GOMAXPROCS: '2'
       GOFLAGS: '-mod=readonly -p=1'
@@ -416,8 +439,9 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ matrix.python }}
-          check-latest: true
+          python-version: ${{ matrix.exact_python || matrix.python }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - *stage_darwin_wheel
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: '1.27.4'
@@ -448,7 +472,13 @@ jobs:
           if test -f "$committed"; then
             cp "$committed" "$evidence/selected.txt"
             python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-test.txt
-            python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            if test "$RUNNER_OS" = macOS; then
+              house="$RUNNER_TEMP/cq-darwin-runtime-wheelhouse"
+              python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$evidence/selected.txt"
+              python -m pip --isolated install --dry-run --ignore-installed --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$evidence/selected.txt"
+            else
+              python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            fi
             sha256sum sdk/python/requirements-test.txt "$evidence/selected.txt" > "$evidence/inputs.sha256"
             echo 'missing=false' >> "$GITHUB_OUTPUT"
             exit 0
@@ -479,7 +509,11 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          if test "$RUNNER_OS" = macOS; then
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
       - name: Measure Python SDK coverage
         id: python_coverage
         if: ${{ always() && steps.python_tools.outcome == 'success' }}
@@ -517,7 +551,11 @@ jobs:
           else
             cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"
           fi
-          "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          if test "$RUNNER_OS" = macOS; then
+            "$cq_python" -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
           "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
           "$cq_python" -c 'import cq; assert cq.__version__ == "1.0.0.dev0"'
       - name: Exercise the installed Python local client against cq
