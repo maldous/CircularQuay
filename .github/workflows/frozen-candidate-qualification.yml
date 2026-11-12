@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'integrated Go and Python' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin consumers' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,22 +14,24 @@ on:
         description: Qualification suite to run against its reviewed source pins
         required: true
         type: choice
-        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels]
+        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, darwin-consumer]
 
 permissions:
   contents: read
 
 concurrency:
-  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'integrated' || 'manual' }}
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'darwin-consumer' || 'manual' }}
   cancel-in-progress: false
 
 env:
+  CQ_CONSUMER_SHA: '023385e283d6e45c328209f6b7cd812a658d17e9'
+  CQ_CONSUMER_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
   CQ_NATIVE_FEATURE_SHA: '941adf3f84a49905d7244bb594fbf517dff9bc32'
   CQ_NATIVE_FEATURE_TREE: '00434f4681afc7b2584d628199c22287f7c9df01'
   CQ_NATIVE_INPUT_SHA: 'b8447db3be2c25e73671a13bfe3a86a0d286cbc3'
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
-  CQ_INTEGRATED_SHA: '0c6b06abb2f1f4427e94226db2a4adfa9351bb6e'
-  CQ_INTEGRATED_TREE: '179a3b30f312feff0486328f90df17ca8dfc879b'
+  CQ_INTEGRATED_SHA: '023385e283d6e45c328209f6b7cd812a658d17e9'
+  CQ_INTEGRATED_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
   CQ_HEALTH_MERGE_SHA: '404c21e1a8819b4d1770b5c23a3ece89cdc2cd24'
   CQ_PYTHON_MERGE_SHA: '962f997539aa2e51efaddf5693ff07f3ebbc0f32'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
@@ -42,7 +44,7 @@ env:
 jobs:
   health:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
     name: Candidate Go build, tests and analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -187,7 +189,7 @@ jobs:
 
   native-platforms:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
     name: Candidate native launch compatibility (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
@@ -702,7 +704,7 @@ jobs:
 
   python-static-security:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
     name: Candidate Python static and security (3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -805,7 +807,7 @@ jobs:
 
   python:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
     name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -1421,7 +1423,8 @@ jobs:
             printf 'CQ_REPO=%s\n' "$PWD"
           } >> "$GITHUB_ENV"
           printf 'Feature %s; tree %s; source inputs %s; CPython %s.\n' "$CQ_NATIVE_FEATURE_SHA" "$CQ_NATIVE_FEATURE_TREE" "$CQ_NATIVE_INPUT_SHA" "$CQ_PYTHON_PATCH" | tee "$root/identity.txt" >> "$GITHUB_STEP_SUMMARY"
-      - name: Install only the verified PSF framework and prove native identity
+      - &install_verified_framework
+        name: Install only the verified PSF framework and prove native identity
         shell: bash
         run: |
           set -euo pipefail
@@ -2312,15 +2315,268 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  darwin-consumer:
+    name: Intel Darwin Python consumer (CPython ${{ matrix.python }})
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer')) }}
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: '3.11.9', lock_suffix: py311 }
+          - { python: '3.12.10', lock_suffix: py312 }
+          - { python: '3.13.17', lock_suffix: py313 }
+          - { python: '3.14.10', lock_suffix: py314 }
+          - { python: '3.15.2', lock_suffix: py315 }
+    env:
+      CQ_PYTHON_PATCH: ${{ matrix.python }}
+      CQ_LOCK_SUFFIX: ${{ matrix.lock_suffix }}
+      CQ_NATIVE_FEATURE_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - &checkout_consumer
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ env.CQ_CONSUMER_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - &verify_consumer
+        name: Verify the exact consumer commit and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CQ_CONSUMER_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_CONSUMER_TREE"
+          test -z "$(git status --porcelain)"
+          printf 'Consumer commit %s, tree %s.\n' "$CQ_CONSUMER_SHA" "$CQ_CONSUMER_TREE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the disposable Intel runner and stage the retained wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          test "$(sw_vers -productVersion)" = 15.7.9
+          test "${ImageVersion:?runner image identity required}" = 20260824.0482.1
+          root="$(cd "$RUNNER_TEMP" && pwd -P)/cq-darwin-consumer-$CQ_PYTHON_PATCH"
+          mkdir -m 0700 "$root"
+          mkdir -m 0700 "$root/evidence" "$root/tmp"
+          /usr/bin/python3 -E -s -B .github/scripts/sdk_python_darwin_wheel.py \
+            --python "$CQ_PYTHON_PATCH" --output "$root/intake"
+          cp "$root/intake/intake.json" "$root/evidence/"
+          printf 'CQ_INSTALL_ROOT=%s\nTMPDIR=%s/tmp\n' "$root" "$root" >> "$GITHUB_ENV"
+      - *install_verified_framework
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Resolve both applicable closures and prove fresh offline installation
+        id: consumer_locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_INSTALL_ROOT"
+          evidence="$root/evidence"
+          export CQ_FRAMEWORK_RECEIPT="$root/framework-receipt.json"
+          /usr/bin/python3 -I - "$root" "$CQ_CONSUMER_TREE" "$CQ_PYTHON_PATCH" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+
+          root, tree, patch = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          receipt = json.loads((root / "framework-receipt.json").read_text())
+          assert receipt["identity"][:3] == [patch, "x86_64", "darwin"]
+          assert receipt["feature_tree"] == tree and receipt["installed_trust_verified"]
+          assert hashlib.sha256((root / "framework-runtime.sb").read_bytes()).hexdigest() == receipt["runtime_profile_sha256"]
+          PY
+          cp "$CQ_FRAMEWORK_RECEIPT" "$evidence/"
+          minor="${CQ_PYTHON_PATCH%.*}"
+          framework="/Library/Frameworks/Python.framework/Versions/$minor/bin/python$minor"
+          profile="$root/framework-runtime.sb"
+          offline="$root/offline.sb"
+          cp "$profile" "$offline"
+          printf '\n(deny network-outbound)\n' >> "$offline"
+          sandbox=/usr/bin/sandbox-exec
+          venv() {
+            "$sandbox" -f "$offline" "$framework" -I -B -S -m venv --without-pip "$1"
+            "$sandbox" -f "$offline" "$1/bin/python" -I -B - <<'PY'
+          import ensurepip, hashlib, json, os, runpy, sys
+          from pathlib import Path
+
+          bundled = json.loads(Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).read_text())["bundled_pip"]
+          wheel = Path(ensurepip.__file__).parent / "_bundled" / bundled["name"]
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest() == bundled["sha256"]
+          assert sys.prefix != sys.base_prefix
+          assert all(Path(p).is_relative_to(Path(sys.prefix)) for p in sys.path if "site-packages" in p)
+          sys.path.insert(0, str(wheel))
+          sys.argv = ["pip", "--isolated", "install", "--no-index", "--no-deps", str(wheel)]
+          runpy.run_module("pip", run_name="__main__")
+          PY
+          }
+          wheel="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["wheel"])' "$evidence/intake.json")"
+          custody="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["custody"])' "$evidence/intake.json")"
+          venv "$root/resolver"
+          resolver="$root/resolver/bin/python"
+          resolve() {
+            local kind="$1" requirements="$2" prefix="$evidence/$1" house="$root/$1-wheelhouse"
+            local consumer="$root/$1/bin/python"
+            "$sandbox" -f "$profile" "$resolver" -I -B -m pip --isolated --disable-pip-version-check install \
+              --no-input --no-cache-dir --dry-run --ignore-installed --only-binary=:all: \
+              --index-url https://pypi.org/simple --report "$prefix.report.json" -r "$requirements" "$root/intake/$wheel"
+            "$sandbox" -f "$offline" "$resolver" -I -B .github/scripts/sdk_python_lock.py \
+              --report "$prefix.report.json" --requirements "$requirements" --output "$prefix.txt" \
+              --receipt "$prefix.receipt.txt" --revision "$CQ_CONSUMER_SHA" \
+              --darwin-archive "$root/intake/archive.zip" --darwin-wheel "$root/intake/$wheel" \
+              --darwin-python "$CQ_PYTHON_PATCH" --darwin-custody "$custody"
+            "$sandbox" -f "$profile" "$resolver" -I -B -m pip --isolated --disable-pip-version-check download \
+              --no-input --no-cache-dir --only-binary=:all: --require-hashes --index-url https://pypi.org/simple \
+              --find-links "$root/intake" --dest "$house" -r "$prefix.txt"
+            venv "$root/$kind"
+            "$sandbox" -f "$offline" "$consumer" -I -B -m pip --isolated --disable-pip-version-check install \
+              --no-input --no-index --find-links "$house" --require-hashes --only-binary=:all: -r "$prefix.txt"
+            "$sandbox" -f "$offline" "$consumer" -I -B -m pip check
+            "$sandbox" -f "$offline" "$consumer" -I -B - "$CQ_PYTHON_PATCH" <<'PY'
+          import platform, sys
+          import cryptography
+          from cryptography.hazmat.backends import default_backend
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+          assert (platform.python_version(), platform.machine(), sys.platform) == (sys.argv[1], "x86_64", "darwin")
+          assert cryptography.__version__ == "50.0.2"
+          assert default_backend().openssl_version_text().startswith("OpenSSL 3.5.9 ")
+          cipher = AESGCM(bytes(32))
+          nonce = bytes(12)
+          assert cipher.decrypt(nonce, cipher.encrypt(nonce, b"consumer", None), None) == b"consumer"
+          print("Verified offline cryptography consumer and OpenSSL runtime")
+          PY
+            printf 'offline_install=passed\npip_check=passed\ncrypto_runtime=passed\n' > "$prefix.offline.txt"
+          }
+          resolve "runtime-darwin-$CQ_LOCK_SUFFIX" sdk/python/requirements-test.txt
+          if test "$CQ_LOCK_SUFFIX" = py314; then
+            resolve ci-darwin-py314 sdk/python/requirements-ci.txt
+          fi
+      - name: Measure the native runtime SDK coverage
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$CQ_INSTALL_ROOT"
+          /usr/bin/sandbox-exec -f "$root/offline.sb" "$root/runtime-darwin-$CQ_LOCK_SUFFIX/bin/python" -I -B \
+            .github/scripts/sdk_python_check.py --check coverage --report "$root/evidence/coverage.json" --timeout-seconds 1200
+      - name: Run static SDK checks and the lock helper suite
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' && matrix.lock_suffix == 'py314' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$CQ_INSTALL_ROOT"
+          python=(/usr/bin/sandbox-exec -f "$root/offline.sb" "$root/ci-darwin-py314/bin/python" -I -B)
+          status=0
+          "${python[@]}" -m unittest discover -s .github/scripts/tests -v || status=1
+          for check in ruff mypy bandit; do
+            "${python[@]}" .github/scripts/sdk_python_check.py --check "$check" \
+              --report "$root/evidence/$check.json" --timeout-seconds 300 || status=1
+          done
+          exit "$status"
+      - name: Build and exercise the installed Python SDK against native cq
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_INSTALL_ROOT"
+          python=(/usr/bin/sandbox-exec -f "$root/offline.sb" "$root/runtime-darwin-$CQ_LOCK_SUFFIX/bin/python" -I -B)
+          test "$(go env GOVERSION)" = go1.27.4
+          go build -trimpath -o "$root/cq" ./cmd/cq
+          "${python[@]}" -m build --no-isolation --outdir "$root/dist" sdk/python
+          "${python[@]}" -m pip --isolated --disable-pip-version-check install --no-index --no-deps "$root/dist/"*.whl
+          "${python[@]}" -m pip check
+          CQ_EXECUTABLE="$root/cq" "${python[@]}" - "$root" <<'PY'
+          import asyncio, hashlib, os, sys
+          from pathlib import Path
+          from cq import LocalCLIClient
+
+          async def main():
+              root = Path(sys.argv[1])
+              executable = Path(os.environ["CQ_EXECUTABLE"])
+              digest = hashlib.sha256(executable.read_bytes()).hexdigest()
+              client = LocalCLIClient(executable, digest, root / "policy.json", root / "state", environment={})
+              await client.config_init()
+              await client.doctor()
+              await client.plan()
+
+          asyncio.run(main())
+          PY
+          config="$root/mcp.json"
+          state="$root/mcp-state"
+          mkdir -m 0700 "$state"
+          "$root/cq" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$root/cq" --config "$config" config set --pointer /mcp --value-file -
+          identity="$("$root/cq" doctor --identity-only)"
+          subject="$(printf '%s' "$identity" | /usr/bin/python3 -I -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')"
+          SUBJECT="$subject" /usr/bin/python3 -I - <<'PY' | "$root/cq" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          CQ_EXECUTABLE="$root/cq" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "${python[@]}" sdk/conformance/python-mcp.py
+          printf 'local_cli=passed\nmcp_conformance=passed\n' > "$root/evidence/operating-path.txt"
+      - name: Retain native consumer evidence
+        if: ${{ !cancelled() && env.CQ_INSTALL_ROOT != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: darwin-consumer-${{ matrix.lock_suffix }}
+          path: ${{ env.CQ_INSTALL_ROOT }}/evidence
+          if-no-files-found: error
+          retention-days: 7
+
+  darwin-consumer-audit:
+    name: Strict audit of the six Intel Darwin Python closures
+    needs: darwin-consumer
+    if: >-
+      ${{ !cancelled() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - *checkout_consumer
+      - *verify_consumer
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          check-latest: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: darwin-consumer-py*
+          path: ${{ runner.temp }}/cq-darwin-closures
+      - name: Audit every complete hash-locked closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          tool_lock=sdk/python/locks/ci-linux-py314.txt
+          python .github/scripts/sdk_python_lock.py --verify-lock "$tool_lock" --requirements sdk/python/requirements-ci.txt
+          python -m pip --isolated --disable-pip-version-check install --no-input --require-hashes --only-binary=:all: -r "$tool_lock"
+          status=0
+          for version in py311 py312 py313 py314 py315; do
+            path="$RUNNER_TEMP/cq-darwin-closures/darwin-consumer-$version/runtime-darwin-$version.txt"
+            python .github/scripts/sdk_python_lock.py --verify-lock "$path" --requirements sdk/python/requirements-test.txt || { status=1; continue; }
+            python -m pip_audit --strict --disable-pip --require-hashes -r "$path" || status=1
+          done
+          path="$RUNNER_TEMP/cq-darwin-closures/darwin-consumer-py314/ci-darwin-py314.txt"
+          python .github/scripts/sdk_python_lock.py --verify-lock "$path" --requirements sdk/python/requirements-ci.txt
+          python -m pip_audit --strict --disable-pip --require-hashes -r "$path" || status=1
+          exit "$status"
+
   candidate-result:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, python-static-security, python, darwin-consumer, darwin-consumer-audit]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-consumer' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
@@ -2331,6 +2587,8 @@ jobs:
       DARWIN_NATIVE_WHEELS_RESULT: ${{ needs.darwin-native-wheels.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
+      DARWIN_CONSUMER_RESULT: ${{ needs.darwin-consumer.result }}
+      DARWIN_AUDIT_RESULT: ${{ needs.darwin-consumer-audit.result }}
     steps:
       - name: Require the selected qualification jobs
         shell: bash
@@ -2342,11 +2600,9 @@ jobs:
             cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
             darwin-native-prerequisites) test "$DARWIN_NATIVE_PREREQUISITES_RESULT" = success ;;
             darwin-native-wheels) test "$DARWIN_NATIVE_WHEELS_RESULT" = success ;;
-            both)
-              test "$HEALTH_RESULT" = success
-              test "$NATIVE_RESULT" = success
-              test "$PYTHON_STATIC_RESULT" = success
-              test "$PYTHON_RESULT" = success
+            darwin-consumer)
+              test "$DARWIN_CONSUMER_RESULT" = success
+              test "$DARWIN_AUDIT_RESULT" = success
               ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
