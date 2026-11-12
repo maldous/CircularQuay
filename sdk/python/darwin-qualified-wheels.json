@@ -15,10 +15,11 @@
       "artifact_sha256": "0957fd5fb18adb0e261766274e99d07fca61aec8cde77b37128449b3e424b75a",
       "wheel": "cryptography-50.0.2-cp311-abi3-macosx_10_15_x86_64.whl",
       "wheel_sha256": "f459d4de4163b5bb83a57a4df81a88635a122ec751b9079d6f13b6c39aab91a3",
-      "custody": null,
+      "custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/0957fd5fb18adb0e261766274e99d07fca61aec8cde77b37128449b3e424b75a.zip",
       "identical_clean_builds": true,
       "functional_runtime_passed": true,
-      "openssl": "OpenSSL 3.5.9 29 Sep 2026"
+      "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+      "custody_git_blob": "82e5432faaee59be6e63ff497a678c1516236639"
     },
     {
       "python": "3.12.10",
@@ -28,10 +29,11 @@
       "artifact_sha256": "e67110345740f881a143bf2a6162f020aa403db28b8e44f2fa88ad549764af36",
       "wheel": "cryptography-50.0.2-cp312-abi3-macosx_10_15_x86_64.whl",
       "wheel_sha256": "6356fa7bd70a735cf0d52442573faf02424d2950ec1e35fb60feeccbf31a664b",
-      "custody": null,
+      "custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/e67110345740f881a143bf2a6162f020aa403db28b8e44f2fa88ad549764af36.zip",
       "identical_clean_builds": true,
       "functional_runtime_passed": true,
-      "openssl": "OpenSSL 3.5.9 29 Sep 2026"
+      "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+      "custody_git_blob": "1792a594d6a8203e448c868ad8f1de20a4704d13"
     },
     {
       "python": "3.13.17",
@@ -41,10 +43,11 @@
       "artifact_sha256": "40b6e6c470d0717383ed247b208c4c6c80b4fad905d489788945fe50e65008f9",
       "wheel": "cryptography-50.0.2-cp313-abi3-macosx_10_15_x86_64.whl",
       "wheel_sha256": "27313a2d5b8c4ed304d356011cb893f527c7ba2a4d8fc576238fee0d350a3a1f",
-      "custody": null,
+      "custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/40b6e6c470d0717383ed247b208c4c6c80b4fad905d489788945fe50e65008f9.zip",
       "identical_clean_builds": true,
       "functional_runtime_passed": true,
-      "openssl": "OpenSSL 3.5.9 29 Sep 2026"
+      "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+      "custody_git_blob": "b795acc428e91553df5cc03c516aa88ed66c778e"
     },
     {
       "python": "3.14.10",
@@ -54,10 +57,11 @@
       "artifact_sha256": "4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc",
       "wheel": "cryptography-50.0.2-cp314-abi3-macosx_10_15_x86_64.whl",
       "wheel_sha256": "4fc7702a193c89e2953a4480d8ea9bebad5d6820bf0052eee920ce39876e6a2b",
-      "custody": null,
+      "custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc.zip",
       "identical_clean_builds": true,
       "functional_runtime_passed": true,
-      "openssl": "OpenSSL 3.5.9 29 Sep 2026"
+      "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+      "custody_git_blob": "fa4e120d11c867b824e81c26351c8bac11199d6e"
     },
     {
       "python": "3.15.2",
@@ -67,10 +71,11 @@
       "artifact_sha256": "39f075159edb0d1a87f303ff121aa9f3c6f9fc4bba39cf174d35a7eb80bcfd88",
       "wheel": "cryptography-50.0.2-cp315-abi3.abi3t-macosx_10_15_x86_64.whl",
       "wheel_sha256": "a31cad858bfb14110c8107a399ddf14b0719c72a0f6b89b87759495f8fe3fc78",
-      "custody": null,
+      "custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/39f075159edb0d1a87f303ff121aa9f3c6f9fc4bba39cf174d35a7eb80bcfd88.zip",
       "identical_clean_builds": true,
       "functional_runtime_passed": true,
-      "openssl": "OpenSSL 3.5.9 29 Sep 2026"
+      "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+      "custody_git_blob": "b70980ffd1139ee6d253a88ac0f663e98979e6e7"
     }
   ],
   "feature_tree": "00434f4681afc7b2584d628199c22287f7c9df01",

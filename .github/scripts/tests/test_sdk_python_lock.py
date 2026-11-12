@@ -201,7 +201,7 @@ class DarwinIntakeTest(unittest.TestCase):
                 result = LOCK.darwin_intake(
                     archive, wheel, "3.14.10", "approved:immutable-object-version"
                 )
-                self.assertEqual(result["wheel_uri"], wheel.as_uri())
+                self.assertEqual(result["wheel_uri"], wheel.resolve().as_uri())
                 with self.assertRaises(LOCK.ValidationError):
                     LOCK.darwin_intake(archive, wheel, "3.14.10", "unreviewed:object")
                 fixture["qualified_repeat_builds"][0]["custody"] = None

@@ -370,16 +370,21 @@ native receipt, exact wheel and archive hashes, source policy and workflow.
 The receipt records execution on Intel macOS 15.7.9; the 10.15 wheel tag does
 not establish execution on 10.15 or a free-threaded interpreter.
 
-The retained artifact archives are an intake starting point. Before consumer
-adoption, the existing integration owner must bind their bytes to the project's
-approved immutable custody identifier. A task directory or expiring GitHub
-artifact alone does not name that durable destination. This source record
-creates no store, publication, grant or runtime adoption. Each entry currently
-has `custody: null`; the helper denies consumer intake until the existing owner
-records and reviews the actual immutable object/version identity there.
+The five original archives and redistribution notices are retained on the
+[`artifacts/darwin-cryptography-50.0.2` branch](https://github.com/maldous/CircularQuay/tree/f8b06fa61ff41039c78d29379b8754be4bb5863d).
+The manifest binds each ZIP to the exact Git commit and blob as well as the
+archive and wheel SHA-256 hashes. Hosted CI stages the wheel over the public
+commit-addressed route with read-only permissions:
 
-On the admitted native executor, verify the retained archive and supplied
-wheel without fetching them again. Resolve the **complete** closure using the
+```sh
+python .github/scripts/sdk_python_darwin_wheel.py \
+  --python "$EXACT_PYTHON_PATCH" --output "$FRESH_TASK_WHEEL_DIRECTORY"
+```
+
+Intake verifies the SHA-256 of the commit-addressed archive before reading the
+expected wheel.
+It verifies both clean-build copies before the wheel is eligible for resolution.
+Resolve the **complete** closure using the
 exact local wheel as an explicit resolver input, ordinary binary-only PyPI
 packages, and the corresponding requirements file. Retain the actual pip JSON
 report. Use the admitted exact interpreter and a fresh resolver environment;
@@ -406,13 +411,13 @@ The custody value records the already-reviewed object/version identity; passing
 an arbitrary value does not approve a destination. It must exactly match the
 non-null binding in the reviewed qualified-wheel record. The helper hashes both
 inputs, verifies the two wheel copies at the exact clean-build archive paths, and
-admits only that local cryptography50.0.2 wheel for the exact native
+admits only that local cryptography 50.0.2 wheel for the exact native
 Darwin/x86_64/Python-patch report. Other packages still require public PyPI
 wheel URLs and SHA-256 hashes. The receipt retains custody and native evidence,
 without treating the transient local wheel URI as artifact identity.
 
 Prepare runtime-darwin-py311 through py315 and ci-darwin-py314 separately. The
-static closure reuses the qualified3.14.10 wheel. Bind each complete resolver
+static closure reuses the qualified 3.14.10 wheel. Bind each complete resolver
 report/lock digest and intake record in the existing runtime/static lock
 provenance. Populate a reviewed wheelhouse with all locked binary dependencies,
 then verify fresh offline installation and audit each entire closure:
