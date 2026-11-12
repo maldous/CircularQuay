@@ -259,6 +259,10 @@ jobs:
             fail "python-venv-failed"
           fi
 
+          typescript_dependencies=sdk/typescript/node_modules
+          if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+            fatal "unexpected-typescript-dependency-directory"
+          fi
           if npm --prefix sdk/typescript ci --ignore-scripts --no-audit --no-fund >"$evidence/typescript-install.log" 2>&1; then
             # Run c8 from the repository root so LCOV SF paths match Sonar's
             # root. These are the existing SDK coverage gates and verifier.
@@ -270,6 +274,11 @@ jobs:
             (( typescript_report_status == 0 )) || fail "typescript-coverage-report-invalid:$typescript_report_status"
           else
             fail "typescript-dependency-install-failed"
+          fi
+          # The scanner's source root is the checkout. Move generated test
+          # dependencies outside it before the scanner indexes source files.
+          if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+            mv "$typescript_dependencies" "$root/typescript-node_modules" || fatal "typescript-dependency-isolation-failed"
           fi
           test -s "$evidence/python-coverage.xml" || fail "python-coverage-report-missing"
           test -s "$evidence/typescript/lcov.info" || fail "typescript-coverage-report-missing"
