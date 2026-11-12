@@ -55,11 +55,13 @@ not attempt automatic discovery or sign-in based solely on the product design.
 
 ### Shared UIF project routing
 
-UIF is the required general harness; CircularQuay is the secret/config/workload
+CircularQuay's standalone build, run and delivery do not require UIF or another
+subproject. UIF is the required general harness only when the optional shared
+operational lane is selected; CircularQuay is the secret/config/workload
 product, while OffMenu owns its separate household/product/food/stock/meal-data
 outcomes and rights/privacy. Do not default a CircularQuay task to OffMenu or share its
 credentials, state/data roots or toolchain. Multi-project support remains
-required/planned until actual accepted-source/job/isolation evidence covers the
+required/planned for that lane until actual accepted-source/job/isolation evidence covers the
 affected profiles. Preserve existing coordinators, tasks, leases, reviewers,
 publication routes and controlled unit handover. CircularQuay migration and OffMenu BAU/
 data work proceed in parallel, with no global gate between independent work.
