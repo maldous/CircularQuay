@@ -30,6 +30,16 @@ jobs:
         with:
           go-version: '1.27.4'
           cache: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.14', check-latest: true }
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24.22.2'
+          package-manager-cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
       - name: Produce fresh isolated Sonar evidence
         shell: bash
         run: |
@@ -125,7 +135,7 @@ jobs:
           result=0
           fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-failure:%s\n' "$1" >&2; result=1; }
           fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-fatal:%s\n' "$1" >&2; exit 2; }
-          for command in docker curl jq sha256sum unzip timeout go; do
+          for command in docker curl jq sha256sum unzip timeout go python node npm java keytool; do
             command -v "$command" >>"$evidence/tools.txt" 2>&1 || fatal "missing-tool:$command"
           done
           docker compose version >>"$evidence/tools.txt" 2>&1 || fatal "missing-compose-plugin"
@@ -226,6 +236,57 @@ jobs:
           "$scanner" --version >"$evidence/scanner-version.txt" 2>&1 || fatal "scanner-version-failed"
           grep -F '8.3.1.16491' "$evidence/scanner-version.txt" >/dev/null || fatal "scanner-version-mismatch"
 
+          # Produce reports in this same checkout before scanning; do not import
+          # another revision's artifact or turn a failed producer into a pass.
+          if python -m venv "$root/python" >"$evidence/python-install.log" 2>&1; then
+            python_tool="$root/python/bin/python"
+            "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1
+            python_lock_status=$?
+            (( python_lock_status == 0 )) || fail "python-lock-invalid:$python_lock_status"
+            if (( python_lock_status == 0 )) && "$python_tool" -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r sdk/python/locks/ci-linux-py314.txt >>"$evidence/python-install.log" 2>&1; then
+              export COVERAGE_FILE="$evidence/python.coverage"
+              PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1
+              python_test_status=$?
+              (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
+              "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1
+              python_coverage_status=$?
+              (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
+              unset COVERAGE_FILE
+            else
+              fail "python-dependency-install-failed"
+            fi
+          else
+            fail "python-venv-failed"
+          fi
+
+          if npm --prefix sdk/typescript ci --ignore-scripts --no-audit --no-fund >"$evidence/typescript-install.log" 2>&1; then
+            # Run c8 from the repository root so LCOV SF paths match Sonar's
+            # root. These are the existing SDK coverage gates and verifier.
+            sdk/typescript/node_modules/.bin/c8 --all --src sdk/typescript/src --include '**/*.ts' --extension .ts --exclude-after-remap --reports-dir "$evidence/typescript" --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm --prefix sdk/typescript test >"$evidence/typescript-coverage.log" 2>&1
+            typescript_coverage_status=$?
+            (( typescript_coverage_status == 0 )) || fail "typescript-coverage-not-100:$typescript_coverage_status"
+            node sdk/typescript/test/verify-coverage.mjs "$evidence/typescript/coverage-final.json" >>"$evidence/typescript-coverage.log" 2>&1
+            typescript_report_status=$?
+            (( typescript_report_status == 0 )) || fail "typescript-coverage-report-invalid:$typescript_report_status"
+          else
+            fail "typescript-dependency-install-failed"
+          fi
+          test -s "$evidence/python-coverage.xml" || fail "python-coverage-report-missing"
+          test -s "$evidence/typescript/lcov.info" || fail "typescript-coverage-report-missing"
+
+          # Reuse the integration lane's pinned synthetic WireMock input.
+          # Join only the existing tagged provider lane. Other tagged suites
+          # retain their own explicit fixture and admission requirements.
+          wiremock_url="$(jq -er '.wiremock.jar' tools/integration-tools.json)" || fatal "wiremock-url-missing"
+          wiremock_source="$(jq -er '.wiremock.source' tools/integration-tools.json)" || fatal "wiremock-checksum-source-missing"
+          wiremock_sha="$(jq -er '.wiremock.sha256 | select(test("^[0-9a-f]{64}$"))' tools/integration-tools.json)" || fatal "wiremock-digest-invalid"
+          curl --connect-timeout 15 --max-time 60 --max-filesize 256 --fail --silent --show-error "$wiremock_source" --output "$root/wiremock.sha256" >"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-checksum-download-failed"
+          read -r published_wiremock_sha _ < "$root/wiremock.sha256"
+          test "$published_wiremock_sha" = "$wiremock_sha" || fatal "wiremock-published-digest-mismatch"
+          export CQ_WIREMOCK_JAR="$root/wiremock-standalone.jar"
+          curl --connect-timeout 15 --max-time 300 --max-filesize 268435456 --fail --silent --show-error "$wiremock_url" --output "$CQ_WIREMOCK_JAR" >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-download-failed"
+          printf '%s  %s\n' "$wiremock_sha" "$CQ_WIREMOCK_JAR" | sha256sum -c - >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-digest-mismatch"
+
           mapfile -t packages < <(go list -f '{{.ImportPath}}' ./... 2>"$evidence/go-list.log")
           (( ${#packages[@]} > 0 )) || fail "no-module-packages"
           coverage="$evidence/coverage.raw.out"
@@ -234,12 +295,22 @@ jobs:
           go test -count=1 -p 1 -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$coverage" ./... >"$evidence/go-test.log" 2>&1
           coverage_test_status=$?
           (( coverage_test_status == 0 )) || fail "coverage-test-failed:$coverage_test_status"
+          integration_coverage="$evidence/coverage.integration.out"
+          go test -count=1 -p 1 -tags=integration -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$integration_coverage" ./internal/integration >"$evidence/go-integration-test.log" 2>&1
+          integration_test_status=$?
+          (( integration_test_status == 0 )) || fail "integration-coverage-test-failed:$integration_test_status"
+          coverage_profiles=("$coverage")
+          if test -s "$integration_coverage"; then
+            coverage_profiles+=("$integration_coverage")
+          else
+            fail "integration-coverage-profile-missing"
+          fi
           if test -s "$coverage"; then
             awk '
-              NR == 1 { print; next }
+              FNR == 1 { if ($0 != "mode: atomic") bad=1; if (NR == 1) print; next }
               { key=$1; statements=$2; count=$3; if (key in seen && seen[key] != statements) { bad=1; next }; seen[key]=statements; if (!(key in maximum) || count > maximum[key]) maximum[key]=count }
               END { if (bad) exit 2; for (key in seen) print key " " seen[key] " " maximum[key] }
-            ' "$coverage" >"$evidence/coverage.out"
+            ' "${coverage_profiles[@]}" >"$evidence/coverage.out"
             coverage_union_status=$?
             (( coverage_union_status == 0 )) || fail "coverage-union-invalid"
             awk 'NR > 1 { total += $2; if ($3 > 0) covered += $2 } END { if (total == 0) exit 2; printf "covered_statements=%d\ntotal_statements=%d\ncoverage_percent=%.9f\n", covered, total, 100*covered/total; if (covered != total) exit 1 }' "$evidence/coverage.out" >"$evidence/coverage-summary.txt"
@@ -262,6 +333,8 @@ jobs:
               -Dsonar.projectKey=cq \
               -Dsonar.scm.revision="$GITHUB_SHA" \
               -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
+              -Dsonar.python.coverage.reportPaths="$evidence/python-coverage.xml" \
+              -Dsonar.javascript.lcov.reportPaths="$evidence/typescript/lcov.info" \
               -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
               -Dsonar.working.directory="$root/scanner-work" \
               -Dsonar.qualitygate.wait=true \
