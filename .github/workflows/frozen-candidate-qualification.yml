@@ -1440,6 +1440,7 @@ jobs:
           import os
           from pathlib import Path
           import plistlib
+          import pwd
           import re
           import stat
           import subprocess
@@ -1474,9 +1475,7 @@ jobs:
                   allowed_ids.update(value for key, values in entry.items()
                                      if key.split(":")[-1] == "GeneratedUID" for value in values)
               assert set(attrs.get("GroupMembers", [])) <= allowed_ids, (name, "unexpected member GUID")
-              primary = {line.split()[0] for line in
-                         run("/usr/bin/dscl", ".", "-search", "/Users", "PrimaryGroupID", str(gid)).decode().splitlines()
-                         if line.strip()}
+              primary = {user.pw_name for user in pwd.getpwall() if user.pw_gid == gid}
               assert primary <= trusted, (name, primary)
               return gid, sorted(names | primary)
 
