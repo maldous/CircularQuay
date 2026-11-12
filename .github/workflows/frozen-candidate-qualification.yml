@@ -638,7 +638,7 @@ jobs:
 
           def verify_binary(path):
               command("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path))
-              command("/usr/bin/lipo", "-verify_arch", "x86_64", str(path))
+              command("/usr/bin/lipo", str(path), "-verify_arch", "x86_64")
               return file_hash(path)
 
           def immutable_system_target(path):
