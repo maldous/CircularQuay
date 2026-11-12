@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'native and Darwin preflight' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Darwin input receipts' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
         description: Reviewed candidate to combine with the pinned feature tip
         required: true
         type: choice
-        options: [health, python, darwin]
+        options: [health, python, darwin, darwin-inputs]
 
 permissions:
   contents: read
@@ -35,7 +35,7 @@ env:
 jobs:
   health:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
     name: Candidate Go build, tests and analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -193,7 +193,7 @@ jobs:
 
   native-platforms:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
     name: Candidate native launch compatibility (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
@@ -236,17 +236,19 @@ jobs:
 
   darwin-preflight:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin' }}
     name: Candidate Intel Darwin preparation (no wheel build)
     runs-on: macos-15-intel
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - &darwin_source_checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ env.CQ_DARWIN_SHA }}
           fetch-depth: 2
           persist-credentials: false
-      - name: Verify the reviewed build-input bytes
+      - &darwin_lock_verification
+        name: Verify the reviewed build-input bytes
         shell: bash
         run: |
           set -euo pipefail
@@ -308,6 +310,151 @@ jobs:
           test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
           test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
           /usr/bin/codesign --verify --deep --strict -R='anchor apple' /Applications/Xcode_16.4.app
+
+  darwin-inputs:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-inputs')) }}
+    name: Candidate Intel Darwin Rust verification and CPython observations
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - name: Match the previously verified Apple runner
+        id: apple_identity
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = x86_64
+          test "$(printenv ImageOS)" = macos15
+          test "$(printenv ImageVersion)" = 20260824.0482.1
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          printf 'Matched Apple signature evidence: run 43148993341, job 130953451534.\n' >> "$GITHUB_STEP_SUMMARY"
+          sw_vers
+          /usr/bin/xcrun clang --version
+      - name: Read native CPython identities without installing interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          import platform
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          assert sys.platform == "darwin" and platform.machine() == "x86_64"
+          print("### Native CPython observations (no pins selected)")
+          print(f"Runner interpreter: {sys.executable}, {platform.python_version()}, {platform.machine()}.")
+          tool_cache = Path(os.environ["RUNNER_TOOL_CACHE"])
+          observed = ("3.11.9", "3.12.10", "3.13.17", "3.14.10", "3.15.2")
+          probe = "import json,platform,sys; print(json.dumps([platform.python_version(),platform.machine(),sys.platform]))"
+          for version in observed:
+              prefix = tool_cache / "Python" / version / "x64"
+              path = prefix / "bin" / "python3"
+              if not path.is_file():
+                  print(f"- {version}: not in this runner cache; no acquisition attempted.")
+                  continue
+              resolved = path.resolve()
+              assert resolved.is_relative_to(prefix.resolve())
+              result = subprocess.run([str(resolved), "-I", "-c", probe], capture_output=True, text=True, timeout=15, check=True)
+              assert json.loads(result.stdout) == [version, "x86_64", "darwin"]
+              print(f"- {version}: native interpreter readback passed; archive identity is unverified.")
+          print("Exact reviewed acquisition and pip frontend receipts remain required for the wheel build.")
+          PY
+      - name: Acquire and verify the pinned Rust archive
+        id: rust_input
+        if: ${{ !cancelled() && steps.apple_identity.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          input_root="$(mktemp -d "$RUNNER_TEMP/cq-rust-input.XXXXXX")"
+          printf 'root=%s\n' "$input_root" >> "$GITHUB_OUTPUT"
+          python3 -I - "$input_root" <<'PY'
+          import hashlib
+          import json
+          import sys
+          import tarfile
+          from pathlib import Path, PurePosixPath
+          from urllib.request import HTTPRedirectHandler, build_opener
+
+          root = Path(sys.argv[1])
+          native = json.loads(Path("sdk/python/darwin-native-toolchain.json").read_text())
+          rust = native["rust"]
+          assert native["platform"] == "darwin" and native["architecture"] == "x86_64"
+          assert native["openssl"]["sha256"] is None
+          assert (rust["version"], rust["target"]) == ("1.99.1", "x86_64-apple-darwin")
+          archive_name = "rust-1.99.1-x86_64-apple-darwin"
+          url = f"https://static.rust-lang.org/dist/2026-10-15/{archive_name}.tar.xz"
+          sha256 = "13b237d0294bad3bb7b18d559517947ed8348ea25812fa3b468c904996f80e34"
+          assert (rust["url"], rust["sha256"]) == (url, sha256)
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  raise RuntimeError("Rust archive redirect is not admitted")
+
+          archive = root / f"{archive_name}.tar.xz"
+          digest = hashlib.sha256()
+          size = 0
+          with build_opener(NoRedirect).open(url, timeout=60) as response, archive.open("xb") as output:
+              for data in iter(lambda: response.read(1024 * 1024), b""):
+                  size += len(data)
+                  if size > 384 * 1024 * 1024:
+                      raise RuntimeError("Rust archive exceeds acquisition bound")
+                  digest.update(data)
+                  output.write(data)
+          if digest.hexdigest() != sha256:
+              raise RuntimeError("Rust archive digest mismatch")
+          print(f"Verified Rust archive SHA-256: {sha256}; {size} bytes.", flush=True)
+          with tarfile.open(archive, mode="r:xz") as source:
+              members = []
+              expanded = 0
+              for member in source:
+                  path = PurePosixPath(member.name)
+                  if not path.parts or path.parts[0] != archive_name or ".." in path.parts or path.is_absolute():
+                      raise RuntimeError("Unexpected Rust archive member")
+                  members.append(member)
+                  expanded += member.size
+                  if len(members) > 30000 or expanded > 3 * 1024 * 1024 * 1024:
+                      raise RuntimeError("Rust extraction exceeds bound")
+              source.extractall(root, members=members, filter="data")
+          PY
+      - name: Verify the native Rust compiler and cargo
+        if: ${{ !cancelled() && steps.rust_input.outcome == 'success' }}
+        shell: bash
+        env:
+          CQ_INPUT_ROOT: ${{ steps.rust_input.outputs.root }}
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$CQ_INPUT_ROOT"
+          export CARGO_HOME="$CQ_INPUT_ROOT/cargo"
+          export RUSTUP_HOME="$CQ_INPUT_ROOT/rustup"
+          /bin/sh ./rust-1.99.1-x86_64-apple-darwin/install.sh --prefix="$CQ_INPUT_ROOT/rust"
+          compiler="$CQ_INPUT_ROOT/rust/bin/rustc"
+          cargo="$CQ_INPUT_ROOT/rust/bin/cargo"
+          "$compiler" --version --verbose | tee rustc.txt
+          "$cargo" --version | tee cargo.txt
+          grep -Fx 'release: 1.99.1' rustc.txt
+          grep -Fx 'host: x86_64-apple-darwin' rustc.txt
+          grep -E '^cargo 1\.99\.1( |$)' cargo.txt
+          printf 'fn main() { println!("native-rust-ok"); }\n' > probe.rs
+          "$compiler" --target x86_64-apple-darwin -o probe probe.rs
+          test "$(./probe)" = native-rust-ok
+          {
+            printf '\n### Verified Rust input (no OpenSSL or wheel build)\n'
+            printf 'Archive SHA-256: 13b237d0294bad3bb7b18d559517947ed8348ea25812fa3b468c904996f80e34\n\n'
+            cat rustc.txt cargo.txt
+            printf '\nNative Intel fixture compiled and executed.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   python-static-security:
     if: >-
@@ -705,14 +852,15 @@ jobs:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, native-platforms, darwin-preflight, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'native' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-inputs' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
+      DARWIN_INPUTS_RESULT: ${{ needs.darwin-inputs.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
     steps:
@@ -721,7 +869,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$CQ_SELECTION" in
-            native) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success && test "$DARWIN_RESULT" = success ;;
+            darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
