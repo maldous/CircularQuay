@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin wheel follow-up' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin native wheels' || inputs.candidate }})
 
 on:
   pull_request:
@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'native-wheels-followup' || 'manual' }}
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'native-wheels' || 'manual' }}
   cancel-in-progress: false
 
 env:
@@ -1396,9 +1396,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Run 43159815843 already admitted 3.15.2. Follow up only the
-        # four cells with preinstalled documentation on pull-request pushes.
-        python: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11.9","3.12.10","3.13.17","3.14.10"]' || '["3.11.9","3.12.10","3.13.17","3.14.10","3.15.2"]') }}
+        python: ['3.11.9', '3.12.10', '3.13.17', '3.14.10', '3.15.2']
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
       CQ_PYTHON_PATCH: ${{ matrix.python }}
@@ -2137,6 +2135,16 @@ jobs:
             "$1/bin/python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --version
           }
 
+          prepare_python "$case_dir/build-python"
+          build_python="$case_dir/build-python/bin/python"
+          export PYO3_PYTHON="$build_python"
+          "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-cache-dir --no-index --find-links "$root/wheelhouse" --require-hashes --only-binary=:all: -r "$root/build.txt"
+          export PATH="$case_dir/build-python/bin:$PATH"
+          test "$(command -v maturin)" = "$case_dir/build-python/bin/maturin"
+          maturin --version | grep -Fx 'maturin 1.16.0'
+          cd "$case_dir/cryptography-50.0.2"
+          cargo metadata --locked --offline --format-version 1 > "$case_dir/cargo-metadata.json"
+
           cd "$case_dir/openssl-3.5.9"
           /usr/bin/perl ./Configure darwin64-x86_64-cc no-shared -fPIC --prefix="$logical_prefix" --openssldir="$logical_prefix/ssl"
           /usr/bin/make -j2
@@ -2144,12 +2152,7 @@ jobs:
           /usr/bin/make install_sw DESTDIR="$case_dir/stage"
           "$OPENSSL_DIR/bin/openssl" version -a
 
-          prepare_python "$case_dir/build-python"
-          build_python="$case_dir/build-python/bin/python"
-          export PYO3_PYTHON="$build_python"
-          "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-cache-dir --no-index --find-links "$root/wheelhouse" --require-hashes --only-binary=:all: -r "$root/build.txt"
           cd "$case_dir/cryptography-50.0.2"
-          cargo metadata --locked --offline --format-version 1 > "$case_dir/cargo-metadata.json"
           "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated wheel --no-cache-dir --no-index --no-build-isolation --no-deps --wheel-dir "$case_dir/dist" .
           set -- "$case_dir"/dist/cryptography-50.0.2-*.whl
           test "$#" = 1
@@ -2305,7 +2308,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-native-wheels-followup' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-native-wheels' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
@@ -2326,7 +2329,7 @@ jobs:
             cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
             cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
             darwin-native-prerequisites) test "$DARWIN_NATIVE_PREREQUISITES_RESULT" = success ;;
-            darwin-native-wheels|darwin-native-wheels-followup) test "$DARWIN_NATIVE_WHEELS_RESULT" = success ;;
+            darwin-native-wheels) test "$DARWIN_NATIVE_WHEELS_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
