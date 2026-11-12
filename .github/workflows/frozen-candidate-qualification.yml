@@ -2465,7 +2465,8 @@ jobs:
           set -euo pipefail
           root="$CQ_INSTALL_ROOT"
           /usr/bin/sandbox-exec -f "$root/offline.sb" "$root/runtime-darwin-$CQ_LOCK_SUFFIX/bin/python" -I -B \
-            .github/scripts/sdk_python_check.py --check coverage --report "$root/evidence/coverage.json" --timeout-seconds 1200
+            .github/scripts/sdk_python_check.py --check coverage --report "$root/evidence/coverage.json" \
+            --progress "$root/evidence/coverage-progress.json" --timeout-seconds 1200
       - name: Run static SDK checks and the lock helper suite
         if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' && matrix.lock_suffix == 'py314' }}
         shell: bash
