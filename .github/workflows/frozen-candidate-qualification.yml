@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'CPython provenance' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin native prerequisites' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
         description: Reviewed candidate to combine with the pinned feature tip
         required: true
         type: choice
-        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance]
+        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites]
 
 permissions:
   contents: read
@@ -24,6 +24,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  CQ_NATIVE_FEATURE_SHA: '941adf3f84a49905d7244bb594fbf517dff9bc32'
+  CQ_NATIVE_FEATURE_TREE: '00434f4681afc7b2584d628199c22287f7c9df01'
+  CQ_NATIVE_INPUT_SHA: 'b8447db3be2c25e73671a13bfe3a86a0d286cbc3'
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
   CQ_GO_REPAIR_SHA: 'eeb1a8e6249cfee86dc657a98b68aef42dc3ccd9'
@@ -486,7 +489,7 @@ jobs:
 
   cpython-provenance:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-provenance')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-provenance' }}
     name: Candidate Intel CPython provenance (${{ matrix.version }}, ${{ matrix.mode }})
     runs-on: macos-15-intel
     timeout-minutes: 15
@@ -1098,21 +1101,308 @@ jobs:
           CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "$cq_python" sdk/conformance/python-mcp.py
 
 
+  darwin-native-prerequisites:
+    name: Intel Darwin native prerequisites
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-native-prerequisites')) }}
+    runs-on: macos-15-intel
+    timeout-minutes: 75
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      MACOSX_DEPLOYMENT_TARGET: '10.15'
+      SOURCE_DATE_EPOCH: '1790782204'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ env.CQ_NATIVE_FEATURE_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+      - name: Verify the accepted feature tree and native executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$CQ_NATIVE_FEATURE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_NATIVE_FEATURE_TREE"
+          test "$(git rev-parse 'HEAD^2')" = "$CQ_NATIVE_INPUT_SHA"
+          test "$(git rev-parse 'HEAD^2^')" = 2d8f19216e1b03cb6cdd6132b17b4e97c7f103c4
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_NATIVE_FEATURE_SHA")"
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          image_version="${ImageVersion:?runner image identity required}"
+          test "$image_version" = 20260824.0482.1
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          /usr/bin/xcrun --sdk macosx --find clang
+          root="$(mktemp -d "$RUNNER_TEMP/cq-native-inputs.XXXXXX")"
+          printf 'CQ_NATIVE_ROOT=%s\n' "$root" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$root/evidence"
+          {
+            printf 'Feature: %s\nTree: %s\nReviewed inputs: %s\nImage: %s\n' "$CQ_NATIVE_FEATURE_SHA" "$CQ_NATIVE_FEATURE_TREE" "$CQ_NATIVE_INPUT_SHA" "$image_version"
+            printf 'Retained Apple and Rust evidence: 43148993341 and 43150644107.\n'
+            /usr/bin/xcodebuild -version
+            /usr/bin/xcrun --sdk macosx --show-sdk-version
+          } | tee "$root/evidence/identity.txt" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the installed framework trust constraint without installing
+        id: framework
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/bin/python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import plistlib
+          import subprocess
+          import xml.etree.ElementTree as ET
+
+          root = Path(os.environ["CQ_NATIVE_ROOT"])
+          native = json.loads(Path("sdk/python/darwin-native-toolchain.json").read_text())
+          record_path = Path(native["python"]["inputs"])
+          record_bytes = record_path.read_bytes()
+          assert hashlib.sha256(record_bytes).hexdigest() == native["python"]["inputs_sha256"]
+          record = json.loads(record_bytes)
+          selected = next(entry for entry in record["inputs"] if entry["python"] == "3.12.10")
+          pkg = root / "python-3.12.10.pkg"
+          assert selected["url"] == "https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg"
+          subprocess.run(["/usr/bin/curl", "--fail", "--silent", "--show-error",
+                          "--proto", "=https", "--max-time", "120", "--max-filesize",
+                          str(selected["installer_bytes"]), "--output", str(pkg), selected["url"]], check=True)
+          assert pkg.stat().st_size == selected["installer_bytes"]
+          assert hashlib.sha256(pkg.read_bytes()).hexdigest() == selected["installer_sha256"]
+          # The identical installer already passed notarization, PSF signer and
+          # binary identity checks in run 43153887957. Inspect only the previously
+          # unexamined package script and native installer command contract.
+          expanded = root / "expanded"
+          subprocess.run(["/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded)], check=True)
+          components = [p.parent for p in expanded.rglob("PackageInfo")
+                        if ET.parse(p).getroot().get("identifier") == selected["package_id"]]
+          assert len(components) == 1
+          component = components[0]
+          scripts = [p for p in (component / "Scripts").rglob("*")
+                     if p.is_file() and not p.is_symlink() and p.stat().st_size < 128 * 1024]
+          evidence = []
+          for script in scripts:
+              data = script.read_bytes()
+              if b"compileall.py" in data and b"chmod -R g+w" in data:
+                  evidence.append({"path": str(script.relative_to(component)),
+                                   "sha256": hashlib.sha256(data).hexdigest(),
+                                   "invokes_framework_python": b"/bin/python" in data,
+                                   "processes_site_packages": b"site-packages" in data,
+                                   "sets_group_write": True})
+          def local_directory_service(*args):
+              result = subprocess.run(["/usr/bin/dscl", ".", *args], capture_output=True, text=True)
+              return {"status": result.returncode, "record": result.stdout.splitlines()}
+
+          observed = []
+          framework = Path("/Library/Frameworks/Python.framework")
+          for item in (framework.parent, framework, framework / "Versions",
+                       framework / "Versions/3.12", framework / "Versions/3.12/bin/python3.12"):
+              if not item.exists():
+                  continue
+              status = item.lstat()
+              observed.append({"path": str(item), "uid": status.st_uid, "gid": status.st_gid,
+                               "mode": oct(status.st_mode & 0o7777),
+                               "acl": subprocess.check_output(["/bin/ls", "-lde", str(item)], text=True).splitlines()[1:]})
+          cached_site = framework / "Versions/3.12/lib/python3.12/site-packages"
+          runner = subprocess.check_output(["/usr/bin/id", "-un"], text=True).strip()
+          report = {"reviewed_package": selected["package_id"],
+                    "installer_sha256": selected["installer_sha256"],
+                    "source_evidence_run": record["evidence"]["run_id"], "scripts": evidence,
+                    "runner_user": runner, "runner_groups": os.getgroups(),
+                    "admin_members": local_directory_service("-read", "/Groups/admin", "PrimaryGroupID", "GroupMembership"),
+                    "admin_nested_groups": local_directory_service("-read", "/Groups/admin", "NestedGroups"),
+                    "observed_framework_paths": observed,
+                    "cached_site_pth_files": len(list(cached_site.glob("*.pth"))),
+                    "target_interpreter_executed": False}
+          print(json.dumps(report, indent=2), flush=True)
+          (root / "evidence" / "framework-postflight.json").write_text(json.dumps(report, indent=2) + "\n")
+          help_output = subprocess.run(["/usr/sbin/installer", "-help"], stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT, text=True, check=False).stdout
+          (root / "evidence" / "installer-help.txt").write_text(help_output)
+          choices = subprocess.check_output(["/usr/sbin/installer", "-pkg", str(pkg), "-target", "/",
+                                             "-showChoiceChangesXML"])
+          assert isinstance(plistlib.loads(choices), list)
+          (root / "evidence" / "installer-choices.plist").write_bytes(choices)
+          if not evidence or not all(entry["invokes_framework_python"] for entry in evidence):
+              raise SystemExit("Framework installer behavior differs from the reviewed upstream scripts")
+          print("The signed framework postflight executes Python before installed trust checks and grants group write. This step collected evidence only.")
+          PY
+      - name: Acquire exact OpenSSL and cryptography source bytes
+        id: source_bytes
+        if: ${{ !cancelled() && env.CQ_NATIVE_ROOT != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/bin/python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import shutil
+          import stat
+          import subprocess
+          import tarfile
+          from urllib.parse import urlsplit
+
+          root = Path(os.environ["CQ_NATIVE_ROOT"])
+          sdk = Path("sdk/python")
+          native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+          source = json.loads((sdk / "darwin-source-policy.json").read_text())
+          inputs = json.loads((sdk / "darwin-build-inputs.json").read_text())
+
+          def sha(path):
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for data in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(data)
+              return digest.hexdigest()
+
+          assert (source["package"], source["version"], source["platform"], source["architecture"]) == ("cryptography", "50.0.2", "darwin", "x86_64")
+          assert native["openssl"]["version"] == "3.5.9"
+          assert inputs["source_date_epoch"] == native["build_settings"]["source_date_epoch"] == int(os.environ["SOURCE_DATE_EPOCH"])
+          pins = [(inputs["source_policy"], inputs["source_policy_sha256"]),
+                  (inputs["direct_requirements"], inputs["direct_requirements_sha256"])]
+          pins.extend((entry["lock"], entry["lock_sha256"]) for entry in inputs["closures"])
+          assert len(inputs["closures"]) == 5
+          assert all(sha(Path(path)) == digest for path, digest in pins)
+
+          receipts = []
+          for entry, basename, limit, expected_hosts in (
+              (native["openssl"], "openssl-3.5.9", 64 * 1024**2, {"release-assets.githubusercontent.com", "github.com"}),
+              (source, "cryptography-50.0.2", 16 * 1024**2, {"files.pythonhosted.org"}),
+          ):
+              filename = basename + ".tar.gz"
+              archive = root / filename
+              assert entry["url"].endswith("/" + filename)
+              effective = subprocess.check_output(
+                  ["/usr/bin/curl", "--fail", "--silent", "--show-error", "--location",
+                   "--proto", "=https", "--proto-redir", "=https", "--max-time", "180",
+                   "--max-filesize", str(limit), "--output", str(archive),
+                   "--write-out", "%{url_effective}", entry["url"]], text=True)
+              assert urlsplit(effective).hostname in expected_hosts
+              assert archive.stat().st_size <= limit and sha(archive) == entry["sha256"], filename
+              receipts.append({"archive": filename, "bytes": archive.stat().st_size,
+                               "sha256": entry["sha256"]})
+              with tarfile.open(archive, "r:gz") as tar:
+                  if basename.startswith("cryptography-"):
+                      for name, pin in inputs["upstream_metadata"].items():
+                          member = tar.getmember(pin["member"])
+                          assert member.isfile() and member.size < 1024 * 1024
+                          assert hashlib.sha256(tar.extractfile(member).read()).hexdigest() == pin["sha256"], name
+                      continue
+                  # Extract only regular files and directories in one private root.
+                  # No archive ownership, privilege bits, symlinks or hard links.
+                  size = 0
+                  seen = set()
+                  for member in tar:
+                      path = PurePosixPath(member.name)
+                      assert path.parts and path.parts[0] == basename and ".." not in path.parts
+                      assert not path.is_absolute() and path not in seen
+                      seen.add(path)
+                      size += member.size
+                      assert len(seen) <= 30000 and size <= 512 * 1024**2
+                      target = root.joinpath(*path.parts)
+                      if member.isdir():
+                          target.mkdir(parents=True, exist_ok=True)
+                          continue
+                      assert member.isfile(), str(path)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      with tar.extractfile(member) as stream, target.open("xb") as output:
+                          shutil.copyfileobj(stream, output)
+                      target.chmod(stat.S_IRUSR | stat.S_IWUSR | (member.mode & stat.S_IXUSR))
+          print(json.dumps(receipts, indent=2), flush=True)
+          (root / "evidence" / "sources.json").write_text(json.dumps(receipts, indent=2) + "\n")
+          PY
+      - name: Build and test the pinned static OpenSSL in an isolated native process
+        if: ${{ !cancelled() && steps.source_bytes.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_NATIVE_ROOT"
+          cat > "$root/offline.sb" <<'SB'
+          (version 1)
+          (allow default)
+          (deny network-outbound)
+          (allow network-outbound (remote ip "localhost:*"))
+          SB
+          /usr/bin/sandbox-exec -f "$root/offline.sb" /usr/bin/python3 -I - <<'PY'
+          import errno
+          import socket
+
+          with socket.socket() as server, socket.socket() as client:
+              server.bind(("127.0.0.1", 0))
+              server.listen(1)
+              client.settimeout(2)
+              client.connect(server.getsockname())
+          with socket.socket() as client:
+              client.settimeout(2)
+              try:
+                  client.connect(("192.0.2.1", 443))
+              except OSError as exc:
+                  if exc.errno not in (errno.EACCES, errno.EPERM):
+                      raise
+              else:
+                  raise SystemExit("Build network policy permitted non-loopback egress")
+          PY
+          cd "$root/openssl-3.5.9"
+          CC="$(/usr/bin/xcrun --sdk macosx --find clang)"
+          SDKROOT="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
+          export CC SDKROOT
+          cat > "$root/build-openssl.sh" <<'BUILD'
+            /usr/bin/perl ./Configure darwin64-x86_64-cc no-shared -fPIC --prefix="$1/openssl" --openssldir="$1/openssl/ssl"
+            /usr/bin/make -j2
+            HARNESS_JOBS=2 /usr/bin/make test
+            /usr/bin/make install_sw
+          BUILD
+          /usr/bin/sandbox-exec -f "$root/offline.sb" /bin/bash --noprofile --norc -e -o pipefail \
+            "$root/build-openssl.sh" "$root" > "$root/evidence/openssl-build.log" 2>&1 || {
+            tail -n 60 "$root/evidence/openssl-build.log"
+            exit 1
+          }
+          "$root/openssl/bin/openssl" version -a | tee "$root/evidence/openssl-version.txt"
+          grep -E '^OpenSSL 3\.5\.9( |$)' "$root/evidence/openssl-version.txt"
+          /usr/bin/lipo "$root/openssl/bin/openssl" -verify_arch x86_64
+          /usr/bin/otool -L "$root/openssl/bin/openssl" | tee "$root/evidence/openssl-linkage.txt"
+          if grep -E 'lib(ssl|crypto)\.dylib|/opt/homebrew/|/usr/local/' "$root/evidence/openssl-linkage.txt"; then
+            exit 1
+          fi
+          for library in libssl libcrypto; do
+            archive="$root/openssl/lib/$library.a"
+            test -f "$archive"
+            /usr/bin/lipo "$archive" -verify_arch x86_64
+            /usr/bin/shasum -a 256 "$archive"
+          done | tee "$root/evidence/openssl-static-hashes.txt"
+          tail -n 10 "$root/evidence/openssl-build.log"
+          printf '\nNative static OpenSSL build, test suite and linkage passed on this runner.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain prerequisite evidence
+        if: ${{ !cancelled() && env.CQ_NATIVE_ROOT != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: intel-darwin-native-prerequisites
+          path: ${{ env.CQ_NATIVE_ROOT }}/evidence
+          if-no-files-found: error
+          retention-days: 14
+
   candidate-result:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'cpython-provenance' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-native-prerequisites' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
       DARWIN_INPUTS_RESULT: ${{ needs.darwin-inputs.result }}
       CPYTHON_INPUTS_RESULT: ${{ needs.cpython-inputs.result }}
       CPYTHON_PROVENANCE_RESULT: ${{ needs.cpython-provenance.result }}
+      DARWIN_NATIVE_PREREQUISITES_RESULT: ${{ needs.darwin-native-prerequisites.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
     steps:
@@ -1124,6 +1414,7 @@ jobs:
             darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
             cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
             cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
+            darwin-native-prerequisites) test "$DARWIN_NATIVE_PREREQUISITES_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
