@@ -17,6 +17,64 @@ type localEventRecorder struct{ events []Event }
 
 func (r *localEventRecorder) Observe(event Event) { r.events = append(r.events, event) }
 
+type localJSONOperation struct {
+	name  string
+	input string
+	args  []string
+	call  func() (Result, error)
+}
+
+func localJSONOperationRunner(t *testing.T, options LocalOptions, operations []localJSONOperation, position *int) localRun {
+	t.Helper()
+	return func(_ context.Context, runner cli.Runner, args []string) int {
+		if *position >= len(operations) {
+			t.Fatalf("unexpected invocation: %q", args)
+		}
+		want := operations[*position]
+		(*position)++
+		assertLocalCommandArguments(t, options, args, want.args)
+		assertLocalJSONTransport(t, runner, want.input)
+		return 0
+	}
+}
+
+func assertLocalCommandArguments(t *testing.T, options LocalOptions, args, command []string) {
+	t.Helper()
+	if len(args) < 4 {
+		t.Fatalf("missing configuration arguments: %q", args)
+	}
+	if !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
+		t.Fatalf("configuration args=%q", args)
+	}
+	if !reflect.DeepEqual(args[4:], command) {
+		t.Fatalf("args=%q want command=%q", args, command)
+	}
+}
+
+func assertLocalJSONTransport(t *testing.T, runner cli.Runner, wantInput string) {
+	t.Helper()
+	input, err := io.ReadAll(runner.In)
+	if err != nil || string(input) != wantInput {
+		t.Fatalf("input=%q want=%q error=%v", input, wantInput, err)
+	}
+	response := `{"accepted":true}`
+	if written, err := io.WriteString(runner.Out, response); err != nil || written != len(response) {
+		t.Fatalf("response bytes=%d error=%v", written, err)
+	}
+}
+
+func assertLocalSuccessObservations(t *testing.T, events []Event, operations []string) {
+	t.Helper()
+	if len(events) != len(operations) {
+		t.Fatalf("observations=%d want=%d", len(events), len(operations))
+	}
+	for index, event := range events {
+		if event.Operation != operations[index] || event.Outcome != "success" || event.Duration < 0 {
+			t.Fatalf("event[%d]=%+v", index, event)
+		}
+	}
+}
+
 func TestLocalJSONOperationsKeepConfigurationAndTransportExplicit(t *testing.T) {
 	options := localTestOptions(t)
 	digest := strings.Repeat("a", 64)
@@ -32,13 +90,7 @@ func TestLocalJSONOperationsKeepConfigurationAndTransportExplicit(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	type operation struct {
-		name  string
-		input string
-		args  []string
-		call  func() (Result, error)
-	}
-	operations := []operation{
+	operations := []localJSONOperation{
 		{
 			name: "update_check",
 			args: []string{"update", "check", "--json"},
@@ -117,42 +169,21 @@ func TestLocalJSONOperationsKeepConfigurationAndTransportExplicit(t *testing.T) 
 		},
 	}
 	position := 0
-	client.run = func(_ context.Context, runner cli.Runner, args []string) int {
-		if position >= len(operations) {
-			t.Fatalf("unexpected invocation: %q", args)
-		}
-		want := operations[position]
-		position++
-		input, readErr := io.ReadAll(runner.In)
-		if readErr != nil || string(input) != want.input {
-			t.Fatalf("%s input=%q error=%v", want.name, input, readErr)
-		}
-		if len(args) < 4 || !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
-			t.Fatalf("%s configuration args=%q", want.name, args)
-		}
-		if len(args) < 4 || !reflect.DeepEqual(args[4:], want.args) {
-			t.Fatalf("%s args=%q want command=%q", want.name, args, want.args)
-		}
-		_, _ = io.WriteString(runner.Out, `{"accepted":true}`)
-		return 0
-	}
+	names := make([]string, 0, len(operations))
 	for _, operation := range operations {
-		result, callErr := operation.call()
-		if callErr != nil || result.ExitCode != 0 || string(result.JSON) != `{"accepted":true}` {
-			t.Fatalf("%s result=%+v error=%v", operation.name, result, callErr)
-		}
+		names = append(names, operation.name)
+		t.Run(operation.name, func(t *testing.T) {
+			client.run = localJSONOperationRunner(t, options, operations, &position)
+			result, callErr := operation.call()
+			if callErr != nil || result.ExitCode != 0 || string(result.JSON) != `{"accepted":true}` {
+				t.Fatalf("result=%+v error=%v", result, callErr)
+			}
+		})
 	}
 	if position != len(operations) {
 		t.Fatalf("invocations=%d want=%d", position, len(operations))
 	}
-	if len(observer.events) != len(operations) {
-		t.Fatalf("observations=%d want=%d", len(observer.events), len(operations))
-	}
-	for index, event := range observer.events {
-		if event.Operation != operations[index].name || event.Outcome != "success" || event.Duration < 0 {
-			t.Fatalf("event[%d]=%+v", index, event)
-		}
-	}
+	assertLocalSuccessObservations(t, observer.events, names)
 }
 
 func TestLocalEffectOperationsDiscardChildOutputAndKeepPinnedInputs(t *testing.T) {
@@ -180,12 +211,10 @@ func TestLocalEffectOperationsDiscardChildOutputAndKeepPinnedInputs(t *testing.T
 		if runner.Out != io.Discard || runner.Err != io.Discard {
 			t.Fatal("effect operation retained child output")
 		}
-		if len(args) < 4 || !reflect.DeepEqual(args[:4], []string{"--config", options.ConfigPath, "--state-dir", options.StateDirectory}) {
-			t.Fatalf("effect configuration args=%q", args)
-		}
-		if len(args) < 4 || position >= len(want) || !reflect.DeepEqual(args[4:], want[position]) {
+		if position >= len(want) {
 			t.Fatalf("effect args=%q want=%q", args, want)
 		}
+		assertLocalCommandArguments(t, options, args, want[position])
 		position++
 		return 20 + position
 	}
@@ -194,6 +223,34 @@ func TestLocalEffectOperationsDiscardChildOutputAndKeepPinnedInputs(t *testing.T
 	}
 	if result, callErr := client.Flow(context.Background(), flow); callErr != nil || result.ExitCode != 22 {
 		t.Fatalf("flow result=%+v error=%v", result, callErr)
+	}
+}
+
+func TestLocalClientRejectsInvalidContextsBeforeDispatch(t *testing.T) {
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want Category
+	}{
+		{name: "nil context", ctx: nil, want: CategoryInvalid},
+		{name: "cancelled context", ctx: cancelled, want: CategoryCancelled},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, err := NewLocal(localTestOptions(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			client.run = func(context.Context, cli.Runner, []string) int {
+				t.Fatal("invalid context was dispatched")
+				return 0
+			}
+			if _, err := client.ConfigValidate(test.ctx); category(err) != test.want {
+				t.Fatalf("category=%q error=%v", category(err), err)
+			}
+		})
 	}
 }
 
@@ -221,7 +278,6 @@ func TestLocalClientRejectsInvalidOrCancelledOperationsBeforeDispatch(t *testing
 		err  error
 		want Category
 	}{
-		{"nil context", func() error { _, err := client.ConfigValidate(nil); return err }(), CategoryInvalid},
 		{"empty delete pointer", func() error { _, err := client.ConfigDelete(context.Background(), "", digest); return err }(), CategoryInvalid},
 		{"empty workload", func() error { _, err := client.Status(context.Background(), ""); return err }(), CategoryInvalid},
 		{"unsafe workload", func() error { _, err := client.Snapshot(context.Background(), ".."); return err }(), CategoryInvalid},
