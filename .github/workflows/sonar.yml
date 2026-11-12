@@ -240,16 +240,16 @@ jobs:
           # another revision's artifact or turn a failed producer into a pass.
           if python -m venv "$root/python" >"$evidence/python-install.log" 2>&1; then
             python_tool="$root/python/bin/python"
-            "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1
-            python_lock_status=$?
+            python_lock_status=0
+            "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1 || python_lock_status=$?
             (( python_lock_status == 0 )) || fail "python-lock-invalid:$python_lock_status"
             if (( python_lock_status == 0 )) && "$python_tool" -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r sdk/python/locks/ci-linux-py314.txt >>"$evidence/python-install.log" 2>&1; then
               export COVERAGE_FILE="$evidence/python.coverage"
-              PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1
-              python_test_status=$?
+              python_test_status=0
+              PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
               (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
-              "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1
-              python_coverage_status=$?
+              python_coverage_status=0
+              "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
               (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
               unset COVERAGE_FILE
             else
@@ -262,11 +262,11 @@ jobs:
           if npm --prefix sdk/typescript ci --ignore-scripts --no-audit --no-fund >"$evidence/typescript-install.log" 2>&1; then
             # Run c8 from the repository root so LCOV SF paths match Sonar's
             # root. These are the existing SDK coverage gates and verifier.
-            sdk/typescript/node_modules/.bin/c8 --all --src sdk/typescript/src --include '**/*.ts' --extension .ts --exclude-after-remap --reports-dir "$evidence/typescript" --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm --prefix sdk/typescript test >"$evidence/typescript-coverage.log" 2>&1
-            typescript_coverage_status=$?
+            typescript_coverage_status=0
+            sdk/typescript/node_modules/.bin/c8 --all --src sdk/typescript/src --include '**/*.ts' --extension .ts --exclude-after-remap --reports-dir "$evidence/typescript" --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm --prefix sdk/typescript test >"$evidence/typescript-coverage.log" 2>&1 || typescript_coverage_status=$?
             (( typescript_coverage_status == 0 )) || fail "typescript-coverage-not-100:$typescript_coverage_status"
-            node sdk/typescript/test/verify-coverage.mjs "$evidence/typescript/coverage-final.json" >>"$evidence/typescript-coverage.log" 2>&1
-            typescript_report_status=$?
+            typescript_report_status=0
+            node sdk/typescript/test/verify-coverage.mjs "$evidence/typescript/coverage-final.json" >>"$evidence/typescript-coverage.log" 2>&1 || typescript_report_status=$?
             (( typescript_report_status == 0 )) || fail "typescript-coverage-report-invalid:$typescript_report_status"
           else
             fail "typescript-dependency-install-failed"
