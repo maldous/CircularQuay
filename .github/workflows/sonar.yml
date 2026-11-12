@@ -281,7 +281,7 @@ jobs:
           wiremock_source="$(jq -er '.wiremock.source' tools/integration-tools.json)" || fatal "wiremock-checksum-source-missing"
           wiremock_sha="$(jq -er '.wiremock.sha256 | select(test("^[0-9a-f]{64}$"))' tools/integration-tools.json)" || fatal "wiremock-digest-invalid"
           curl --connect-timeout 15 --max-time 60 --max-filesize 256 --fail --silent --show-error "$wiremock_source" --output "$root/wiremock.sha256" >"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-checksum-download-failed"
-          read -r published_wiremock_sha _ < "$root/wiremock.sha256"
+          published_wiremock_sha="$(<"$root/wiremock.sha256")"
           test "$published_wiremock_sha" = "$wiremock_sha" || fatal "wiremock-published-digest-mismatch"
           export CQ_WIREMOCK_JAR="$root/wiremock-standalone.jar"
           curl --connect-timeout 15 --max-time 300 --max-filesize 268435456 --fail --silent --show-error "$wiremock_url" --output "$CQ_WIREMOCK_JAR" >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-download-failed"
