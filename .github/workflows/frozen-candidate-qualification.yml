@@ -1420,7 +1420,9 @@ jobs:
           test "${ImageVersion:?runner image identity required}" = 20260824.0482.1
           test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
           test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
-          root="$(mktemp -d "$RUNNER_TEMP/cq-darwin-wheels.XXXXXX")"
+          case "$CQ_PYTHON_PATCH" in 3.11.9|3.12.10|3.13.17|3.14.10|3.15.2) ;; *) exit 1 ;; esac
+          root="$RUNNER_TEMP/cq-darwin-wheels-$CQ_PYTHON_PATCH"
+          mkdir -m 0700 "$root"
           {
             printf 'CQ_INSTALL_ROOT=%s\n' "$root"
             printf 'CQ_FRAMEWORK_RECEIPT=%s/framework-receipt.json\n' "$root"
@@ -2110,8 +2112,7 @@ jobs:
           # Separate staging prefixes with stable compiled OpenSSL defaults.
           logical_prefix=/cq-qualification/openssl
           export OPENSSL_DIR="$case_dir/stage$logical_prefix" OPENSSL_STATIC=1 OPENSSL_NO_VENDOR=1
-          export RUSTFLAGS="--remap-path-prefix=$case_dir=/cq-build"
-          export CFLAGS="-ffile-prefix-map=$case_dir=/cq-build"
+          export RUSTFLAGS="--remap-path-prefix=$root=/cq-build"
           export CARGO_HOME="$case_dir/cargo" CARGO_TARGET_DIR="$case_dir/target"
           export CARGO_NET_OFFLINE=true PIP_NO_INDEX=1
           mkdir -m 0700 "$CARGO_HOME"
@@ -2153,6 +2154,7 @@ jobs:
           "$OPENSSL_DIR/bin/openssl" version -a
 
           cd "$case_dir/cryptography-50.0.2"
+          export CFLAGS="-ffile-prefix-map=$root=/cq-build"
           "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated wheel --no-cache-dir --no-index --no-build-isolation --no-deps --wheel-dir "$case_dir/dist" .
           set -- "$case_dir"/dist/cryptography-50.0.2-*.whl
           test "$#" = 1
@@ -2205,11 +2207,25 @@ jobs:
               subprocess.run(["/usr/bin/lipo", str(binary), "-verify_arch", "x86_64"], check=True)
               assert subprocess.check_output(["/usr/bin/lipo", str(binary), "-archs"], text=True).split() == ["x86_64"]
               linkage = subprocess.check_output(["/usr/bin/otool", "-L", str(binary)], text=True)
-              for line in linkage.splitlines()[1:]:
-                  assert line.strip().split()[0].startswith(("/usr/lib/", "/System/Library/")), line
-                  assert not re.search(r"lib(?:ssl|crypto)[.\d]", line, re.I), line
               load = subprocess.check_output(["/usr/bin/otool", "-l", str(binary)], text=True)
-              assert "LC_RPATH" not in load
+              dependency_commands = {"LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_REEXPORT_DYLIB",
+                                     "LC_LAZY_LOAD_DYLIB", "LC_LOAD_UPWARD_DYLIB"}
+              library_ids, dependencies = [], []
+              for command in re.split(r"(?m)^Load command \d+\s*$", load)[1:]:
+                  kind = re.search(r"(?m)^\s*cmd\s+(LC_[A-Z_]+)\s*$", command)
+                  if not kind:
+                      continue
+                  assert kind[1] not in {"LC_RPATH", "LC_LOAD_DYLINKER"}, command
+                  if kind[1] in dependency_commands | {"LC_ID_DYLIB"}:
+                      item = re.search(r"(?m)^\s*name\s+(.+?)\s+\(offset \d+\)\s*$", command)
+                      assert item, command
+                      if kind[1] == "LC_ID_DYLIB":
+                          library_ids.append(item[1])
+                      else:
+                          dependencies.append(item[1])
+              assert len(library_ids) == 1 and library_ids[0].startswith("@rpath/cryptography.hazmat.bindings._rust."), library_ids
+              assert dependencies and all(dep.startswith(("/usr/lib/", "/System/Library/")) for dep in dependencies), dependencies
+              assert not any(re.search(r"lib(?:ssl|crypto)[.\d]", dep, re.I) for dep in dependencies), dependencies
               minimums = re.findall(r"(?m)^\s*minos\s+(\d+)\.(\d+)(?:\.\d+)?\s*$", load)
               if not minimums:
                   minimums = re.findall(r"LC_VERSION_MIN_MACOSX\n\s*cmdsize\s+\d+\n\s*version\s+(\d+)\.(\d+)", load)
@@ -2240,11 +2256,16 @@ jobs:
 
           failures=0
           for attempt in one two; do
+            # Each case is separately extracted. Give each the same absolute source,
+            # compiler and Cargo paths without reusing any files from the other case.
+            test ! -e "$root/active"
+            /bin/mv "$root/$attempt" "$root/active"
             if ! /usr/bin/sandbox-exec -f "$root/offline.sb" /bin/bash --noprofile --norc \
-              "$root/build.sh" "$root" "$root/$attempt" "$framework" > "$root/$attempt/build.log" 2>&1; then
-              tail -n 60 "$root/$attempt/build.log"
+              "$root/build.sh" "$root" "$root/active" "$framework" > "$root/active/build.log" 2>&1; then
+              tail -n 60 "$root/active/build.log"
               failures=$((failures + 1))
             fi
+            /bin/mv "$root/active" "$root/$attempt"
           done
           printf 'Native evidence directory: %s\n' "$root"
           test "$failures" = 0
