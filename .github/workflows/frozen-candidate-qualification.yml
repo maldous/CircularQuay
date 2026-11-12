@@ -1,9 +1,13 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }})
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths: ['.github/workflows/frozen-candidate-qualification.yml']
   workflow_dispatch:
     inputs:
       candidate:
@@ -16,22 +20,23 @@ permissions:
   contents: read
 
 concurrency:
-  group: frozen-candidate-${{ inputs.candidate }}
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}
   cancel-in-progress: false
 
 env:
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
   CQ_PYTHON_SHA: '83e7cf92df673864be6f46b985b657d1bc4f9e27'
-  CQ_CANDIDATE: ${{ inputs.candidate }}
 
 jobs:
   health:
-    if: ${{ github.repository == 'maldous/CircularQuay' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
     name: Candidate Go build, tests and analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
+      CQ_CANDIDATE: health
       GOMAXPROCS: '2'
       GOFLAGS: '-mod=readonly -p=1'
       GOTOOLCHAIN: local
@@ -146,14 +151,17 @@ jobs:
           "$GOBIN/gosec" -nosec ./...
 
   python-static-security:
-    if: ${{ github.repository == 'maldous/CircularQuay' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
-    name: Python static and security (3.14, ${{ matrix.os }})
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+    name: Candidate Python static and security (3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    env:
+      CQ_CANDIDATE: python
     steps:
       - *checkout_feature
       - *composite_checkout
@@ -246,8 +254,9 @@ jobs:
           python -m build --no-isolation --outdir "$RUNNER_TEMP/cq-python-static-dist" sdk/python
 
   python:
-    if: ${{ github.repository == 'maldous/CircularQuay' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
-    name: Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+    name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -256,6 +265,7 @@ jobs:
         os: [ubuntu-24.04, macos-15-intel, windows-2025]
         python: ['3.11', '3.12', '3.13', '3.14', '3.15']
     env:
+      CQ_CANDIDATE: python
       GOMAXPROCS: '2'
       GOFLAGS: '-mod=readonly -p=1'
       GOTOOLCHAIN: local
@@ -534,11 +544,13 @@ jobs:
 
   candidate-result:
     name: Frozen candidate result
-    if: ${{ always() }}
+    if: >-
+      ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
     needs: [health, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
@@ -547,7 +559,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "$CQ_CANDIDATE" in
+          case "$CQ_SELECTION" in
+            both) test "$HEALTH_RESULT" = success && test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
             *) echo 'Unsupported candidate' >&2; exit 1 ;;
