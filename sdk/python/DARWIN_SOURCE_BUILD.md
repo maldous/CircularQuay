@@ -405,7 +405,7 @@ python .github/scripts/sdk_python_lock.py \
 The custody value records the already-reviewed object/version identity; passing
 an arbitrary value does not approve a destination. It must exactly match the
 non-null binding in the reviewed qualified-wheel record. The helper hashes both
-inputs, verifies the wheel occurs exactly once in the qualified archive, and
+inputs, verifies the two wheel copies at the exact clean-build archive paths, and
 admits only that local cryptography50.0.2 wheel for the exact native
 Darwin/x86_64/Python-patch report. Other packages still require public PyPI
 wheel URLs and SHA-256 hashes. The receipt retains custody and native evidence,

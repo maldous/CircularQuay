@@ -188,12 +188,19 @@ def verify_archive_member(archive: Path, wheel: Path, digest: str) -> None:
             for item in bundle.infolist()
             if Path(item.filename).name == wheel.name and not item.is_dir()
         ]
-        if len(members) != 1 or members[0].file_size != wheel.stat().st_size:
+        expected = {f"build/{case}/dist/{wheel.name}" for case in ("one", "two")}
+        if len(members) != len(expected) or {
+            item.filename for item in members
+        } != expected:
             raise ValidationError(
-                "native archive must contain the exact qualified wheel once"
+                "native archive must contain one qualified wheel from each clean build"
             )
-        if hashlib.sha256(bundle.read(members[0])).hexdigest() != digest:
-            raise ValidationError("archive member differs from supplied wheel")
+        size = wheel.stat().st_size
+        for member in members:
+            if member.file_size != size:
+                raise ValidationError("archive member size differs from supplied wheel")
+            if hashlib.sha256(bundle.read(member)).hexdigest() != digest:
+                raise ValidationError("archive member differs from supplied wheel")
 
 
 def local_wheel_hash(entry: dict[str, Any], intake: dict[str, Any]) -> str:

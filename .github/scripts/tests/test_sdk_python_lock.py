@@ -173,7 +173,10 @@ class DarwinIntakeTest(unittest.TestCase):
             wheel.write_bytes(b"synthetic wheel bytes")
             archive = root / "receipt.zip"
             with zipfile.ZipFile(archive, "w") as output:
-                output.writestr(wheel.name, wheel.read_bytes())
+                for case in ("one", "two"):
+                    output.writestr(
+                        f"build/{case}/dist/{wheel.name}", wheel.read_bytes()
+                    )
             fixture = {
                 "source_policy_sha256": hashlib.sha256(policy).hexdigest(),
                 "run_id": 1,
@@ -225,3 +228,28 @@ class DarwinIntakeTest(unittest.TestCase):
                     LOCK.darwin_intake(
                         archive, wheel, "3.14.10", "approved:immutable-object-version"
                     )
+
+    def test_requires_both_exact_clean_build_members(self) -> None:
+        import hashlib
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            wheel = root / "qualified.whl"
+            wheel.write_bytes(b"reviewed")
+            digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+            first = f"build/one/dist/{wheel.name}"
+            second = f"build/two/dist/{wheel.name}"
+            archive = root / "receipt.zip"
+            for members in (
+                {first: b"reviewed"},
+                {first: b"reviewed", second: b"modified"},
+                {first: b"reviewed", second: b"reviewed", wheel.name: b"reviewed"},
+                {first: b"reviewed", f"unexpected/{wheel.name}": b"reviewed"},
+            ):
+                with self.subTest(members=members):
+                    with zipfile.ZipFile(archive, "w") as output:
+                        for name, data in members.items():
+                            output.writestr(name, data)
+                    with self.assertRaises(LOCK.ValidationError):
+                        LOCK.verify_archive_member(archive, wheel, digest)
