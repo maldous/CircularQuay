@@ -1515,10 +1515,9 @@ jobs:
               """Record excluded runner cache and verify hooks used by installer postflight."""
               site_rel = stdlib / "site-packages"
               site = prefix / site_rel
-              if not site.exists():
-                  return {}
-              protected(site, writers, groups)
-              for path in site.iterdir():
+              if site.exists():
+                  protected(site, writers, groups)
+              for path in site.iterdir() if site.exists() else ():
                   if re.match(r"^(?:sitecustomize|usercustomize)(?:\.|$)", path.name):
                       raise RuntimeError(f"Unexpected cached startup hook: {path.name}")
               for hook in site.glob("*.pth"):
@@ -1545,16 +1544,49 @@ jobs:
                       baseline[relative] = "link:" + os.readlink(path)
                   elif path.is_dir():
                       baseline[relative] = "directory"
-                  elif path.suffix != ".pyc":
+                  else:
                       assert path.is_file(), relative
                       baseline[relative] = sha(path)
-              baseline[site_rel] = "directory"
+              if site.exists():
+                  baseline[site_rel] = "directory"
               launchers = (prefix / "bin").glob("*")
               for path in launchers:
                   if re.fullmatch(r"(?:pip|easy_install)(?:3(?:\.\d+)?)?", path.name):
                       protected(path, writers, groups)
                       baseline[path.relative_to(prefix)] = sha(path)
-              assert len(baseline) <= 16000
+              # Known runner-image aliases, trust store and inactive test/ensurepip
+              # residue never enter the qualification interpreter or tool search path.
+              primary = prefix / "bin" / f"python{minor}"
+              for name in ("python", "python" + minor.replace(".", "")):
+                  alias = prefix / "bin" / name
+                  if not alias.exists():
+                      continue
+                  relative = alias.relative_to(prefix)
+                  if alias.is_symlink():
+                      assert alias.resolve() == primary, alias
+                      baseline[relative] = "link:" + os.readlink(alias)
+                  else:
+                      protected(alias, writers, groups)
+                      assert sha(alias) == sha(primary), alias
+                      baseline[relative] = sha(alias)
+              cert = prefix / "etc/openssl/cert.pem"
+              if cert.is_symlink():
+                  assert cert.resolve() in (site / "certifi/cacert.pem", Path("/private/etc/ssl/cert.pem")), cert
+                  baseline[cert.relative_to(prefix)] = "link:" + os.readlink(cert)
+              elif cert.exists():
+                  protected(cert, writers, groups)
+                  assert cert.stat().st_size < 4 * 1024**2 and b"BEGIN CERTIFICATE" in cert.read_bytes()
+                  baseline[cert.relative_to(prefix)] = sha(cert)
+              for relative in (stdlib / "test", stdlib / "idlelib/idle_test", stdlib / "ensurepip/_bundled"):
+                  directory = prefix / relative
+                  if directory.is_dir() and not directory.is_symlink():
+                      baseline[relative] = "directory"
+                  for path in directory.rglob("*"):
+                      if relative.name == "_bundled" and not re.fullmatch(r"pip-\d+(?:\.\d+)*-py3-none-any\.whl", path.name):
+                          continue
+                      assert not path.is_symlink() and (path.is_file() or path.is_dir()), path
+                      baseline[path.relative_to(prefix)] = "directory" if path.is_dir() else sha(path)
+              assert len(baseline) <= 24000
               return baseline
 
 
@@ -1585,7 +1617,7 @@ jobs:
 
               added = actual.keys() - expected.keys()
               accepted, unknown = set(), set()
-              counts = {"documentation": 0, "excluded_preinstalled_site": 0, "generated_bytecode": 0}
+              counts = {"documentation": 0, "excluded_runner_residue": 0, "generated_bytecode": 0}
               docs = Path("Resources/English.lproj/Documentation")
               doc_link = Path("share/doc") / f"python{minor}" / "html"
               py_tag = minor.replace(".", "")
@@ -1608,8 +1640,12 @@ jobs:
                   elif relative in baseline:
                       observed = ("link:" + os.readlink(target) if target.is_symlink() else
                                   "directory" if target.is_dir() else sha(target))
-                      assert observed == baseline[relative], relative
-                      category = "excluded_preinstalled_site"
+                      if observed != baseline[relative]:
+                          match = re.fullmatch(r"(.+)\.cpython-" + py_tag + r"(?:\.opt-[12])?\.pyc", relative.name)
+                          assert match and relative.parent.name == "__pycache__", relative
+                          source = relative.parent.parent / (match[1] + ".py")
+                          assert source in expected or source in baseline, relative
+                      category = "excluded_runner_residue"
                   elif relative.is_relative_to(stdlib) and target.is_dir() and not target.is_symlink() and relative.name == "__pycache__":
                       if relative.parent in expected or relative.parent in baseline:
                           category = "generated_bytecode"
@@ -1801,8 +1837,37 @@ jobs:
               installed_seal_status = verify_framework_seal(staged / "Python", library, requirement, added, root)
               cache = root / "initial-pycache"
               cache.mkdir(mode=0o700)
+              # The verified runtime must not open the runner's cached modules, old
+              # bundled pip wheels, test fixtures or certificate file.
+              deny_dirs = [prefix / stdlib / name for name in ("site-packages", "test", "idlelib/idle_test")]
+              cert = prefix / "etc/openssl/cert.pem"
+              deny_files = [cert] if not cert.is_symlink() or cert.resolve().is_relative_to(prefix) else []
+              deny_files.extend(prefix / path for path in added if path.parent == pip_path.parent and path.suffix == ".whl")
+              deny = [f"(deny file-read-data (subpath {json.dumps(str(path))}))" for path in deny_dirs]
+              deny.extend(f"(deny file-read-data (literal {json.dumps(str(path))}))" for path in deny_files)
+              profile = root / "framework-runtime.sb"
+              profile.write_text("(version 1)\n(allow default)\n" + "\n".join(deny) + "\n")
+              canaries = [path for path in deny_files if path.is_file()]
+              for directory in deny_dirs:
+                  if directory.is_dir():
+                      sample = next((p for p in directory.rglob("*") if p.is_file() and not p.is_symlink()), None)
+                      if sample:
+                          canaries.append(sample)
+              preflight = (
+                  "import errno,sys\n"
+                  "for p in sys.argv[1:]:\n"
+                  " try:\n"
+                  "  with open(p, 'rb') as f: f.read(1)\n"
+                  " except OSError as e:\n"
+                  "  assert e.errno in (errno.EACCES, errno.EPERM), (p, e)\n"
+                  " else: raise RuntimeError('Excluded runtime file remained readable: ' + p)\n"
+              )
+              # Test the filesystem isolation using Apple's interpreter first.
+              run("/usr/bin/sandbox-exec", "-f", str(profile), "/usr/bin/python3",
+                  "-I", "-S", "-c", preflight, *(str(path) for path in canaries))
               probe = "import json,platform,sys; assert all('site-packages' not in p and 'Documentation' not in p for p in sys.path); print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
-              identity = json.loads(run(str(binary), "-I", "-S", "-X", f"pycache_prefix={cache}", "-c", probe))
+              identity = json.loads(run("/usr/bin/sandbox-exec", "-f", str(profile), str(binary),
+                                        "-I", "-S", "-X", f"pycache_prefix={cache}", "-c", probe))
               assert identity == [version, "x86_64", "darwin", str(prefix)]
               receipt = {"python": version, "runner_image": os.environ["ImageVersion"],
                          "feature_tree": os.environ["CQ_NATIVE_FEATURE_TREE"], "installed_trust_verified": True,
@@ -1811,7 +1876,8 @@ jobs:
                          "installed_package": installed, "protected_paths": readback, "admin": admins,
                          "binary_sha256": sha(binary), "library_sha256": sha(library),
                          "installed_payload_inventory_sha256": inventory,
-                         "installed_non_runtime_entries": additions,
+                         "installed_non_runtime_entries": additions, "runtime_profile_sha256": sha(profile),
+                         "runtime_isolation_probes": len(canaries),
                          "installed_framework_codesign_status": installed_seal_status}
               (root / "framework-receipt.json").write_text(json.dumps(receipt, indent=2, default=str) + "\n")
               print(json.dumps(receipt, indent=2, default=str))
@@ -1872,6 +1938,8 @@ jobs:
           assert receipt["python"] == version and receipt["runner_image"] == os.environ["ImageVersion"]
           assert receipt["feature_tree"] == "00434f4681afc7b2584d628199c22287f7c9df01"
           assert receipt["installed_trust_verified"] is True
+          profile = Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).with_name("framework-runtime.sb")
+          assert hashlib.sha256(profile.read_bytes()).hexdigest() == receipt["runtime_profile_sha256"]
           for key in ("installer_sha256", "package_id", "bundled_pip"):
               assert receipt[key] == reviewed[key], key
           minor = version.rsplit(".", 1)[0]
@@ -1889,8 +1957,10 @@ jobs:
           print(binary)
           PY
           )"
-          "$framework" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S -c 'import os,platform,sys; assert (platform.python_version(), platform.machine(), sys.platform) == (os.environ["CQ_PYTHON_PATCH"], "x86_64", "darwin")'
-          "$framework" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
+          profile="$(dirname "$CQ_FRAMEWORK_RECEIPT")/framework-runtime.sb"
+          verified_python=(/usr/bin/sandbox-exec -f "$profile" "$framework")
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S -c 'import os,platform,sys; assert (platform.python_version(), platform.machine(), sys.platform) == (os.environ["CQ_PYTHON_PATCH"], "x86_64", "darwin")'
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
           import hashlib, json, os, shutil, sys, tarfile, tomllib, zipfile
           from pathlib import Path, PurePosixPath
           from urllib.parse import urlsplit
@@ -1989,7 +2059,7 @@ jobs:
             cd "$root/cryptography-50.0.2"
             cargo vendor --locked --versioned-dirs "$root/vendor" > "$root/cargo-source.toml"
           )
-          "$framework" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
           import hashlib, json, os, sys
           from pathlib import Path
 
@@ -2008,9 +2078,8 @@ jobs:
                   assert path.is_relative_to(vendor) and hashlib.sha256(path.read_bytes()).hexdigest() == expected, filename
           PY
 
-          cat > "$root/offline.sb" <<'SB'
-          (version 1)
-          (allow default)
+          cp "$profile" "$root/offline.sb"
+          cat >> "$root/offline.sb" <<'SB'
           (deny network-outbound)
           (deny file-write* (subpath "/Library/Frameworks/Python.framework"))
           (allow network-outbound (remote ip "localhost:*"))
@@ -2211,6 +2280,7 @@ jobs:
             ${{ env.CQ_INSTALL_ROOT }}/framework-selection.plist
             ${{ env.CQ_INSTALL_ROOT }}/framework-receipt.json
             ${{ env.CQ_INSTALL_ROOT }}/installed-framework-codesign.txt
+            ${{ env.CQ_INSTALL_ROOT }}/framework-runtime.sb
             ${{ env.CQ_INSTALL_ROOT }}/wheel-hashes.txt
             ${{ env.CQ_WHEEL_BUILD_ROOT }}/rust.txt
             ${{ env.CQ_WHEEL_BUILD_ROOT }}/registry.json
