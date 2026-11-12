@@ -1437,6 +1437,8 @@ jobs:
           umask 077
           /usr/bin/python3 -I - <<'FRAMEWORK'
           """Admit one reviewed PSF framework on a dedicated GitHub-hosted runner."""
+          import base64
+          import csv
           import hashlib
           import json
           import os
@@ -1509,7 +1511,54 @@ jobs:
               return result
 
 
-          def compare_installed_payload(staged, installed, stdlib, minor, writers, groups, docs=None):
+          def cached_site_inputs(prefix, stdlib, minor, writers, groups):
+              """Record excluded runner cache and verify hooks used by installer postflight."""
+              site_rel = stdlib / "site-packages"
+              site = prefix / site_rel
+              if not site.exists():
+                  return {}
+              protected(site, writers, groups)
+              for path in site.iterdir():
+                  if re.match(r"^(?:sitecustomize|usercustomize)(?:\.|$)", path.name):
+                      raise RuntimeError(f"Unexpected cached startup hook: {path.name}")
+              for hook in site.glob("*.pth"):
+                  protected(hook, writers, groups)
+                  expected = ("import os; var = 'SETUPTOOLS_USE_DISTUTILS'; "
+                              "enabled = os.environ.get(var, 'local') == 'local'; "
+                              "enabled and __import__('_distutils_hack').add_shim();")
+                  assert hook.name == "distutils-precedence.pth" and hook.read_text().strip() == expected, hook.name
+                  records = list(site.glob("setuptools-*.dist-info/RECORD"))
+                  assert len(records) == 1, "cached setuptools RECORD not identified"
+                  protected(records[0], writers, groups)
+                  with records[0].open(newline="") as stream:
+                      entries = {name: digest for name, digest, _ in csv.reader(stream)}
+                  for path in (hook, site / "_distutils_hack/__init__.py"):
+                      protected(path, writers, groups)
+                      digest = base64.urlsafe_b64encode(bytes.fromhex(sha(path))).rstrip(b"=").decode()
+                      assert entries.get(str(path.relative_to(site))) == f"sha256={digest}", path
+
+              baseline = {}
+              for path in sorted(site.rglob("*")):
+                  relative = path.relative_to(prefix)
+                  if path.is_symlink():
+                      assert path.resolve().is_relative_to(site), relative
+                      baseline[relative] = "link:" + os.readlink(path)
+                  elif path.is_dir():
+                      baseline[relative] = "directory"
+                  elif path.suffix != ".pyc":
+                      assert path.is_file(), relative
+                      baseline[relative] = sha(path)
+              baseline[site_rel] = "directory"
+              launchers = (prefix / "bin").glob("*")
+              for path in launchers:
+                  if re.fullmatch(r"(?:pip|easy_install)(?:3(?:\.\d+)?)?", path.name):
+                      protected(path, writers, groups)
+                      baseline[path.relative_to(prefix)] = sha(path)
+              assert len(baseline) <= 16000
+              return baseline
+
+
+          def compare_installed_payload(staged, installed, stdlib, minor, writers, groups, baseline):
               expected = {path.relative_to(staged): path for path in staged.rglob("*")}
               actual = {path.relative_to(installed): path for path in installed.rglob("*")}
               assert expected.keys() <= actual.keys(), sorted(str(path) for path in expected.keys() - actual.keys())[:20]
@@ -1533,54 +1582,53 @@ jobs:
                       assert deployed.st_uid in writers and not deployed.st_mode & stat.S_IWOTH, relative
                       assert not deployed.st_mode & stat.S_IWGRP or deployed.st_gid in groups, relative
                   digest.update((str(relative) + "\0" + value + "\n").encode())
+
               added = actual.keys() - expected.keys()
-              bytecode = set()
-              cache_dirs = set()
-              verified_docs = set()
-              unknown = set()
-              doc_root = Path("Resources/English.lproj/Documentation")
+              accepted, unknown = set(), set()
+              counts = {"documentation": 0, "excluded_preinstalled_site": 0, "generated_bytecode": 0}
+              docs = Path("Resources/English.lproj/Documentation")
               doc_link = Path("share/doc") / f"python{minor}" / "html"
-              doc_parent_dirs = (doc_link.parent, doc_link.parent.parent)
-              if doc_root in added and docs is not None:
-                  doc_expected = {doc_root / p.relative_to(docs): p for p in docs.rglob("*")}
-                  doc_expected[doc_root] = docs
-                  doc_actual = {relative for relative in added if relative.is_relative_to(doc_root)}
-                  assert doc_actual == doc_expected.keys(), sorted(str(p) for p in doc_actual ^ doc_expected.keys())[:30]
-                  for relative, source in sorted(doc_expected.items()):
-                      target = actual[relative]
-                      assert stat.S_IFMT(source.lstat().st_mode) == stat.S_IFMT(target.lstat().st_mode), relative
-                      if source.is_symlink():
-                          assert os.readlink(source) == os.readlink(target) and target.resolve().is_relative_to(installed / doc_root), relative
-                      elif source.is_file():
-                          assert sha(source) == sha(target), relative
-                      else:
-                          assert source.is_dir(), relative
-                  verified_docs.update(doc_actual)
-                  if doc_link in added:
-                      assert actual[doc_link].is_symlink() and actual[doc_link].resolve() == installed / doc_root
-                      verified_docs.add(doc_link)
-                      for parent in doc_parent_dirs:
-                          if parent in added:
-                              assert actual[parent].is_dir() and not actual[parent].is_symlink(), parent
-                              verified_docs.add(parent)
               py_tag = minor.replace(".", "")
-              for relative in sorted(added - verified_docs):
+              for relative in sorted(added):
                   target = actual[relative]
-                  if target.is_dir() and not target.is_symlink() and relative.name == "__pycache__":
-                      assert relative.parent in expected and relative.is_relative_to(stdlib), relative
-                      cache_dirs.add(relative)
-                      continue
-                  if relative.is_relative_to(stdlib) and "site-packages" not in relative.parts:
+                  category = None
+                  if relative.is_relative_to(docs):
+                      # These are passive resources outside Python's verified sys.path.
+                      if target.is_symlink():
+                          assert target.resolve().is_relative_to(installed / docs), relative
+                      else:
+                          assert target.is_file() or target.is_dir(), relative
+                      category = "documentation"
+                  elif relative == doc_link:
+                      assert target.is_symlink() and target.resolve() == installed / docs, relative
+                      category = "documentation"
+                  elif relative in (doc_link.parent, doc_link.parent.parent) and doc_link in actual:
+                      assert target.is_dir() and not target.is_symlink(), relative
+                      category = "documentation"
+                  elif relative in baseline:
+                      observed = ("link:" + os.readlink(target) if target.is_symlink() else
+                                  "directory" if target.is_dir() else sha(target))
+                      assert observed == baseline[relative], relative
+                      category = "excluded_preinstalled_site"
+                  elif relative.is_relative_to(stdlib) and target.is_dir() and not target.is_symlink() and relative.name == "__pycache__":
+                      if relative.parent in expected or relative.parent in baseline:
+                          category = "generated_bytecode"
+                  elif relative.is_relative_to(stdlib) and target.is_file() and not target.is_symlink() and relative.parent.name == "__pycache__":
                       match = re.fullmatch(r"(.+)\.cpython-" + py_tag + r"(?:\.opt-[12])?\.pyc", relative.name)
-                      if (match and target.is_file() and not target.is_symlink() and relative.parent.name == "__pycache__"
-                              and (relative.parent.parent / (match[1] + ".py")) in expected):
-                          bytecode.add(relative)
-                          continue
-                  unknown.add(relative)
+                      if match:
+                          source = relative.parent.parent / (match[1] + ".py")
+                          if source in expected or source in baseline:
+                              category = "generated_bytecode"
+                  if category is None:
+                      unknown.add(relative)
+                      continue
+                  accepted.add(relative)
+                  counts[category] += 1
+
               assert not unknown, {"unexpected_added_count": len(unknown), "paths": sorted(str(path) for path in unknown)[:60]}
-              for directory in cache_dirs:
-                  assert any(path.parent == directory for path in bytecode), directory
-              for relative in added:
+              for relative in accepted:
+                  if relative.is_relative_to(docs):
+                      continue
                   info = actual[relative].lstat()
                   assert info.st_uid in writers, relative
                   if not stat.S_ISLNK(info.st_mode):
@@ -1590,7 +1638,7 @@ jobs:
               for entry in acl_lines:
                   if re.match(r"^\s*\d+:", entry) and " allow " in entry:
                       assert not re.search(r"write|append|add_file|add_subdirectory|delete|chown", entry.split(" allow ", 1)[1]), entry
-              return digest.hexdigest(), bytecode | cache_dirs | verified_docs, len(verified_docs)
+              return digest.hexdigest(), accepted, counts
 
 
           def verify_framework_seal(staged_library, installed_library, requirement, allowed_additions, root):
@@ -1715,16 +1763,14 @@ jobs:
               # tool cache. The fresh package is installed only after this check.
               ancestors = (Path("/"), Path("/Library"), prefix.parent.parent.parent, prefix.parent.parent, prefix.parent)
               checked = [protected(path, writers, groups, True) for path in ancestors if path.exists()]
+              baseline = {}
               if prefix.exists():
                   checked.append(protected(prefix, writers, groups))
-                  site = prefix / stdlib / "site-packages"
-                  if site.exists():
-                      checked.append(protected(site, writers, groups))
-                      for item in sorted(site.glob("*.pth")):
-                          checked.append({**protected(item, writers, groups), "sha256": sha(item)})
+                  baseline = cached_site_inputs(prefix, stdlib, minor, writers, groups)
               (root / "framework-preflight.json").write_text(json.dumps({
                   "python": version, "scripts": scripts, "admin": admins, "wheel_group": wheel_members,
                   "preinstalled_paths": checked, "selected_choice": framework_choice,
+                  "cached_site_entries": len(baseline),
                   "installer_sha256": selected["installer_sha256"],
               }, indent=2) + "\n")
               print(f"Verified {package_id}; selecting only {framework_choice}; trusted admin members: {admins}", flush=True)
@@ -1751,21 +1797,11 @@ jobs:
               run("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(binary))
               for path in (binary, library):
                   run("/usr/bin/lipo", str(path), "-verify_arch", "x86_64")
-              doc_id = f"org.python.Python.PythonDocumentation-{minor}"
-              optional_docs = [p for p in expanded.rglob("PackageInfo")
-                               if ET.parse(p).getroot().get("identifier") == doc_id]
-              assert len(optional_docs) <= 1
-              docs = None
-              if optional_docs:
-                  doc_info = ET.parse(optional_docs[0]).getroot()
-                  location = prefix / "Resources/English.lproj/Documentation"
-                  assert doc_info.get("install-location") == str(location), doc_info.attrib
-                  docs = optional_docs[0].parent / "Payload"
-              inventory, added, docs_count = compare_installed_payload(staged, prefix, stdlib, minor, writers, groups, docs)
+              inventory, added, additions = compare_installed_payload(staged, prefix, stdlib, minor, writers, groups, baseline)
               installed_seal_status = verify_framework_seal(staged / "Python", library, requirement, added, root)
               cache = root / "initial-pycache"
               cache.mkdir(mode=0o700)
-              probe = "import json,platform,sys; print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
+              probe = "import json,platform,sys; assert all('site-packages' not in p and 'Documentation' not in p for p in sys.path); print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
               identity = json.loads(run(str(binary), "-I", "-S", "-X", f"pycache_prefix={cache}", "-c", probe))
               assert identity == [version, "x86_64", "darwin", str(prefix)]
               receipt = {"python": version, "runner_image": os.environ["ImageVersion"],
@@ -1775,7 +1811,7 @@ jobs:
                          "installed_package": installed, "protected_paths": readback, "admin": admins,
                          "binary_sha256": sha(binary), "library_sha256": sha(library),
                          "installed_payload_inventory_sha256": inventory,
-                         "postflight_cache_additions": len(added) - docs_count, "verified_preinstalled_documentation_entries": docs_count,
+                         "installed_non_runtime_entries": additions,
                          "installed_framework_codesign_status": installed_seal_status}
               (root / "framework-receipt.json").write_text(json.dumps(receipt, indent=2, default=str) + "\n")
               print(json.dumps(receipt, indent=2, default=str))
@@ -2041,6 +2077,7 @@ jobs:
 
           prepare_python "$case_dir/build-python"
           build_python="$case_dir/build-python/bin/python"
+          export PYO3_PYTHON="$build_python"
           "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-cache-dir --no-index --find-links "$root/wheelhouse" --require-hashes --only-binary=:all: -r "$root/build.txt"
           cd "$case_dir/cryptography-50.0.2"
           cargo metadata --locked --offline --format-version 1 > "$case_dir/cargo-metadata.json"
