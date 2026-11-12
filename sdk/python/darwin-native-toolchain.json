@@ -29,11 +29,18 @@
     "version": "3.5.9",
     "support_line": "3.5 LTS",
     "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
-    "sha256": null,
+    "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
     "metadata_url": "https://openssl-library.org/source/",
     "checksum_url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz.sha256",
-    "checksum_status": "unacquired; metadata retrieval rejected as restricted URL; no retry or alternate source",
-    "acquired": false
+    "checksum_status": "user-supplied expected checksum; official archive bytes independently downloaded and matched; native acquisition remains pending",
+    "acquired": false,
+    "checksum_provenance": {
+      "expected_source": "operator-provided SHA-256 line for openssl-3.5.9.tar.gz",
+      "archive_bytes": 53279637,
+      "archive_sha256_verified": true,
+      "verification_scope": "cloud source archive comparison only; no extraction, installation or native build",
+      "original_checksum_web_restriction": "checksum link click returned Failed to fetch restricted URL; that operation was not retried"
+    }
   },
   "build_settings": {
     "cargo_target": "x86_64-apple-darwin",
@@ -46,7 +53,7 @@
     "python_build_isolation": false
   },
   "remaining_inputs": [
-    "Verified OpenSSL3.5.9 source SHA-256 through a permitted acquisition",
+    "Native OpenSSL archive acquisition and byte verification against the recorded expected SHA-256",
     "Actual native Apple toolchain/image provenance and matching readback",
     "Native acquisition/hash verification for Rust archive",
     "Native build outputs and repeated clean-build evidence before runtime-lock changes"

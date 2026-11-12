@@ -23,11 +23,14 @@ The upstream sdist's `Cargo.toml` declares Rust **1.83.0 as its minimum**; the
 selected compiler proposal is **Rust 1.99.1**, with an official archive hash.
 `Cargo.lock` has 32 checksummed registry packages and no Git dependencies.
 
-OpenSSL 3.5.9 is selected, but its SHA-256 is deliberately `null`: retrieval of
-the official linked checksum URL was rejected as restricted. Do not execute an
-OpenSSL acquisition/build or enable a consumer with that missing digest. Do not
-retry that denied request or obtain it through an alternate route. A permitted
-owner acquisition must supply and review the missing digest first.
+OpenSSL 3.5.9 has the expected SHA-256
+`603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a`,
+supplied by the operator in a checksum line naming `openssl-3.5.9.tar.gz`.
+A separate download of the official source archive (53,279,637 bytes) matched
+that digest. This verifies the acquired source bytes against the supplied
+expectation; it is not a native acquisition, build or qualification receipt.
+The earlier restricted checksum-link click was not retried. The native executor
+must verify its own acquired archive before extraction or execution.
 
 The Xcode 16.4/build 16F6 and SDK 15.5 values come from published runner-image
 metadata, not the actual native executor. Before execution, obtain the actual
@@ -87,7 +90,7 @@ check alone does not establish acquisition provenance.
 substituting the current time.
 
 Verify all archive bytes before extraction or executing an installer. This
-guard intentionally stops with the current incomplete OpenSSL manifest:
+guard checks the recorded archive digests before extraction or execution:
 
 ```sh
 "$CQ_NATIVE_PYTHON" -I - <<'PY'
@@ -258,7 +261,7 @@ Preserve ordinary packages' binary-only/hash gates; do not broaden the source
 allowance or make a local wheel look like an upstream PyPI artifact. No consumer
 enablement or workflow change is included in this input proposal.
 
-The remaining work is acquisition of the missing OpenSSL digest, actual native
+The remaining work is native archive acquisition and byte verification, actual
 Apple/Python/Rust verification, locked crate acquisition, native builds and
 their qualification, followed by reviewed consumer integration. Earlier
 inaccessible hosted artifacts are not required inputs to this plan and must not
