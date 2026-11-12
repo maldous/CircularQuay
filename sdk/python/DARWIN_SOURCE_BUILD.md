@@ -32,12 +32,21 @@ expectation; it is not a native acquisition, build or qualification receipt.
 The earlier restricted checksum-link click was not retried. The native executor
 must verify its own acquired archive before extraction or execution.
 
-The Xcode 16.4/build 16F6 and SDK 15.5 values come from published runner-image
-metadata, not the actual native executor. Before execution, obtain the actual
-image/acquisition provenance, verify its Apple signing/trust evidence, and match
-native readback to the proposal. Each CPython 3.11–3.15 input also needs an exact
-patch version, native architecture and acquisition/provenance receipt. Minor
-version wheel tags alone are not Python toolchain pins.
+The Xcode 16.4/build 16F6 and SDK 15.5 proposal is now accompanied by completed
+native Apple and Rust/Cargo receipts retained by the native owner. Reuse those
+receipts and bind each build to its actual tool identities. The exact CPython
+pins below come from staged native package evidence; they do not certify an
+installed framework or execution. Minor-version wheel tags alone are not
+Python toolchain pins.
+
+The five reviewed inputs are **3.11.9, 3.12.10, 3.13.17, 3.14.10 and 3.15.2**.
+Their installer, framework/interpreter, header and bundled-pip digests are in
+[`darwin-cpython-inputs.json`](darwin-cpython-inputs.json), bound to
+[run 43153887957, attempt 1](https://github.com/maldous/CircularQuay/actions/runs/43153887957).
+All five signed payloads passed staged provenance. The three archive jobs
+passed their archive hashes; both cached-framework jobs stopped before Python
+or pip execution at root-protection preflight. Use fresh official installation
+for those inputs rather than rechecking or changing the cached frameworks.
 
 The proposed `MACOSX_DEPLOYMENT_TARGET=10.15` matches the strictest minimum in
 the selected Python build wheels (CFFI). It does not prove that cryptography,
@@ -49,9 +58,92 @@ raise a supported deployment minimum to make a build pass.
 
 Run only on the admitted native Intel macOS executor, in the current owner’s
 task checkout. This document does not dispatch a job or change a workflow.
-Use task-local directories; do not install Rust, Python or OpenSSL into system
-paths, change global `xcode-select`, or use Apple's system OpenSSL/LibreSSL.
-Read the source policy, both manifests and current project instructions first.
+Use task-local directories for build inputs, build outputs and receipts. Do not
+install Rust or OpenSSL into system paths, change global `xcode-select`, or use
+Apple's system OpenSSL/LibreSSL.
+
+For this qualification batch, the exact CPython input record permits the
+official framework installer on a fresh disposable Intel macOS GitHub-hosted
+job dedicated to one recorded patch version. Before installation, verify the
+exact acquired archive/package hashes, Apple notarization and PSF installer
+identity against [`darwin-cpython-inputs.json`](darwin-cpython-inputs.json).
+Select only the required framework component from that verified installer.
+This route permits its system-framework installation on that disposable runner
+only; it does not apply to Foo, shared hosts or long-lived executors. Do not
+repair arbitrary host permissions or execute an unidentified cached framework.
+Do not run wrapper scripts that upgrade pip or install unrelated packages.
+Record the runner image, package digest/signer, installed receipt, protected
+paths, signed binary hashes, native version/architecture, and the recorded pip
+frontend hash/version. Retain the receipts and discard the runner after the job.
+This input receipt is not a wheel-build or consumer-lock qualification.
+
+Read the source policy, manifests and current project instructions first.
+Reuse the retained native owner's completed Apple Xcode/SDK and Rust/Cargo
+receipts. The initial archive flags in the native manifest do not supersede
+those newer receipts or require repeating the completed provenance batch.
+
+Initialize one private batch root before preparing its framework driver:
+
+```sh
+set -euo pipefail
+umask 077
+export CQ_REPO="$(git rev-parse --show-toplevel)"
+export CQ_BUILD_ROOT="$(mktemp -d "${RUNNER_TEMP:?}/cq-darwin-build.XXXXXX")"
+```
+
+### Fresh framework and task-local pip operating path
+
+Use one fresh disposable job per exact patch version in the input record. For
+archive inputs, verify the recorded outer archive hash and signed installer
+payload hash. For direct package inputs, verify the recorded installer hash.
+Use the already established PSF signer/notarization and payload checks; do not
+repeat the completed five-input discovery batch or execute archive wrappers.
+The component's provenance derives from its verified official installer. Select
+only the recorded `package_id` framework component, without documentation,
+launcher, certificate, pip-upgrade or unrelated package components.
+
+Install that component through the normal macOS installer on this disposable
+job. Verify the resulting installer receipt, framework and interpreter hashes,
+protected paths, exact patch version and Intel architecture against the record.
+Set `CQ_FRAMEWORK_PYTHON` to that verified framework interpreter. Keep it at its
+signed absolute framework location; do not relocate or rewrite Mach-O linkage.
+
+Create the task-local driver environment with
+`"$CQ_FRAMEWORK_PYTHON" -I -m venv --without-pip "$CQ_BUILD_ROOT/driver"`.
+Set `CQ_NATIVE_PYTHON="$CQ_BUILD_ROOT/driver/bin/python"`. Bootstrap only the
+recorded bundled pip wheel into that environment, with its SHA-256 checked
+before use, no index and no dependencies. This avoids an implicit `ensurepip`
+bootstrap adding other packages or selecting a different frontend. Run this
+with `CQ_PYTHON_PATCH` selecting the exact reviewed input:
+
+```sh
+: "${CQ_PYTHON_PATCH:?exact reviewed patch version required}"
+export CQ_PYTHON_PATCH
+cq_bootstrap_recorded_pip() {
+"$1" -I - <<'PY'
+import hashlib, json, os, runpy, sys
+from pathlib import Path
+sdk = Path(os.environ['CQ_REPO']) / 'sdk/python'
+record = json.loads((sdk / 'darwin-cpython-inputs.json').read_text())
+selected = next(x for x in record['inputs'] if x['python'] == os.environ['CQ_PYTHON_PATCH'])
+assert sys.version.split()[0] == selected['python']
+import ensurepip
+wheel = Path(ensurepip.__file__).parent / '_bundled' / selected['bundled_pip']['name']
+assert hashlib.sha256(wheel.read_bytes()).hexdigest() == selected['bundled_pip']['sha256']
+sys.path.insert(0, str(wheel))
+sys.argv = ['pip', '--isolated', '--disable-pip-version-check', 'install',
+            '--no-index', '--no-deps', str(wheel)]
+runpy.run_module('pip', run_name='__main__')
+PY
+}
+cq_bootstrap_recorded_pip "$CQ_NATIVE_PYTHON"
+```
+
+Record the resulting task-local pip version and installation location. Use the
+existing per-minor hash-locked build closure from there. The selected framework
+is a verified runtime input; all Rust/OpenSSL installations, environments,
+build caches, outputs and receipts remain task-local. No framework installation
+or package execution is performed by this source update.
 
 The following commands are a template for each selected CPython input. Supply
 `CQ_NATIVE_PYTHON` as its absolute, acquisition-verified native executable and
@@ -62,8 +154,8 @@ from these variable names. Run with a reviewed environment without credentials.
 ```sh
 set -euo pipefail
 umask 077
-export CQ_REPO="$(git rev-parse --show-toplevel)"
-export CQ_BUILD_ROOT="$(mktemp -d "${RUNNER_TEMP:?}/cq-darwin-build.XXXXXX")"
+: "${CQ_REPO:?selected checkout required}"
+: "${CQ_BUILD_ROOT:?initialized private batch root required}"
 : "${CQ_NATIVE_PYTHON:?absolute verified native CPython required}"
 : "${CQ_ARCHIVES:?protected verified input directory required}"
 export DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer
@@ -196,8 +288,9 @@ make -j2
 make test
 make install_sw
 "$OPENSSL_DIR/bin/openssl" version -a
-"$CQ_NATIVE_PYTHON" -m venv "$CQ_CASE/python"
+"$CQ_NATIVE_PYTHON" -m venv --without-pip "$CQ_CASE/python"
 export CQ_BUILD_PYTHON="$CQ_CASE/python/bin/python"
+cq_bootstrap_recorded_pip "$CQ_BUILD_PYTHON"
 "$CQ_BUILD_PYTHON" -m pip --isolated install --no-cache-dir --no-index \
   --find-links "$CQ_WHEELHOUSE" --require-hashes --only-binary=:all: \
   -r "$CQ_BUILD_LOCK"
@@ -261,8 +354,8 @@ Preserve ordinary packages' binary-only/hash gates; do not broaden the source
 allowance or make a local wheel look like an upstream PyPI artifact. No consumer
 enablement or workflow change is included in this input proposal.
 
-The remaining work is native archive acquisition and byte verification, actual
-Apple/Python/Rust verification, locked crate acquisition, native builds and
+The remaining work is fresh CPython framework installation, binding the existing
+native input receipts, locked crate acquisition, native builds and
 their qualification, followed by reviewed consumer integration. Earlier
 inaccessible hosted artifacts are not required inputs to this plan and must not
 be recovered through a retry or alternate extraction route. Preparation and
