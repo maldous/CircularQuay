@@ -53,9 +53,27 @@
     "python_build_isolation": false
   },
   "remaining_inputs": [
-    "Native OpenSSL archive acquisition and byte verification against the recorded expected SHA-256",
-    "Actual native Apple toolchain/image provenance and matching readback",
-    "Native acquisition/hash verification for Rust archive",
-    "Native build outputs and repeated clean-build evidence before runtime-lock changes"
-  ]
+    "Fresh reviewed CPython framework-component installation on separate disposable Intel macOS jobs; verify actual installed receipts and recorded binary/pip identities",
+    "Bind retained completed Apple Xcode/SDK and Rust/Cargo receipts; do not repeat the provenance batch",
+    "Acquire any remaining exact build inputs and locked crates through permitted routes",
+    "Build/link/test cryptography50.0.2 and repeat clean builds before reviewed wheel custody and six runtime/static consumer-lock changes"
+  ],
+  "python": {
+    "inputs": "sdk/python/darwin-cpython-inputs.json",
+    "inputs_sha256": "e319d10d6cc430d61738e02f854fb02d6d4f43c6e97e7304f7e6a98b121bb017",
+    "patch_versions": [
+      "3.11.9",
+      "3.12.10",
+      "3.13.17",
+      "3.14.10",
+      "3.15.2"
+    ],
+    "status": "staged payload provenance complete; fresh disposable framework installation and execution pending"
+  },
+  "native_receipt_status": {
+    "source": "retained native integration owner report",
+    "apple_xcode_sdk": "complete; reuse the retained actual native receipt",
+    "rust_cargo": "complete; reuse the retained actual native receipt",
+    "scope": "Initial proposal/acquired flags above are preserved observations; this status records newer owner-reported native evidence, not cloud execution"
+  }
 }
