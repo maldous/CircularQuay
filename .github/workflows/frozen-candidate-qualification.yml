@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'native and Darwin preflight' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
         description: Reviewed candidate to combine with the pinned feature tip
         required: true
         type: choice
-        options: [health, python]
+        options: [health, python, darwin]
 
 permissions:
   contents: read
@@ -27,6 +27,8 @@ env:
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
   CQ_GO_REPAIR_SHA: 'eeb1a8e6249cfee86dc657a98b68aef42dc3ccd9'
+  CQ_ALIAS_SHA: '87bf5042c3707b93227b14f48c57ea8cda44a4f0'
+  CQ_DARWIN_SHA: '63ce3c404bd5ac23cf402112d873ff7175a5f8ff'
   CQ_PYTHON_PARENT_SHA: '83e7cf92df673864be6f46b985b657d1bc4f9e27'
   CQ_PYTHON_SHA: '87a9c08e968f44a78df67ddc8dd1bb1d057a6f4e'
 
@@ -70,18 +72,26 @@ jobs:
           if test "$CQ_CANDIDATE" = python; then
             test "$(git rev-parse "$candidate^")" = "$CQ_PYTHON_PARENT_SHA"
           fi
+          integration="$CQ_GO_REPAIR_SHA"
+          if test "$CQ_CANDIDATE" = health; then
+            alias_ref=security/cq-gosec-boundaries
+            test "$(git rev-parse "refs/remotes/origin/$alias_ref")" = "$CQ_ALIAS_SHA"
+            test "$(git rev-parse "$CQ_ALIAS_SHA^")" = "$CQ_GO_REPAIR_SHA"
+            test "$(git ls-remote --exit-code origin "refs/heads/$alias_ref")" = "$(printf '%s\trefs/heads/%s' "$CQ_ALIAS_SHA" "$alias_ref")"
+            integration="$CQ_ALIAS_SHA"
+          fi
           # A moved remote branch must fail closed, even after checkout.
           test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_FEATURE_SHA")"
           test "$(git ls-remote --exit-code origin "refs/heads/$ref")" = "$(printf '%s\trefs/heads/%s' "$candidate" "$ref")"
           test "$(git ls-remote --exit-code origin "refs/heads/$go_ref")" = "$(printf '%s\trefs/heads/%s' "$CQ_GO_REPAIR_SHA" "$go_ref")"
-          tree="$(git merge-tree --write-tree "$CQ_GO_REPAIR_SHA" "$candidate")"
+          tree="$(git merge-tree --write-tree "$integration" "$candidate")"
           # Keep the unpublished composite identity stable across jobs.
           stamp="$(git show -s --format=%cI "$CQ_FEATURE_SHA")"
           export GIT_AUTHOR_NAME='CircularQuay CI' GIT_AUTHOR_EMAIL='ci@example.invalid'
           export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
           export GIT_AUTHOR_DATE="$stamp" GIT_COMMITTER_DATE="$stamp"
           composite="$(printf 'Qualify frozen CircularQuay candidate\n' |
-            git -c commit.gpgSign=false commit-tree "$tree" -p "$CQ_GO_REPAIR_SHA" -p "$candidate")"
+            git -c commit.gpgSign=false commit-tree "$tree" -p "$integration" -p "$candidate")"
           git -c core.hooksPath=/dev/null checkout --detach "$composite"
           test "$(git rev-parse 'HEAD^{tree}')" = "$tree"
           test -z "$(git status --porcelain)"
@@ -89,6 +99,9 @@ jobs:
           {
             printf 'Feature: %s\n\n' "$CQ_FEATURE_SHA"
             printf 'Go repair: %s\n\n' "$CQ_GO_REPAIR_SHA"
+            if test "$CQ_CANDIDATE" = health; then
+              printf 'Alias repair: %s\n\n' "$CQ_ALIAS_SHA"
+            fi
             printf 'Candidate: %s\n\n' "$candidate"
             if test "$CQ_CANDIDATE" = python; then
               printf 'Original Python candidate: %s\n\n' "$CQ_PYTHON_PARENT_SHA"
@@ -111,6 +124,14 @@ jobs:
           go build -trimpath -o "$RUNNER_TEMP/cq" ./cmd/cq
           go test -count=1 ./...
           go vet ./...
+      - name: Verify native alias rejection and script invocation
+        if: ${{ !cancelled() && steps.go_setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -x /usr/bin/true
+          go test -count=1 -v -run '^(TestExecutableAlias.*|TestPinnedScriptAliasPreservesConfiguredInvocationPath)$' ./internal/platform
       - name: Enforce complexity ceilings
         shell: bash
         env:
@@ -170,9 +191,127 @@ jobs:
           set -euo pipefail
           "$GOBIN/gosec" -nosec ./...
 
+  native-platforms:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health')) }}
+    name: Candidate native launch compatibility (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, windows-2025]
+    env:
+      CQ_CANDIDATE: health
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - *checkout_feature
+      - *composite_checkout
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.1
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Run native Unix launch regressions
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/bin:/bin:$PATH"
+          test "$(go env GOVERSION)" = go1.27.4
+          test -x /usr/bin/true
+          go test -count=1 -v -run '^(TestExecutableAlias.*|TestPinnedScriptAliasPreservesConfiguredInvocationPath)$' ./internal/platform
+          go test -count=1 ./internal/platform ./internal/repository ./internal/source ./internal/quota ./internal/assurance
+      - name: Run native Windows launch regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if ((go env GOVERSION) -ne 'go1.27.4') { throw 'Go pin mismatch' }
+          go test -count=1 ./internal/platform ./internal/repository ./internal/source ./internal/quota ./internal/assurance
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  darwin-preflight:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin')) }}
+    name: Candidate Intel Darwin preparation (no wheel build)
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ env.CQ_DARWIN_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify the reviewed build-input bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$CQ_DARWIN_SHA"
+          test "$(git rev-parse HEAD^)" = "$CQ_FEATURE_SHA"
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_FEATURE_SHA")"
+          test "$(git ls-remote --exit-code origin refs/heads/build/cq-darwin-source-inputs)" = "$(printf '%s\trefs/heads/build/cq-darwin-source-inputs' "$CQ_DARWIN_SHA")"
+          python3 -I - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          sdk = Path("sdk/python")
+          inputs = json.loads((sdk / "darwin-build-inputs.json").read_text())
+          native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+          source = json.loads((sdk / "darwin-source-policy.json").read_text())
+          assert (source["package"], source["version"], source["platform"], source["architecture"]) == ("cryptography", "50.0.2", "darwin", "x86_64")
+          assert inputs["source_date_epoch"] == native["build_settings"]["source_date_epoch"]
+          assert native["openssl"]["sha256"] is None
+          assert native["apple"]["developer_dir"] == "/Applications/Xcode_16.4.app/Contents/Developer"
+          assert (native["apple"]["xcode_version"], native["apple"]["xcode_build"], native["apple"]["macos_sdk_version"]) == ("16.4", "16F6", "15.5")
+          assert inputs["source_policy"] == "sdk/python/darwin-source-policy.json"
+          assert inputs["direct_requirements"] == "sdk/python/requirements-darwin-build.txt"
+          closures = inputs["closures"]
+          assert len(closures) == 5
+          assert {entry["lock"] for entry in closures} == {f"sdk/python/locks/build-darwin-py3{minor}.txt" for minor in range(11, 16)}
+          pins = [(inputs["source_policy"], inputs["source_policy_sha256"]),
+                  (inputs["direct_requirements"], inputs["direct_requirements_sha256"])]
+          pins.extend((entry["lock"], entry["lock_sha256"]) for entry in closures)
+          for path, digest in pins:
+              assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest, path
+          PY
+          for minor in 311 312 313 314 315; do
+            python3 .github/scripts/sdk_python_lock.py \
+              --verify-lock "sdk/python/locks/build-darwin-py$minor.txt" \
+              --requirements sdk/python/requirements-darwin-build.txt
+          done
+          {
+            printf 'Darwin input candidate: %s\n' "$CQ_DARWIN_SHA"
+            printf 'Feature: %s\n' "$CQ_FEATURE_SHA"
+            printf 'Tree: %s\n' "$(git rev-parse 'HEAD^{tree}')"
+            printf 'Only preparation. OpenSSL digest is still missing. No wheel built.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the proposed native Apple toolchain
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = x86_64
+          printf 'Hosted image variables: %s / %s\n' "$(printenv ImageOS || printf 'not exposed')" "$(printenv ImageVersion || printf 'not exposed')"
+          sw_vers
+          /usr/bin/xcodebuild -version
+          /usr/bin/xcrun clang --version
+          /usr/bin/xcrun --sdk macosx --show-sdk-version
+          python3 -I -c 'import platform, sys; assert platform.machine() == "x86_64"; print(sys.executable, sys.version)'
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          /usr/bin/codesign --verify --deep --strict -R='anchor apple' /Applications/Xcode_16.4.app
+
   python-static-security:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
     name: Candidate Python static and security (3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -275,7 +414,7 @@ jobs:
 
   python:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
     name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -566,12 +705,14 @@ jobs:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'both' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'native' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
+      NATIVE_RESULT: ${{ needs.native-platforms.result }}
+      DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
     steps:
@@ -580,8 +721,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$CQ_SELECTION" in
-            both) test "$HEALTH_RESULT" = success && test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
-            health) test "$HEALTH_RESULT" = success ;;
+            native) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success && test "$DARWIN_RESULT" = success ;;
+            health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
+            darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
             *) echo 'Unsupported candidate' >&2; exit 1 ;;
           esac
