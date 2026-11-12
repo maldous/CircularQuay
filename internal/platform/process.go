@@ -243,7 +243,7 @@ func ValidateExecutable(path string) error {
 		return fault.New(fault.Trust, "absolute trusted executable required")
 	}
 	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !checkNativeSecurity(path, false) {
+	if err != nil || !info.Mode().IsRegular() || !secureMode(info.Mode(), false) || !trustedExecutableAliases(path) || !checkNativeSecurity(path, false) {
 		return fault.New(fault.Trust, "trusted executable permissions")
 	}
 	return nil
