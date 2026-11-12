@@ -46,7 +46,7 @@ const (
 	maxSourceBlobCaptureBytes  = 2 << 20
 )
 
-const expectedGoVersion = "go1.27.3"
+const expectedGoVersion = "go1.27.4"
 
 var revisionPattern = regexp.MustCompile(`^[0-9a-f]{40,64}$`)
 var goVersionPattern = regexp.MustCompile(`^go version (go[0-9]+\.[0-9]+(?:\.[0-9]+)?) [a-z0-9]+/[a-z0-9]+\s*$`)

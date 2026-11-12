@@ -93,7 +93,7 @@ func TestRunSourceProfileRedactsSubprocessOutput(t *testing.T) {
 		t.Fatal("subprocess value leaked into evidence")
 	}
 	var decoded Report
-	if json.Unmarshal(data, &decoded) != nil || decoded.GoVersion != "go1.27.3" {
+	if json.Unmarshal(data, &decoded) != nil || decoded.GoVersion != "go1.27.4" {
 		t.Fatal("invalid version evidence")
 	}
 }
@@ -140,7 +140,7 @@ func sourceAuditGitResult(args []string) commandResult {
 func sourceAuditGoResult(t *testing.T, args []string, secret string) commandResult {
 	t.Helper()
 	if len(args) > 0 && args[0] == "version" {
-		return commandResult{output: []byte("go version go1.27.3 linux/amd64\n")}
+		return commandResult{output: []byte("go version go1.27.4 linux/amd64\n")}
 	}
 	if len(args) == 0 || args[0] != "test" {
 		return commandResult{}

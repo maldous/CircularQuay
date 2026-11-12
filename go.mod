@@ -1,6 +1,6 @@
 module github.com/maldous/CircularQuay
 
-go 1.27.0
+go 1.27.4
 
 require (
 	cloud.google.com/go/secretmanager v1.23.1

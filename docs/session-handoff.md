@@ -829,7 +829,7 @@ actual helper roster and supported message receipts separately from ACKs.
 
 ### Project input contract and actual UIF gaps
 
-The fixed toolchain is Go `1.27.3` with explicitly pinned helpers/tool manifests.
+The fixed toolchain is Go `1.27.4` with explicitly pinned helpers/tool manifests.
 Node/TypeScript and Python SDK/native matrices are declared in
 `.github/workflows/sdk.yml`; source/native/cross-build, security, Sonar and
 synthetic provider lanes remain their own fixed workflows. Do not replace them

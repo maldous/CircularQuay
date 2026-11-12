@@ -346,7 +346,7 @@ broker, VPN proxy or live fleet action is authorized by this design.
 ## Set up and verify a bounded change
 
 Read [getting started](getting-started.md) for synthetic setup. Native source
-builds use the workflow-pinned Go toolchain (currently 1.27.3; verify the current
+builds use the workflow-pinned Go toolchain (currently 1.27.4; verify the current
 [source workflow](../.github/workflows/source.yml) before selection). SDK
 runtimes, development dependencies, lock/provenance and scripts are defined in
 [`sdk/typescript/package.json`](../sdk/typescript/package.json),

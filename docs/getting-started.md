@@ -1,6 +1,6 @@
 # Getting started
 
-Build from source with Go 1.27.3 using the steps below, or select a verified
+Build from source with Go 1.27.4 using the steps below, or select a verified
 native artifact from the [GitHub Releases page](https://github.com/maldous/CircularQuay/releases).
 Download verification, release-candidate selection, installation and removal
 follow the [release and operator guide](../RELEASE.md#download-and-install-a-qualified-native-archive).
@@ -16,7 +16,7 @@ cd -P "$(mktemp -d)"
 release_ref='<verified-release-tag>' # Select an existing authenticated release.
 git clone --branch "$release_ref" https://github.com/maldous/CircularQuay.git cq
 cd cq
-go version # requires Go 1.27.3
+go version # requires Go 1.27.4
 go build -o ./cq ./cmd/cq
 
 ./cq init --output cq.json
@@ -31,7 +31,7 @@ go build -o ./cq ./cmd/cq
 $ReleaseRef = '<verified-release-tag>' # Select an existing authenticated release.
 git clone --branch $ReleaseRef https://github.com/maldous/CircularQuay.git cq
 Set-Location cq
-go version # requires Go 1.27.3
+go version # requires Go 1.27.4
 go build -o .\cq.exe .\cmd\cq
 
 .\cq.exe init --output cq.json

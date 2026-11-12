@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Formatting and module integrity
         shell: bash
@@ -90,7 +90,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Run native synthetic tests
         shell: bash
@@ -114,7 +114,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Run native synthetic tests
         shell: pwsh
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Build both commands without installing
         shell: bash
@@ -207,7 +207,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: '1.27.3'
+          go-version: '1.27.4'
           cache: false
       - name: Run the actual source profile
         shell: bash --noprofile --norc -eo pipefail {0}
@@ -232,7 +232,7 @@ jobs:
           CQ_SELECTED_GO="$(realpath -e "$(command -v go)")"
           CQ_SELECTED_GOROOT="$(realpath -e "$(dirname "$CQ_SELECTED_GO")/..")"
           test "$CQ_SELECTED_GO" = "$CQ_SELECTED_GOROOT/bin/go"
-          test "$(env GOROOT="$CQ_SELECTED_GOROOT" "$CQ_SELECTED_GO" env GOVERSION)" = go1.27.3
+          test "$(env GOROOT="$CQ_SELECTED_GOROOT" "$CQ_SELECTED_GO" env GOVERSION)" = go1.27.4
           test -x "$CQ_SELECTED_GIT"
           test -x "$CQ_SELECTED_SSH_KEYGEN"
           test -x "$CQ_SELECTED_GO"
