@@ -30,6 +30,11 @@ published package hashes in production.  Do not place provider credentials,
 access tokens, or private values in package configuration, command arguments or
 logs.
 
+The [Darwin Intel source-build preparation](DARWIN_SOURCE_BUILD.md) records the
+proposed inputs and native qualification plan for the existing cryptography
+source exception. Those proposed build inputs do not replace the current SDK
+runtime locks or establish a qualified native build.
+
 ## MCP client
 
 Create and initialize the official session yourself.  The adapter neither
