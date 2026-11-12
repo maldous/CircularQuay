@@ -548,7 +548,7 @@ jobs:
           work = Path(tempfile.mkdtemp(prefix="cq-cpython-input-", dir=os.environ["RUNNER_TEMP"]))
           summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
           receipt = {"python": version, "mode": mode, "url": url, "source": os.environ["CQ_DARWIN_SHA"]}
-          requirement = 'anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
+          requirement = '=anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
           bundle = Path(f"/Library/Frameworks/Python.framework/Versions/{minor}")
 
           def command(*argv, timeout=120):
