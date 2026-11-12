@@ -46,6 +46,7 @@ class _HostileProcess:
         self.exited = asyncio.Event()
         self.terminated = False
         self.killed = False
+        self.waited = False
 
     def terminate(self) -> None:
         self.terminated = True  # Deliberately ignores TERM.
@@ -57,7 +58,25 @@ class _HostileProcess:
 
     async def wait(self) -> int:
         await self.exited.wait()
+        self.waited = True
         return self.returncode or -9
+
+
+class _ReapWaits:
+    """Force the first wait timeout without shortening post-kill cleanup."""
+
+    def __init__(self, *, kill_timeout: bool = False) -> None:
+        self.calls = 0
+        self.kill_timeout = kill_timeout
+        self.wait_for = asyncio.wait_for
+
+    async def __call__(self, waiter: asyncio.Future[int], *, timeout: float) -> int:
+        self.calls += 1
+        if self.calls == 1 or self.kill_timeout:
+            # Match wait_for timing out its shield; the owned waiter stays alive.
+            waiter.cancel()
+            raise TimeoutError
+        return await self.wait_for(waiter, timeout=timeout)
 
 
 class _FinishedProcess:
@@ -253,6 +272,7 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_stdout_overflow_kills_term_ignoring_child_and_cleans_reader_tasks(self) -> None:
         process = _HostileProcess()
+        waits = _ReapWaits()
 
         async def create_process(*_: object, **__: object) -> _HostileProcess:
             return process
@@ -261,14 +281,16 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
             mock.patch(
                 "cq.local.asyncio.create_subprocess_exec", new=create_process
             ),
-            mock.patch.object(local, "_TERM_GRACE_SECONDS", 0.001),
+            mock.patch("cq.local.asyncio.wait_for", new=waits),
         ):
             with self.assertRaises(CircularQuayError) as captured:
                 await self.client._captured("synthetic_overflow", ())
         self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
         self.assertTrue(process.terminated)
         self.assertTrue(process.killed)
+        self.assertTrue(process.waited)
         self.assertTrue(process.stderr.cancelled)
+        self.assertEqual(2, waits.calls)
 
     async def test_captured_commands_classify_exit_without_disclosing_stderr(self) -> None:
         events: list[object] = []
@@ -362,19 +384,21 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         # A transport wait can time out after the exit code has already arrived.
         # Cleanup must wait again without signalling an exited PID.
         exited = _FinishedProcess(0)
-        with mock.patch(
-            "cq.local.asyncio.wait_for",
-            new=mock.AsyncMock(side_effect=[TimeoutError, 0]),
-        ):
+        waits = _ReapWaits()
+        with mock.patch("cq.local.asyncio.wait_for", new=waits):
             self.assertTrue(await local._reap(exited))
+        self.assertEqual(2, waits.calls)
         for missing_on_kill in (False, True):
             with self.subTest(missing_on_kill=missing_on_kill):
                 process = _HostileProcess()
                 process.terminate = mock.Mock(side_effect=ProcessLookupError)
                 if missing_on_kill:
                     process.kill = mock.Mock(side_effect=ProcessLookupError)
-                with mock.patch.object(local, "_TERM_GRACE_SECONDS", 0.001):
+                waits = _ReapWaits(kill_timeout=missing_on_kill)
+                with mock.patch("cq.local.asyncio.wait_for", new=waits):
                     self.assertEqual(not missing_on_kill, await local._reap(process))
+                self.assertEqual(2, waits.calls)
+                self.assertEqual(not missing_on_kill, process.waited)
                 process.terminate.assert_called_once()
 
     def test_identity_hash_rejects_nonregular_opened_descriptor(self) -> None:

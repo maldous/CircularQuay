@@ -185,6 +185,7 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_inherited_commands_keep_streams_out_of_sdk_memory(self) -> None:
         calls: list[tuple[str, tuple[str, ...]]] = []
+        program = str(self.root / "synthetic")
 
         async def inherited(operation: str, arguments: tuple[str, ...]) -> int:
             calls.append((operation, arguments))
@@ -193,7 +194,7 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(self.client, "_inherit", new=inherited):
             flow = await self.client.flow("alpha")
             run = await self.client.run(
-                "alpha", override=("/bin/synthetic", "--mode"), stdio=RunStdio.INHERIT
+                "alpha", override=(program, "--mode"), stdio=RunStdio.INHERIT
             )
 
         self.assertEqual((7, 7), (flow, run))
@@ -201,7 +202,7 @@ class LocalCommandBoundaryTests(unittest.IsolatedAsyncioTestCase):
             ("flow", ("flow", "run", "--workload", "alpha", "--non-interactive")), calls[0]
         )
         self.assertEqual(
-            ("run", ("run", "--workload", "alpha", "--", "/bin/synthetic", "--mode")),
+            ("run", ("run", "--workload", "alpha", "--", program, "--mode")),
             calls[1],
         )
 
