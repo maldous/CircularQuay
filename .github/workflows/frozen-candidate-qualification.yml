@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'CPython input observations' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'CPython provenance' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
         description: Reviewed candidate to combine with the pinned feature tip
         required: true
         type: choice
-        options: [health, python, darwin, darwin-inputs, cpython-inputs]
+        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance]
 
 permissions:
   contents: read
@@ -474,7 +474,7 @@ jobs:
 
   cpython-inputs:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-inputs')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-inputs' }}
     name: Candidate Intel Darwin CPython cache observations
     runs-on: macos-15-intel
     timeout-minutes: 10
@@ -483,6 +483,209 @@ jobs:
       - *darwin_lock_verification
       - *match_verified_apple
       - *observe_native_python
+
+  cpython-provenance:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-provenance')) }}
+    name: Candidate Intel CPython provenance (${{ matrix.version }}, ${{ matrix.mode }})
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '3.11.9'
+            mode: framework
+            url: 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg'
+            sha256: 'signed-package'
+          - version: '3.12.10'
+            mode: framework
+            url: 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg'
+            sha256: 'signed-package'
+          - version: '3.13.17'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.13.17-39711892467/python-3.13.17-darwin-x64.tar.gz'
+            sha256: 'c295dedca816c7aed4a980591b6d5ff81cd7f22ba3cb4a871c2d2fbc26dba050'
+          - version: '3.14.10'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.14.10-40336797752/python-3.14.10-darwin-x64.tar.gz'
+            sha256: '82d456f964cb3138ff3914a4004b1c551e9793f07e0d4deeae407c0d121bbaed'
+          - version: '3.15.2'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.15.2-40340363276/python-3.15.2-darwin-x64.tar.gz'
+            sha256: '3598759050401152244152503382874410ef8071fb1156544a3bd233ddcf148f'
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - *match_verified_apple
+      - name: Verify signed CPython input and inspect native identity
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ matrix.version }}
+          INPUT_MODE: ${{ matrix.mode }}
+          INPUT_URL: ${{ matrix.url }}
+          INPUT_SHA256: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          import plistlib
+          import stat
+          import subprocess
+          import tarfile
+          import tempfile
+          import xml.etree.ElementTree as ET
+          from pathlib import Path, PurePosixPath
+          from urllib.parse import urlsplit
+          from urllib.request import HTTPRedirectHandler, build_opener
+
+          version, mode, url, expected = (os.environ[key] for key in ("INPUT_VERSION", "INPUT_MODE", "INPUT_URL", "INPUT_SHA256"))
+          minor = ".".join(version.split(".")[:2])
+          work = Path(tempfile.mkdtemp(prefix="cq-cpython-input-", dir=os.environ["RUNNER_TEMP"]))
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          receipt = {"python": version, "mode": mode, "url": url, "source": os.environ["CQ_DARWIN_SHA"]}
+          requirement = 'anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
+          bundle = Path(f"/Library/Frameworks/Python.framework/Versions/{minor}")
+
+          def command(*argv, timeout=120):
+              result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False, timeout=timeout)
+              if result.returncode:
+                  print(result.stdout[:4096], flush=True)
+                  raise RuntimeError(f"{Path(argv[0]).name} failed with status {result.returncode}")
+              return result.stdout
+
+          def file_hash(path):
+              with path.open("rb") as stream:
+                  return hashlib.file_digest(stream, "sha256").hexdigest()
+
+          def copy_bounded(reader, target, limit):
+              size = 0
+              digest = hashlib.sha256()
+              with target.open("xb") as out:
+                  for chunk in iter(lambda: reader.read(1024 * 1024), b""):
+                      size += len(chunk)
+                      if size > limit:
+                          raise RuntimeError("Python input exceeds acquisition bound")
+                      digest.update(chunk)
+                      out.write(chunk)
+              return digest.hexdigest(), size
+
+          class ReleaseRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  parsed = urlsplit(newurl)
+                  if mode != "archive" or parsed.scheme != "https" or parsed.netloc != "release-assets.githubusercontent.com":
+                      raise RuntimeError("Unapproved Python input redirect")
+                  return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+          def packaged_inputs():
+              pkg = work / "python.pkg"
+              host = urlsplit(url).netloc
+              if mode == "framework":
+                  assert host == "www.python.org" and expected == "signed-package"
+                  assert url == f"https://www.python.org/ftp/python/{version}/python-{version}-macos11.pkg"
+                  with build_opener(ReleaseRedirect).open(url, timeout=60) as stream:
+                      receipt["installer_sha256"], receipt["installer_bytes"] = copy_bounded(stream, pkg, 100 * 1024 * 1024)
+              else:
+                  assert mode == "archive" and host == "github.com"
+                  assert url.endswith(f"/python-{version}-darwin-x64.tar.gz")
+                  archive = work / "release.tar.gz"
+                  with build_opener(ReleaseRedirect).open(url, timeout=60) as stream:
+                      digest, size = copy_bounded(stream, archive, 128 * 1024 * 1024)
+                  if digest != expected:
+                      raise RuntimeError("Python release archive hash mismatch")
+                  receipt["verified_archive_sha256"] = digest
+                  receipt["archive_bytes"] = size
+                  with tarfile.open(archive, "r:gz") as tar:
+                      members = [m for m in tar if m.isfile() and PurePosixPath(m.name).suffix.lower() == ".pkg"]
+                      if len(members) != 1:
+                          raise RuntimeError("Expected one packaged Python installer")
+                      with tar.extractfile(members[0]) as stream:
+                          receipt["installer_sha256"], receipt["installer_bytes"] = copy_bounded(stream, pkg, 100 * 1024 * 1024)
+              signed = command("/usr/sbin/pkgutil", "--check-signature", str(pkg))
+              print(signed, flush=True)
+              if "signed by a certificate trusted by" not in signed.lower() or "Developer ID Installer: Python Software Foundation (BMM5U3QVKW)" not in signed:
+                  raise RuntimeError("Python Software Foundation installer signature not verified")
+              receipt["installer_signer"] = "Python Software Foundation (BMM5U3QVKW)"
+              expanded = work / "expanded"
+              # Inspect the verified package; do not execute installer scripts or change system state.
+              command("/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded))
+              components = []
+              for info in expanded.rglob("PackageInfo"):
+                  attrib = ET.parse(info).getroot().attrib
+                  payload = info.parent / "Payload"
+                  if "pythonframework" not in attrib.get("identifier", "").lower() or not payload.is_dir():
+                      continue
+                  binaries = [p for p in payload.rglob(f"python{minor}") if p.parent.name == "bin" and p.is_file()]
+                  for binary in binaries:
+                      root = binary.parent.parent
+                      if (root / "Python").is_file() and binary.resolve().is_relative_to(payload.resolve()) and (root / "Python").resolve().is_relative_to(payload.resolve()):
+                          components.append((attrib, root, binary.resolve()))
+              if len(components) != 1:
+                  raise RuntimeError("Could not bind a unique signed Python framework component")
+              return components[0]
+
+          def verify_binary(path):
+              command("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path))
+              command("/usr/bin/lipo", "-verify_arch", "x86_64", str(path))
+              return file_hash(path)
+
+          def immutable_system_target(path):
+              for entry in (path, *path.parents):
+                  info = entry.stat()
+                  if info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o022:
+                      raise RuntimeError(f"System framework entry is not root protected: {entry}")
+
+          try:
+              info, staged, binary = packaged_inputs()
+              receipt["package_id"] = info["identifier"]
+              receipt["component_version"] = info["version"]
+              if info["version"] not in {minor, version}:
+                  raise RuntimeError("Signed package component version differs")
+              library = (staged / "Python").resolve()
+              receipt["package_interpreter_sha256"] = verify_binary(binary)
+              receipt["package_framework_sha256"] = verify_binary(library)
+              receipt["package_load_commands"] = command("/usr/bin/otool", "-L", str(binary)).splitlines()[1:]
+              bundled = list((staged / "lib" / f"python{minor}" / "ensurepip" / "_bundled").glob("pip-*.whl"))
+              if len(bundled) != 1 or not bundled[0].resolve().is_relative_to(staged.resolve()):
+                  raise RuntimeError("Signed bundled pip input not identified")
+              pip = bundled[0].resolve()
+              receipt["bundled_pip"] = {"name": pip.name, "sha256": file_hash(pip)}
+              if mode != "framework":
+                  receipt["status"] = "archive and signed package verified; task-local native installation not admitted"
+                  print("Staged provenance complete. Native interpreter and pip execution held: official installer requires a system target.", flush=True)
+                  raise SystemExit(0)
+              alias = Path(os.environ["RUNNER_TOOL_CACHE"]) / "Python" / version / "x64/bin/python3"
+              installed = (bundle / "bin" / f"python{minor}").resolve(strict=True)
+              installed_library = (bundle / "Python").resolve(strict=True)
+              if alias.resolve(strict=True) != installed or not installed.is_relative_to(bundle) or not installed_library.is_relative_to(bundle):
+                  raise RuntimeError("Installed framework target differs from reviewed path")
+              for path in (installed, installed_library):
+                  immutable_system_target(path)
+              receipt["installed_interpreter"] = str(installed)
+              installed_info = plistlib.loads(command("/usr/sbin/pkgutil", "--pkg-info-plist", info["identifier"]).encode())
+              if installed_info.get("pkg-version") != info["version"]:
+                  raise RuntimeError("Installed receipt version differs from signed component")
+              receipt["installed_receipt"] = {key: installed_info.get(key) for key in ("pkgid", "pkg-version", "volume", "install-location")}
+              if verify_binary(installed) != receipt["package_interpreter_sha256"] or verify_binary(installed_library) != receipt["package_framework_sha256"]:
+                  raise RuntimeError("Installed executable or framework differs from signed installer bytes")
+              script = "import json,platform,sys; print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
+              identity = json.loads(command(str(installed), "-I", "-S", "-c", script))
+              if identity != [version, "x86_64", "darwin", str(bundle)]:
+                  raise RuntimeError("Native interpreter identity differs")
+              receipt["native_identity"] = identity
+              pip_probe = "import runpy,sys; sys.path.insert(0,sys.argv[1]); sys.argv=['pip','--version']; runpy.run_module('pip',run_name='__main__')"
+              receipt["pip_frontend"] = command(str(installed), "-I", "-S", "-c", pip_probe, str(pip)).strip()
+              receipt["status"] = "installed signed interpreter and bundled pip identity verified"
+          finally:
+              detail = json.dumps(receipt, indent=2, sort_keys=True)
+              print(detail, flush=True)
+              with summary.open("a", encoding="utf-8") as output:
+                  output.write("\n### CPython input receipt (no wheel build)\n\n")
+                  output.write("~~~json\n" + detail + "\n~~~\n")
+          PY
 
   python-static-security:
     if: >-
@@ -880,16 +1083,17 @@ jobs:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'cpython-inputs' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'cpython-provenance' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
       DARWIN_INPUTS_RESULT: ${{ needs.darwin-inputs.result }}
       CPYTHON_INPUTS_RESULT: ${{ needs.cpython-inputs.result }}
+      CPYTHON_PROVENANCE_RESULT: ${{ needs.cpython-provenance.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
     steps:
@@ -900,6 +1104,7 @@ jobs:
           case "$CQ_SELECTION" in
             darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
             cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
+            cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
