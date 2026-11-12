@@ -52,8 +52,14 @@ Resolve the Python review thread only after verification.
 Continue the execution/quota redesign from
 `docs/execution-boundary-redesign.md`; it is design-only. The experimental probe
 workflow is archived privately and its fixtures do not exist. Keep it out of
-active CI until complete. The Darwin preparation job produces proposals only;
-existing vulnerable runtime locks remain unchanged and must not be called fixed.
+active CI until complete. Darwin preparation artifacts alone do not establish
+native-build or consumer-lock qualification. The feature source now contains
+reviewed Darwin consumer locks and `sdk/python/locks/darwin-consumer-provenance.json`.
+Reconcile those exact lock hashes with the existing writer's native consumer and
+strict-audit receipts before selecting further Darwin lock or qualification work.
+Preserve earlier failed receipts. Do not infer a need to replay the old lock
+correction or rebuild unchanged inputs from this prompt. Source incorporation
+does not establish PR #1 qualification, release or runtime acceptance.
 
 Read current PR #1 state and actual protections rather than assuming historical
 mergeability or feature-branch protection. Preserve required checks, resolved
