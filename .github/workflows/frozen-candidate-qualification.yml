@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Darwin input receipts' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'CPython input observations' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
         description: Reviewed candidate to combine with the pinned feature tip
         required: true
         type: choice
-        options: [health, python, darwin, darwin-inputs]
+        options: [health, python, darwin, darwin-inputs, cpython-inputs]
 
 permissions:
   contents: read
@@ -313,14 +313,15 @@ jobs:
 
   darwin-inputs:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-inputs')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-inputs' }}
     name: Candidate Intel Darwin Rust verification and CPython observations
     runs-on: macos-15-intel
     timeout-minutes: 25
     steps:
       - *darwin_source_checkout
       - *darwin_lock_verification
-      - name: Match the previously verified Apple runner
+      - &match_verified_apple
+        name: Match the previously verified Apple runner
         id: apple_identity
         shell: bash
         env:
@@ -336,7 +337,8 @@ jobs:
           printf 'Matched Apple signature evidence: run 43148993341, job 130953451534.\n' >> "$GITHUB_STEP_SUMMARY"
           sw_vers
           /usr/bin/xcrun clang --version
-      - name: Read native CPython identities without installing interpreters
+      - &observe_native_python
+        name: Read native CPython identities without installing interpreters
         shell: bash
         run: |
           set -euo pipefail
@@ -354,6 +356,7 @@ jobs:
           tool_cache = Path(os.environ["RUNNER_TOOL_CACHE"])
           observed = ("3.11.9", "3.12.10", "3.13.17", "3.14.10", "3.15.2")
           probe = "import json,platform,sys; print(json.dumps([platform.python_version(),platform.machine(),sys.platform]))"
+          failures = []
           for version in observed:
               prefix = tool_cache / "Python" / version / "x64"
               path = prefix / "bin" / "python3"
@@ -361,11 +364,24 @@ jobs:
                   print(f"- {version}: not in this runner cache; no acquisition attempted.")
                   continue
               resolved = path.resolve()
-              assert resolved.is_relative_to(prefix.resolve())
-              result = subprocess.run([str(resolved), "-I", "-c", probe], capture_output=True, text=True, timeout=15, check=True)
-              assert json.loads(result.stdout) == [version, "x86_64", "darwin"]
-              print(f"- {version}: native interpreter readback passed; archive identity is unverified.")
+              if not resolved.is_relative_to(prefix.resolve()):
+                  failures.append(version)
+                  print(f"- {version}: {path} resolves to {resolved}, outside {prefix}; not executed.")
+                  continue
+              try:
+                  result = subprocess.run([str(resolved), "-I", "-c", probe], capture_output=True, text=True, timeout=15, check=True)
+                  identity = json.loads(result.stdout)
+                  if identity != [version, "x86_64", "darwin"]:
+                      raise ValueError("native identity did not match")
+                  pip = subprocess.run([str(resolved), "-I", "-m", "pip", "--version"], capture_output=True, text=True, timeout=15, check=True)
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  failures.append(version)
+                  print(f"- {version}: native interpreter or pip identity probe failed.")
+                  continue
+              print(f"- {version}: native interpreter readback passed at {resolved}; {pip.stdout.strip()}. Archive identity is unverified.")
           print("Exact reviewed acquisition and pip frontend receipts remain required for the wheel build.")
+          if failures:
+              raise SystemExit(f"Unverified CPython observations: {', '.join(failures)}")
           PY
       - name: Acquire and verify the pinned Rust archive
         id: rust_input
@@ -455,6 +471,18 @@ jobs:
             cat rustc.txt cargo.txt
             printf '\nNative Intel fixture compiled and executed.\n'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  cpython-inputs:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-inputs')) }}
+    name: Candidate Intel Darwin CPython cache observations
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - *match_verified_apple
+      - *observe_native_python
 
   python-static-security:
     if: >-
@@ -852,15 +880,16 @@ jobs:
     name: Frozen candidate result
     if: >-
       ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
-    needs: [health, native-platforms, darwin-preflight, darwin-inputs, python-static-security, python]
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, python-static-security, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-inputs' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'cpython-inputs' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
       DARWIN_INPUTS_RESULT: ${{ needs.darwin-inputs.result }}
+      CPYTHON_INPUTS_RESULT: ${{ needs.cpython-inputs.result }}
       PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
       PYTHON_RESULT: ${{ needs.python.result }}
     steps:
@@ -870,6 +899,7 @@ jobs:
           set -euo pipefail
           case "$CQ_SELECTION" in
             darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
+            cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
             health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
             darwin) test "$DARWIN_RESULT" = success ;;
             python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
