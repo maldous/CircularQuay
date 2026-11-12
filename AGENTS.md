@@ -36,6 +36,22 @@ Report exact changed paths, purpose, checks and their scope, unresolved gates,
 and the owner handoff/next action. Do not claim runtime verification from a
 source or documentation check.
 
+## Connected Windmill workspace
+
+For the connected Foo Workspace MCP account, `list_workspaces` currently exposes
+only `foo` (Foo). Use `workspace_id="foo"` on supported calls through that
+connector and verify its current account binding before dependent work. A project
+name, script path or historical workspace label does not select another workspace
+or grant access; do not probe another workspace as a fallback.
+
+Check separately exposed fixed wrappers against their own advertised binding and
+supported arguments. If a wrapper still advertises `offmenu` as its workspace,
+or its actual target cannot be inspected, do not assume it targets `foo`; stop
+the dependent operation and report the mismatch. Do not add an unsupported workspace
+argument. Preserve historical receipts and project/artifact names, including
+OffMenu paths. This account-specific connector routing does not hardcode a
+workspace into generic CircularQuay product schemas, examples or fixtures.
+
 ## Shared AI operating policy and bootstrap branch
 
 Circular Quay is one of the five dedicated project roles. At startup, read
