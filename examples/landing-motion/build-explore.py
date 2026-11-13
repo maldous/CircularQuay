@@ -37,10 +37,9 @@ CONTENT = ROOT / "explore-content"
 ASSETS = CONTENT / "assets"
 SOURCE = ROOT / "explore-source"
 SOURCE_MANIFEST = SOURCE / "manifest.json"
-ROOT_MARKDOWN = {
-    "README.md", "RELEASE.md", "SECURITY.md", "SUPPORT.md",
-    "CODE_OF_CONDUCT.md", "CONTRIBUTING.md",
-}
+PRODUCT_INPUTS = json.loads((ROOT / "explore-documents.json").read_text())
+PRODUCT_DOCUMENTS = frozenset(PRODUCT_INPUTS["documents"])
+PRODUCT_ASSETS = tuple(PRODUCT_INPUTS["assets"])
 # Presentation-only copy for the landing explorer. Frozen source bytes and
 # their recorded hashes remain the source of historical/documentary truth.
 PRESENTATION_COPY = (
@@ -62,9 +61,9 @@ def presentation_copy(source: str) -> tuple[str, list[dict[str, int | str]]]:
 
 
 def local_paths() -> list[str]:
-    paths = {path for path in ROOT_MARKDOWN if (REPOSITORY_ROOT / path).is_file()}
-    paths.update(str(path.relative_to(REPOSITORY_ROOT)) for path in (REPOSITORY_ROOT / "docs").rglob("*.md"))
-    paths.update(str(path.relative_to(REPOSITORY_ROOT)) for path in (REPOSITORY_ROOT / "sdk").glob("*/README.md"))
+    # Public inputs are explicit: never discover maintenance or newly added
+    # private Markdown through a recursive repository scan.
+    paths = {path for path in PRODUCT_DOCUMENTS if (REPOSITORY_ROOT / path).is_file()}
     return sorted(paths, key=lambda value: (value != "README.md", value.lower()))
 
 
@@ -79,12 +78,9 @@ def frozen_blob(path: str) -> bytes:
 def refresh_local_source() -> None:
     """Capture the authorised local public-doc snapshot; never touch source docs."""
     paths = local_paths()
-    asset_paths = [
-        "docs/assets/architecture-overview-dark.svg", "docs/assets/architecture-overview-light.svg",
-        "docs/assets/environment-evolution-dark.svg", "docs/assets/environment-evolution-light.svg",
-    ]
+    asset_paths = PRODUCT_ASSETS
     records = []
-    for path in paths + asset_paths:
+    for path in [*paths, *asset_paths]:
         data = local_blob(path)
         destination = SOURCE / path
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +95,7 @@ def refresh_local_source() -> None:
 
 def frozen_paths() -> list[str]:
     source = json.loads(SOURCE_MANIFEST.read_text())
-    return [item["path"] for item in source["files"] if item["path"].endswith(".md")]
+    return [item["path"] for item in source["files"] if item["path"] in PRODUCT_DOCUMENTS]
 
 
 def doc_id(path: str) -> str:
@@ -506,7 +502,8 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
     REPOSITORY_CONTEXT_REF = source_freeze.get("repositoryContextRef", "feature/initial-implementation")
     paths = frozen_paths()
     source_bytes = {path: frozen_blob(path) for path in paths}
-    expected_hashes = {item["path"]: item["sha256"] for item in source_freeze["files"]}
+    expected_hashes = {item["path"]: item["sha256"] for item in source_freeze["files"]
+                       if item["path"] in PRODUCT_DOCUMENTS or item["path"] in PRODUCT_ASSETS}
     for path, expected in expected_hashes.items():
         data = frozen_blob(path)
         if expected != hashlib.sha256(data).hexdigest():
@@ -579,6 +576,9 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
                 continue
             local = resolve_path(current, parsed.path)
             if token.type == "image":
+                if local not in PRODUCT_ASSETS:
+                    token.attrSet("src", "#")
+                    continue
                 try:
                     data = frozen_blob(local)
                 except (FileNotFoundError, IsADirectoryError):
@@ -606,6 +606,8 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
     def local_html_asset(reference: str, current: str) -> str | None:
         parsed = urlparse(reference)
         local = resolve_path(current, parsed.path)
+        if local not in PRODUCT_ASSETS:
+            return None
         try:
             data = frozen_blob(local)
         except (FileNotFoundError, IsADirectoryError):
@@ -681,13 +683,14 @@ def build(check: bool = False, refresh_local: bool = False) -> None:
 
     generated_assets = {path for path in planned if path.parent == ASSETS}
     stale_assets = [path for path in ASSETS.glob("*") if path.is_file() and path not in generated_assets]
+    stale_documents = [path for path in CONTENT.glob("*.js") if path not in planned]
     if check:
         missing = [str(path.relative_to(ROOT)) for path, data in planned.items() if not path.exists() or path.read_bytes() != data]
-        extras = [path for path in CONTENT.glob("*.js") if path not in planned] + stale_assets
+        extras = stale_documents + stale_assets
         if missing or extras:
             raise SystemExit("explore snapshot is stale: " + ", ".join(missing + [str(path.relative_to(ROOT)) for path in extras]))
         return
-    for path in stale_assets:
+    for path in stale_documents + stale_assets:
         path.unlink()
     for path, data in planned.items():
         path.parent.mkdir(parents=True, exist_ok=True)

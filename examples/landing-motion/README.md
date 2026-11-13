@@ -20,7 +20,7 @@ Explore opens at `/explore`. Its compact index keeps the existing six task group
 
 The portable local snapshot contains 59 source files, including 55 Markdown documents and four SVGs, under `explore-source/`. Its canonical base is `15f368a9f8ac4b45f5d92772c492e863b0a0f5f9`; its freeze SHA-256 is `abb8878ee734dbe398f98c15c8abd22de1e3a511e1620d2de9917f4fd0d16b45`. Per-file hashes preserve the exact local bytes. Current guides use `cq`, `cq-sdk`, Python `from cq import` and TypeScript `@maldous/cq-sdk` directly. Dated engineering records preserve revision-specific paths and tool versions and point readers to the current SDK guides.
 
-All 611 reader links resolve. Normal builds and checks use frozen sources; `--refresh-local-source` deliberately captures a new local snapshot. Documentation generation requires the packages pinned in `requirements-explore.txt`.
+All 611 reader links resolve. Normal builds and checks use frozen sources; `--refresh-local-source` deliberately captures a new local snapshot. Documentation generation requires the packages pinned in `requirements-explore.txt`. Public documentation and asset inputs are explicitly listed in `explore-documents.json`; maintenance policies, session history and qualification-session records are excluded. New Markdown files are not automatically exported.
 
 ## Run locally
 
