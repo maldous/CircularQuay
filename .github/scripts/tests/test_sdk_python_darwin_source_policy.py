@@ -9,10 +9,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 SCRIPT = Path(__file__).parents[1] / "sdk_python_darwin_source_policy.py"
 SPEC = importlib.util.spec_from_file_location("darwin_source_policy", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
+assert SPEC is not None
+assert SPEC.loader is not None
 POLICY = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = POLICY
 SPEC.loader.exec_module(POLICY)

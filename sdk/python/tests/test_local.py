@@ -181,12 +181,15 @@ class LocalCLIClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ErrorCategory.INTEGRITY, captured.exception.category)
 
     async def test_rejects_ambient_provider_environment_and_invalid_run_stdio(self) -> None:
+        executable_sha256 = hashlib.sha256(self.executable.read_bytes()).hexdigest()
+        policy_path = self.root / "policy.json"
+        state_path = self.root / "state"
         with self.assertRaises(CircularQuayError):
             LocalCLIClient(
                 self.executable,
-                hashlib.sha256(self.executable.read_bytes()).hexdigest(),
-                self.root / "policy.json",
-                self.root / "state",
+                executable_sha256,
+                policy_path,
+                state_path,
                 environment={"AWS_SECRET_ACCESS_KEY": "synthetic"},
             )
         with self.assertRaises(CircularQuayError):

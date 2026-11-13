@@ -181,7 +181,7 @@ class CircularQuayClient:
         except CircularQuayError as exc:
             outcome = exc.category
             raise
-        except (TimeoutError, OSError):
+        except OSError:
             outcome = ErrorCategory.UNAVAILABLE
             raise CircularQuayError(ErrorCategory.UNAVAILABLE, operation) from None
         except Exception:
@@ -236,7 +236,7 @@ def _within_structured_budget(value: Mapping[str, Any]) -> bool:
             if used > _MAX_STRUCTURED_BYTES:
                 return False
         return True
-    except (OverflowError, RecursionError, TypeError, ValueError, UnicodeError):
+    except (OverflowError, RecursionError, TypeError, ValueError):
         return False
 
 

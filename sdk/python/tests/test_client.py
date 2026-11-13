@@ -241,16 +241,18 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         ):
             with self.subTest(invalid=invalid.keys()):
                 self.session.responses["read_secret"] = response(invalid)
+                disclosures = self.client.disclosures()
                 with self.assertRaises(CircularQuayError) as captured:
-                    await self.client.disclosures().read_secret("alpha", "API_KEY")
+                    await disclosures.read_secret("alpha", "API_KEY")
                 self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
 
     async def test_rejects_an_expired_secret_disclosure(self) -> None:
         self.session.responses["read_secret"] = response(
             {"alias": "API_KEY", "value": "synthetic", "expires_at": "2000-01-01T00:00:00Z"}
         )
+        disclosures = self.client.disclosures()
         with self.assertRaises(CircularQuayError) as captured:
-            await self.client.disclosures().read_secret("alpha", "API_KEY")
+            await disclosures.read_secret("alpha", "API_KEY")
         self.assertEqual(ErrorCategory.EXPIRED, captured.exception.category)
 
     async def test_rejects_malformed_secret_expiry_as_protocol(self) -> None:
@@ -259,22 +261,25 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
                 self.session.responses["read_secret"] = response(
                     {"alias": "API_KEY", "value": "synthetic", "expires_at": expiry}
                 )
+                disclosures = self.client.disclosures()
                 with self.assertRaises(CircularQuayError) as captured:
-                    await self.client.disclosures().read_secret("alpha", "API_KEY")
+                    await disclosures.read_secret("alpha", "API_KEY")
                 self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
 
     async def test_rejects_secret_alias_mismatch_and_invalid_handles_before_transport(self) -> None:
         self.session.responses["read_secret"] = response(
             {"alias": "OTHER", "value": "synthetic"}
         )
+        disclosures = self.client.disclosures()
         with self.assertRaises(CircularQuayError) as mismatch:
-            await self.client.disclosures().read_secret("alpha", "API_KEY")
+            await disclosures.read_secret("alpha", "API_KEY")
         self.assertEqual(ErrorCategory.PROTOCOL, mismatch.exception.category)
         calls_before = len(self.session.calls)
         for workload, key in (("", "API_KEY"), ("alpha", "bad/key")):
             with self.subTest(workload=workload, key=key):
+                disclosures = self.client.disclosures()
                 with self.assertRaises(CircularQuayError) as captured:
-                    await self.client.disclosures().read_secret(workload, key)
+                    await disclosures.read_secret(workload, key)
                 self.assertEqual(ErrorCategory.INVALID, captured.exception.category)
         self.assertEqual(calls_before, len(self.session.calls))
 
@@ -410,13 +415,14 @@ class MCPClientTests(unittest.IsolatedAsyncioTestCase):
         for operation, payload in cases:
             with self.subTest(operation=operation, fields=tuple(payload)):
                 self.session.responses[operation] = response(payload)
+                if operation == "get_status":
+                    pending = self.client.get_status("alpha")
+                elif operation == "run_workload":
+                    pending = self.client.run_workload("alpha")
+                else:
+                    pending = self.client.disclosures().read_secret("alpha", "API_KEY")
                 with self.assertRaises(CircularQuayError) as captured:
-                    if operation == "get_status":
-                        await self.client.get_status("alpha")
-                    elif operation == "run_workload":
-                        await self.client.run_workload("alpha")
-                    else:
-                        await self.client.disclosures().read_secret("alpha", "API_KEY")
+                    await pending
                 self.assertEqual(ErrorCategory.PROTOCOL, captured.exception.category)
 
     async def test_invalid_handles_fail_before_any_transport_call(self) -> None:
