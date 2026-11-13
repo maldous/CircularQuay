@@ -1,7 +1,7 @@
 # Supplemental candidate evidence. Existing PR and release gates remain authoritative.
 # Refresh moved source pins in a reviewed change before dispatching again.
 name: Frozen candidate qualification
-run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Intel Darwin consumers' || inputs.candidate }})
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Integrated Go and Python' || inputs.candidate }})
 
 on:
   pull_request:
@@ -14,13 +14,13 @@ on:
         description: Qualification suite to run against its reviewed source pins
         required: true
         type: choice
-        options: [health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, darwin-consumer]
+        options: [integrated, health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, darwin-consumer]
 
 permissions:
   contents: read
 
 concurrency:
-  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'darwin-consumer' || 'manual' }}
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'integrated' || 'manual' }}
   cancel-in-progress: false
 
 env:
@@ -30,8 +30,8 @@ env:
   CQ_NATIVE_FEATURE_TREE: '00434f4681afc7b2584d628199c22287f7c9df01'
   CQ_NATIVE_INPUT_SHA: 'b8447db3be2c25e73671a13bfe3a86a0d286cbc3'
   CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
-  CQ_INTEGRATED_SHA: '023385e283d6e45c328209f6b7cd812a658d17e9'
-  CQ_INTEGRATED_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
+  CQ_INTEGRATED_SHA: '489ee5b799ba8176616df19ad57f699b275e886e'
+  CQ_INTEGRATED_TREE: '013ec47bb0e31aeefff3b21f6d2bb3a098680b90'
   CQ_HEALTH_MERGE_SHA: '404c21e1a8819b4d1770b5c23a3ece89cdc2cd24'
   CQ_PYTHON_MERGE_SHA: '962f997539aa2e51efaddf5693ff07f3ebbc0f32'
   CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
@@ -44,7 +44,7 @@ env:
 jobs:
   health:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'health' || inputs.candidate == 'integrated'))) }}
     name: Candidate Go build, tests and analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -189,7 +189,7 @@ jobs:
 
   native-platforms:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'health' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'health' || inputs.candidate == 'integrated'))) }}
     name: Candidate native launch compatibility (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
@@ -704,7 +704,7 @@ jobs:
 
   python-static-security:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'python' || inputs.candidate == 'integrated'))) }}
     name: Candidate Python static and security (3.14, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -718,7 +718,18 @@ jobs:
       - *checkout_feature
       - *verify_integrated
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: { python-version: '3.14', check-latest: true }
+        with:
+          python-version: ${{ runner.os == 'macOS' && '3.14.10' || '3.14' }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - &stage_darwin_wheel
+        name: Stage the retained Intel macOS wheel for this interpreter
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          patch="$(python -I -c 'import platform,sys; assert (sys.platform, platform.machine(), sys.implementation.name) == ("darwin", "x86_64", "cpython"); print(platform.python_version())')"
+          python -E -s -B .github/scripts/sdk_python_darwin_wheel.py --python "$patch" --output "$RUNNER_TEMP/cq-darwin-intake"
       - name: Install reviewed static-tool closure
         id: static_tools
         shell: bash
@@ -728,7 +739,13 @@ jobs:
           lock="sdk/python/locks/ci-${p}-py314.txt"
           test -f "$lock"
           python .github/scripts/sdk_python_lock.py --verify-lock "$lock" --requirements sdk/python/requirements-ci.txt
-          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          if test "$RUNNER_OS" = macOS; then
+            house="$RUNNER_TEMP/cq-darwin-static-wheelhouse"
+            python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$lock"
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$lock"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          fi
       - name: Test lock helper
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
@@ -807,7 +824,7 @@ jobs:
 
   python:
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'python' }}
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'python' || inputs.candidate == 'integrated'))) }}
     name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -816,6 +833,12 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15-intel, windows-2025]
         python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - { os: macos-15-intel, python: '3.11', exact_python: '3.11.9' }
+          - { os: macos-15-intel, python: '3.12', exact_python: '3.12.10' }
+          - { os: macos-15-intel, python: '3.13', exact_python: '3.13.17' }
+          - { os: macos-15-intel, python: '3.14', exact_python: '3.14.10' }
+          - { os: macos-15-intel, python: '3.15', exact_python: '3.15.2' }
     env:
       CQ_CANDIDATE: python
       GOMAXPROCS: '2'
@@ -826,8 +849,9 @@ jobs:
       - *verify_integrated
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ matrix.python }}
-          check-latest: true
+          python-version: ${{ matrix.exact_python || matrix.python }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - *stage_darwin_wheel
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
         with:
           go-version: '1.27.4'
@@ -858,13 +882,19 @@ jobs:
           if test -f "$committed"; then
             cp "$committed" "$evidence/selected.txt"
             python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-test.txt
-            python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            if test "$RUNNER_OS" = macOS; then
+              house="$RUNNER_TEMP/cq-darwin-runtime-wheelhouse"
+              python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$evidence/selected.txt"
+              python -m pip --isolated install --dry-run --ignore-installed --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$evidence/selected.txt"
+            else
+              python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            fi
             sha256sum sdk/python/requirements-test.txt "$evidence/selected.txt" > "$evidence/inputs.sha256"
             echo 'missing=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-test.txt
-          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$(git rev-parse HEAD)" --requirements sdk/python/requirements-test.txt
+          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$CQ_INTEGRATED_SHA" --requirements sdk/python/requirements-test.txt
           sha256sum sdk/python/requirements-test.txt "$evidence/generated.txt" > "$evidence/inputs.sha256"
           echo 'missing=true' >> "$GITHUB_OUTPUT"
       - name: Upload generated Python lock evidence
@@ -889,7 +919,11 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          if test "$RUNNER_OS" = macOS; then
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
       - name: Measure Python SDK coverage
         id: python_coverage
         if: ${{ always() && steps.python_tools.outcome == 'success' }}
@@ -927,7 +961,11 @@ jobs:
           else
             cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"
           fi
-          "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          if test "$RUNNER_OS" = macOS; then
+            "$cq_python" -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
           "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
           "$cq_python" -c 'import cq; assert cq.__version__ == "1.0.0.dev0"'
       - name: Exercise the installed Python local client against cq
@@ -1092,7 +1130,14 @@ jobs:
           cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
           if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"; fi
           CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "$cq_python" sdk/conformance/python-mcp.py
-
+      - name: Upload Python package evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-sdk-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-python-dist
+          if-no-files-found: warn
+          retention-days: 7
 
   darwin-native-prerequisites:
     name: Intel Darwin native prerequisites
@@ -2318,7 +2363,7 @@ jobs:
   darwin-consumer:
     name: Intel Darwin Python consumer (CPython ${{ matrix.python }})
     if: >-
-      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer')) }}
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer' }}
     runs-on: macos-15-intel
     timeout-minutes: 55
     strategy:
@@ -2536,7 +2581,7 @@ jobs:
     name: Strict audit of the six Intel Darwin Python closures
     needs: darwin-consumer
     if: >-
-      ${{ !cancelled() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer')) }}
+      ${{ !cancelled() && github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -2577,7 +2622,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
-      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'darwin-consumer' || inputs.candidate }}
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'integrated' || inputs.candidate }}
       HEALTH_RESULT: ${{ needs.health.result }}
       NATIVE_RESULT: ${{ needs.native-platforms.result }}
       DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
@@ -2596,6 +2641,12 @@ jobs:
         run: |
           set -euo pipefail
           case "$CQ_SELECTION" in
+            integrated)
+              test "$HEALTH_RESULT" = success
+              test "$NATIVE_RESULT" = success
+              test "$PYTHON_STATIC_RESULT" = success
+              test "$PYTHON_RESULT" = success
+              ;;
             darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
             cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
             cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
