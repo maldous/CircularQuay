@@ -26,9 +26,10 @@ CircularQuay is the long product name; CircularQuay is the short name. Owned tec
 
 Record source revision/tree, platform, tool/runtime versions, tested scope,
 artifact digests, registry/client identity, outcomes and independent readback in
-[qualification](docs/qualification.md) and the release evidence bundle. The
-[session handoff](docs/session-handoff.md) retains in-progress engineering
-receipts. This operator guide defines the complete release process, not a live
+[qualification](docs/qualification.md) and the release evidence bundle. Keep
+in-progress execution/session records in the selected maintenance environment;
+retain product-specific acceptance evidence here. This operator guide defines
+the complete release process, not a live
 publication ledger. A command example or manifest is not a published package.
 
 Each channel has its own recorded state: not attempted, account required,

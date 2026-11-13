@@ -50,67 +50,24 @@ selected icon's original raster/provenance and a finished vector are distinct
 deliverables. Keep implementation/preview revisions separate until the owner
 integrates and requalifies them.
 
-## Required general UIF harness and project migration
+## Standalone product boundary
 
-| Scope | Purpose and canonical project source | Project-specific boundary |
-| --- | --- | --- |
-| UIF shared harness | General infrastructure, admitted orchestration and governance for multiple product profiles; [UIF Home](https://linear.app/maldous/document/uif-home-build-first-delivery-model-96eeea3357ee) is the existing canonical navigation/owner map, with any runtime acceptance/routing controlled through the existing UIF integration-owner/Gateway route. | UIF is not the OffMenu product or a replacement CircularQuay coordinator. Multi-project capability and CircularQuay migration remain required/planned until actual profile/job/isolation verification; a qualified candidate is not installed/accepted runtime. |
-| CircularQuay product | Connect existing secret providers and client-owned configuration to authorized workloads, software crypto/age access and scoped account/operator/client surfaces. [Canonical repository](https://github.com/maldous/CircularQuay), [implementation plan](implementation-plan.md), [security](../SECURITY.md) and [handoff](session-handoff.md). | Native Go, official Go/TypeScript/Python SDKs and separately owned synthetic Node/browser work require their selected toolchains and evidence. Local config/variables/source credentials stay client-side; secret-bearing state is not a shared harness payload or another project's input. Source review, mock UI, native/backend qualification and production publication are separate. |
-| OffMenu product | The household product-to-pantry-to-plate loop: understand products, ingredients, recipes and nutrition; connect menus, stock, serving/consumption/leftovers/history/planning and explicitly authorized shopping/receipt workflows. [Accepted product North Star](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/README.md), [documentation](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/README.md), [source acceptance](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/source-acceptance-contract.md) and [curation boundaries](https://github.com/maldous/offmenu/blob/3540b2d4d5f4e96a518a63c832ccd6c3db809686/docs/curation-architecture.md). | Its canonical docs describe browser/PWA JavaScript, Worker/D1 backend and separate Python/SQLite curation tooling. Retained source-data rights/provenance/publication projections, private household/profile/health state and personal-connection credentials have their own constraints. CircularQuay toolchain, secrets model or passing tests cannot qualify those data/product/release paths. Current config/data fixes and BAU adoption remain the OffMenu owners' work. |
+CircularQuay connects existing secret providers and client-owned configuration
+to authorized workloads, software crypto/age access and scoped client,
+account and operator surfaces. Its build, run and delivery contracts are
+contained in this repository. No sibling product, maintenance service or
+shared orchestration checkout is required.
 
-The OffMenu product links pin the owner-confirmed accepted product revision
-`3540b2d4d5f4e96a518a63c832ccd6c3db809686` (tree
-`62efa45bb564affe4f1f1b2388bbb3447a14482c`). This describes intended outcomes,
-not proof the whole loop is delivered. Product acceptance, installed UIF control
-and a qualified-but-not-installed successor are different source/runtime states.
-Use each owner's actual accepted execution tree, manifests, rights and review/
-publication record. Do not duplicate mutable OffMenu requirements in CircularQuay docs,
-ingest its corpus to test a harness change or substitute CircularQuay's release route for
-OffMenu/UIF's sole integration owner. The current authoritative UIF route remains
-its existing Root via Gateway; CircularQuay retains its current coordinator/source owner.
+Native Go, TypeScript/Python SDKs and the synthetic browser preview retain
+separate toolchains and evidence. Local configuration, variables and source
+credentials stay client-side. Product source review, synthetic UI evidence,
+native/backend qualification and release or production acceptance are distinct.
 
-UIF is the **general shared harness**; CircularQuay is a product with its own
-project profile and acceptance requirements. Do not classify CircularQuay as
-OffMenu, borrow its data/credential/toolchain assumptions or treat another
-project's failed job as proof of a shared defect. General multi-project support
-is **required/planned**, not a verified capability merely because it is named.
-
-CircularQuay migration work proceeds now in parallel with OffMenu configuration,
-data fixes and BAU adoption. Neither project's independent work waits for the
-other's completion. Shared contract changes require impact review for **both
-affected profiles**, binding the accepted source tree, actual job/configuration,
-toolchain and isolation evidence. A blocked affected integration does not stop
-unrelated authorized work.
-
-Use the existing authoritative coordinators and the single canonical migration/
-impact record. The source owner is the sole Linear writer for this assignment;
-verified issue/project/filter bindings belong in that existing record. Their
-independently read-back references are [UIF `P-UIF-16`](https://linear.app/maldous/project/uif-21558318e036),
-[OffMenu `P-UIF-14`](https://linear.app/maldous/project/offmenu-ccd080f4f6f0) and
-[CircularQuay `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c)
-under the UIF team. The designated existing canonical migration checklist is
-[the CircularQuay handoff](session-handoff.md#uif-migration-and-delivery-closure), now
-populated by the source owner with the obligation, ownership and harness-gap
-checklist. Dynamic all-status/nonarchived view/filter IDs still await
-creation/readback. Project creation alone creates no task/lease admission,
-implemented profile selector or operational migration. Do not add an issue tree,
-planner or dispatcher to fill those gaps. Preserve existing tasks, leases,
-review/publication authority and controlled per-unit handover; no abrupt cutover
-or expanded production admission follows from this requirement.
-
-The existing UIF Home/shared-project description still shows its earlier
-three-project navigation at this readback; the enhanced CircularQuay sibling/multi-project
-requirement needs the canonical owner's update there. This CircularQuay guide links that
-home rather than replacing it or treating stale navigation as migration proof.
-
-Each project profile must establish its actual repository/accepted tree,
-checkout/toolchain/dependencies, operation permissions, privacy and data roots,
-isolation from other projects, reviewers, publication destinations and required
-evidence. These are acceptance requirements, not new CLI flags or schema fields.
-Verify supported selectors/interfaces from the current owner-approved source;
-unknown profile/ownership or a required unimplemented isolation boundary denies
-the affected operation. Demonstrate multi-project behavior with actual scoped
-source/job/isolation evidence before describing the migration as operational.
+External automation may use documented CLI, SDK and MCP interfaces with the
+same permissions and isolation as any other client. Deployment-specific
+maintenance policies, account bindings and scheduling are outside the product
+contract. Optional provider adapters are selected and qualified individually;
+their presence does not activate a provider or make that provider mandatory.
 
 ## Bootstrap, integrate and operate
 

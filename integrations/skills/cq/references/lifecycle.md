@@ -85,16 +85,11 @@ old-version disposition separately; copied keys/plaintext cannot be recalled.
 
 ## Export and forward migration
 
-Shared UIF migration also preserves project identity and custody. Use the
-[existing project route](operations.md#shared-uif-project-profiles), accepted
-tree/toolchain and canonical impact/checklist bindings; CircularQuay and OffMenu remain
-different products, not aliases for a default OffMenu job. Keep their private
-state, source rights, credentials, review/publication and evidence separate.
-Shared changes need actual evidence for both affected profiles. Continue their
-independent work in parallel while preserving current leases and controlled
-unit handover; a qualified candidate or Linear project record is not installed
-runtime, task admission or a completed migration. No duplicate tracker or
-abrupt cutover is authorized.
+Migration preserves the selected product source/configuration identity and
+private state custody. Bind exact schema, export format, authenticated target,
+authorization and recovery evidence before effects. Keep unrelated clients'
+data, credentials and publication authority separate. A schema, client label
+or qualified candidate is not installed runtime or completed migration.
 
 Preview migration/enrollment/rotation forms model the intended lifecycle; they
 do not execute a provider ceremony or qualify recovery. The internal native

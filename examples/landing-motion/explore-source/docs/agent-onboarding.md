@@ -21,47 +21,25 @@
    hand back exact paths/hashes, disposition and next action in the existing
    handoff/qualification workflow. Source/static checks, rendered controls,
    representative browser edits, real backend tests and production qualification
-   are different evidence. Shared Foo heavy-execution holds and BAU priority
-   still apply.
+   are different evidence. Respect the selected executor's resource admission
+   and exact restrictions in the current assignment.
 
-### Shared harness classification and controlled transition
+### Standalone product boundary
 
-Treat UIF as the general shared harness and CircularQuay as its own product/
-profile, not an OffMenu alias. Enhanced multi-project capability is required/
-planned until actual cross-project verification. Continue CircularQuay migration in
-parallel with OffMenu config/data/BAU work; enforce only real affected-unit
-dependencies, not a global completion gate in either direction.
+CircularQuay builds and runs from its own repository with the documented
+native, SDK and browser toolchains. No other project checkout, maintenance
+service or shared orchestration installation is a product prerequisite.
 
-Before using a shared route, recover the authoritative coordinator and accepted
-source/tree from the current assignment and single canonical migration/impact
-record. Checkout HEAD, a stale pointer, installed adapter or job admission alone
-does not establish accepted execution or pickup. Owner-confirmed shared references
-are UIF `P-UIF-16`, OffMenu `P-UIF-14` and [CircularQuay `P-UIF-17`](https://linear.app/maldous/project/circularquay-656f1967b41c).
-The existing [CircularQuay handoff migration checklist](session-handoff.md#uif-migration-and-delivery-closure)
-now records obligations, ownership and actual harness gaps. Dynamic view/filter
-IDs are still unverified. Project records do not create execution selectors, admission or
-implemented support. The source owner is this assignment's sole Linear writer. Do not
-create a substitute tracker or guess a project association.
+For each selected operation, bind the exact repository/tree, toolchain and
+dependency pins, authorized paths, private data/state roots, reviewer and
+publication destination. External automation may invoke the documented product
+interfaces under its own authorization; it supplies no additional product
+capability, credential, runtime grant or source acceptance.
 
-For scope, read the [explicit subproject descriptions](product-guide.md#required-general-uif-harness-and-project-migration):
-CircularQuay is the secret/configuration/workload and crypto/age product; OffMenu is the
-household product/food/stock/meal/consumption/planning loop with source-data and
-private household/profile constraints. UIF supplies general harness governance,
-not either product's business semantics. Follow each canonical repository and
-selected accepted tree, toolchain, permissions, data/privacy, reviewer and
-publication route. CircularQuay migration is active as an authorized workstream, not a
-claim that a multi-project runtime profile is installed; OffMenu BAU/data fixes
-continue independently.
-
-For each selected project, verify repository/tree, checkout, toolchain/dependency
-pins, allowed operations, privacy/data/credential/state roots, cross-project
-isolation, review owner, publication destination and evidence requirements.
-Inspect actual supported profile selectors rather than inventing a command or
-field. Assess a shared change against both affected profiles with source and
-actual job/isolation evidence; diagnose project-specific failures separately.
-Preserve current tasks/leases and controlled unit handover. Reconcile ambiguous
-ownership through the existing coordinator before admitting a competing writer;
-no abrupt cutover, production expansion or independent-work pause is implied.
+Keep credentials and customer configuration client-owned and isolated from
+unrelated projects. Coordinate disjoint changes with the existing integration
+owner and preserve current work and evidence. Qualify each requested provider
+integration independently; an optional integration is not a default dependency.
 
 The current source includes `internal/keyservice` with distinct enrollment,
 wrap/unwrap and age retrieval, a fixed software JWE adapter using maintained Go
@@ -115,8 +93,7 @@ git status --short
 
 The project remote is `maldous/CircularQuay`. Use the actual assigned checkout;
 do not assume a host, path, branch, clean tree or uncommitted patch ownership.
-Follow [Gitflow](../CONTRIBUTING.md#gitflow). The current assignment and
-[session handoff](session-handoff.md) identify the implementation owner,
+Follow [Gitflow](../CONTRIBUTING.md#gitflow). The current assignment identifies the implementation owner,
 publication coordination and pending work. Agree file ownership before shared
 writes and preserve other contributors' changes. If prior-task context is
 unavailable, the handoff and existing local receipts still provide bounded
@@ -127,7 +104,7 @@ context; do not interpret missing context as permission to overwrite work.
 | What should v1 deliver? | [Product](product-guide.md), [implementation plan](implementation-plan.md), [managed service](managed-key-service.md). |
 | What exists and is callable? | Selected executable help, CLI dispatcher, SDK public APIs and authenticated MCP catalog; see the boundaries below. |
 | What passed for which revision? | [Qualification](qualification.md), [verification](verification.md), retained `.local/qualification/` receipts when present. |
-| What is underway and who publishes? | Current assignment and [session handoff](session-handoff.md); keep new scoped evidence in that existing workflow. |
+| What is underway and who publishes? | Current assignment and existing owner; retain transient session records outside product source. |
 | What gates must remain intact? | [Assurance](assurance.md), [security](../SECURITY.md), [contribution rules](../CONTRIBUTING.md), [release procedures](../RELEASE.md). |
 
 Local receipts may be ignored development evidence. They do not replace the
@@ -344,7 +321,7 @@ broker, VPN proxy or live fleet action is authorized by this design.
 ## Set up and verify a bounded change
 
 Read [getting started](getting-started.md) for synthetic setup. Native source
-builds use the workflow-pinned Go toolchain (currently 1.27.3; verify the current
+builds use the workflow-pinned Go toolchain (currently 1.27.4; verify the current
 [source workflow](../.github/workflows/source.yml) before selection). SDK
 runtimes, development dependencies, lock/provenance and scripts are defined in
 [`sdk/typescript/package.json`](../sdk/typescript/package.json),

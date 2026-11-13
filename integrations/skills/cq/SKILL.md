@@ -53,21 +53,17 @@ not attempt automatic discovery or sign-in based solely on the product design.
 
 ## Inspect before acting
 
-### Shared UIF project routing
+### Product scope and isolation
 
-CircularQuay's standalone build, run and delivery do not require UIF or another
-subproject. UIF is the required general harness only when the optional shared
-operational lane is selected; CircularQuay is the secret/config/workload
-product, while OffMenu owns its separate household/product/food/stock/meal-data
-outcomes and rights/privacy. Do not default a CircularQuay task to OffMenu or share its
-credentials, state/data roots or toolchain. Multi-project support remains
-required/planned for that lane until actual accepted-source/job/isolation evidence covers the
-affected profiles. Preserve existing coordinators, tasks, leases, reviewers,
-publication routes and controlled unit handover. CircularQuay migration and OffMenu BAU/
-data work proceed in parallel, with no global gate between independent work.
-Recover verified canonical record/project/view bindings from the owners; no
-guessed IDs, new dispatcher or duplicate issue tree. See
-[shared project workflow](references/operations.md#shared-uif-project-profiles).
+Use the selected CircularQuay executable and the product contracts contained
+in this repository. No other project checkout or maintenance service is needed
+for the standalone product. External automation is a client of the documented
+interfaces and retains its own execution and account configuration.
+
+Verify the exact product source/configuration, authorized operations, private
+state roots, reviewer and publication destination. Preserve existing work and
+disjoint ownership. Do not borrow another project's credentials, mutable data
+or toolchain assumptions, and do not infer capabilities from a profile label.
 
 Use `version`, `providers`, protected `config validate`, `doctor`, `plan` and
 scoped `status` as appropriate. These inspect declarations or metadata; do not

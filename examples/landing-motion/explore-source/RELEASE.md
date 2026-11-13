@@ -20,15 +20,16 @@ All commands use a chosen immutable version. `v1.0.0` below is an example until 
 
 Record application/tag, policy schema, runtime MCP protocol, Registry descriptor schema, SDK, native artifacts, OCI digest, MCP bundles, skill/plugin package and audit-profile versions separately. A Registry schema date is not an MCP protocol version.
 
-CircularQuay is the long product name; CircularQuay is the short name. Owned technical names use lowercase `cq`, including the native executables `cq` and `cq-audit` and release-asset prefix. Actual SDK package coordinates, configuration/state namespaces and the `cq` operations skill retain their documented identities pending their own coordinated identity changes. These names do not provide an alternate CLI executable. The initial source implementation uses Go 1.27.3. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
+CircularQuay is the long product name; CircularQuay is the short name. Owned technical names use lowercase `cq`, including the native executables `cq` and `cq-audit` and release-asset prefix. Actual SDK package coordinates, configuration/state namespaces and the `cq` operations skill retain their documented identities pending their own coordinated identity changes. These names do not provide an alternate CLI executable. The initial source implementation uses Go 1.27.4. The researched SonarQube Community reference is 26.10.0.133078; qualify the actual pinned server/scanner/analyzer/rules on release. The runtime MCP design targets protocol 2026-07-28 and a qualified official SDK, independently from Registry metadata schema.
 
 ### Release and qualification records
 
 Record source revision/tree, platform, tool/runtime versions, tested scope,
 artifact digests, registry/client identity, outcomes and independent readback in
-[qualification](docs/qualification.md) and the release evidence bundle. The
-[session handoff](docs/session-handoff.md) retains in-progress engineering
-receipts. This operator guide defines the complete release process, not a live
+[qualification](docs/qualification.md) and the release evidence bundle. Keep
+in-progress execution/session records in the selected maintenance environment;
+retain product-specific acceptance evidence here. This operator guide defines
+the complete release process, not a live
 publication ledger. A command example or manifest is not a published package.
 
 Each channel has its own recorded state: not attempted, account required,
@@ -127,7 +128,7 @@ For upgrades, review release notes and schema compatibility, retain an independe
 
 ### Packaging toolchain and staging
 
-The initial packaging target is GoReleaser OSS **2.19.0** with Go **1.27.3**, driven by `.goreleaser.yaml`. It produces native archives and a draft release; it does not establish signatures, SBOMs, native installer qualification or registry acceptance. Schema validation is narrower than an artifact build. Keep the build matrix labeled as a build matrix until native tests qualify each target.
+The initial packaging target is GoReleaser OSS **2.19.0** with Go **1.27.4**, driven by `.goreleaser.yaml`. It produces native archives and a draft release; it does not establish signatures, SBOMs, native installer qualification or registry acceptance. Schema validation is narrower than an artifact build. Keep the build matrix labeled as a build matrix until native tests qualify each target.
 
 Run `goreleaser check`, then `goreleaser release --snapshot --clean --parallelism 1` in an isolated checkout to inspect local development archives without creating a public tag or release. Do not use `--skip` to bypass a required qualification gate. For a qualified selected public tag, stage a draft, generate/verify required SBOMs and provenance, attach all evidence and install directions, test anonymous asset downloads in a clean environment, and only then publish the immutable release. RCs and stable releases use the same integrity requirements.
 

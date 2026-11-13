@@ -7,12 +7,11 @@ current assignment, integration writer and relevant leases through the existing
 CQ coordination record; do not assume that a historical Foo path is available
 or that this session has inherited another owner's write authority.
 
-Read `AGENTS.md`, `docs/agents/uif-worker-policy.md` and its JSON manifest,
-`docs/agent-onboarding.md`, `CONTRIBUTING.md`, `SECURITY.md` and the relevant
-`docs/session-handoff.md` contracts. The shared policy applies alongside narrower
-project requirements. Verify its version and SHA-256 and pass them, the exact
-task/revision, owned paths and local requirements to any child agents actually
-used; distinguish delivery of instructions from their acknowledgment.
+Read `AGENTS.md`, `docs/agent-onboarding.md`, `CONTRIBUTING.md`, `SECURITY.md`
+and the product contracts relevant to the assigned boundary. Pass the exact
+task/revision, owned paths and local requirements to delegated work; distinguish
+delivery of instructions from their acknowledgment. Historical handoff records
+are provenance, not current host configuration or execution authority.
 
 During bootstrap use `feature/initial-implementation`, the source branch of
 https://github.com/maldous/CircularQuay/pull/1, rather than empty `develop`.
@@ -28,21 +27,17 @@ existing capabilities**, and approved a narrowly pinned Darwin Intel source-buil
 route. Do not ask for those approvals again, weaken gates, disable capabilities,
 merge to main, publish a release, or deploy the backend/authentication app.
 
-Foo's resource hold remains: no Foo-local Go/build/test/analyzer, SDK/UI runtime,
-install/resolver, Java or Docker unless the active owner releases the relevant
-hold. Use owner-coordinated hosted CI and preserve owner-held preview processes
-and older worktrees; a historical PID or port is not current process identity.
-Keep evidence in the existing authorized handoff/qualification workflow, with
-its actual executor and revision. Historical private Foo receipts are not
-cloud-local files. Do not create a new Linear issue, tracker or status ledger.
+Respect resource limits and any exact holds in the current executor assignment.
+Use authorized toolchains and disjoint workspaces; repository instructions do
+not create account grants, host admission or service authority. Preserve
+existing work and product evidence, and keep maintenance-session records outside
+the product source. Do not replay a historical process or operation identity.
 
-The project owner drives authorized delivery, routine continuation and direct
-coordination with other project owners using available authorized GitHub/Foo MCP
-interfaces. Morgan coordinates goals, cross-project allocation conflicts and
-Foo-local Codex session orchestration. Preserve the sole integration writer and
-disjoint allocations; do not launch, resume or control Foo Codex sessions from
-this prompt. Report already-known verified events promptly, then ask the actual
-owners for missing or changed status instead of repeating their work.
+The project owner drives authorized product delivery and coordinates disjoint
+work with the existing integration writer. Execution-environment session
+orchestration and account configuration remain outside the product contract.
+Report verified events promptly, then obtain missing status from the actual
+owner rather than repeating its work.
 
 For an assigned correction pass, first reconcile current source, pending local
 commits, ownership and exact candidate-bound hosted results, including applicable

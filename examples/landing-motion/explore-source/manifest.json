@@ -1,8 +1,8 @@
 {
   "sourceState": "working-tree-dirty",
-  "baseRevision": "15f368a9f8ac4b45f5d92772c492e863b0a0f5f9",
+  "baseRevision": "dfbcc7b0104f1e57c805892d5665c96443b9f38f",
   "repositoryContextRef": "feature/initial-implementation",
-  "snapshotDate": "2026-11-05",
+  "snapshotDate": "2026-11-13",
   "files": [
     {
       "path": "README.md",
@@ -31,13 +31,13 @@
     },
     {
       "path": "docs/agent-integrations.md",
-      "sha256": "4c353f94c3cade9213138fae22e5ce277ff8f7baaaa76b9d59bc3e6b31313e6f",
-      "bytes": 16418
+      "sha256": "db4befad159ae069c2835e3cf1f536ea123af830fcc328d83c9aded8c6e702cf",
+      "bytes": 14913
     },
     {
       "path": "docs/agent-onboarding.md",
-      "sha256": "5c30f9665c8bb92b8ce1e3682b3075565dd3be07fa296c258339025a292b63da",
-      "bytes": 25225
+      "sha256": "7e8d9546d4ff48bc9e915aca2e0610dd906872f09fb9fa4b2731d7ed5301f932",
+      "bytes": 23384
     },
     {
       "path": "docs/architecture.md",
@@ -101,7 +101,7 @@
     },
     {
       "path": "docs/getting-started.md",
-      "sha256": "f75dffe2c84ce64d084d5bfbb6bc3ce2b8d06fa4c829112a8eeaa29f81a528ee",
+      "sha256": "9d54babb76f8fed4f7856221fcef5522b23e5860f8bfdafbd078254e0e3f292b",
       "bytes": 7914
     },
     {
@@ -121,7 +121,7 @@
     },
     {
       "path": "docs/integration-testing.md",
-      "sha256": "edececc90609797c85617f57041d510e72136ce4b4c112b20a3f0d1181c2bfff",
+      "sha256": "7c79b660a97b25ad71e7454f77634f3fb6301bad2200ed11810d152f96d8876f",
       "bytes": 20128
     },
     {
@@ -151,8 +151,8 @@
     },
     {
       "path": "docs/managed-key-service.md",
-      "sha256": "af992ce756d63c7683f4f87cd8f1cbcf87446b9958170483b09e56f49b262930",
-      "bytes": 106216
+      "sha256": "b3842aa367ffe00a34800e2c62ac5817f425155b2b1d5919da84814658962531",
+      "bytes": 106197
     },
     {
       "path": "docs/management-and-discovery.md",
@@ -196,18 +196,13 @@
     },
     {
       "path": "docs/product-guide.md",
-      "sha256": "1515097fd5d1c23f28266d28867b973f6801ce00b292d9a7d17dc6be21083b2d",
-      "bytes": 16572
+      "sha256": "94961397dabfcfea0cf112d65d33093c963718a389c223ac4436b7c3699b38d2",
+      "bytes": 11110
     },
     {
       "path": "docs/providers.md",
       "sha256": "20306bc5250043715315a0c66af59a723000758d3edb3c2851be6500868c59ff",
       "bytes": 4523
-    },
-    {
-      "path": "docs/qualification.md",
-      "sha256": "a0db21f87d6551a16d79cbe3a589a11916f6e31e5c05a08910755bfd143307cc",
-      "bytes": 136116
     },
     {
       "path": "docs/README.md",
@@ -230,11 +225,6 @@
       "bytes": 33678
     },
     {
-      "path": "docs/session-handoff.md",
-      "sha256": "0e84082db5d4d989e00f95eba801c767d1b52cf73cc8667b74d0780b77f2443d",
-      "bytes": 163604
-    },
-    {
       "path": "docs/threat-model.md",
       "sha256": "a8f965cb0466678e44dcc5923905ccb775568f520102e0cd5a9a6473e88ee8d2",
       "bytes": 12743
@@ -246,8 +236,8 @@
     },
     {
       "path": "RELEASE.md",
-      "sha256": "96b4f9d5b999f31ba98ac20688570c14d95cf90ff9473591b50a40a15b4fef3f",
-      "bytes": 77882
+      "sha256": "0c4f1d3be354f43ce0c1d1cc3fe87d0b6947a18b6616fd43e2d903822a5b271d",
+      "bytes": 77927
     },
     {
       "path": "sdk/conformance/README.md",
@@ -261,8 +251,8 @@
     },
     {
       "path": "sdk/python/README.md",
-      "sha256": "e1e6c634549a360770d7a63dc5a5c821dd7e6804a336ce514c642309d26f206f",
-      "bytes": 7610
+      "sha256": "2d19a18b010778cdeb29995f831ecd49b740d59faf0cfb43a07c6bba6e862f70",
+      "bytes": 7897
     },
     {
       "path": "sdk/typescript/README.md",
@@ -281,13 +271,13 @@
     },
     {
       "path": "docs/assets/architecture-overview-dark.svg",
-      "sha256": "8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2",
-      "bytes": 4479
+      "sha256": "9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75",
+      "bytes": 4519
     },
     {
       "path": "docs/assets/architecture-overview-light.svg",
-      "sha256": "70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375",
-      "bytes": 4479
+      "sha256": "f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1",
+      "bytes": 4519
     },
     {
       "path": "docs/assets/environment-evolution-dark.svg",
