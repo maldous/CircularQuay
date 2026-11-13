@@ -152,7 +152,9 @@ def github_slug(title: str, seen: Counter[str]) -> str:
     return value if suffix == 0 else f"{value}-{suffix}"
 
 
-HEADING = re.compile(r"^(#{1,6})[ \t]+(.+)$")
+# Consume one required separator; heading_text strips any remaining spacing.
+# Avoid overlapping whitespace and title repetitions on malformed headings.
+HEADING = re.compile(r"^(#{1,6})[ \t](.+)$")
 
 
 def heading_text(value: str) -> str:

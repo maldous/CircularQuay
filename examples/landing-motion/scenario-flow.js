@@ -1,3 +1,13 @@
+// Compare story tokens without repeatedly rescanning a punctuation suffix.
+export function normaliseStoryWord(value) {
+  const characters = [...value.toLocaleLowerCase()];
+  const isContent = character => /[\p{L}\p{N}/]/u.test(character);
+  let start = 0, end = characters.length;
+  while (start < end && !isContent(characters[start])) start++;
+  while (end > start && !isContent(characters[end - 1])) end--;
+  return characters.slice(start, end).join('');
+}
+
 export const STEP_DURATION = 1200;
 export const SESSION_SETTLE_DURATION = 2200;
 const OPTIONAL_PROBABILITY = .25;

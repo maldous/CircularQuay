@@ -1,5 +1,5 @@
 import { motionCatalog } from './motion-catalog.js';
-import { createScenarioSession, createOptionalSchedule, createVariantRotation, createStoryRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { normaliseStoryWord, createScenarioSession, createOptionalSchedule, createVariantRotation, createStoryRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const root = document.documentElement;
 const journey = document.querySelector('.journey');
@@ -133,7 +133,6 @@ function setStory(activeIndex, complete, suppliedRefs, candidate = session, live
   if (refs.alternative) { refs.alternative.textContent = candidate.suffix; refs.alternative.dataset.state = complete ? 'complete' : 'pending'; }
   if (!refs.clauses) return;
   const renderedWords = [];
-  const normalise = value => value.toLocaleLowerCase().replace(/^[^\p{L}\p{N}/]+/gu, '').replace(/[^\p{L}\p{N}/]+$/gu, '');
   const clauseIndex = new Map(candidate.clauses.map((item, index) => [item, index]));
   refs.clauses.replaceChildren(...candidate.tasks.map((task, workloadIndex) => {
     const taskElement = document.createElement('span');
@@ -153,7 +152,7 @@ function setStory(activeIndex, complete, suppliedRefs, candidate = session, live
       let offset = 0;
       const records = [];
       for (let wordIndex = 0; wordIndex < rawWords.length;) {
-        const match = references.find(reference => reference.every((part, partIndex) => normalise(rawWords[wordIndex + partIndex] || '') === part));
+        const match = references.find(reference => reference.every((part, partIndex) => normaliseStoryWord(rawWords[wordIndex + partIndex] || '') === part));
         const count = match?.length || 1;
         if (wordIndex) clause.append(' ');
         const container = match ? document.createElement('span') : clause;
@@ -326,7 +325,9 @@ function revealStory() {
 function beginSession(next, complete = false, animate = false, applyIcons = true) {
   clearDelivered();
   session = next; sessionElapsed = 0; renderedStoryKey = '';
-  if (applyIcons) applySelection(session.selection, animate);
+  // Session setup does not wait for icon readiness; queued transitions await
+  // applySelection before entering this function with applyIcons=false.
+  if (applyIcons) void applySelection(session.selection, animate);
   setStory(complete ? session.clauses.length - 1 : 0, complete);
   if (complete) { updateWordReveals(session.clauses.length - 1, 1, true); showDelivered(); revealStory(); }
 }
