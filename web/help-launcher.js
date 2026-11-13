@@ -6,7 +6,8 @@ const isSchemaPointer = value => value === '/' || (typeof value === 'string' && 
 export async function schemaHelpTopic(pointer) {
   if (!isSchemaPointer(pointer)) return null;
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pointer)))].map(value => value.toString(16).padStart(2, '0')).join('');
-  const slug = pointer.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  // The first replacement collapses every run to one hyphen, including edges.
+  const slug = pointer.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return `control-schema-${slug}-${hash.slice(0, 12)}`;
 }
 

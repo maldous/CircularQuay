@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PERSONA_COUNT, STEP_DURATION, createOptionalSchedule, createScenarioSession, createStoryRotation, createVariantRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
+import { normaliseStoryWord, PERSONA_COUNT, STEP_DURATION, createOptionalSchedule, createScenarioSession, createStoryRotation, createVariantRotation, sessionStep, staticScenario, storyReservationSessions } from './scenario-flow.js';
 
 const variants = {
   identity: [{ name: 'GitHub', asset: 'github.svg' }, { name: 'Okta', asset: 'okta.svg' }],
@@ -173,4 +173,12 @@ test('story rotation independently cycles actors and contexts before repeating',
   assert.notEqual(choices[0].context, choices[1].context);
   const session = createScenarioSession({ variantPools: variants, storyChoice: { personaId: 'new-hire', context: 'during a Friday release' }, random: () => 0, optionalSlots: [] });
   assert.match(session.prefix, /^As a new hire during a Friday release, I need to .+ and .+,$/);
+});
+
+test('story tokens trim punctuation while retaining Unicode and reference paths', () => {
+  for (const [input, expected] of [
+    ['(GitHub),', 'github'], ['“مفاتيح”', 'مفاتيح'], ['…𐐀١…', '𐐨١'],
+    ['../docs/guide!', '/docs/guide'], ['!!two words!!', 'two words'],
+    ['...', ''], ['', ''], ['a' + '!'.repeat(100_000), 'a'],
+  ]) assert.equal(normaliseStoryWord(input), expected);
 });
