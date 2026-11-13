@@ -3,7 +3,7 @@ const collection = (title, description, fields, rows, extra = {}) => ({ title, d
 export const model = {
   plane: 'local', name: 'Your workspace', intro: 'The right secrets, ready for your apps.',
   scopes: ['Client'],
-  settings: { name: 'Alex Morgan', email: 'alex@example.invalid', organization: 'Personal workspace', initials: 'AM', brand: 'CQ', notifications: 'Security and usage', retention: '30 days' },
+  settings: { name: 'Alex Morgan', email: 'alex@example.invalid', organization: 'Personal workspace', initials: 'AM', brand: 'CircularQuay', notifications: 'Security and usage', retention: '30 days' },
   navigation: { Client: ['workbench', 'configuration', 'environments', 'sources', 'workloads', 'inheritance', 'policy', 'windows', 'custody', 'migration', 'fleet', 'integrations', 'telemetry', 'identity', 'settings'] },
   policy: {
     version: 1,

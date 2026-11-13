@@ -65,13 +65,13 @@ Search and retrieval run entirely in the client. Progressively load public stati
 
 ## Initial language scope
 
-English (`en`) and Arabic (`ar`) are the initial locales, with Arabic exercising RTL. Do not invent regional variants. Translate product labels, actions, messages and help while preserving machine identifiers, user content and configuration syntax. Translation drafts and English fallback do not establish Arabic acceptance. Preserve the initial closed v1 authoring schema; locale selection and source/translation linkage require a separately reviewed initial-v1 manifest.
+The user confirmed English (`en`) and one Arabic locale (`ar`) to exercise RTL. Do not invent regional variants. Translate product labels, actions, messages and help while preserving machine identifiers, user content and configuration syntax. Translation drafts and English fallback do not establish Arabic acceptance. Preserve the initial closed v1 authoring schema; locale selection and source/translation linkage require a separately reviewed initial-v1 manifest.
 
 Anonymous language/theme controls now use one direct current V1 device record and work without an account or application startup. Explicit choices take precedence; automatic choices use supported ordered browser preferences, with English fallback. Arabic controls carry a preview label while product/help content remains English. Changes preserve drafts. No workspace conversion, real profile adapter or GeoIP service is present.
 
 ## Current name
 
-The product display name is CircularQuay; executables are `cq` and `cq-audit`. Product marks always use CircularQuay. A saved workspace brand is user-authored content, separate from the product mark; it is preserved. Repository/module/package/protocol identifiers and browser state paths retain their verified identities. Frozen evidence remains immutable. Native schema/help source titles and derived pins update only with their canonical owner’s coherent source package.
+The product display name is CircularQuay; executables are `cq` and `cq-audit`. User-facing pages, documentation and presentations use exactly CircularQuay, without a space. CQ is reserved for compact internal labels. Product marks always use CircularQuay. A saved workspace brand is user-authored content, separate from the product mark; it is preserved. Repository/module/package/protocol identifiers and browser state paths retain their verified identities. Frozen evidence remains immutable. Native schema/help source titles and derived pins update only with their canonical owner’s coherent source package.
 
 ## Accepted visual reference
 

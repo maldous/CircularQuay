@@ -1,4 +1,4 @@
-# CQ landing
+# CircularQuay landing
 
 Mode: Persuade. User-delegated greenfield visual direction; no OffMenu aesthetic or layout assumptions.
 
