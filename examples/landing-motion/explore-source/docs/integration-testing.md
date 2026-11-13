@@ -36,7 +36,7 @@ only. A normal `go test ./...` has no Java or WireMock dependency; a requested
 tagged run fails if the selected JAR is absent or does not match the tracked
 digest.
 
-Prerequisites are Java 21 with `keytool`, Go 1.27.3, and a local copy of the
+Prerequisites are Java 21 with `keytool`, Go 1.27.4, and a local copy of the
 official [WireMock standalone JAR](https://repo.maven.apache.org/maven2/org/wiremock/wiremock-standalone/3.13.2/wiremock-standalone-3.13.2.jar).
 Download it and compare both the official checksum and the tracked manifest:
 

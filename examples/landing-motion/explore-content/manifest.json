@@ -1,12 +1,12 @@
 {
   "repository": "https://github.com/maldous/CircularQuay",
   "revision": "working-tree",
-  "baseRevision": "15f368a9f8ac4b45f5d92772c492e863b0a0f5f9",
+  "baseRevision": "dfbcc7b0104f1e57c805892d5665c96443b9f38f",
   "sourceState": "working-tree-dirty",
-  "snapshotDate": "2026-11-05",
+  "snapshotDate": "2026-11-13",
   "repositoryContextRef": "feature/initial-implementation",
   "repositoryReferenceNote": "Repository reference (may differ from this local snapshot)",
-  "sourceFreezeManifestSha256": "abb8878ee734dbe398f98c15c8abd22de1e3a511e1620d2de9917f4fd0d16b45",
+  "sourceFreezeManifestSha256": "f7132120d3ffdeb945efc5140a22fa45390bbc58090f77b47f37fa56e1db2580",
   "presentationCopy": {
     "mappings": [
       {
@@ -41,7 +41,7 @@
       }
     ]
   },
-  "documentCount": 55,
+  "documentCount": 53,
   "sourcePaths": [
     {
       "path": "README.md",
@@ -55,12 +55,12 @@
     },
     {
       "path": "docs/getting-started.md",
-      "sha256": "f75dffe2c84ce64d084d5bfbb6bc3ce2b8d06fa4c829112a8eeaa29f81a528ee",
+      "sha256": "9d54babb76f8fed4f7856221fcef5522b23e5860f8bfdafbd078254e0e3f292b",
       "parts": 1
     },
     {
       "path": "docs/product-guide.md",
-      "sha256": "1515097fd5d1c23f28266d28867b973f6801ce00b292d9a7d17dc6be21083b2d",
+      "sha256": "94961397dabfcfea0cf112d65d33093c963718a389c223ac4436b7c3699b38d2",
       "parts": 1
     },
     {
@@ -125,7 +125,7 @@
     },
     {
       "path": "sdk/python/README.md",
-      "sha256": "e1e6c634549a360770d7a63dc5a5c821dd7e6804a336ce514c642309d26f206f",
+      "sha256": "2d19a18b010778cdeb29995f831ecd49b740d59faf0cfb43a07c6bba6e862f70",
       "parts": 1
     },
     {
@@ -225,12 +225,12 @@
     },
     {
       "path": "docs/agent-onboarding.md",
-      "sha256": "5c30f9665c8bb92b8ce1e3682b3075565dd3be07fa296c258339025a292b63da",
+      "sha256": "7e8d9546d4ff48bc9e915aca2e0610dd906872f09fb9fa4b2731d7ed5301f932",
       "parts": 2
     },
     {
       "path": "docs/agent-integrations.md",
-      "sha256": "4c353f94c3cade9213138fae22e5ce277ff8f7baaaa76b9d59bc3e6b31313e6f",
+      "sha256": "db4befad159ae069c2835e3cf1f536ea123af830fcc328d83c9aded8c6e702cf",
       "parts": 1
     },
     {
@@ -247,11 +247,6 @@
       "path": "docs/configuration-repositories.md",
       "sha256": "9cad82f8c119a631da9191d2bba4fe29b1711ce83e6e86f1f322b683db0e2424",
       "parts": 1
-    },
-    {
-      "path": "docs/session-handoff.md",
-      "sha256": "0e84082db5d4d989e00f95eba801c767d1b52cf73cc8667b74d0780b77f2443d",
-      "parts": 5
     },
     {
       "path": "docs/assets/README.md",
@@ -275,12 +270,12 @@
     },
     {
       "path": "docs/integration-testing.md",
-      "sha256": "edececc90609797c85617f57041d510e72136ce4b4c112b20a3f0d1181c2bfff",
+      "sha256": "7c79b660a97b25ad71e7454f77634f3fb6301bad2200ed11810d152f96d8876f",
       "parts": 1
     },
     {
       "path": "docs/managed-key-service.md",
-      "sha256": "af992ce756d63c7683f4f87cd8f1cbcf87446b9958170483b09e56f49b262930",
+      "sha256": "b3842aa367ffe00a34800e2c62ac5817f425155b2b1d5919da84814658962531",
       "parts": 6
     },
     {
@@ -304,18 +299,13 @@
       "parts": 1
     },
     {
-      "path": "docs/qualification.md",
-      "sha256": "a0db21f87d6551a16d79cbe3a589a11916f6e31e5c05a08910755bfd143307cc",
-      "parts": 6
-    },
-    {
       "path": "docs/verification.md",
       "sha256": "8792c07bf5cb4f587f783f50ac37560ca5173ef3fad2e5dfccfbd6b9fa98c3e0",
       "parts": 1
     },
     {
       "path": "RELEASE.md",
-      "sha256": "96b4f9d5b999f31ba98ac20688570c14d95cf90ff9473591b50a40a15b4fef3f",
+      "sha256": "0c4f1d3be354f43ce0c1d1cc3fe87d0b6947a18b6616fd43e2d903822a5b271d",
       "parts": 4
     }
   ],
@@ -326,19 +316,19 @@
       "file": "assets/2b81a2ebbc44bb3983e05b2a20fc5b1bc0c4fad6fe9ea62ddd7738265ae41720.svg"
     },
     {
-      "sourcePath": "docs/assets/architecture-overview-light.svg",
-      "sha256": "70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375",
-      "file": "assets/70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375.svg"
-    },
-    {
       "sourcePath": "docs/assets/architecture-overview-dark.svg",
-      "sha256": "8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2",
-      "file": "assets/8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2.svg"
+      "sha256": "9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75",
+      "file": "assets/9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75.svg"
     },
     {
       "sourcePath": "docs/assets/environment-evolution-dark.svg",
       "sha256": "ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c",
       "file": "assets/ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c.svg"
+    },
+    {
+      "sourcePath": "docs/assets/architecture-overview-light.svg",
+      "sha256": "f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1",
+      "file": "assets/f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1.svg"
     }
   ],
   "rawHtmlSanitized": {
@@ -426,6 +416,11 @@
     },
     {
       "document": "README.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "README.md",
       "target": "examples/linux-deployment.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/examples/linux-deployment.json"
     },
@@ -445,9 +440,49 @@
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/AGENTS.md"
     },
     {
+      "document": "docs/README.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/getting-started.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/getting-started.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/getting-started.md",
       "target": "../examples/linux-deployment.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/examples/linux-deployment.json"
+    },
+    {
+      "document": "docs/product-guide.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/product-guide.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/architecture.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/comparison.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/comparison.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     },
     {
       "document": "docs/configuration.md",
@@ -460,14 +495,54 @@
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/examples/linux-deployment.json"
     },
     {
+      "document": "docs/configuration.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/integrations.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/sdks.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "sdk/go/README.md",
+      "target": "../../docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "SUPPORT.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "sdk/typescript/README.md",
+      "target": "../../docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "CONTRIBUTING.md",
       "target": "AGENTS.md",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/AGENTS.md"
     },
     {
+      "document": "sdk/python/README.md",
+      "target": "DARWIN_SOURCE_BUILD.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/sdk/python/DARWIN_SOURCE_BUILD.md"
+    },
+    {
+      "document": "sdk/python/README.md",
+      "target": "../../docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/integrations/cloud-provider-validation.md",
-      "target": "../../internal/source/cloud.go",
-      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/source/cloud.go"
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     },
     {
       "document": "docs/integrations/cloud-provider-validation.md",
@@ -483,6 +558,46 @@
       "document": "docs/integrations/cloud-provider-validation.md",
       "target": "../../internal/source/cloud.go",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/source/cloud.go"
+    },
+    {
+      "document": "docs/integrations/cloud-provider-validation.md",
+      "target": "../../internal/source/cloud.go",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/source/cloud.go"
+    },
+    {
+      "document": "docs/integrations/cloud-provider-validation.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/integrations/compatibility-gateway.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/enterprise-integration.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/hosted-identity.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/hosted-identity.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/integrations/identity-and-provider-fixtures.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/integrations/supply-chain.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     },
     {
       "document": "docs/integrations/supply-chain.md",
@@ -490,14 +605,74 @@
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/.github/workflows/dependency-review.yml"
     },
     {
+      "document": "docs/administration-security.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/assurance.md",
       "target": "../internal/assurance/tool_manifest.schema.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/assurance/tool_manifest.schema.json"
     },
     {
+      "document": "docs/assurance.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/credential-boundaries.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "SECURITY.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/security-profiles.md",
+      "target": "qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "docs/security-profiles.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/security-profiles.md",
+      "target": "qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "docs/security-profiles.md",
+      "target": "qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "docs/threat-model.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/operators/mcp.md",
       "target": "../../examples/mcp-local.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/examples/mcp-local.json"
+    },
+    {
+      "document": "docs/operators/mcp.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/adr/0001-language-and-assurance.md",
+      "target": "../qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/agent-onboarding.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     },
     {
       "document": "docs/agent-onboarding.md",
@@ -650,9 +825,24 @@
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/integrations/skills/cq/agents/openai.yaml"
     },
     {
+      "document": "docs/agent-integrations.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/commands.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/composition-reference.md",
       "target": "../internal/policy/schema/policy-v1.schema.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/policy/schema/policy-v1.schema.json"
+    },
+    {
+      "document": "docs/composition-reference.md",
+      "target": "qualification.md#following-composition-and-security-design-changes",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#following-composition-and-security-design-changes"
     },
     {
       "document": "docs/composition-reference.md",
@@ -665,14 +855,139 @@
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/examples/composition/personal.json"
     },
     {
+      "document": "docs/configuration-repositories.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/management-and-discovery.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/credential-lifecycle.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/implementation-plan.md",
+      "target": "qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "docs/implementation-plan.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/integration-testing.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/managed-key-service.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/managed-key-service.md",
+      "target": "qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "docs/managed-key-service.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
       "document": "docs/operational-configuration.md",
       "target": "../internal/policy/schema/policy-v1.schema.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/internal/policy/schema/policy-v1.schema.json"
     },
     {
+      "document": "docs/configuration-governance.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/platform-support.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#exact-20703ec8-hosted-receipt",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#exact-20703ec8-hosted-receipt"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "docs/verification.md",
+      "target": "qualification.md#bounded-receipts",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#bounded-receipts"
+    },
+    {
       "document": "docs/verification.md",
       "target": "../.github/workflows/browser.yml",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/.github/workflows/browser.yml"
+    },
+    {
+      "document": "RELEASE.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
+    },
+    {
+      "document": "RELEASE.md",
+      "target": "docs/qualification.md#managed-service-design-status",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md#managed-service-design-status"
+    },
+    {
+      "document": "RELEASE.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     },
     {
       "document": "RELEASE.md",
@@ -683,6 +998,11 @@
       "document": "RELEASE.md",
       "target": "tools/sonar-scanner.json",
       "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/tools/sonar-scanner.json"
+    },
+    {
+      "document": "RELEASE.md",
+      "target": "docs/qualification.md",
+      "fallback": "https://github.com/maldous/CircularQuay/blob/feature%2Finitial-implementation/docs/qualification.md"
     }
   ],
   "publicFiles": [
@@ -692,19 +1012,19 @@
       "bytes": 1943
     },
     {
-      "path": "explore-content/assets/70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375.svg",
-      "sha256": "70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375",
-      "bytes": 4479
-    },
-    {
-      "path": "explore-content/assets/8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2.svg",
-      "sha256": "8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2",
-      "bytes": 4479
+      "path": "explore-content/assets/9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75.svg",
+      "sha256": "9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75",
+      "bytes": 4519
     },
     {
       "path": "explore-content/assets/ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c.svg",
       "sha256": "ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c",
       "bytes": 1943
+    },
+    {
+      "path": "explore-content/assets/f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1.svg",
+      "sha256": "f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1",
+      "bytes": 4519
     },
     {
       "path": "explore-content/code-of-conduct.js",
@@ -718,28 +1038,28 @@
     },
     {
       "path": "explore-content/docs-administration-security.js",
-      "sha256": "b3130bb8ff659674ae7c47d4878ee035b18d62a40fd37b125beeb59563d3921b",
-      "bytes": 29229
+      "sha256": "d78bbbdbe37efe10cb71a197b2c2f25653e621b4ae5edc564645b90694df34d4",
+      "bytes": 29350
     },
     {
       "path": "explore-content/docs-adr-0001-language-and-assurance.js",
-      "sha256": "2bb4a3e0db25ec08b6730ca103504ea0f9e06ce7e832feb4f33e071c9acec6a5",
-      "bytes": 2546
+      "sha256": "834dc4e20e3c5efeef44828eb6369ba9dea00b8c49dc13f007c1e3302072d092",
+      "bytes": 2667
     },
     {
       "path": "explore-content/docs-agent-integrations.js",
-      "sha256": "f8ab104d425d7c8cb3d6f916d79ad1d290fcfcb51f533b453535d8892c977e37",
-      "bytes": 19007
+      "sha256": "9af9d77b962ca7113f746401219fdf2fe83c2a90bf9cd2df2485d3828a5c6bbe",
+      "bytes": 17442
     },
     {
       "path": "explore-content/docs-agent-onboarding.js",
-      "sha256": "9409d998b4f5e2ad021602e7fb363075b5924e4089cb4ad83fa8b1e29737ec66",
-      "bytes": 34550
+      "sha256": "50218fcd0fc6c8edf83b58a56fab0aab8aaf0d5aa5ff9243f305969151d42c4d",
+      "bytes": 32525
     },
     {
       "path": "explore-content/docs-architecture.js",
-      "sha256": "b67c87782dec48f1735cded76f1a24b28aa0171931419d19ae602c420d23cdae",
-      "bytes": 9142
+      "sha256": "354e36f01975ae2ce720053fa8db8721971ba17652d45d57ea7ab2f1a632b84d",
+      "bytes": 9263
     },
     {
       "path": "explore-content/docs-assets-readme.js",
@@ -748,63 +1068,63 @@
     },
     {
       "path": "explore-content/docs-assurance.js",
-      "sha256": "ef76962873c548d0de2de54270f7059a78f78d59191463c65bd2eb56c476700f",
-      "bytes": 15525
+      "sha256": "cf74eb1e53d462b7b92e3c2f4ae160d4a37c428c7f59bc27b4a7b0b446ff357b",
+      "bytes": 15646
     },
     {
       "path": "explore-content/docs-commands.js",
-      "sha256": "f3bb6de61bb3f5c05c5f0b6af9462f535a210c9ffad12b4ce7eecf4d113030f1",
-      "bytes": 17182
+      "sha256": "3f3da20c6751bebfa361285425965e379cd44aa46eb58cc47c3231e45a86ff34",
+      "bytes": 17303
     },
     {
       "path": "explore-content/docs-comparison.js",
-      "sha256": "7fa7e256b5a0e437677bf9a94a4c44adeda6ee7a6de012a4b1682ce5202fd6cd",
-      "bytes": 12801
+      "sha256": "24b1adc300308b5c5b906806448f35c6eddfe60f9d90372ae3fa870d60b44023",
+      "bytes": 13043
     },
     {
       "path": "explore-content/docs-composition-reference.js",
-      "sha256": "e5187dc252ec56eb08d48330cb9ea16ee4dcdeaf5490ff9c13cabc6eb853831c",
-      "bytes": 9134
+      "sha256": "eeb23d371e9c780f13d6f29e1bcc4f309b884fe959c36fd5d57fe8429c05762b",
+      "bytes": 9244
     },
     {
       "path": "explore-content/docs-configuration-governance.js",
-      "sha256": "e2e55b491398f95a218164b4acf54864f02562d5a1e469a8ac52a5e47a44a4bf",
-      "bytes": 26335
+      "sha256": "a2224ef16a129f63db4bc5dd7e5a3f50abeaa70e0e5473637c2fc6a3bb32e8e2",
+      "bytes": 26456
     },
     {
       "path": "explore-content/docs-configuration-repositories.js",
-      "sha256": "844fc4ede2e1214b2675a231080c89085a302b1038664493b1f46f456d24a872",
-      "bytes": 16917
+      "sha256": "58db8d362110f0395a38729b3e18be346d1fee1d59e7bc747c8f504b0f098dcf",
+      "bytes": 17038
     },
     {
       "path": "explore-content/docs-configuration.js",
-      "sha256": "1555697e600d6b13bdd69126fdb9e8b9b32e89c1e438135058bc0abdd159bc54",
-      "bytes": 51209
+      "sha256": "a4d6932b585708f245fc34c2a26b3ae6ae27a13607057d1706e84e0834c48fce",
+      "bytes": 51330
     },
     {
       "path": "explore-content/docs-credential-boundaries.js",
-      "sha256": "4164295e3d0be907252b0b5762fcda6ba3e5c598572942e28b1c1c1a8f7c85bb",
-      "bytes": 29216
+      "sha256": "f5790168bed6a283e201296e4d00deef871a6bb7c4737c584c5ba01a36b9c122",
+      "bytes": 29337
     },
     {
       "path": "explore-content/docs-credential-lifecycle.js",
-      "sha256": "fb6419b8448e4dbdcd6d0cae3d85fda87c098c8556562e11aa1fc8ece29278bd",
-      "bytes": 22075
+      "sha256": "97e7e5cad165f4160d86c63db6d25e8b278bd042df7b9498a285055e7a183657",
+      "bytes": 22196
     },
     {
       "path": "explore-content/docs-enterprise-integration.js",
-      "sha256": "09021883975724f51a6897ef7cd88ce31098eb5ad729f0153300121d7f80b17b",
-      "bytes": 30822
+      "sha256": "66ae353f53631da6d23d441773596b0b99c6d443673a70021f2c9697bf5a79dd",
+      "bytes": 30943
     },
     {
       "path": "explore-content/docs-getting-started.js",
-      "sha256": "36b152b707d773c0159c151d5aa4a3f13e5e6143bfbb1c40bf79f7f2b8153175",
-      "bytes": 9855
+      "sha256": "d52322b2f6f7656a5e49d85aa6946c47f2df7392e2578c2df85c79deb7ae69d0",
+      "bytes": 10097
     },
     {
       "path": "explore-content/docs-hosted-identity.js",
-      "sha256": "3394c17a59032cbf5e1345d7da0104ba0e06f1aa59219d7d0f235e71ca026736",
-      "bytes": 16166
+      "sha256": "344d9e49df6bf7daf76791db6cabc0d4aba455932610f57eda827940c0187c93",
+      "bytes": 16408
     },
     {
       "path": "explore-content/docs-identity-and-expiry.js",
@@ -813,48 +1133,48 @@
     },
     {
       "path": "explore-content/docs-implementation-plan.js",
-      "sha256": "c5bc2c788a3871d414aa7024ae4ac9ea7be9a12ac083d9e6d33d10b2302eb958",
-      "bytes": 53558
+      "sha256": "e9587438a1eab409cd26e1800b5c52708bfbdd1db2e07c5532348e01c6f667df",
+      "bytes": 53789
     },
     {
       "path": "explore-content/docs-integration-testing.js",
-      "sha256": "ea403c215aa05601fcdc7c0496efa300c9691a27310f60362febd3e73fdf797f",
-      "bytes": 22935
+      "sha256": "a118f281241c55e2c3a65331733a2481d9270b6f4d335113f6a020bb014b81d6",
+      "bytes": 23056
     },
     {
       "path": "explore-content/docs-integrations-cloud-provider-validation.js",
-      "sha256": "8af5aa154656f458aab20a510d52de4e9c9c3dd0e3ea727ec69dd2d5604a4270",
-      "bytes": 21104
+      "sha256": "c2f21f1cc377042897241ab0d70e3d6a63b4425965cd0b35a51a5e35aa69c778",
+      "bytes": 21346
     },
     {
       "path": "explore-content/docs-integrations-compatibility-gateway.js",
-      "sha256": "de2b9ccce7ae3d36730d4656662f61e3820e7222b402b7b1d8273230bab9c499",
-      "bytes": 9020
+      "sha256": "ae63068679a8f118c6ccd1942cfabd10b295b020af1557f847b402ddafe04414",
+      "bytes": 9141
     },
     {
       "path": "explore-content/docs-integrations-identity-and-provider-fixtures.js",
-      "sha256": "d7d4af7859514c0869fd22a110c2fce55f2f3944ba6cbe3b32e7c4acce2f52a5",
-      "bytes": 14162
+      "sha256": "ec436060f3c70dbd7fdbd91938260864a6cf9746f42e47217c694bf330e64321",
+      "bytes": 14283
     },
     {
       "path": "explore-content/docs-integrations-supply-chain.js",
-      "sha256": "bf4df5ee6321c8d294ee93ca521fdad6b51fb540678cd567ad1d1c9834c5655c",
-      "bytes": 9439
+      "sha256": "aa32a0f8d0f7ac007be8f52749101261d6ce416da73058df95da17e80f74bbaf",
+      "bytes": 9560
     },
     {
       "path": "explore-content/docs-integrations.js",
-      "sha256": "cee1267a4ee2141013fab4267563556c5a7d635357b139df3f74403d8bf35f1e",
-      "bytes": 27115
+      "sha256": "7cee5703e7cb0fcf30216c52eefdc088bd62e211985ed07523427c7fad2204a8",
+      "bytes": 27236
     },
     {
       "path": "explore-content/docs-managed-key-service.js",
-      "sha256": "dfecf32a304b9deebdce5c026011c72da744067ca254562eb40e1589b332289f",
-      "bytes": 117953
+      "sha256": "9bbbe023b76cd65129ee70f177ebe2ecbc6a3110e8cf0b3bb16451dcd10a6473",
+      "bytes": 118242
     },
     {
       "path": "explore-content/docs-management-and-discovery.js",
-      "sha256": "e69749965793b5b1d9f382f4e8c69f72c56b5b9b12408f3d382f3eb9cdaf75ef",
-      "bytes": 32745
+      "sha256": "fe662326c250832fd5c09c8215294d78fdc17aa3f06e9dd25aa88997a71d1ff9",
+      "bytes": 32866
     },
     {
       "path": "explore-content/docs-operational-configuration.js",
@@ -873,8 +1193,8 @@
     },
     {
       "path": "explore-content/docs-operators-mcp.js",
-      "sha256": "bfee0ec8bda0e8a48c3a75029f4252c405702bd0dd90a5fa383cf3f221eb261c",
-      "bytes": 11649
+      "sha256": "e6558836079163d76f15a77d33596fcb7ec53b5a5f97b3775d17c3594a028969",
+      "bytes": 11770
     },
     {
       "path": "explore-content/docs-operators-providers.js",
@@ -888,13 +1208,13 @@
     },
     {
       "path": "explore-content/docs-platform-support.js",
-      "sha256": "906068d70e5259e056ac2cd042d3fd6b71de4941a9bf5a0915a264b141dcfa96",
-      "bytes": 4005
+      "sha256": "3b2fe1645c838568b47d811f5718f195d1088427cb2bfe41a8b2c38133978015",
+      "bytes": 4126
     },
     {
       "path": "explore-content/docs-product-guide.js",
-      "sha256": "437079c1f270a70c45d7e22a3cb2bb92ff20c03eac16a279a4bcfe2ab0ed10dd",
-      "bytes": 19705
+      "sha256": "c6e2ce963bd4c15185396c701ea616089dfb863adefc4d32a1cc033ecf1ccf04",
+      "bytes": 13799
     },
     {
       "path": "explore-content/docs-providers.js",
@@ -902,14 +1222,9 @@
       "bytes": 5566
     },
     {
-      "path": "explore-content/docs-qualification.js",
-      "sha256": "2efb5d263e4b57ec99e758f1040eb0858433fee277dac28baffffae5d78b4ab6",
-      "bytes": 151339
-    },
-    {
       "path": "explore-content/docs-readme.js",
-      "sha256": "35d821ce06a2af700fce60deec520d9edead6af410a3b3368e7a7c2334f122b2",
-      "bytes": 7183
+      "sha256": "c567e1510cb90fe8088abc5404f467d85c8799236ecf7ba84a766df65b075909",
+      "bytes": 7304
     },
     {
       "path": "explore-content/docs-runtime-boundaries.js",
@@ -918,38 +1233,33 @@
     },
     {
       "path": "explore-content/docs-sdks.js",
-      "sha256": "1e75c90bba0010386b9bc9cab519fa07ad2c92fd4ed00e32f908eb0cbbf338f6",
-      "bytes": 15867
+      "sha256": "c73b2616b6dbea3035c77c95164a774377bd8ef64513059cd57ea77b683c9da6",
+      "bytes": 15988
     },
     {
       "path": "explore-content/docs-security-profiles.js",
-      "sha256": "162f474ebf98e8fce1170a3bf3b359c477abc9fe38df0a57bd4d05636f89914b",
-      "bytes": 37459
-    },
-    {
-      "path": "explore-content/docs-session-handoff.js",
-      "sha256": "d8c75e8d87b2f54b76a024287d7c552c726240183a280d8ff3eedb86866f5ee1",
-      "bytes": 178633
+      "sha256": "f11ba5213b0c4f8dd4b6b8683686c52e8f562c9acc5188df73a2cc64fdc19675",
+      "bytes": 37910
     },
     {
       "path": "explore-content/docs-threat-model.js",
-      "sha256": "e23024dc65612c794c0fafed728dfd72f184a20df0584402c257663fef2e0548",
-      "bytes": 15076
+      "sha256": "a163e6ed28ccee08dfacd3c9ba51c06aa0d1f66340976862806708335c5c30bf",
+      "bytes": 15197
     },
     {
       "path": "explore-content/docs-verification.js",
-      "sha256": "b5635b9ff6df514298635b6d1ae75575b21562b6719c448d8107616a79a21c95",
-      "bytes": 5854
+      "sha256": "e16ba6635174632c3278ff2624ec4ebbc6853f17485f9dd0c31532d0a68a4e8e",
+      "bytes": 7075
     },
     {
       "path": "explore-content/readme.js",
-      "sha256": "1eba0e950d5f4a2d9ca0a58bdbf1d044167fd4347124dc12fa15db8b1f3bea52",
-      "bytes": 15809
+      "sha256": "3b7cdc6305e2e9344adaf8297e0c4d72d04c308c9f827746ad75d0400b181350",
+      "bytes": 15930
     },
     {
       "path": "explore-content/release.js",
-      "sha256": "59b13ec447f31ea2f31b8d2030e7b373ec0722e65c5140e195a25acc9b59b834",
-      "bytes": 87764
+      "sha256": "22f09cde367bafda837272d913d3ea3ec5cecbfaebe188abaebbd07f65a52eb6",
+      "bytes": 88244
     },
     {
       "path": "explore-content/sdk-conformance-readme.js",
@@ -958,40 +1268,40 @@
     },
     {
       "path": "explore-content/sdk-go-readme.js",
-      "sha256": "5b355642778dd69958f0439ff7e014ecd376083bf291ceb4133a2e63945925a6",
-      "bytes": 5697
+      "sha256": "818e2650c179927e71f5a5f1c0aeeee3ff0569023510b523b8a78e0a58ee61da",
+      "bytes": 5818
     },
     {
       "path": "explore-content/sdk-python-readme.js",
-      "sha256": "d6a21854d5578fca9acf8ea855dc3b571447487c72c2111fe6c9ed678bc20ed7",
-      "bytes": 9187
+      "sha256": "c3b143b433d79c3e49b57490193cf7245a5ea039c2d06bb0e969b3bc55b5c024",
+      "bytes": 9776
     },
     {
       "path": "explore-content/sdk-typescript-readme.js",
-      "sha256": "a5d7ba3ad7c98dcefcbb1ff20d806753ba736ee7b125c1153b3f2afc907414e6",
-      "bytes": 6107
+      "sha256": "9117eaadce62e0780d5450d5547827b28943f6914e7c33f46feae7621972b984",
+      "bytes": 6228
     },
     {
       "path": "explore-content/security.js",
-      "sha256": "382d4e6b5521084d69c87d3f4e508f4097819995c602bf971fcf8265410b8ede",
-      "bytes": 6822
+      "sha256": "ee30b6d4204278b5b8fb11756b020753cf42d7e31c1070def37d7530a903e3ef",
+      "bytes": 6943
     },
     {
       "path": "explore-content/support.js",
-      "sha256": "f7e82525d777ae0b1e73b2e006c219a9510812ca098122a882e5384de9496ff7",
-      "bytes": 4168
+      "sha256": "cfea5d89af9658f067a806771acb783670743c492f8aeb850243a49308b130a2",
+      "bytes": 4289
     },
     {
       "path": "explore-manifest.js",
-      "sha256": "3f74ce76744227de08d54ad675346c9b87c2fb8273c424e34c5e18258400c2cf",
-      "bytes": 64953
+      "sha256": "d1d970d185b5c3685cf4406345bdb6ed7e377bed1def5d8d6a6e6c4565769d50",
+      "bytes": 56521
     }
   ],
   "generatedFiles": [
     "explore-content/assets/2b81a2ebbc44bb3983e05b2a20fc5b1bc0c4fad6fe9ea62ddd7738265ae41720.svg",
-    "explore-content/assets/70871a9a09a26951704c4fa9a682e6e6b2d7e3e8fa225a7c17646eda5c2e6375.svg",
-    "explore-content/assets/8743ca8a2944c61dfcb40e92488a668b332e2377bfbcd150b7874048b53988d2.svg",
+    "explore-content/assets/9b17f960dc98ba8f8e34ec24961c2e2adf8212dfe766ac3318ac2cde5db44e75.svg",
     "explore-content/assets/ca4e9c491bf7de603f0e41095dae1dc25912fe6390fdda07effa8a99b2c6861c.svg",
+    "explore-content/assets/f0c325da331ef05adeee0a1516e2e41b7511a4e35424f62e41eb61a2f56635d1.svg",
     "explore-content/code-of-conduct.js",
     "explore-content/contributing.js",
     "explore-content/docs-administration-security.js",
@@ -1031,12 +1341,10 @@
     "explore-content/docs-platform-support.js",
     "explore-content/docs-product-guide.js",
     "explore-content/docs-providers.js",
-    "explore-content/docs-qualification.js",
     "explore-content/docs-readme.js",
     "explore-content/docs-runtime-boundaries.js",
     "explore-content/docs-sdks.js",
     "explore-content/docs-security-profiles.js",
-    "explore-content/docs-session-handoff.js",
     "explore-content/docs-threat-model.js",
     "explore-content/docs-verification.js",
     "explore-content/readme.js",

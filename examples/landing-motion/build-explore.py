@@ -30,7 +30,7 @@ REPOSITORY_CONTEXT_REF = "feature/initial-implementation"
 REPOSITORY_REFERENCE_NOTE = "Repository reference (may differ from this local snapshot)"
 REVISION = "working-tree"
 REPOSITORY = "https://github.com/maldous/CircularQuay"
-SNAPSHOT_DATE = "2026-11-05"
+SNAPSHOT_DATE = "2026-11-13"
 ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = ROOT.parent.parent
 CONTENT = ROOT / "explore-content"
@@ -89,7 +89,7 @@ def refresh_local_source() -> None:
     SOURCE.mkdir(parents=True, exist_ok=True)
     SOURCE_MANIFEST.write_text(json.dumps({
         "sourceState": "working-tree-dirty", "baseRevision": CURRENT_HEAD,
-        "repositoryContextRef": CURRENT_BRANCH, "snapshotDate": SNAPSHOT_DATE, "files": records,
+        "repositoryContextRef": PRODUCT_INPUTS["repositoryContextRef"], "snapshotDate": SNAPSHOT_DATE, "files": records,
     }, indent=2) + "\n")
 
 

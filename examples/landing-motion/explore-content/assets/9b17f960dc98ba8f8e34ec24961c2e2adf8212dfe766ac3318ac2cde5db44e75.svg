@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
-  <title id="title">CQ: identity, policy and delivery</title>
-  <desc id="desc">The v1 model joins exact provider resources and encrypted artifacts with signed grants from a trusted identity provider and authorization server. The CQ policy core verifies identity, permissions, client binding and expiry before native delivery, approved snapshots or individually authorized MCP access.</desc>
+  <title id="title">CircularQuay: identity, policy and delivery</title>
+  <desc id="desc">The v1 model joins exact provider resources and encrypted artifacts with signed grants from a trusted identity provider and authorization server. The CircularQuay policy core verifies identity, permissions, client binding and expiry before native delivery, approved snapshots or individually authorized MCP access.</desc>
   <defs>
     <marker id="delivery-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 Z" fill="#53d7ca"/>
@@ -11,7 +11,7 @@
   </defs>
   <rect width="1200" height="600" rx="20" fill="#0b1723"/>
   <g font-family="system-ui, sans-serif">
-    <text x="40" y="56" fill="#e8f0f7" font-size="27" font-weight="700">CQ: identity, policy and delivery</text>
+    <text x="40" y="56" fill="#e8f0f7" font-size="27" font-weight="700">CircularQuay: identity, policy and delivery</text>
     <text x="40" y="89" fill="#a8bdcd" font-size="17">Approved identities. Exact permissions. Time-bound access.</text>
 
     <g fill="none" stroke="#53d7ca" stroke-width="3">
@@ -39,7 +39,7 @@
     <text x="58" y="489" fill="#a8bdcd" font-size="14">Trusted issuer · client key</text>
 
     <rect x="365" y="245" width="305" height="125" rx="12" fill="#142b3d" stroke="#365369" stroke-width="2"/>
-    <text x="383" y="276" fill="#e8f0f7" font-size="19" font-weight="650">CQ policy core</text>
+    <text x="383" y="276" fill="#e8f0f7" font-size="19" font-weight="650">CircularQuay policy core</text>
     <text x="383" y="305" fill="#a8bdcd" font-size="14">Verify identity · scope · client binding</text>
     <text x="383" y="334" fill="#a8bdcd" font-size="14">Complete generation · earliest expiry</text>
 

@@ -52,9 +52,9 @@ the policy schema and profile/administration contracts. It identifies the
 missing authenticated context input and unified enforcement engine as release
 blockers. It also requires strict audit to override a local false preference,
 independent hosted authorization, signed offline exceptions, capability-bound
-custody and durable anti-downgrade/recovery state. These are tracked by
-[UIF-168](https://linear.app/maldous/issue/UIF-168), with exact-candidate
-whole-product evidence in [UIF-174](https://linear.app/maldous/issue/UIF-174).
+custody and durable anti-downgrade/recovery state. These remain product
+implementation and exact-candidate whole-product qualification requirements;
+maintenance issue routing does not supply implementation or acceptance.
 The review is design/source evidence, not a completed security audit or a
 strict-profile implementation pass. Default mode retains the mandatory
 baseline and the same engineering/release gates.
@@ -648,8 +648,8 @@ The original contact-sheet SHA-256 is
 icon 13 is the selected reference. The private synthetic evidence ZIP remains
 private and unchanged; no saved configuration, credentials or user export is
 included. These observations do not qualify a real managed backend or strict
-profile. Current owner/issue routing is in the
-[canonical closure checklist](session-handoff.md#uif-migration-and-delivery-closure).
+profile. Current source ownership and execution routing come from the active
+assignment; this product record preserves only the scoped qualification evidence.
 
 ## Exact 10dde6d hosted observation
 
@@ -1569,3 +1569,16 @@ adapters and hosting integrations remain unimplemented or unqualified as
 described in their respective contracts. No new schema field advertises those
 unimplemented capabilities. No production deployment or release follows from
 these design documents or development candidates.
+
+
+## Standalone browser product build observation
+
+Source `489ee5b799ba8176616df19ad57f699b275e886e`, tree
+`013ec47bb0e31aeefff3b21f6d2bb3a098680b90`, passed `node check.mjs`
+and `node tools/build-help.mjs` from a clean Git export on 13 November 2026
+using Node 24.22.1. The process environment contained only `PATH` and `LANG`;
+no sibling checkout, maintenance credentials or account-routing variables were
+supplied. The dependency-free Help build produced 333 public product articles.
+No network, preview server or UI interaction was used. This establishes those
+browser build boundaries only; it does not qualify native Go, SDK/platform
+matrices, providers, deployed services or every runtime path.

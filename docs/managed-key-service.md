@@ -781,8 +781,8 @@ the architecture and acceptance contract rather than an operator procedure.
 
 ## Deployment state and prepared security settings
 
-The retained [session handoff](session-handoff.md) records no production
-deployment. The inspected repository has no verified hosted-service
+Repository source alone does not qualify a production deployment.
+The inspected repository has no verified hosted-service
 Cloudflare Worker/Netlify project identity, deployed endpoint, account-bound
 bindings or deployment configuration. That is evidence of **design/source work,
 not an inspected secured deployment**; it does not assert that every external
