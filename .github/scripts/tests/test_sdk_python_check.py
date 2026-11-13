@@ -13,10 +13,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-
 SCRIPT = Path(__file__).parents[1] / "sdk_python_check.py"
 SPEC = importlib.util.spec_from_file_location("sdk_python_check", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
+assert SPEC is not None
+assert SPEC.loader is not None
 CHECK = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = CHECK
 SPEC.loader.exec_module(CHECK)
@@ -149,7 +149,7 @@ class CaptureTest(unittest.TestCase):
 
         complete = CHECK.Capture("coverage")
         for path in sorted(CHECK.OWNED_COVERAGE_PATHS):
-            complete.consume(f"{path} 12 0 0 0 100%\n".encode("utf-8"))
+            complete.consume(f"{path} 12 0 0 0 100%\n".encode())
         CHECK._require_coverage_manifest(complete)
         self.assertFalse(complete.malformed)
 

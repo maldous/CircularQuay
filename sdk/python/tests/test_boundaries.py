@@ -112,8 +112,9 @@ class MCPBoundaryTests(unittest.IsolatedAsyncioTestCase):
                 self.session.responses["read_secret"] = _response(
                     {"alias": "synthetic", "value": "synthetic", "expires_at": value}
                 )
+                disclosures = self.client.disclosures()
                 with self.assertRaises(CircularQuayError) as malformed:
-                    await self.client.disclosures().read_secret("alpha", "synthetic")
+                    await disclosures.read_secret("alpha", "synthetic")
                 self.assertEqual(ErrorCategory.PROTOCOL, malformed.exception.category)
 
 
