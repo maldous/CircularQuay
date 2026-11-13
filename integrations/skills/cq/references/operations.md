@@ -137,38 +137,18 @@ or guessed SDK/MCP/CLI methods. No provider setup/purchase/config upload or prod
 is authorized by design documentation. Synthetic/mock previews retain the
 separate no-backend/no-provider/no-key boundary.
 
-## Shared UIF project profiles
+## Product execution boundary
 
-UIF is general infrastructure/orchestration/governance for distinct product
-profiles. CircularQuay connects secret providers/client-owned configuration to authorized
-workloads and crypto/age/account/client operations. OffMenu's canonical product
-docs describe the household product-to-pantry-to-plate loop, with separate food/
-source-data rights, private household/profile information, runtime/toolchains
-and publication authority. Do not copy its mutable requirements or corpus into
-CircularQuay work. Follow the owners' canonical repository/docs and accepted source pins.
+Build and operate CircularQuay through its documented standalone toolchains
+and CLI, SDK or MCP interfaces. Every client must select the exact executable,
+source/configuration, authorized operations, private state and result destination.
+External orchestration supplies no additional product authority or capability.
 
-General multi-project capability is required/planned, not proven by a profile
-name, skill, project record or qualified-but-not-installed candidate. Recover
-the existing authoritative coordinators, canonical migration/impact checklist
-and verified project/issue/view bindings. The source owner retains sole Linear
-writing for this assignment. Missing record sections, IDs, selectors or views
-are explicit missing bindings, never permission to invent a CLI/JSON field,
-issue tree, scheduler, planner or dispatcher.
-
-Before an affected shared operation, verify the project repo/accepted tree,
-checkout/toolchain/dependencies, allowed operations, credential/data/state roots,
-privacy/isolation, reviewer, publication destination and evidence requirements.
-Assess shared contract changes against both affected profiles using actual
-source/job/isolation evidence; diagnose project-specific failures separately.
-Preserve current tasks/leases and controlled per-unit handover through the same
-owner route. Reconcile ambiguous ownership before another writer or retry.
-
-CircularQuay migration proceeds now in parallel with OffMenu config/data fixes and BAU;
-neither project's independent completion gates the other. An affected-unit
-blocker does not pause unrelated authorized work. No abrupt runtime cutover,
-new account/credential, permission expansion or production activation follows
-from the shared-harness requirement. Record exact admission, pickup/result,
-review and publication evidence rather than treating assignment as completion.
+Preserve current work, disjoint ownership, review and publication controls.
+Isolate credentials, data and state from unrelated projects. Diagnose failures
+against the selected product revision and operation; an unavailable optional
+integration does not block unrelated standalone work. Deployment/account
+configuration and maintenance-session management are outside this skill.
 
 ## Synthetic browser development
 

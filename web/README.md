@@ -134,7 +134,7 @@ control reachability and remaining native/provider/public-preview gaps. Publicat
 and integration remain coordinated with the source owner; this frontend never
 modifies backend, production or BAU state.
 
-Owner-led UIF handover must preserve this checkout/branch, pinned schema/example,
+Frontend integration must preserve this checkout/branch, pinned schema/example,
 loopback ports, browser-local drafts, Node 22+ dependency-free toolchain and
 synthetic-only adapters. Integration/publication stays with the implementation
 owner; existing evidence is under `output/playwright/`. No new lease, harness
