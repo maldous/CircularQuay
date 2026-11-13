@@ -1,0 +1,2663 @@
+# Supplemental candidate evidence. Existing PR and release gates remain authoritative.
+# Refresh moved source pins in a reviewed change before dispatching again.
+name: Frozen candidate qualification
+run-name: Frozen candidate qualification (${{ github.event_name == 'pull_request' && 'Integrated Go and Python' || inputs.candidate }})
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths: ['.github/workflows/frozen-candidate-qualification.yml']
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Qualification suite to run against its reviewed source pins
+        required: true
+        type: choice
+        options: [integrated, health, python, darwin, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, darwin-consumer]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frozen-candidate-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.candidate }}-${{ github.event_name == 'pull_request' && 'integrated' || 'manual' }}
+  cancel-in-progress: false
+
+env:
+  CQ_CONSUMER_SHA: '023385e283d6e45c328209f6b7cd812a658d17e9'
+  CQ_CONSUMER_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
+  CQ_NATIVE_FEATURE_SHA: '941adf3f84a49905d7244bb594fbf517dff9bc32'
+  CQ_NATIVE_FEATURE_TREE: '00434f4681afc7b2584d628199c22287f7c9df01'
+  CQ_NATIVE_INPUT_SHA: 'b8447db3be2c25e73671a13bfe3a86a0d286cbc3'
+  CQ_FEATURE_SHA: '19d458e0289e90edd02da93faba41bf5f5e4991c'
+  CQ_INTEGRATED_SHA: '489ee5b799ba8176616df19ad57f699b275e886e'
+  CQ_INTEGRATED_TREE: '013ec47bb0e31aeefff3b21f6d2bb3a098680b90'
+  CQ_HEALTH_MERGE_SHA: '404c21e1a8819b4d1770b5c23a3ece89cdc2cd24'
+  CQ_PYTHON_MERGE_SHA: '962f997539aa2e51efaddf5693ff07f3ebbc0f32'
+  CQ_HEALTH_SHA: 'ce1d4c66816ef6f7ea353dd4611b04bf577ac7b2'
+  CQ_GO_REPAIR_SHA: 'eeb1a8e6249cfee86dc657a98b68aef42dc3ccd9'
+  CQ_ALIAS_SHA: '87bf5042c3707b93227b14f48c57ea8cda44a4f0'
+  CQ_DARWIN_SHA: '63ce3c404bd5ac23cf402112d873ff7175a5f8ff'
+  CQ_PYTHON_PARENT_SHA: '83e7cf92df673864be6f46b985b657d1bc4f9e27'
+  CQ_PYTHON_SHA: '87a9c08e968f44a78df67ddc8dd1bb1d057a6f4e'
+
+jobs:
+  health:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'health' || inputs.candidate == 'integrated'))) }}
+    name: Candidate Go build, tests and analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CQ_CANDIDATE: health
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - &checkout_feature
+        name: Check out the reviewed integrated feature commit
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ env.CQ_INTEGRATED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+      - &verify_integrated
+        name: Verify frozen feature and candidate ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          case "$CQ_CANDIDATE" in
+            health)
+              ref=fix/cq-health-readiness
+              candidate="$CQ_HEALTH_SHA"
+              incorporation="$CQ_HEALTH_MERGE_SHA"
+              test "$(git rev-parse "$incorporation^1")" = "$CQ_ALIAS_SHA"
+              test "$(git rev-parse "$CQ_ALIAS_SHA^")" = "$CQ_GO_REPAIR_SHA"
+              test "$(git rev-parse "$CQ_GO_REPAIR_SHA^")" = "$CQ_FEATURE_SHA"
+              ;;
+            python)
+              ref=fix/cq-python-windows-portability
+              candidate="$CQ_PYTHON_SHA"
+              incorporation="$CQ_PYTHON_MERGE_SHA"
+              test "$(git rev-parse "$incorporation^1")" = "$CQ_HEALTH_MERGE_SHA"
+              test "$(git rev-parse "$candidate^")" = "$CQ_PYTHON_PARENT_SHA"
+              ;;
+            *) echo 'Unsupported candidate' >&2; exit 1 ;;
+          esac
+          test "$(git rev-parse HEAD)" = "$CQ_INTEGRATED_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_INTEGRATED_TREE"
+          test "$(git rev-parse "$incorporation^2")" = "$candidate"
+          git merge-base --is-ancestor "$incorporation" HEAD
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse refs/remotes/origin/feature/initial-implementation)" = "$CQ_INTEGRATED_SHA"
+          test "$(git rev-parse "refs/remotes/origin/$ref")" = "$candidate"
+          # Reject moved branch tips even after the exact checkout.
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_INTEGRATED_SHA")"
+          test "$(git ls-remote --exit-code origin "refs/heads/$ref")" = "$(printf '%s\trefs/heads/%s' "$candidate" "$ref")"
+          test "$(git ls-remote --exit-code origin refs/heads/fix/cq-go-1.27.4)" = "$(printf '%s\trefs/heads/fix/cq-go-1.27.4' "$CQ_GO_REPAIR_SHA")"
+          if test "$CQ_CANDIDATE" = health; then
+            test "$(git ls-remote --exit-code origin refs/heads/security/cq-gosec-boundaries)" = "$(printf '%s\trefs/heads/security/cq-gosec-boundaries' "$CQ_ALIAS_SHA")"
+          fi
+          {
+            printf 'Feature: %s\n\n' "$CQ_INTEGRATED_SHA"
+            printf 'Tree: %s\n\n' "$CQ_INTEGRATED_TREE"
+            printf 'Candidate: %s\n\n' "$candidate"
+            printf 'Incorporation: %s\n' "$incorporation"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.1
+        id: go_setup
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Build cq and run the native synthetic suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(go env GOVERSION)" = go1.27.4
+          go mod verify
+          go build -trimpath -o "$RUNNER_TEMP/cq" ./cmd/cq
+          go test -count=1 ./...
+          go vet ./...
+      - name: Verify native alias rejection and script invocation
+        if: ${{ !cancelled() && steps.go_setup.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -x /usr/bin/true
+          go test -count=1 -v -run '^(TestExecutableAlias.*|TestPinnedScriptAliasPreservesConfiguredInvocationPath)$' ./internal/platform
+      - name: Enforce complexity ceilings
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$GOBIN"
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+          go install github.com/uudashr/gocognit/cmd/gocognit@v1.3.0
+          mapfile -d '' go_sources < <(git ls-files -z '*.go')
+          "$GOBIN/gocyclo" -over 10 "${go_sources[@]}"
+          cq_cognitive_log="$RUNNER_TEMP/cq-cognitive.log"
+          # Type-aware analysis loads each native package once per owning
+          # directory. Treat warnings/fallback diagnostics as a failed check.
+          if ! "$GOBIN/gocognit" -exact-recursion -over 10 internal cmd sdk/go >"$cq_cognitive_log" 2>&1; then
+            cat "$cq_cognitive_log"
+            exit 1
+          fi
+          if test -s "$cq_cognitive_log"; then
+            cat "$cq_cognitive_log"
+            exit 1
+          fi
+      - name: Install pinned analysis tools
+        id: security_tools
+        if: ${{ always() && steps.go_setup.outcome == 'success' }}
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$GOBIN"
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.2
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
+      - name: Run Staticcheck
+        if: ${{ always() && steps.security_tools.outcome == 'success' }}
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/staticcheck" -checks=all ./...
+      - name: Run govulncheck
+        if: ${{ always() && steps.security_tools.outcome == 'success' }}
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/govulncheck" ./...
+      - name: Run gosec without exclusions
+        if: ${{ always() && steps.security_tools.outcome == 'success' }}
+        shell: bash
+        env:
+          GOBIN: ${{ runner.temp }}/go-security-tools
+        run: |
+          set -euo pipefail
+          "$GOBIN/gosec" -nosec ./...
+
+  native-platforms:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'health' || inputs.candidate == 'integrated'))) }}
+    name: Candidate native launch compatibility (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, windows-2025]
+    env:
+      CQ_CANDIDATE: health
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - *checkout_feature
+      - *verify_integrated
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.1
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Run native Unix launch regressions
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/bin:/bin:$PATH"
+          test "$(go env GOVERSION)" = go1.27.4
+          test -x /usr/bin/true
+          go test -count=1 -v -run '^(TestExecutableAlias.*|TestPinnedScriptAliasPreservesConfiguredInvocationPath)$' ./internal/platform
+          go test -count=1 ./internal/platform ./internal/repository ./internal/source ./internal/quota ./internal/assurance
+      - name: Run native Windows launch regressions
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if ((go env GOVERSION) -ne 'go1.27.4') { throw 'Go pin mismatch' }
+          go test -count=1 ./internal/platform ./internal/repository ./internal/source ./internal/quota ./internal/assurance
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  darwin-preflight:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin' }}
+    name: Candidate Intel Darwin preparation (no wheel build)
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - &darwin_source_checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ env.CQ_DARWIN_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+      - &darwin_lock_verification
+        name: Verify the reviewed build-input bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$CQ_DARWIN_SHA"
+          test "$(git rev-parse HEAD^)" = "$CQ_FEATURE_SHA"
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_FEATURE_SHA")"
+          test "$(git ls-remote --exit-code origin refs/heads/build/cq-darwin-source-inputs)" = "$(printf '%s\trefs/heads/build/cq-darwin-source-inputs' "$CQ_DARWIN_SHA")"
+          python3 -I - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          sdk = Path("sdk/python")
+          inputs = json.loads((sdk / "darwin-build-inputs.json").read_text())
+          native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+          source = json.loads((sdk / "darwin-source-policy.json").read_text())
+          assert (source["package"], source["version"], source["platform"], source["architecture"]) == ("cryptography", "50.0.2", "darwin", "x86_64")
+          assert inputs["source_date_epoch"] == native["build_settings"]["source_date_epoch"]
+          assert native["openssl"]["sha256"] is None
+          assert native["apple"]["developer_dir"] == "/Applications/Xcode_16.4.app/Contents/Developer"
+          assert (native["apple"]["xcode_version"], native["apple"]["xcode_build"], native["apple"]["macos_sdk_version"]) == ("16.4", "16F6", "15.5")
+          assert inputs["source_policy"] == "sdk/python/darwin-source-policy.json"
+          assert inputs["direct_requirements"] == "sdk/python/requirements-darwin-build.txt"
+          closures = inputs["closures"]
+          assert len(closures) == 5
+          assert {entry["lock"] for entry in closures} == {f"sdk/python/locks/build-darwin-py3{minor}.txt" for minor in range(11, 16)}
+          pins = [(inputs["source_policy"], inputs["source_policy_sha256"]),
+                  (inputs["direct_requirements"], inputs["direct_requirements_sha256"])]
+          pins.extend((entry["lock"], entry["lock_sha256"]) for entry in closures)
+          for path, digest in pins:
+              assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest, path
+          PY
+          for minor in 311 312 313 314 315; do
+            python3 .github/scripts/sdk_python_lock.py \
+              --verify-lock "sdk/python/locks/build-darwin-py$minor.txt" \
+              --requirements sdk/python/requirements-darwin-build.txt
+          done
+          {
+            printf 'Darwin input candidate: %s\n' "$CQ_DARWIN_SHA"
+            printf 'Feature: %s\n' "$CQ_FEATURE_SHA"
+            printf 'Tree: %s\n' "$(git rev-parse 'HEAD^{tree}')"
+            printf 'Only preparation. OpenSSL digest is still missing. No wheel built.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the proposed native Apple toolchain
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = x86_64
+          printf 'Hosted image variables: %s / %s\n' "$(printenv ImageOS || printf 'not exposed')" "$(printenv ImageVersion || printf 'not exposed')"
+          sw_vers
+          /usr/bin/xcodebuild -version
+          /usr/bin/xcrun clang --version
+          /usr/bin/xcrun --sdk macosx --show-sdk-version
+          python3 -I -c 'import platform, sys; assert platform.machine() == "x86_64"; print(sys.executable, sys.version)'
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          /usr/bin/codesign --verify --deep --strict -R='anchor apple' /Applications/Xcode_16.4.app
+
+  darwin-inputs:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-inputs' }}
+    name: Candidate Intel Darwin Rust verification and CPython observations
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - &match_verified_apple
+        name: Match the previously verified Apple runner
+        id: apple_identity
+        shell: bash
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = x86_64
+          test "$(printenv ImageOS)" = macos15
+          test "$(printenv ImageVersion)" = 20260824.0482.1
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          printf 'Matched Apple signature evidence: run 43148993341, job 130953451534.\n' >> "$GITHUB_STEP_SUMMARY"
+          sw_vers
+          /usr/bin/xcrun clang --version
+      - &observe_native_python
+        name: Read native CPython identities without installing interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          import platform
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          assert sys.platform == "darwin" and platform.machine() == "x86_64"
+          print("### Native CPython observations (no pins selected)")
+          print(f"Runner interpreter: {sys.executable}, {platform.python_version()}, {platform.machine()}.")
+          tool_cache = Path(os.environ["RUNNER_TOOL_CACHE"])
+          observed = ("3.11.9", "3.12.10", "3.13.17", "3.14.10", "3.15.2")
+          probe = "import json,platform,sys; print(json.dumps([platform.python_version(),platform.machine(),sys.platform]))"
+          failures = []
+          for version in observed:
+              prefix = tool_cache / "Python" / version / "x64"
+              path = prefix / "bin" / "python3"
+              if not path.is_file():
+                  print(f"- {version}: not in this runner cache; no acquisition attempted.")
+                  continue
+              resolved = path.resolve()
+              if not resolved.is_relative_to(prefix.resolve()):
+                  failures.append(version)
+                  print(f"- {version}: {path} resolves to {resolved}, outside {prefix}; not executed.")
+                  continue
+              try:
+                  result = subprocess.run([str(resolved), "-I", "-c", probe], capture_output=True, text=True, timeout=15, check=True)
+                  identity = json.loads(result.stdout)
+                  if identity != [version, "x86_64", "darwin"]:
+                      raise ValueError("native identity did not match")
+                  pip = subprocess.run([str(resolved), "-I", "-m", "pip", "--version"], capture_output=True, text=True, timeout=15, check=True)
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  failures.append(version)
+                  print(f"- {version}: native interpreter or pip identity probe failed.")
+                  continue
+              print(f"- {version}: native interpreter readback passed at {resolved}; {pip.stdout.strip()}. Archive identity is unverified.")
+          print("Exact reviewed acquisition and pip frontend receipts remain required for the wheel build.")
+          if failures:
+              raise SystemExit(f"Unverified CPython observations: {', '.join(failures)}")
+          PY
+      - name: Acquire and verify the pinned Rust archive
+        id: rust_input
+        if: ${{ !cancelled() && steps.apple_identity.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          input_root="$(mktemp -d "$RUNNER_TEMP/cq-rust-input.XXXXXX")"
+          printf 'root=%s\n' "$input_root" >> "$GITHUB_OUTPUT"
+          python3 -I - "$input_root" <<'PY'
+          import hashlib
+          import json
+          import sys
+          import tarfile
+          from pathlib import Path, PurePosixPath
+          from urllib.request import HTTPRedirectHandler, build_opener
+
+          root = Path(sys.argv[1])
+          native = json.loads(Path("sdk/python/darwin-native-toolchain.json").read_text())
+          rust = native["rust"]
+          assert native["platform"] == "darwin" and native["architecture"] == "x86_64"
+          assert native["openssl"]["sha256"] is None
+          assert (rust["version"], rust["target"]) == ("1.99.1", "x86_64-apple-darwin")
+          archive_name = "rust-1.99.1-x86_64-apple-darwin"
+          url = f"https://static.rust-lang.org/dist/2026-10-15/{archive_name}.tar.xz"
+          sha256 = "13b237d0294bad3bb7b18d559517947ed8348ea25812fa3b468c904996f80e34"
+          assert (rust["url"], rust["sha256"]) == (url, sha256)
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  raise RuntimeError("Rust archive redirect is not admitted")
+
+          archive = root / f"{archive_name}.tar.xz"
+          digest = hashlib.sha256()
+          size = 0
+          with build_opener(NoRedirect).open(url, timeout=60) as response, archive.open("xb") as output:
+              for data in iter(lambda: response.read(1024 * 1024), b""):
+                  size += len(data)
+                  if size > 384 * 1024 * 1024:
+                      raise RuntimeError("Rust archive exceeds acquisition bound")
+                  digest.update(data)
+                  output.write(data)
+          if digest.hexdigest() != sha256:
+              raise RuntimeError("Rust archive digest mismatch")
+          print(f"Verified Rust archive SHA-256: {sha256}; {size} bytes.", flush=True)
+          with tarfile.open(archive, mode="r:xz") as source:
+              members = []
+              expanded = 0
+              for member in source:
+                  path = PurePosixPath(member.name)
+                  if not path.parts or path.parts[0] != archive_name or ".." in path.parts or path.is_absolute():
+                      raise RuntimeError("Unexpected Rust archive member")
+                  members.append(member)
+                  expanded += member.size
+                  if len(members) > 30000 or expanded > 3 * 1024 * 1024 * 1024:
+                      raise RuntimeError("Rust extraction exceeds bound")
+              source.extractall(root, members=members, filter="data")
+          PY
+      - name: Verify the native Rust compiler and cargo
+        if: ${{ !cancelled() && steps.rust_input.outcome == 'success' }}
+        shell: bash
+        env:
+          CQ_INPUT_ROOT: ${{ steps.rust_input.outputs.root }}
+          DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$CQ_INPUT_ROOT"
+          export CARGO_HOME="$CQ_INPUT_ROOT/cargo"
+          export RUSTUP_HOME="$CQ_INPUT_ROOT/rustup"
+          /bin/sh ./rust-1.99.1-x86_64-apple-darwin/install.sh --prefix="$CQ_INPUT_ROOT/rust"
+          compiler="$CQ_INPUT_ROOT/rust/bin/rustc"
+          cargo="$CQ_INPUT_ROOT/rust/bin/cargo"
+          "$compiler" --version --verbose | tee rustc.txt
+          "$cargo" --version | tee cargo.txt
+          grep -Fx 'release: 1.99.1' rustc.txt
+          grep -Fx 'host: x86_64-apple-darwin' rustc.txt
+          grep -E '^cargo 1\.99\.1( |$)' cargo.txt
+          printf 'fn main() { println!("native-rust-ok"); }\n' > probe.rs
+          "$compiler" --target x86_64-apple-darwin -o probe probe.rs
+          test "$(./probe)" = native-rust-ok
+          {
+            printf '\n### Verified Rust input (no OpenSSL or wheel build)\n'
+            printf 'Archive SHA-256: 13b237d0294bad3bb7b18d559517947ed8348ea25812fa3b468c904996f80e34\n\n'
+            cat rustc.txt cargo.txt
+            printf '\nNative Intel fixture compiled and executed.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cpython-inputs:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-inputs' }}
+    name: Candidate Intel Darwin CPython cache observations
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - *match_verified_apple
+      - *observe_native_python
+
+  cpython-provenance:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'cpython-provenance' }}
+    name: Candidate Intel CPython provenance (${{ matrix.version }}, ${{ matrix.mode }})
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '3.11.9'
+            mode: framework
+            url: 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg'
+            sha256: 'b6cfdee2571ca56ee895043ca1e7110fb78a878cee3eb0c21accb2de34d24b55'
+          - version: '3.12.10'
+            mode: framework
+            url: 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg'
+            sha256: '8373e58da4ea146b3eb1c1f9834f19a319440b6b679b06050b1f9ee3237aa8e4'
+          - version: '3.13.17'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.13.17-39711892467/python-3.13.17-darwin-x64.tar.gz'
+            sha256: 'c295dedca816c7aed4a980591b6d5ff81cd7f22ba3cb4a871c2d2fbc26dba050'
+          - version: '3.14.10'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.14.10-40336797752/python-3.14.10-darwin-x64.tar.gz'
+            sha256: '82d456f964cb3138ff3914a4004b1c551e9793f07e0d4deeae407c0d121bbaed'
+          - version: '3.15.2'
+            mode: archive
+            url: 'https://github.com/actions/python-versions/releases/download/3.15.2-40340363276/python-3.15.2-darwin-x64.tar.gz'
+            sha256: '3598759050401152244152503382874410ef8071fb1156544a3bd233ddcf148f'
+    steps:
+      - *darwin_source_checkout
+      - *darwin_lock_verification
+      - *match_verified_apple
+      - name: Verify signed CPython input and inspect native identity
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ matrix.version }}
+          INPUT_MODE: ${{ matrix.mode }}
+          INPUT_URL: ${{ matrix.url }}
+          INPUT_SHA256: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          import plistlib
+          import re
+          import stat
+          import subprocess
+          import tarfile
+          import tempfile
+          import xml.etree.ElementTree as ET
+          from pathlib import Path, PurePosixPath
+          from urllib.parse import urlsplit
+          from urllib.request import HTTPRedirectHandler, build_opener
+
+          version, mode, url, expected = (os.environ[key] for key in ("INPUT_VERSION", "INPUT_MODE", "INPUT_URL", "INPUT_SHA256"))
+          minor = ".".join(version.split(".")[:2])
+          work = Path(tempfile.mkdtemp(prefix="cq-cpython-input-", dir=os.environ["RUNNER_TEMP"]))
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          receipt = {"python": version, "mode": mode, "url": url, "source": os.environ["CQ_DARWIN_SHA"]}
+          requirement = '=anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
+          bundle = Path(f"/Library/Frameworks/Python.framework/Versions/{minor}")
+
+          def command(*argv, timeout=120):
+              result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False, timeout=timeout)
+              if result.returncode:
+                  print(result.stdout[:4096], flush=True)
+                  raise RuntimeError(f"{Path(argv[0]).name} failed with status {result.returncode}")
+              return result.stdout
+
+          def file_hash(path):
+              with path.open("rb") as stream:
+                  return hashlib.file_digest(stream, "sha256").hexdigest()
+
+          def copy_bounded(reader, target, limit):
+              size = 0
+              digest = hashlib.sha256()
+              with target.open("xb") as out:
+                  for chunk in iter(lambda: reader.read(1024 * 1024), b""):
+                      size += len(chunk)
+                      if size > limit:
+                          raise RuntimeError("Python input exceeds acquisition bound")
+                      digest.update(chunk)
+                      out.write(chunk)
+              return digest.hexdigest(), size
+
+          class ReleaseRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  parsed = urlsplit(newurl)
+                  if mode != "archive" or parsed.scheme != "https" or parsed.netloc != "release-assets.githubusercontent.com":
+                      raise RuntimeError("Unapproved Python input redirect")
+                  return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+          def packaged_inputs():
+              pkg = work / "python.pkg"
+              host = urlsplit(url).netloc
+              if mode == "framework":
+                  assert host == "www.python.org"
+                  assert url == f"https://www.python.org/ftp/python/{version}/python-{version}-macos11.pkg"
+                  with build_opener(ReleaseRedirect).open(url, timeout=60) as stream:
+                      receipt["installer_sha256"], receipt["installer_bytes"] = copy_bounded(stream, pkg, 100 * 1024 * 1024)
+                  if receipt["installer_sha256"] != expected:
+                      raise RuntimeError("Python.org installer hash mismatch")
+              else:
+                  assert mode == "archive" and host == "github.com"
+                  assert url.endswith(f"/python-{version}-darwin-x64.tar.gz")
+                  archive = work / "release.tar.gz"
+                  with build_opener(ReleaseRedirect).open(url, timeout=60) as stream:
+                      digest, size = copy_bounded(stream, archive, 128 * 1024 * 1024)
+                  if digest != expected:
+                      raise RuntimeError("Python release archive hash mismatch")
+                  receipt["verified_archive_sha256"] = digest
+                  receipt["archive_bytes"] = size
+                  with tarfile.open(archive, "r:gz") as tar:
+                      members = [m for m in tar if m.isfile() and PurePosixPath(m.name).suffix.lower() == ".pkg"]
+                      if len(members) != 1:
+                          raise RuntimeError("Expected one packaged Python installer")
+                      with tar.extractfile(members[0]) as stream:
+                          receipt["installer_sha256"], receipt["installer_bytes"] = copy_bounded(stream, pkg, 100 * 1024 * 1024)
+              signed = command("/usr/sbin/pkgutil", "--check-signature", str(pkg))
+              print(signed, flush=True)
+              required = {
+                  "Status: signed by a developer certificate issued by Apple for distribution",
+                  "Notarization: trusted by the Apple notary service",
+                  "1. Developer ID Installer: Python Software Foundation (BMM5U3QVKW)",
+              }
+              if not required.issubset({line.strip() for line in signed.splitlines()}):
+                  raise RuntimeError("Python Software Foundation installer signature not verified")
+              receipt["installer_signer"] = "Python Software Foundation (BMM5U3QVKW)"
+              expanded = work / "expanded"
+              # Inspect the verified package; do not execute installer scripts or change system state.
+              command("/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded))
+              package_id = f"org.python.Python.PythonFramework-{minor}"
+              components = []
+              for info in expanded.rglob("PackageInfo"):
+                  attrib = ET.parse(info).getroot().attrib
+                  payload = info.parent / "Payload"
+                  if attrib.get("identifier") != package_id or not payload.is_dir():
+                      continue
+                  binaries = [p for p in payload.rglob(f"python{minor}") if p.parent.name == "bin" and p.is_file()]
+                  for binary in binaries:
+                      root = binary.parent.parent
+                      if (root / "Python").is_file() and binary.resolve().is_relative_to(payload.resolve()) and (root / "Python").resolve().is_relative_to(payload.resolve()):
+                          components.append((attrib, root, binary.resolve()))
+              if len(components) != 1:
+                  raise RuntimeError("Could not bind a unique signed Python framework component")
+              return components[0]
+
+          def verify_binary(path):
+              command("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path))
+              command("/usr/bin/lipo", str(path), "-verify_arch", "x86_64")
+              return file_hash(path)
+
+          def immutable_system_target(path):
+              for entry in (path, *path.parents):
+                  info = entry.stat()
+                  if info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o022:
+                      raise RuntimeError(f"System framework entry is not root protected: {entry}")
+
+          try:
+              info, staged, binary = packaged_inputs()
+              receipt["package_id"] = info["identifier"]
+              receipt["component_version"] = info["version"]
+              # Apple component metadata is not the CPython patch version.
+              if info["version"] != "0":
+                  raise RuntimeError("Unexpected Python framework component metadata")
+              include = staged / "include"
+              headers = list(include.glob("python*/patchlevel.h"))
+              if len(headers) != 1 or not headers[0].resolve().is_relative_to(staged.resolve()):
+                  raise RuntimeError("Could not bind the signed CPython version header")
+              declared = re.findall(r'^#define[ \t]+PY_VERSION[ \t]+"([^"]+)"[ \t]*$', headers[0].read_text(encoding="ascii"), re.MULTILINE)
+              if declared != [version]:
+                  raise RuntimeError("Signed framework payload patch version differs")
+              receipt["package_python_version"] = declared[0]
+              receipt["patchlevel_header_sha256"] = file_hash(headers[0])
+              library = (staged / "Python").resolve()
+              receipt["package_interpreter_sha256"] = verify_binary(binary)
+              receipt["package_framework_sha256"] = verify_binary(library)
+              receipt["package_load_commands"] = command("/usr/bin/otool", "-L", str(binary)).splitlines()[1:]
+              bundled = list((staged / "lib" / f"python{minor}" / "ensurepip" / "_bundled").glob("pip-*.whl"))
+              if len(bundled) != 1 or not bundled[0].resolve().is_relative_to(staged.resolve()):
+                  raise RuntimeError("Signed bundled pip input not identified")
+              pip = bundled[0].resolve()
+              receipt["bundled_pip"] = {"name": pip.name, "sha256": file_hash(pip)}
+              if mode != "framework":
+                  receipt["status"] = "archive and signed package verified; task-local native installation not admitted"
+                  print("Staged provenance complete. Native interpreter and pip execution held: official installer requires a system target.", flush=True)
+                  raise SystemExit(0)
+              alias = Path(os.environ["RUNNER_TOOL_CACHE"]) / "Python" / version / "x64/bin/python3"
+              installed = (bundle / "bin" / f"python{minor}").resolve(strict=True)
+              installed_library = (bundle / "Python").resolve(strict=True)
+              if alias.resolve(strict=True) != installed or not installed.is_relative_to(bundle) or not installed_library.is_relative_to(bundle):
+                  raise RuntimeError("Installed framework target differs from reviewed path")
+              for path in (installed, installed_library):
+                  immutable_system_target(path)
+              receipt["installed_interpreter"] = str(installed)
+              installed_info = plistlib.loads(command("/usr/sbin/pkgutil", "--pkg-info-plist", info["identifier"]).encode())
+              if (installed_info.get("pkgid"), installed_info.get("pkg-version")) != (info["identifier"], info["version"]):
+                  raise RuntimeError("Installed package receipt differs from signed component metadata")
+              receipt["installed_receipt"] = {key: installed_info.get(key) for key in ("pkgid", "pkg-version", "volume", "install-location")}
+              if verify_binary(installed) != receipt["package_interpreter_sha256"] or verify_binary(installed_library) != receipt["package_framework_sha256"]:
+                  raise RuntimeError("Installed executable or framework differs from signed installer bytes")
+              script = "import json,platform,sys; print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
+              identity = json.loads(command(str(installed), "-I", "-S", "-c", script))
+              if identity != [version, "x86_64", "darwin", str(bundle)]:
+                  raise RuntimeError("Native interpreter identity differs")
+              receipt["native_identity"] = identity
+              pip_probe = "import runpy,sys; sys.path.insert(0,sys.argv[1]); sys.argv=['pip','--version']; runpy.run_module('pip',run_name='__main__')"
+              receipt["pip_frontend"] = command(str(installed), "-I", "-S", "-c", pip_probe, str(pip)).strip()
+              receipt["status"] = "installed signed interpreter and bundled pip identity verified"
+          finally:
+              detail = json.dumps(receipt, indent=2, sort_keys=True)
+              print(detail, flush=True)
+              with summary.open("a", encoding="utf-8") as output:
+                  output.write("\n### CPython input receipt (no wheel build)\n\n")
+                  output.write("~~~json\n" + detail + "\n~~~\n")
+          PY
+
+  python-static-security:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'python' || inputs.candidate == 'integrated'))) }}
+    name: Candidate Python static and security (3.14, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    env:
+      CQ_CANDIDATE: python
+    steps:
+      - *checkout_feature
+      - *verify_integrated
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ runner.os == 'macOS' && '3.14.10' || '3.14' }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - &stage_darwin_wheel
+        name: Stage the retained Intel macOS wheel for this interpreter
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          patch="$(python -I -c 'import platform,sys; assert (sys.platform, platform.machine(), sys.implementation.name) == ("darwin", "x86_64", "cpython"); print(platform.python_version())')"
+          python -E -s -B .github/scripts/sdk_python_darwin_wheel.py --python "$patch" --output "$RUNNER_TEMP/cq-darwin-intake"
+      - name: Install reviewed static-tool closure
+        id: static_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          lock="sdk/python/locks/ci-${p}-py314.txt"
+          test -f "$lock"
+          python .github/scripts/sdk_python_lock.py --verify-lock "$lock" --requirements sdk/python/requirements-ci.txt
+          if test "$RUNNER_OS" = macOS; then
+            house="$RUNNER_TEMP/cq-darwin-static-wheelhouse"
+            python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$lock"
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$lock"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          fi
+      - name: Test lock helper
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m unittest discover -s .github/scripts/tests -v
+      - name: Lint Python SDK
+        id: python_ruff
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check ruff --report "$RUNNER_TEMP/cq-python-reports/ruff.json" --timeout-seconds 300
+      - name: Typecheck Python SDK
+        id: python_mypy
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check mypy --report "$RUNNER_TEMP/cq-python-reports/mypy.json" --timeout-seconds 300
+      - name: Bandit Python SDK
+        id: python_bandit
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check bandit --report "$RUNNER_TEMP/cq-python-reports/bandit.json" --timeout-seconds 300
+      - name: Upload Python static analyzer evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-analyzers-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/ruff.json
+            ${{ runner.temp }}/cq-python-reports/mypy.json
+            ${{ runner.temp }}/cq-python-reports/bandit.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Audit every reviewed Python lock
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          python -m pip_audit --strict --disable-pip --require-hashes -r "sdk/python/locks/ci-${p}-py314.txt"
+          for platform in linux darwin win32; do for interpreter in py311 py312 py313 py314 py315; do
+            lock="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
+            test -f "$lock"
+            python -m pip_audit --strict --disable-pip --require-hashes -r "$lock"
+          done; done
+      - name: Measure Python SDK coverage
+        id: python_static_coverage
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cq-python-reports/coverage.json" --progress "$RUNNER_TEMP/cq-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python static coverage evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-coverage-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/coverage.json
+            ${{ runner.temp }}/cq-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Build Python SDK static lane
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cq-python-static-dist" sdk/python
+
+  python:
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.candidate == 'python' || inputs.candidate == 'integrated'))) }}
+    name: Candidate Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - { os: macos-15-intel, python: '3.11', exact_python: '3.11.9' }
+          - { os: macos-15-intel, python: '3.12', exact_python: '3.12.10' }
+          - { os: macos-15-intel, python: '3.13', exact_python: '3.13.17' }
+          - { os: macos-15-intel, python: '3.14', exact_python: '3.14.10' }
+          - { os: macos-15-intel, python: '3.15', exact_python: '3.15.2' }
+    env:
+      CQ_CANDIDATE: python
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - *checkout_feature
+      - *verify_integrated
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.exact_python || matrix.python }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - *stage_darwin_wheel
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Resolve or verify Python SDK lock evidence
+        id: python_lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cq-python-lock"
+          mkdir -m 0700 "$evidence"
+          case "$RUNNER_OS" in
+            Linux) platform=linux ;;
+            macOS) platform=darwin ;;
+            Windows) platform=win32 ;;
+            *) exit 1 ;;
+          esac
+          case '${{ matrix.python }}' in
+            3.11) interpreter=py311 ;;
+            3.12) interpreter=py312 ;;
+            3.13) interpreter=py313 ;;
+            3.14) interpreter=py314 ;;
+            3.15) interpreter=py315 ;;
+            *) exit 1 ;;
+          esac
+          committed="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
+          if test -f "$committed"; then
+            cp "$committed" "$evidence/selected.txt"
+            python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-test.txt
+            if test "$RUNNER_OS" = macOS; then
+              house="$RUNNER_TEMP/cq-darwin-runtime-wheelhouse"
+              python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$evidence/selected.txt"
+              python -m pip --isolated install --dry-run --ignore-installed --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$evidence/selected.txt"
+            else
+              python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            fi
+            sha256sum sdk/python/requirements-test.txt "$evidence/selected.txt" > "$evidence/inputs.sha256"
+            echo 'missing=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-test.txt
+          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$CQ_INTEGRATED_SHA" --requirements sdk/python/requirements-test.txt
+          sha256sum sdk/python/requirements-test.txt "$evidence/generated.txt" > "$evidence/inputs.sha256"
+          echo 'missing=true' >> "$GITHUB_OUTPUT"
+      - name: Upload generated Python lock evidence
+        if: ${{ always() && steps.python_lock.outputs.missing == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-runtime-lock-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-python-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed reviewed Python lock
+        id: python_lock_committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.python_lock.outputs.missing }}' = false
+          test -f "$RUNNER_TEMP/cq-python-lock/selected.txt"
+      - name: Install Python SDK qualification tools
+        id: python_tools
+        if: ${{ always() && steps.python_lock_committed.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if test "$RUNNER_OS" = macOS; then
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
+      - name: Measure Python SDK coverage
+        id: python_coverage
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cq-python-reports/coverage.json" --progress "$RUNNER_TEMP/cq-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python runtime coverage evidence
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-runtime-coverage-${{ matrix.os }}-python-${{ matrix.python }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/coverage.json
+            ${{ runner.temp }}/cq-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Build Python SDK distribution
+        id: python_build
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cq-python-dist" sdk/python
+      - name: Install Python SDK distribution in a fresh environment
+        id: python_install
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m venv "$RUNNER_TEMP/cq-python-venv"
+          if test -x "$RUNNER_TEMP/cq-python-venv/bin/python"; then
+            cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          else
+            cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"
+          fi
+          if test "$RUNNER_OS" = macOS; then
+            "$cq_python" -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
+          "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
+          "$cq_python" -c 'import cq; assert cq.__version__ == "1.0.0.dev0"'
+      - name: Exercise the installed Python local client against cq
+        id: python_installed_client
+        if: ${{ always() && steps.python_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cq_binary="$RUNNER_TEMP/cq-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"; fi
+          CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256" CQ_DIAGNOSTIC_ROOT_FILE="$RUNNER_TEMP/cq-python-diagnostic-root.txt" "$cq_python" - <<'PY'
+          import asyncio, os, subprocess, tempfile, uuid
+          from pathlib import Path
+          from cq import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
+          async def assert_unsafe_windows_root_rejected():
+              with tempfile.TemporaryDirectory(prefix="cq-sdk-negative-") as directory:
+                  root = Path(directory).resolve()
+                  system_root = Path(os.environ.get("SystemRoot", ""))
+                  icacls = system_root / "System32" / "icacls.exe"
+                  if not system_root.is_absolute() or not icacls.is_file():
+                      raise RuntimeError("Windows native ACL utility unavailable")
+                  result = subprocess.run(
+                      [str(icacls), str(root), "/inheritance:r", "/grant:r", "*S-1-1-0:(OI)(CI)F"],
+                      check=False,
+                      stdin=subprocess.DEVNULL,
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL,
+                      timeout=30,
+                  )
+                  if result.returncode != 0:
+                      raise RuntimeError("Windows native ACL fixture setup failed")
+                  client = LocalCLIClient(
+                      os.environ["CQ_EXECUTABLE"],
+                      os.environ["CQ_EXECUTABLE_SHA256"],
+                      root / "policy.json",
+                      root / "state",
+                      environment={},
+                  )
+                  try:
+                      await client.config_init()
+                  except CircularQuayError as error:
+                      if error.category == ErrorCategory.TRUST:
+                          return
+                      raise RuntimeError("Windows unsafe ACL negative case returned unexpected category") from None
+                  raise RuntimeError("Windows unsafe ACL negative case was accepted")
+
+          async def main():
+              policy, state = synthetic_paths("cq-sdk-")
+              client = LocalCLIClient(os.environ["CQ_EXECUTABLE"], os.environ["CQ_EXECUTABLE_SHA256"], policy, state, environment={})
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      try:
+                          Path(os.environ["CQ_DIAGNOSTIC_ROOT_FILE"]).write_text(str(policy.parent) + "\n", encoding="utf-8", newline="\n")
+                      except OSError:
+                          pass
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
+                  raise
+              await client.doctor()
+              await client.plan()
+              if os.name == "nt":
+                  await assert_unsafe_windows_root_rejected()
+          asyncio.run(main())
+          PY
+      - name: Diagnose native Windows user-config trust without retrying the consumer
+        if: ${{ always() && runner.os == 'Windows' && steps.python_installed_client.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$RUNNER_TEMP/cq-python-diagnostic-root.txt"
+          if ! test -f "$request"; then
+            printf '%s\n' 'Native user-config trust diagnostic not selected; the original consumer failure remains.'
+            exit 0
+          fi
+          IFS= read -r diagnostic_root < "$request"
+          CQ_CONFIG_INIT_DIAGNOSTIC_ROOT="$diagnostic_root" go test -count=1 -timeout 2m -run '^TestConfigInitWindowsDiagnostic$' -v ./internal/cli
+      - name: Exercise Python local client without optional MCP dependency
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/cq-python-minimal"
+          cq_python="$RUNNER_TEMP/cq-python-minimal/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-minimal/Scripts/python.exe"; fi
+          "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
+          cq_binary="$RUNNER_TEMP/cq-sdk-minimal"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256" "$cq_python" - <<'PY'
+          import asyncio, os, tempfile, uuid
+          from pathlib import Path
+          from cq import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
+          async def main():
+              policy, state = synthetic_paths("cq-sdk-minimal-")
+              client = LocalCLIClient(os.environ["CQ_EXECUTABLE"], os.environ["CQ_EXECUTABLE_SHA256"], policy, state, environment={})
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
+                  raise
+              await client.doctor()
+          asyncio.run(main())
+          PY
+      - name: Exercise the official Python MCP client against synthetic cq
+        if: ${{ always() && steps.python_install.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.python == '3.15' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cq-sdk-python-mcp"
+          go build -trimpath -o "$binary" ./cmd/cq
+          config="$root/policy.json"
+          state="$root/state"
+          mkdir -m 0700 "$state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"; fi
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "$cq_python" sdk/conformance/python-mcp.py
+      - name: Upload Python package evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-sdk-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-python-dist
+          if-no-files-found: warn
+          retention-days: 7
+
+  darwin-native-prerequisites:
+    name: Intel Darwin native prerequisites
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-native-prerequisites' }}
+    runs-on: macos-15-intel
+    timeout-minutes: 75
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      MACOSX_DEPLOYMENT_TARGET: '10.15'
+      SOURCE_DATE_EPOCH: '1790782204'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ env.CQ_NATIVE_FEATURE_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+      - name: Verify the accepted feature tree and native executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$CQ_NATIVE_FEATURE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_NATIVE_FEATURE_TREE"
+          test "$(git rev-parse 'HEAD^2')" = "$CQ_NATIVE_INPUT_SHA"
+          test "$(git rev-parse 'HEAD^2^')" = 2d8f19216e1b03cb6cdd6132b17b4e97c7f103c4
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_NATIVE_FEATURE_SHA")"
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          image_version="${ImageVersion:?runner image identity required}"
+          test "$image_version" = 20260824.0482.1
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          /usr/bin/xcrun --sdk macosx --find clang
+          root="$(mktemp -d "$RUNNER_TEMP/cq-native-inputs.XXXXXX")"
+          printf 'CQ_NATIVE_ROOT=%s\n' "$root" >> "$GITHUB_ENV"
+          mkdir -m 0700 "$root/evidence"
+          {
+            printf 'Feature: %s\nTree: %s\nReviewed inputs: %s\nImage: %s\n' "$CQ_NATIVE_FEATURE_SHA" "$CQ_NATIVE_FEATURE_TREE" "$CQ_NATIVE_INPUT_SHA" "$image_version"
+            printf 'Retained Apple and Rust evidence: 43148993341 and 43150644107.\n'
+            /usr/bin/xcodebuild -version
+            /usr/bin/xcrun --sdk macosx --show-sdk-version
+          } | tee "$root/evidence/identity.txt" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the installed framework trust constraint without installing
+        id: framework
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/bin/python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import plistlib
+          import subprocess
+          import xml.etree.ElementTree as ET
+
+          root = Path(os.environ["CQ_NATIVE_ROOT"])
+          native = json.loads(Path("sdk/python/darwin-native-toolchain.json").read_text())
+          record_path = Path(native["python"]["inputs"])
+          record_bytes = record_path.read_bytes()
+          assert hashlib.sha256(record_bytes).hexdigest() == native["python"]["inputs_sha256"]
+          record = json.loads(record_bytes)
+          selected = next(entry for entry in record["inputs"] if entry["python"] == "3.12.10")
+          pkg = root / "python-3.12.10.pkg"
+          assert selected["url"] == "https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg"
+          subprocess.run(["/usr/bin/curl", "--fail", "--silent", "--show-error",
+                          "--proto", "=https", "--max-time", "120", "--max-filesize",
+                          str(selected["installer_bytes"]), "--output", str(pkg), selected["url"]], check=True)
+          assert pkg.stat().st_size == selected["installer_bytes"]
+          assert hashlib.sha256(pkg.read_bytes()).hexdigest() == selected["installer_sha256"]
+          # The identical installer already passed notarization, PSF signer and
+          # binary identity checks in run 43153887957. Inspect only the previously
+          # unexamined package script and native installer command contract.
+          expanded = root / "expanded"
+          subprocess.run(["/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded)], check=True)
+          components = [p.parent for p in expanded.rglob("PackageInfo")
+                        if ET.parse(p).getroot().get("identifier") == selected["package_id"]]
+          assert len(components) == 1
+          component = components[0]
+          scripts = [p for p in (component / "Scripts").rglob("*")
+                     if p.is_file() and not p.is_symlink() and p.stat().st_size < 128 * 1024]
+          evidence = []
+          for script in scripts:
+              data = script.read_bytes()
+              if b"compileall.py" in data and b"chmod -R g+w" in data:
+                  evidence.append({"path": str(script.relative_to(component)),
+                                   "sha256": hashlib.sha256(data).hexdigest(),
+                                   "invokes_framework_python": b"/bin/python" in data,
+                                   "processes_site_packages": b"site-packages" in data,
+                                   "sets_group_write": True})
+          def local_directory_service(*args):
+              result = subprocess.run(["/usr/bin/dscl", ".", *args], capture_output=True, text=True)
+              return {"status": result.returncode, "record": result.stdout.splitlines()}
+
+          observed = []
+          framework = Path("/Library/Frameworks/Python.framework")
+          for item in (framework.parent, framework, framework / "Versions",
+                       framework / "Versions/3.12", framework / "Versions/3.12/bin/python3.12"):
+              if not item.exists():
+                  continue
+              status = item.lstat()
+              observed.append({"path": str(item), "uid": status.st_uid, "gid": status.st_gid,
+                               "mode": oct(status.st_mode & 0o7777),
+                               "acl": subprocess.check_output(["/bin/ls", "-lde", str(item)], text=True).splitlines()[1:]})
+          cached_site = framework / "Versions/3.12/lib/python3.12/site-packages"
+          runner = subprocess.check_output(["/usr/bin/id", "-un"], text=True).strip()
+          report = {"reviewed_package": selected["package_id"],
+                    "installer_sha256": selected["installer_sha256"],
+                    "source_evidence_run": record["evidence"]["run_id"], "scripts": evidence,
+                    "runner_user": runner, "runner_groups": os.getgroups(),
+                    "admin_members": local_directory_service("-read", "/Groups/admin", "PrimaryGroupID", "GroupMembership"),
+                    "admin_nested_groups": local_directory_service("-read", "/Groups/admin", "NestedGroups"),
+                    "observed_framework_paths": observed,
+                    "cached_site_pth_files": len(list(cached_site.glob("*.pth"))),
+                    "target_interpreter_executed": False}
+          print(json.dumps(report, indent=2), flush=True)
+          (root / "evidence" / "framework-postflight.json").write_text(json.dumps(report, indent=2) + "\n")
+          help_output = subprocess.run(["/usr/sbin/installer", "-help"], stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT, text=True, check=False).stdout
+          (root / "evidence" / "installer-help.txt").write_text(help_output)
+          choices = subprocess.check_output(["/usr/sbin/installer", "-pkg", str(pkg), "-target", "/",
+                                             "-showChoiceChangesXML"])
+          assert isinstance(plistlib.loads(choices), list)
+          (root / "evidence" / "installer-choices.plist").write_bytes(choices)
+          if not evidence or not all(entry["invokes_framework_python"] for entry in evidence):
+              raise SystemExit("Framework installer behavior differs from the reviewed upstream scripts")
+          print("The signed framework postflight executes Python before installed trust checks and grants group write. This step collected evidence only.")
+          PY
+      - name: Acquire exact OpenSSL and cryptography source bytes
+        id: source_bytes
+        if: ${{ !cancelled() && env.CQ_NATIVE_ROOT != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/bin/python3 -I - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import shutil
+          import stat
+          import subprocess
+          import tarfile
+          from urllib.parse import urlsplit
+
+          root = Path(os.environ["CQ_NATIVE_ROOT"])
+          sdk = Path("sdk/python")
+          native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+          source = json.loads((sdk / "darwin-source-policy.json").read_text())
+          inputs = json.loads((sdk / "darwin-build-inputs.json").read_text())
+
+          def sha(path):
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for data in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(data)
+              return digest.hexdigest()
+
+          assert (source["package"], source["version"], source["platform"], source["architecture"]) == ("cryptography", "50.0.2", "darwin", "x86_64")
+          assert native["openssl"]["version"] == "3.5.9"
+          assert inputs["source_date_epoch"] == native["build_settings"]["source_date_epoch"] == int(os.environ["SOURCE_DATE_EPOCH"])
+          pins = [(inputs["source_policy"], inputs["source_policy_sha256"]),
+                  (inputs["direct_requirements"], inputs["direct_requirements_sha256"])]
+          pins.extend((entry["lock"], entry["lock_sha256"]) for entry in inputs["closures"])
+          assert len(inputs["closures"]) == 5
+          assert all(sha(Path(path)) == digest for path, digest in pins)
+
+          receipts = []
+          for entry, basename, limit, expected_hosts in (
+              (native["openssl"], "openssl-3.5.9", 64 * 1024**2, {"release-assets.githubusercontent.com", "github.com"}),
+              (source, "cryptography-50.0.2", 16 * 1024**2, {"files.pythonhosted.org"}),
+          ):
+              filename = basename + ".tar.gz"
+              archive = root / filename
+              assert entry["url"].endswith("/" + filename)
+              effective = subprocess.check_output(
+                  ["/usr/bin/curl", "--fail", "--silent", "--show-error", "--location",
+                   "--proto", "=https", "--proto-redir", "=https", "--max-time", "180",
+                   "--max-filesize", str(limit), "--output", str(archive),
+                   "--write-out", "%{url_effective}", entry["url"]], text=True)
+              assert urlsplit(effective).hostname in expected_hosts
+              assert archive.stat().st_size <= limit and sha(archive) == entry["sha256"], filename
+              receipts.append({"archive": filename, "bytes": archive.stat().st_size,
+                               "sha256": entry["sha256"]})
+              with tarfile.open(archive, "r:gz") as tar:
+                  if basename.startswith("cryptography-"):
+                      for name, pin in inputs["upstream_metadata"].items():
+                          member = tar.getmember(pin["member"])
+                          assert member.isfile() and member.size < 1024 * 1024
+                          assert hashlib.sha256(tar.extractfile(member).read()).hexdigest() == pin["sha256"], name
+                      continue
+                  # Extract only regular files and directories in one private root.
+                  # No archive ownership, privilege bits, symlinks or hard links.
+                  size = 0
+                  seen = set()
+                  for member in tar:
+                      path = PurePosixPath(member.name)
+                      assert path.parts and path.parts[0] == basename and ".." not in path.parts
+                      assert not path.is_absolute() and path not in seen
+                      seen.add(path)
+                      size += member.size
+                      assert len(seen) <= 30000 and size <= 512 * 1024**2
+                      target = root.joinpath(*path.parts)
+                      if member.isdir():
+                          target.mkdir(parents=True, exist_ok=True)
+                          continue
+                      assert member.isfile(), str(path)
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      with tar.extractfile(member) as stream, target.open("xb") as output:
+                          shutil.copyfileobj(stream, output)
+                      target.chmod(stat.S_IRUSR | stat.S_IWUSR | (member.mode & stat.S_IXUSR))
+          print(json.dumps(receipts, indent=2), flush=True)
+          (root / "evidence" / "sources.json").write_text(json.dumps(receipts, indent=2) + "\n")
+          PY
+      - name: Build and test the pinned static OpenSSL in an isolated native process
+        if: ${{ !cancelled() && steps.source_bytes.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_NATIVE_ROOT"
+          cat > "$root/offline.sb" <<'SB'
+          (version 1)
+          (allow default)
+          (deny network-outbound)
+          (allow network-outbound (remote ip "localhost:*"))
+          SB
+          /usr/bin/sandbox-exec -f "$root/offline.sb" /usr/bin/python3 -I - <<'PY'
+          import errno
+          import socket
+
+          with socket.socket() as server, socket.socket() as client:
+              server.bind(("127.0.0.1", 0))
+              server.listen(1)
+              client.settimeout(2)
+              client.connect(server.getsockname())
+          with socket.socket() as client:
+              client.settimeout(2)
+              try:
+                  client.connect(("192.0.2.1", 443))
+              except OSError as exc:
+                  if exc.errno not in (errno.EACCES, errno.EPERM):
+                      raise
+              else:
+                  raise SystemExit("Build network policy permitted non-loopback egress")
+          PY
+          cd "$root/openssl-3.5.9"
+          CC="$(/usr/bin/xcrun --sdk macosx --find clang)"
+          SDKROOT="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
+          export CC SDKROOT
+          cat > "$root/build-openssl.sh" <<'BUILD'
+            /usr/bin/perl ./Configure darwin64-x86_64-cc no-shared -fPIC --prefix="$1/openssl" --openssldir="$1/openssl/ssl"
+            /usr/bin/make -j2
+            HARNESS_JOBS=2 /usr/bin/make test
+            /usr/bin/make install_sw
+          BUILD
+          /usr/bin/sandbox-exec -f "$root/offline.sb" /bin/bash --noprofile --norc -e -o pipefail \
+            "$root/build-openssl.sh" "$root" > "$root/evidence/openssl-build.log" 2>&1 || {
+            tail -n 60 "$root/evidence/openssl-build.log"
+            exit 1
+          }
+          "$root/openssl/bin/openssl" version -a | tee "$root/evidence/openssl-version.txt"
+          grep -E '^OpenSSL 3\.5\.9( |$)' "$root/evidence/openssl-version.txt"
+          /usr/bin/lipo "$root/openssl/bin/openssl" -verify_arch x86_64
+          /usr/bin/otool -L "$root/openssl/bin/openssl" | tee "$root/evidence/openssl-linkage.txt"
+          if grep -E 'lib(ssl|crypto)\.dylib|/opt/homebrew/|/usr/local/' "$root/evidence/openssl-linkage.txt"; then
+            exit 1
+          fi
+          for library in libssl libcrypto; do
+            archive="$root/openssl/lib/$library.a"
+            test -f "$archive"
+            /usr/bin/lipo "$archive" -verify_arch x86_64
+            /usr/bin/shasum -a 256 "$archive"
+          done | tee "$root/evidence/openssl-static-hashes.txt"
+          tail -n 10 "$root/evidence/openssl-build.log"
+          printf '\nNative static OpenSSL build, test suite and linkage passed on this runner.\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain prerequisite evidence
+        if: ${{ !cancelled() && env.CQ_NATIVE_ROOT != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: intel-darwin-native-prerequisites
+          path: ${{ env.CQ_NATIVE_ROOT }}/evidence
+          if-no-files-found: error
+          retention-days: 14
+
+  darwin-native-wheels:
+    name: Native Intel Darwin cryptography wheel (CPython ${{ matrix.python }})
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-native-wheels' }}
+    runs-on: macos-15-intel
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11.9', '3.12.10', '3.13.17', '3.14.10', '3.15.2']
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      CQ_PYTHON_PATCH: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ env.CQ_NATIVE_FEATURE_SHA }}
+          fetch-depth: 3
+          persist-credentials: false
+      - name: Verify the frozen feature and disposable Intel runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$CQ_NATIVE_FEATURE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_NATIVE_FEATURE_TREE"
+          test "$(git rev-parse 'HEAD^2')" = "$CQ_NATIVE_INPUT_SHA"
+          test "$(git rev-parse 'HEAD^2^')" = 2d8f19216e1b03cb6cdd6132b17b4e97c7f103c4
+          test "$(git ls-remote --exit-code origin refs/heads/feature/initial-implementation)" = "$(printf '%s\trefs/heads/feature/initial-implementation' "$CQ_NATIVE_FEATURE_SHA")"
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          test "${ImageVersion:?runner image identity required}" = 20260824.0482.1
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          case "$CQ_PYTHON_PATCH" in 3.11.9|3.12.10|3.13.17|3.14.10|3.15.2) ;; *) exit 1 ;; esac
+          root="$RUNNER_TEMP/cq-darwin-wheels-$CQ_PYTHON_PATCH"
+          mkdir -m 0700 "$root"
+          {
+            printf 'CQ_INSTALL_ROOT=%s\n' "$root"
+            printf 'CQ_FRAMEWORK_RECEIPT=%s/framework-receipt.json\n' "$root"
+            printf 'CQ_WHEEL_BUILD_ROOT=%s/build\n' "$root"
+            printf 'CQ_REPO=%s\n' "$PWD"
+          } >> "$GITHUB_ENV"
+          printf 'Feature %s; tree %s; source inputs %s; CPython %s.\n' "$CQ_NATIVE_FEATURE_SHA" "$CQ_NATIVE_FEATURE_TREE" "$CQ_NATIVE_INPUT_SHA" "$CQ_PYTHON_PATCH" | tee "$root/identity.txt" >> "$GITHUB_STEP_SUMMARY"
+      - &install_verified_framework
+        name: Install only the verified PSF framework and prove native identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/bin/python3 -I - <<'FRAMEWORK'
+          """Admit one reviewed PSF framework on a dedicated GitHub-hosted runner."""
+          import base64
+          import csv
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import plistlib
+          import pwd
+          import re
+          import stat
+          import subprocess
+          import tarfile
+          import time
+          from urllib.parse import urlsplit
+          import xml.etree.ElementTree as ET
+
+
+          def run(*args, timeout=120):
+              return subprocess.check_output(args, text=False, timeout=timeout)
+
+
+          def sha(path):
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(block)
+              return digest.hexdigest()
+
+
+          def group_membership(name, trusted):
+              group = plistlib.loads(run("/usr/bin/dscl", "-plist", ".", "-read", f"/Groups/{name}"))
+              attrs = {key.split(":")[-1]: value for key, value in group.items()}
+              gid = int(attrs["PrimaryGroupID"][0])
+              names = set(attrs.get("GroupMembership", []))
+              assert names <= trusted and not attrs.get("NestedGroups"), (name, names)
+              allowed_ids = set()
+              for user in sorted(trusted):
+                  entry = plistlib.loads(run("/usr/bin/dscl", "-plist", ".", "-read",
+                                             f"/Users/{user}", "GeneratedUID"))
+                  allowed_ids.update(value for key, values in entry.items()
+                                     if key.split(":")[-1] == "GeneratedUID" for value in values)
+              assert set(attrs.get("GroupMembers", [])) <= allowed_ids, (name, "unexpected member GUID")
+              primary = {user.pw_name for user in pwd.getpwall() if user.pw_gid == gid}
+              assert primary <= trusted, (name, primary)
+              return gid, sorted(names | primary)
+
+
+          def protected(path, writers, group_ids, required_root=False):
+              assert path.resolve(strict=True) == path, path
+              info = path.lstat()
+              assert not stat.S_ISLNK(info.st_mode) and (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)), path
+              assert info.st_uid in ({0} if required_root else writers), (path, info.st_uid)
+              assert not info.st_mode & stat.S_IWOTH, (path, oct(info.st_mode))
+              assert not info.st_mode & stat.S_IWGRP or info.st_gid in group_ids, (path, info.st_gid)
+              for acl in run("/bin/ls", "-lde", str(path)).decode().splitlines()[1:]:
+                  if " allow " in acl:
+                      permissions = acl.split(" allow ", 1)[1]
+                      assert not re.search(r"(?:write|append|add_file|add_subdirectory|delete|chown)", permissions), (path, acl)
+              return {"path": str(path), "uid": info.st_uid, "gid": info.st_gid, "mode": oct(info.st_mode & 0o7777)}
+
+
+          def checked_choices(data, known):
+              rows = plistlib.loads(data)
+              assert isinstance(rows, list)
+              result = {}
+              for row in rows:
+                  if row.get("choiceAttribute") == "selected":
+                      name, selected = row["choiceIdentifier"], row["attributeSetting"]
+                      assert name not in result and selected in (0, 1), row
+                      result[name] = selected
+              assert known <= set(result), (known, result)
+              return result
+
+
+          def cached_site_inputs(prefix, stdlib, minor, writers, groups):
+              """Record excluded runner cache and verify hooks used by installer postflight."""
+              site_rel = stdlib / "site-packages"
+              site = prefix / site_rel
+              if site.exists():
+                  protected(site, writers, groups)
+              for path in site.iterdir() if site.exists() else ():
+                  if re.match(r"^(?:sitecustomize|usercustomize)(?:\.|$)", path.name):
+                      raise RuntimeError(f"Unexpected cached startup hook: {path.name}")
+              for hook in site.glob("*.pth"):
+                  protected(hook, writers, groups)
+                  expected = ("import os; var = 'SETUPTOOLS_USE_DISTUTILS'; "
+                              "enabled = os.environ.get(var, 'local') == 'local'; "
+                              "enabled and __import__('_distutils_hack').add_shim();")
+                  assert hook.name == "distutils-precedence.pth" and hook.read_text().strip() == expected, hook.name
+                  records = list(site.glob("setuptools-*.dist-info/RECORD"))
+                  assert len(records) == 1, "cached setuptools RECORD not identified"
+                  protected(records[0], writers, groups)
+                  with records[0].open(newline="") as stream:
+                      entries = {name: digest for name, digest, _ in csv.reader(stream)}
+                  for path in (hook, site / "_distutils_hack/__init__.py"):
+                      protected(path, writers, groups)
+                      digest = base64.urlsafe_b64encode(bytes.fromhex(sha(path))).rstrip(b"=").decode()
+                      assert entries.get(str(path.relative_to(site))) == f"sha256={digest}", path
+
+              baseline = {}
+              for path in sorted(site.rglob("*")):
+                  relative = path.relative_to(prefix)
+                  if path.is_symlink():
+                      assert path.resolve().is_relative_to(site), relative
+                      baseline[relative] = "link:" + os.readlink(path)
+                  elif path.is_dir():
+                      baseline[relative] = "directory"
+                  else:
+                      assert path.is_file(), relative
+                      baseline[relative] = sha(path)
+              if site.exists():
+                  baseline[site_rel] = "directory"
+              launchers = (prefix / "bin").glob("*")
+              for path in launchers:
+                  if re.fullmatch(r"(?:pip|easy_install)(?:3(?:\.\d+)?)?", path.name):
+                      protected(path, writers, groups)
+                      baseline[path.relative_to(prefix)] = sha(path)
+              # Known runner-image aliases, trust store and inactive test/ensurepip
+              # residue never enter the qualification interpreter or tool search path.
+              primary = prefix / "bin" / f"python{minor}"
+              for name in ("python", "python" + minor.replace(".", "")):
+                  alias = prefix / "bin" / name
+                  if not alias.exists():
+                      continue
+                  relative = alias.relative_to(prefix)
+                  if alias.is_symlink():
+                      assert alias.resolve() == primary, alias
+                      baseline[relative] = "link:" + os.readlink(alias)
+                  else:
+                      protected(alias, writers, groups)
+                      assert sha(alias) == sha(primary), alias
+                      baseline[relative] = sha(alias)
+              cert = prefix / "etc/openssl/cert.pem"
+              if cert.is_symlink():
+                  assert cert.resolve() in (site / "certifi/cacert.pem", Path("/private/etc/ssl/cert.pem")), cert
+                  baseline[cert.relative_to(prefix)] = "link:" + os.readlink(cert)
+              elif cert.exists():
+                  protected(cert, writers, groups)
+                  assert cert.stat().st_size < 4 * 1024**2 and b"BEGIN CERTIFICATE" in cert.read_bytes()
+                  baseline[cert.relative_to(prefix)] = sha(cert)
+              for relative in (stdlib / "test", stdlib / "idlelib/idle_test", stdlib / "ensurepip/_bundled"):
+                  directory = prefix / relative
+                  if directory.is_dir() and not directory.is_symlink():
+                      baseline[relative] = "directory"
+                  for path in directory.rglob("*"):
+                      if relative.name == "_bundled" and not re.fullmatch(r"pip-\d+(?:\.\d+)*-py3-none-any\.whl", path.name):
+                          continue
+                      assert not path.is_symlink() and (path.is_file() or path.is_dir()), path
+                      baseline[path.relative_to(prefix)] = "directory" if path.is_dir() else sha(path)
+              assert len(baseline) <= 24000
+              return baseline
+
+
+          def compare_installed_payload(staged, installed, stdlib, minor, writers, groups, baseline):
+              expected = {path.relative_to(staged): path for path in staged.rglob("*")}
+              actual = {path.relative_to(installed): path for path in installed.rglob("*")}
+              assert expected.keys() <= actual.keys(), sorted(str(path) for path in expected.keys() - actual.keys())[:20]
+              digest = hashlib.sha256()
+              for relative, source in sorted(expected.items()):
+                  target = actual[relative]
+                  origin, deployed = source.lstat(), target.lstat()
+                  assert stat.S_IFMT(origin.st_mode) == stat.S_IFMT(deployed.st_mode), relative
+                  if source.is_symlink():
+                      link = os.readlink(source)
+                      assert link == os.readlink(target), relative
+                      assert target.resolve().is_relative_to(installed), relative
+                      value = "link:" + link
+                  elif source.is_dir():
+                      value = "directory"
+                  else:
+                      assert source.is_file(), relative
+                      value = sha(source)
+                      assert value == sha(target), relative
+                  if not source.is_symlink():
+                      assert deployed.st_uid in writers and not deployed.st_mode & stat.S_IWOTH, relative
+                      assert not deployed.st_mode & stat.S_IWGRP or deployed.st_gid in groups, relative
+                  digest.update((str(relative) + "\0" + value + "\n").encode())
+
+              added = actual.keys() - expected.keys()
+              accepted, unknown = set(), set()
+              counts = {"documentation": 0, "excluded_runner_residue": 0, "generated_bytecode": 0}
+              docs = Path("Resources/English.lproj/Documentation")
+              doc_link = Path("share/doc") / f"python{minor}" / "html"
+              py_tag = minor.replace(".", "")
+              for relative in sorted(added):
+                  target = actual[relative]
+                  category = None
+                  if relative.is_relative_to(docs):
+                      # These are passive resources outside Python's verified sys.path.
+                      if target.is_symlink():
+                          assert target.resolve().is_relative_to(installed / docs), relative
+                      else:
+                          assert target.is_file() or target.is_dir(), relative
+                      category = "documentation"
+                  elif relative == doc_link:
+                      assert target.is_symlink() and target.resolve() == installed / docs, relative
+                      category = "documentation"
+                  elif relative in (doc_link.parent, doc_link.parent.parent) and doc_link in actual:
+                      assert target.is_dir() and not target.is_symlink(), relative
+                      category = "documentation"
+                  elif relative in baseline:
+                      observed = ("link:" + os.readlink(target) if target.is_symlink() else
+                                  "directory" if target.is_dir() else sha(target))
+                      if observed != baseline[relative]:
+                          match = re.fullmatch(r"(.+)\.cpython-" + py_tag + r"(?:\.opt-[12])?\.pyc", relative.name)
+                          assert match and relative.parent.name == "__pycache__", relative
+                          source = relative.parent.parent / (match[1] + ".py")
+                          assert source in expected or source in baseline, relative
+                      category = "excluded_runner_residue"
+                  elif relative.is_relative_to(stdlib) and target.is_dir() and not target.is_symlink() and relative.name == "__pycache__":
+                      if relative.parent in expected or relative.parent in baseline:
+                          category = "generated_bytecode"
+                  elif relative.is_relative_to(stdlib) and target.is_file() and not target.is_symlink() and relative.parent.name == "__pycache__":
+                      match = re.fullmatch(r"(.+)\.cpython-" + py_tag + r"(?:\.opt-[12])?\.pyc", relative.name)
+                      if match:
+                          source = relative.parent.parent / (match[1] + ".py")
+                          if source in expected or source in baseline:
+                              category = "generated_bytecode"
+                  if category is None:
+                      unknown.add(relative)
+                      continue
+                  accepted.add(relative)
+                  counts[category] += 1
+
+              assert not unknown, {"unexpected_added_count": len(unknown), "paths": sorted(str(path) for path in unknown)[:60]}
+              for relative in accepted:
+                  if relative.is_relative_to(docs):
+                      continue
+                  info = actual[relative].lstat()
+                  assert info.st_uid in writers, relative
+                  if not stat.S_ISLNK(info.st_mode):
+                      assert not info.st_mode & stat.S_IWOTH, relative
+                      assert not info.st_mode & stat.S_IWGRP or info.st_gid in groups, relative
+              acl_lines = run("/bin/ls", "-lbeR", str(installed)).decode().splitlines()
+              for entry in acl_lines:
+                  if re.match(r"^\s*\d+:", entry) and " allow " in entry:
+                      assert not re.search(r"write|append|add_file|add_subdirectory|delete|chown", entry.split(" allow ", 1)[1]), entry
+              return digest.hexdigest(), accepted, counts
+
+
+          def verify_framework_seal(staged_library, installed_library, requirement, allowed_additions, root):
+              # PSF documents that its installer adds compileall outputs inside the
+              # signed framework. Validate the original seal, compare installed payload
+              # bytes, and retain the installed codesign verdict including any additions.
+              # https://github.com/python/cpython/issues/159629
+              run("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(staged_library))
+              result = subprocess.run(["/usr/bin/codesign", "--verify", "--strict", "--verbose=4",
+                                       "-R", requirement, str(installed_library)],
+                                      capture_output=True, text=True, timeout=120)
+              log = result.stdout + result.stderr
+              (root / "installed-framework-codesign.txt").write_text(log)
+              if result.returncode:
+                  assert "a sealed resource is missing or invalid" in log, log[:1000]
+                  assert not re.search(r"(?m)^file (?:missing|modified|changed):", log), log[:1000]
+                  added = {Path(line.removeprefix("file added: ").strip()) for line in log.splitlines()
+                           if line.startswith("file added: ")}
+                  allowed_paths = {installed_library.parent / path for path in allowed_additions}
+                  assert added and added <= allowed_paths, sorted(str(path) for path in added - allowed_paths)[:20]
+              return result.returncode
+
+
+          def main():
+              root = Path(os.environ["CQ_INSTALL_ROOT"])
+              version = os.environ["CQ_PYTHON_PATCH"]
+              minor = version.rsplit(".", 1)[0]
+              sdk = Path("sdk/python")
+              native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+              record_path = Path(native["python"]["inputs"])
+              assert sha(record_path) == native["python"]["inputs_sha256"]
+              record = json.loads(record_path.read_text())
+              assert record["evidence"]["run_id"] == 43153887957
+              selected = next(item for item in record["inputs"] if item["python"] == version)
+              prefix = Path("/Library/Frameworks/Python.framework/Versions") / minor
+
+              url = selected["url"]
+              archive = selected["observed_mode"] == "archive"
+              hosts = {"github.com", "release-assets.githubusercontent.com"} if archive else {"www.python.org"}
+              assert urlsplit(url).scheme == "https" and urlsplit(url).hostname in hosts
+              limit = selected["archive_bytes"] if archive else selected["installer_bytes"]
+              downloaded = root / ("python.tar.gz" if archive else "python.pkg")
+              effective = run("/usr/bin/curl", "--fail", "--silent", "--show-error", "--location",
+                              "--proto", "=https", "--proto-redir", "=https", "--max-time", "120",
+                              "--max-filesize", str(limit), "--output", str(downloaded),
+                              "--write-out", "%{url_effective}", url).decode()
+              assert urlsplit(effective).hostname in hosts and downloaded.stat().st_size == limit
+              pkg = root / "python.pkg"
+              if archive:
+                  assert sha(downloaded) == selected["verified_archive_sha256"]
+                  with tarfile.open(downloaded, "r:gz") as container:
+                      packages = [m for m in container if m.isfile() and m.name.endswith(".pkg")]
+                      assert len(packages) == 1 and packages[0].size == selected["installer_bytes"]
+                      with container.extractfile(packages[0]) as source, pkg.open("xb") as output:
+                          for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                              output.write(chunk)
+              assert pkg.stat().st_size == selected["installer_bytes"] and sha(pkg) == selected["installer_sha256"]
+              signature = run("/usr/sbin/pkgutil", "--check-signature", str(pkg)).decode()
+              assert {
+                  "Status: signed by a developer certificate issued by Apple for distribution",
+                  "Notarization: trusted by the Apple notary service",
+                  "1. Developer ID Installer: Python Software Foundation (BMM5U3QVKW)",
+              } <= {line.strip() for line in signature.splitlines()}
+
+              expanded = root / "expanded"
+              run("/usr/sbin/pkgutil", "--expand-full", str(pkg), str(expanded))
+              distribution = ET.parse(expanded / "Distribution").getroot()
+              package_id = selected["package_id"]
+              choices = {choice.get("id"): {ref.get("id") for ref in choice.findall("pkg-ref")}
+                         for choice in distribution.findall("choice") if choice.findall("pkg-ref")}
+              selected_choices = {name for name, packages in choices.items() if package_id in packages}
+              assert len(selected_choices) == 1
+              framework_choice = selected_choices.pop()
+              assert choices[framework_choice] == {package_id}
+              components = [p.parent for p in expanded.rglob("PackageInfo")
+                            if ET.parse(p).getroot().get("identifier") == package_id]
+              assert len(components) == 1
+              component = components[0]
+              payload = component / "Payload"
+              staged = payload / "Versions" / minor
+              assert sha(staged / "bin" / f"python{minor}") == selected["package_interpreter_sha256"]
+              assert sha(staged / "Python") == selected["package_framework_sha256"]
+              stdlib = Path("lib") / f"python{minor}"
+              pip_path = stdlib / "ensurepip" / "_bundled" / selected["bundled_pip"]["name"]
+              assert sha(staged / pip_path) == selected["bundled_pip"]["sha256"]
+              scripts = {}
+              framework_postflights = 0
+              for script in (component / "Scripts").rglob("*"):
+                  if not script.is_file() or script.is_symlink():
+                      continue
+                  assert script.stat().st_size < 128 * 1024
+                  scripts[str(script.relative_to(component))] = sha(script)
+                  code = script.read_bytes()
+                  if b"compileall.py" in code and b"chmod -R g+w" in code:
+                      # The verified package runs this postflight within the trusted
+                      # system/admin boundary of the dedicated disposable runner.
+                      assert b"/bin/python" in code and b"site-packages" in code
+                      framework_postflights += 1
+              assert framework_postflights == 1, "unexpected signed framework postflight inventory"
+
+              installer = ("/usr/sbin/installer", "-pkg", str(pkg), "-target", "/")
+              before = run(*installer, "-showChoiceChangesXML")
+              checked_choices(before, set(choices))
+              overrides = [{"choiceIdentifier": name, "choiceAttribute": "selected",
+                            "attributeSetting": int(name == framework_choice)} for name in sorted(choices)]
+              selection = root / "framework-choice.plist"
+              selection.write_bytes(plistlib.dumps(overrides))
+              after = run(*installer, "-showChoicesAfterApplyingChangesXML", str(selection))
+              planned = checked_choices(after, set(choices))
+              assert {name for name in choices if planned[name]} == {framework_choice}, planned
+              (root / "framework-selection.plist").write_bytes(after)
+
+              runner = run("/usr/bin/id", "-un").decode().strip()
+              assert os.getuid() != 0 and runner == "runner", runner
+              trusted = {"root", runner}
+              admin_gid, admins = group_membership("admin", trusted)
+              wheel_gid, wheel_members = group_membership("wheel", trusted)
+              assert admin_gid in os.getgroups() and wheel_gid != admin_gid
+              groups, writers = {admin_gid, wheel_gid}, {0, os.getuid()}
+
+              # Audit the existing selected paths without running anything from the
+              # tool cache. The fresh package is installed only after this check.
+              ancestors = (Path("/"), Path("/Library"), prefix.parent.parent.parent, prefix.parent.parent, prefix.parent)
+              checked = [protected(path, writers, groups, True) for path in ancestors if path.exists()]
+              baseline = {}
+              if prefix.exists():
+                  checked.append(protected(prefix, writers, groups))
+                  baseline = cached_site_inputs(prefix, stdlib, minor, writers, groups)
+              (root / "framework-preflight.json").write_text(json.dumps({
+                  "python": version, "scripts": scripts, "admin": admins, "wheel_group": wheel_members,
+                  "preinstalled_paths": checked, "selected_choice": framework_choice,
+                  "cached_site_entries": len(baseline),
+                  "installer_sha256": selected["installer_sha256"],
+              }, indent=2) + "\n")
+              print(f"Verified {package_id}; selecting only {framework_choice}; trusted admin members: {admins}", flush=True)
+              install_started = int(time.time())
+              # The sole system write is Apple's installation of the selected, verified
+              # component on this disposable runner. No ownership or mode edits follow.
+              subprocess.run(["/usr/bin/sudo", "-n", *installer, "-applyChoiceChangesXML",
+                              str(selection)], check=True, timeout=360)
+
+              installed = plistlib.loads(run("/usr/sbin/pkgutil", "--pkg-info-plist", package_id))
+              assert (installed["pkgid"], installed["pkg-version"]) == (package_id, selected["component_version"])
+              assert installed["install-time"] >= install_started, "stale installer receipt"
+              binary = prefix / "bin" / f"python{minor}"
+              library = prefix / "Python"
+              assert sha(binary) == selected["package_interpreter_sha256"]
+              assert sha(library) == selected["package_framework_sha256"]
+              assert sha(prefix / pip_path) == selected["bundled_pip"]["sha256"]
+              for name in ("site.py", "compileall.py"):
+                  assert sha(prefix / stdlib / name) == sha(staged / stdlib / name)
+              readback = []
+              for path in (*ancestors, prefix, prefix / "bin", binary, library, prefix / stdlib, prefix / pip_path):
+                  readback.append(protected(path, writers, groups, True))
+              requirement = '=anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
+              run("/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(binary))
+              for path in (binary, library):
+                  run("/usr/bin/lipo", str(path), "-verify_arch", "x86_64")
+              inventory, added, additions = compare_installed_payload(staged, prefix, stdlib, minor, writers, groups, baseline)
+              installed_seal_status = verify_framework_seal(staged / "Python", library, requirement, added, root)
+              cache = root / "initial-pycache"
+              cache.mkdir(mode=0o700)
+              # The verified runtime must not open the runner's cached modules, old
+              # bundled pip wheels, test fixtures or certificate file.
+              deny_dirs = [prefix / stdlib / name for name in ("site-packages", "test", "idlelib/idle_test")]
+              cert = prefix / "etc/openssl/cert.pem"
+              deny_files = [cert] if not cert.is_symlink() or cert.resolve().is_relative_to(prefix) else []
+              deny_files.extend(prefix / path for path in added if path.parent == pip_path.parent and path.suffix == ".whl")
+              deny = [f"(deny file-read-data (subpath {json.dumps(str(path))}))" for path in deny_dirs]
+              deny.extend(f"(deny file-read-data (literal {json.dumps(str(path))}))" for path in deny_files)
+              profile = root / "framework-runtime.sb"
+              profile.write_text("(version 1)\n(allow default)\n" + "\n".join(deny) + "\n")
+              canaries = [path for path in deny_files if path.is_file()]
+              for directory in deny_dirs:
+                  if directory.is_dir():
+                      sample = next((p for p in directory.rglob("*") if p.is_file() and not p.is_symlink()), None)
+                      if sample:
+                          canaries.append(sample)
+              preflight = (
+                  "import errno,sys\n"
+                  "for p in sys.argv[1:]:\n"
+                  " try:\n"
+                  "  with open(p, 'rb') as f: f.read(1)\n"
+                  " except OSError as e:\n"
+                  "  assert e.errno in (errno.EACCES, errno.EPERM), (p, e)\n"
+                  " else: raise RuntimeError('Excluded runtime file remained readable: ' + p)\n"
+              )
+              # Test the filesystem isolation using Apple's interpreter first.
+              run("/usr/bin/sandbox-exec", "-f", str(profile), "/usr/bin/python3",
+                  "-I", "-S", "-c", preflight, *(str(path) for path in canaries))
+              probe = "import json,platform,sys; assert all('site-packages' not in p and 'Documentation' not in p for p in sys.path); print(json.dumps([platform.python_version(), platform.machine(), sys.platform, sys.base_prefix]))"
+              identity = json.loads(run("/usr/bin/sandbox-exec", "-f", str(profile), str(binary),
+                                        "-I", "-S", "-X", f"pycache_prefix={cache}", "-c", probe))
+              assert identity == [version, "x86_64", "darwin", str(prefix)]
+              receipt = {"python": version, "runner_image": os.environ["ImageVersion"],
+                         "feature_tree": os.environ["CQ_NATIVE_FEATURE_TREE"], "installed_trust_verified": True,
+                         "installer_sha256": selected["installer_sha256"], "package_id": package_id,
+                         "bundled_pip": selected["bundled_pip"], "identity": identity,
+                         "installed_package": installed, "protected_paths": readback, "admin": admins,
+                         "binary_sha256": sha(binary), "library_sha256": sha(library),
+                         "installed_payload_inventory_sha256": inventory,
+                         "installed_non_runtime_entries": additions, "runtime_profile_sha256": sha(profile),
+                         "runtime_isolation_probes": len(canaries),
+                         "installed_framework_codesign_status": installed_seal_status}
+              (root / "framework-receipt.json").write_text(json.dumps(receipt, indent=2, default=str) + "\n")
+              print(json.dumps(receipt, indent=2, default=str))
+
+
+          if __name__ == "__main__":
+              main()
+          FRAMEWORK
+      - name: Build, link and test two clean cryptography wheels
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cat > "$CQ_INSTALL_ROOT/build-wheel.sh" <<'RECIPE'
+          #!/bin/bash
+          # Hosted qualification recipe for review. Run only after the framework receipt
+          # has passed the separately reviewed native installation and trust checks.
+          set -euo pipefail
+          umask 077
+          : "${CQ_REPO:?verified source checkout required}"
+          : "${CQ_FRAMEWORK_RECEIPT:?verified installed framework receipt required}"
+          : "${CQ_PYTHON_PATCH:?reviewed CPython patch version required}"
+          : "${RUNNER_TEMP:?dedicated GitHub-hosted runner required}"
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          test "${ImageVersion:?runner image identity required}" = 20260824.0482.1
+          test "$(git -C "$CQ_REPO" rev-parse HEAD)" = 941adf3f84a49905d7244bb594fbf517dff9bc32
+          test "$(git -C "$CQ_REPO" rev-parse 'HEAD^{tree}')" = 00434f4681afc7b2584d628199c22287f7c9df01
+          test -z "$(git -C "$CQ_REPO" status --porcelain)"
+          root="${CQ_WHEEL_BUILD_ROOT:?private wheel output directory required}"
+          mkdir -m 0700 "$root"
+          cd "$root"
+          mkdir -m 0700 "$root/tmp"
+          export TMPDIR="$root/tmp"
+          export PYTHONPYCACHEPREFIX="$root/tmp/pycache"
+          export CQ_REPO CQ_PYTHON_PATCH CQ_FRAMEWORK_RECEIPT
+          export DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer
+          test "$(/usr/bin/xcodebuild -version)" = "$(printf 'Xcode 16.4\nBuild version 16F6')"
+          test "$(/usr/bin/xcrun --sdk macosx --show-sdk-version)" = 15.5
+          CC="$(/usr/bin/xcrun --sdk macosx --find clang)"
+          SDKROOT="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
+          export CC SDKROOT
+          export SOURCE_DATE_EPOCH=1790782204 MACOSX_DEPLOYMENT_TARGET=10.15
+          export CARGO_BUILD_JOBS=2 CARGO_BUILD_TARGET=x86_64-apple-darwin
+          export RUSTUP_HOME="$root/rustup" PIP_CONFIG_FILE=/dev/null PIP_DISABLE_PIP_VERSION_CHECK=1
+          export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+          framework="$(/usr/bin/python3 -I - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          sdk = Path(os.environ["CQ_REPO"]) / "sdk/python"
+          native = json.loads((sdk / "darwin-native-toolchain.json").read_text())
+          raw = (sdk / "darwin-cpython-inputs.json").read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == native["python"]["inputs_sha256"]
+          version = os.environ["CQ_PYTHON_PATCH"]
+          reviewed = next(x for x in json.loads(raw)["inputs"] if x["python"] == version)
+          receipt = json.loads(Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).read_text())
+          assert receipt["python"] == version and receipt["runner_image"] == os.environ["ImageVersion"]
+          assert receipt["feature_tree"] == "00434f4681afc7b2584d628199c22287f7c9df01"
+          assert receipt["installed_trust_verified"] is True
+          profile = Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).with_name("framework-runtime.sb")
+          assert hashlib.sha256(profile.read_bytes()).hexdigest() == receipt["runtime_profile_sha256"]
+          for key in ("installer_sha256", "package_id", "bundled_pip"):
+              assert receipt[key] == reviewed[key], key
+          minor = version.rsplit(".", 1)[0]
+          prefix = Path("/Library/Frameworks/Python.framework/Versions") / minor
+          binary, library = prefix / "bin" / ("python" + minor), prefix / "Python"
+          requirement = '=anchor apple generic and certificate leaf[subject.OU] = "BMM5U3QVKW"'
+          for path, key in [(binary, "package_interpreter_sha256"), (library, "package_framework_sha256")]:
+              assert path.resolve() == path
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == reviewed[key], path
+              if path == binary:
+                  subprocess.run(["/usr/bin/codesign", "--verify", "--strict", "-R", requirement, str(path)], check=True)
+              else:
+                  assert receipt["installed_payload_inventory_sha256"]
+              subprocess.run(["/usr/bin/lipo", str(path), "-verify_arch", "x86_64"], check=True)
+          print(binary)
+          PY
+          )"
+          profile="$(dirname "$CQ_FRAMEWORK_RECEIPT")/framework-runtime.sb"
+          verified_python=(/usr/bin/sandbox-exec -f "$profile" "$framework")
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S -c 'import os,platform,sys; assert (platform.python_version(), platform.machine(), sys.platform) == (os.environ["CQ_PYTHON_PATCH"], "x86_64", "darwin")'
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
+          import hashlib, json, os, shutil, sys, tarfile, tomllib, zipfile
+          from pathlib import Path, PurePosixPath
+          from urllib.parse import urlsplit
+          import subprocess
+
+          root = Path(sys.argv[1])
+          repo = Path(os.environ["CQ_REPO"])
+          sdk = repo / "sdk/python"
+          source, native, inputs = (json.loads((sdk / name).read_text()) for name in
+                                    ("darwin-source-policy.json", "darwin-native-toolchain.json", "darwin-build-inputs.json"))
+          assert inputs["source_date_epoch"] == native["build_settings"]["source_date_epoch"] == int(os.environ["SOURCE_DATE_EPOCH"])
+          assert (source["package"], source["version"], source["platform"], source["architecture"]) == ("cryptography", "50.0.2", "darwin", "x86_64")
+          minor = f"{sys.version_info.major}{sys.version_info.minor}"
+          closure = next(row for row in inputs["closures"] if row["python"] == minor)
+          archives, wheels = (root / "archives"), (root / "wheelhouse")
+          archives.mkdir()
+          wheels.mkdir()
+
+          def sha(path):
+              with path.open("rb") as stream:
+                  return hashlib.file_digest(stream, "sha256").hexdigest()
+
+          def fetch(entry, directory, limit, allowed):
+              url = entry["url"]
+              assert urlsplit(url).scheme == "https" and urlsplit(url).hostname in allowed
+              name = PurePosixPath(urlsplit(url).path).name
+              target = directory / name
+              assert not target.exists()
+              effective = subprocess.check_output(["/usr/bin/curl", "--fail", "--silent", "--show-error",
+                  "--location", "--proto", "=https", "--proto-redir", "=https", "--max-time", "180",
+                  "--max-filesize", str(limit), "--output", str(target), "--write-out", "%{url_effective}", url], text=True)
+              assert urlsplit(effective).hostname in allowed
+              assert target.stat().st_size <= limit and sha(target) == entry["sha256"], name
+              return target
+
+          for path, expected in [(inputs["source_policy"], inputs["source_policy_sha256"]),
+                                 (inputs["direct_requirements"], inputs["direct_requirements_sha256"]),
+                                 (closure["lock"], closure["lock_sha256"])]:
+              assert sha(repo / path) == expected, path
+          assert {entry["name"] for entry in closure["entries"]} == {"cffi", "maturin", "setuptools", "pycparser"}
+          assert len(closure["entries"]) == 4
+          for entry in closure["entries"]:
+              wheel = fetch(entry, wheels, 32 * 1024**2, {"files.pythonhosted.org"})
+              assert wheel.suffix == ".whl"
+              with zipfile.ZipFile(wheel) as artifact:
+                  assert artifact.testzip() is None
+          runtime_entries = [entry for entry in closure["entries"] if entry["name"] in {"cffi", "pycparser"}]
+          runtime = (root / "runtime.txt")
+          runtime.write_text("".join(f'{entry["name"]}=={entry["version"]} --hash=sha256:{entry["sha256"]}\n' for entry in runtime_entries))
+          for entry, allowed, limit in [(source, {"files.pythonhosted.org"}, 16 * 1024**2),
+                                        (native["openssl"], {"github.com", "release-assets.githubusercontent.com"}, 64 * 1024**2),
+                                        (native["rust"], {"static.rust-lang.org"}, 384 * 1024**2)]:
+              fetch(entry, archives, limit, allowed)
+
+          def extract(archive, path, top, limit):
+              with tarfile.open(archive, "r:*") as tar:
+                  size = 0
+                  members = []
+                  for member in tar:
+                      name = PurePosixPath(member.name)
+                      assert name.parts and name.parts[0] == top and ".." not in name.parts and not name.is_absolute()
+                      size += member.size
+                      members.append(member)
+                      assert len(members) <= 30000 and size <= limit
+                  tar.extractall(path, members=members, filter="data")
+
+          rust_top = "rust-1.99.1-x86_64-apple-darwin"
+          crypto_top, ssl_top = "cryptography-50.0.2", "openssl-3.5.9"
+          extract(archives / f"{rust_top}.tar.xz", root, rust_top, 3 * 1024**3)
+          extract(archives / f"{crypto_top}.tar.gz", root, crypto_top, 64 * 1024**2)
+          crypto = root / crypto_top
+          for name, metadata in inputs["upstream_metadata"].items():
+              assert sha(crypto / name) == metadata["sha256"], name
+          assert tomllib.loads((crypto / "pyproject.toml").read_text())["tool"]["maturin"]["locked"] is True
+          registry = [p for p in tomllib.loads((crypto / "Cargo.lock").read_text())["package"] if "source" in p]
+          assert len(registry) == inputs["cargo_registry_packages"] == 32
+          assert all(x["source"] == "registry+https://github.com/rust-lang/crates.io-index" and len(x["checksum"]) == 64 for x in registry)
+          (root / "registry.json").write_text(json.dumps(registry))
+          for attempt in ("one", "two"):
+              case = root / attempt
+              case.mkdir()
+              extract(archives / f"{crypto_top}.tar.gz", case, crypto_top, 64 * 1024**2)
+              extract(archives / f"{ssl_top}.tar.gz", case, ssl_top, 512 * 1024**2)
+          shutil.copyfile(repo / closure["lock"], root / "build.txt")
+          PY
+
+          /bin/sh "$root/rust-1.99.1-x86_64-apple-darwin/install.sh" --prefix="$root/rust"
+          export PATH="$root/rust/bin:$PATH"
+          rustc --version --verbose | tee "$root/rust.txt"
+          grep -Fx 'release: 1.99.1' "$root/rust.txt"
+          grep -Fx 'host: x86_64-apple-darwin' "$root/rust.txt"
+          cargo --version | grep -E '^cargo 1\.99\.1( |$)'
+          export CARGO_HOME="$root/cargo-acquisition"
+          mkdir -m 0700 "$CARGO_HOME"
+          (
+            cd "$root/cryptography-50.0.2"
+            cargo vendor --locked --versioned-dirs "$root/vendor" > "$root/cargo-source.toml"
+          )
+          "${verified_python[@]}" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - "$root" <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          cache = Path(os.environ["CARGO_HOME"]) / "registry/cache"
+          registry = json.loads((root / "registry.json").read_text())
+          for crate in registry:
+              name = f'{crate["name"]}-{crate["version"]}'
+              archives = list(cache.glob(f"*/{name}.crate"))
+              assert len(archives) == 1 and hashlib.sha256(archives[0].read_bytes()).hexdigest() == crate["checksum"], name
+              vendor = root / "vendor" / name
+              checksum = json.loads((vendor / ".cargo-checksum.json").read_text())
+              assert checksum["package"] == crate["checksum"], name
+              for filename, expected in checksum["files"].items():
+                  path = (vendor / filename).resolve()
+                  assert path.is_relative_to(vendor) and hashlib.sha256(path.read_bytes()).hexdigest() == expected, filename
+          PY
+
+          cp "$profile" "$root/offline.sb"
+          cat >> "$root/offline.sb" <<'SB'
+          (deny network-outbound)
+          (deny file-write* (subpath "/Library/Frameworks/Python.framework"))
+          (allow network-outbound (remote ip "localhost:*"))
+          SB
+          /usr/bin/sandbox-exec -f "$root/offline.sb" "$framework" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S - <<'PY'
+          import errno, socket
+          with socket.socket() as server, socket.socket() as client:
+              server.bind(("127.0.0.1", 0))
+              server.listen(1)
+              client.settimeout(2)
+              client.connect(server.getsockname())
+          with socket.socket() as client:
+              client.settimeout(2)
+              try:
+                  client.connect(("192.0.2.1", 443))
+              except OSError as error:
+                  assert error.errno in (errno.EACCES, errno.EPERM), error
+              else:
+                  raise RuntimeError("Non-loopback egress was permitted")
+          PY
+
+          cat > "$root/build.sh" <<'BUILD'
+          set -euo pipefail
+          root="$1"
+          case_dir="$2"
+          framework="$3"
+          mkdir -m 0700 "$case_dir/tmp"
+          export TMPDIR="$case_dir/tmp"
+          export PYTHONPYCACHEPREFIX="$case_dir/tmp/pycache"
+          # Separate staging prefixes with stable compiled OpenSSL defaults.
+          logical_prefix=/cq-qualification/openssl
+          export OPENSSL_DIR="$case_dir/stage$logical_prefix" OPENSSL_STATIC=1 OPENSSL_NO_VENDOR=1
+          export RUSTFLAGS="--remap-path-prefix=$root=/cq-build"
+          export CARGO_HOME="$case_dir/cargo" CARGO_TARGET_DIR="$case_dir/target"
+          export CARGO_NET_OFFLINE=true PIP_NO_INDEX=1
+          mkdir -m 0700 "$CARGO_HOME"
+          cp "$root/cargo-source.toml" "$CARGO_HOME/config.toml"
+
+          prepare_python() {
+            "$framework" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -S -m venv --without-pip "$1"
+            "$1/bin/python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" - <<'PY'
+          import ensurepip, hashlib, json, os, runpy, sys
+          from pathlib import Path
+
+          receipt = json.loads(Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).read_text())
+          bundled = receipt["bundled_pip"]
+          wheel = Path(ensurepip.__file__).parent / "_bundled" / bundled["name"]
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest() == bundled["sha256"]
+          sys.path.insert(0, str(wheel))
+          sys.argv = ["pip", "--isolated", "install", "--no-index", "--no-deps", str(wheel)]
+          runpy.run_module("pip", run_name="__main__")
+          PY
+            "$1/bin/python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -c 'import sys; from pathlib import Path; assert sys.prefix != sys.base_prefix; assert all(Path(p).is_relative_to(Path(sys.prefix)) for p in sys.path if "site-packages" in p)'
+            "$1/bin/python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --version
+          }
+
+          prepare_python "$case_dir/build-python"
+          build_python="$case_dir/build-python/bin/python"
+          export PYO3_PYTHON="$build_python"
+          "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-cache-dir --no-index --find-links "$root/wheelhouse" --require-hashes --only-binary=:all: -r "$root/build.txt"
+          export PATH="$case_dir/build-python/bin:$PATH"
+          test "$(command -v maturin)" = "$case_dir/build-python/bin/maturin"
+          maturin --version | grep -Fx 'maturin 1.16.0'
+          cd "$case_dir/cryptography-50.0.2"
+          cargo metadata --locked --offline --format-version 1 > "$case_dir/cargo-metadata.json"
+
+          cd "$case_dir/openssl-3.5.9"
+          /usr/bin/perl ./Configure darwin64-x86_64-cc no-shared -fPIC --prefix="$logical_prefix" --openssldir="$logical_prefix/ssl"
+          /usr/bin/make -j2
+          HARNESS_JOBS=2 /usr/bin/make test
+          /usr/bin/make install_sw DESTDIR="$case_dir/stage"
+          "$OPENSSL_DIR/bin/openssl" version -a
+
+          cd "$case_dir/cryptography-50.0.2"
+          export CFLAGS="-ffile-prefix-map=$root=/cq-build"
+          "$build_python" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated wheel --no-cache-dir --no-index --no-build-isolation --no-deps --wheel-dir "$case_dir/dist" .
+          set -- "$case_dir"/dist/cryptography-50.0.2-*.whl
+          test "$#" = 1
+          test -f "$1"
+          wheel="$1"
+          prepare_python "$case_dir/runtime-python"
+          runtime="$case_dir/runtime-python/bin/python"
+          "$runtime" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-index --find-links "$root/wheelhouse" --require-hashes --only-binary=:all: -r "$root/runtime.txt"
+          "$runtime" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip --isolated install --no-index --no-deps "$wheel"
+          "$runtime" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" -m pip check
+          "$runtime" -I -X "pycache_prefix=$PYTHONPYCACHEPREFIX" - "$wheel" "$case_dir" <<'PY'
+          import base64, csv, hashlib, io, json, re, subprocess, sys, zipfile
+          from email.parser import BytesParser
+          from pathlib import Path
+
+          import cryptography
+          from cryptography.hazmat.backends import default_backend
+          from cryptography.hazmat.primitives import hashes, serialization
+          from cryptography.hazmat.primitives.asymmetric import ec
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          from pip._vendor.packaging.tags import sys_tags
+          from pip._vendor.packaging.utils import parse_wheel_filename
+
+          wheel, case = map(Path, sys.argv[1:])
+          name, version, _, tags = parse_wheel_filename(wheel.name)
+          assert name == "cryptography" and str(version) == "50.0.2"
+          assert tags & set(sys_tags())
+          assert all(re.fullmatch(r"macosx_\d+_\d+_x86_64", tag.platform) for tag in tags)
+          with zipfile.ZipFile(wheel) as archive:
+              records = [name for name in archive.namelist() if name.endswith(".dist-info/RECORD")]
+              assert len(records) == 1 and len(set(archive.namelist())) == len(archive.namelist())
+              manifest = archive.read(records[0])
+              (case / "RECORD").write_bytes(manifest)
+              listed = set()
+              for filename, digest, size in csv.reader(io.StringIO(manifest.decode())):
+                  assert filename not in listed
+                  listed.add(filename)
+                  if filename == records[0]:
+                      assert not digest and not size
+                      continue
+                  content = archive.read(filename)
+                  actual = base64.urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b"=").decode()
+                  assert digest == f"sha256={actual}" and len(content) == int(size), filename
+              assert listed == set(archive.namelist())
+              wheel_info = next(name for name in listed if name.endswith(".dist-info/WHEEL"))
+              assert set(BytesParser().parsebytes(archive.read(wheel_info)).get_all("Tag")) == {str(tag) for tag in tags}
+          extensions = list(Path(cryptography.__file__).parent.rglob("*.so"))
+          assert extensions
+          for index, binary in enumerate(extensions):
+              subprocess.run(["/usr/bin/lipo", str(binary), "-verify_arch", "x86_64"], check=True)
+              assert subprocess.check_output(["/usr/bin/lipo", str(binary), "-archs"], text=True).split() == ["x86_64"]
+              linkage = subprocess.check_output(["/usr/bin/otool", "-L", str(binary)], text=True)
+              load = subprocess.check_output(["/usr/bin/otool", "-l", str(binary)], text=True)
+              dependency_commands = {"LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_REEXPORT_DYLIB",
+                                     "LC_LAZY_LOAD_DYLIB", "LC_LOAD_UPWARD_DYLIB"}
+              library_ids, dependencies = [], []
+              for command in re.split(r"(?m)^Load command \d+\s*$", load)[1:]:
+                  kind = re.search(r"(?m)^\s*cmd\s+(LC_[A-Z_]+)\s*$", command)
+                  if not kind:
+                      continue
+                  assert kind[1] not in {"LC_RPATH", "LC_LOAD_DYLINKER"}, command
+                  if kind[1] in dependency_commands | {"LC_ID_DYLIB"}:
+                      item = re.search(r"(?m)^\s*name\s+(.+?)\s+\(offset \d+\)\s*$", command)
+                      assert item, command
+                      if kind[1] == "LC_ID_DYLIB":
+                          library_ids.append(item[1])
+                      else:
+                          dependencies.append(item[1])
+              assert len(library_ids) == 1 and library_ids[0].startswith("@rpath/cryptography.hazmat.bindings._rust."), library_ids
+              assert dependencies and all(dep.startswith(("/usr/lib/", "/System/Library/")) for dep in dependencies), dependencies
+              assert not any(re.search(r"lib(?:ssl|crypto)[.\d]", dep, re.I) for dep in dependencies), dependencies
+              minimums = re.findall(r"(?m)^\s*minos\s+(\d+)\.(\d+)(?:\.\d+)?\s*$", load)
+              if not minimums:
+                  minimums = re.findall(r"LC_VERSION_MIN_MACOSX\n\s*cmdsize\s+\d+\n\s*version\s+(\d+)\.(\d+)", load)
+              assert minimums and max((int(a), int(b)) for a, b in minimums) <= (10, 15), minimums
+              for tag in tags:
+                  _, major, minor, _ = tag.platform.split("_", 3)
+                  assert max((int(a), int(b)) for a, b in minimums) <= (int(major), int(minor)), str(tag)
+              (case / f"macho-{index}.txt").write_text(linkage + "\n" + load)
+
+          key = ec.generate_private_key(ec.SECP256R1())
+          pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+          loaded = serialization.load_pem_private_key(pem, password=None)
+          data = b"circularquay-darwin-qualification"
+          signature = loaded.sign(data, ec.ECDSA(hashes.SHA256()))
+          key.public_key().verify(signature, data, ec.ECDSA(hashes.SHA256()))
+          cipher = AESGCM(AESGCM.generate_key(bit_length=256))
+          nonce = bytes(12)
+          assert cipher.decrypt(nonce, cipher.encrypt(nonce, data, None), None) == data
+          backend = default_backend().openssl_version_text()
+          assert re.match(r"^OpenSSL 3\.5\.9(?: |$)", backend), backend
+          assert cryptography.__version__ == "50.0.2"
+          receipt = {"wheel": wheel.name, "sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+                     "openssl": backend, "functional_runtime_passed": True}
+          (case / "wheel-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+          BUILD
+
+          failures=0
+          for attempt in one two; do
+            # Each case is separately extracted. Give each the same absolute source,
+            # compiler and Cargo paths without reusing any files from the other case.
+            test ! -e "$root/active"
+            /bin/mv "$root/$attempt" "$root/active"
+            if ! /usr/bin/sandbox-exec -f "$root/offline.sb" /bin/bash --noprofile --norc \
+              "$root/build.sh" "$root" "$root/active" "$framework" > "$root/active/build.log" 2>&1; then
+              tail -n 60 "$root/active/build.log"
+              failures=$((failures + 1))
+            fi
+            /bin/mv "$root/active" "$root/$attempt"
+          done
+          printf 'Native evidence directory: %s\n' "$root"
+          test "$failures" = 0
+          for attempt in one two; do
+            set -- "$root/$attempt"/dist/cryptography-50.0.2-*.whl
+            test "$#" = 1
+            /usr/bin/shasum -a 256 "$1"
+          done
+          cmp "$root"/one/dist/cryptography-50.0.2-*.whl "$root"/two/dist/cryptography-50.0.2-*.whl
+          RECIPE
+          /bin/bash --noprofile --norc "$CQ_INSTALL_ROOT/build-wheel.sh"
+      - name: Record any produced wheel digests and completed checks
+        if: ${{ !cancelled() && env.CQ_INSTALL_ROOT != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in one two; do
+            directory="$CQ_WHEEL_BUILD_ROOT/$attempt"
+            for wheel in "$directory"/dist/*.whl; do
+              if test -f "$wheel"; then
+                /usr/bin/shasum -a 256 "$wheel" | tee -a "$CQ_INSTALL_ROOT/wheel-hashes.txt" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+            if test -f "$directory/wheel-receipt.json"; then
+              cat "$directory/wheel-receipt.json" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Retain wheel and independent build evidence
+        if: ${{ !cancelled() && env.CQ_INSTALL_ROOT != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: intel-darwin-cryptography-cpython-${{ matrix.python }}
+          path: |
+            ${{ env.CQ_INSTALL_ROOT }}/identity.txt
+            ${{ env.CQ_INSTALL_ROOT }}/framework-preflight.json
+            ${{ env.CQ_INSTALL_ROOT }}/framework-selection.plist
+            ${{ env.CQ_INSTALL_ROOT }}/framework-receipt.json
+            ${{ env.CQ_INSTALL_ROOT }}/installed-framework-codesign.txt
+            ${{ env.CQ_INSTALL_ROOT }}/framework-runtime.sb
+            ${{ env.CQ_INSTALL_ROOT }}/wheel-hashes.txt
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/rust.txt
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/registry.json
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/one/dist/*.whl
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/two/dist/*.whl
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/one/build.log
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/two/build.log
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/one/RECORD
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/two/RECORD
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/one/macho-*.txt
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/two/macho-*.txt
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/one/wheel-receipt.json
+            ${{ env.CQ_WHEEL_BUILD_ROOT }}/two/wheel-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+  darwin-consumer:
+    name: Intel Darwin Python consumer (CPython ${{ matrix.python }})
+    if: >-
+      ${{ github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer' }}
+    runs-on: macos-15-intel
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: '3.11.9', lock_suffix: py311 }
+          - { python: '3.12.10', lock_suffix: py312 }
+          - { python: '3.13.17', lock_suffix: py313 }
+          - { python: '3.14.10', lock_suffix: py314 }
+          - { python: '3.15.2', lock_suffix: py315 }
+    env:
+      CQ_PYTHON_PATCH: ${{ matrix.python }}
+      CQ_LOCK_SUFFIX: ${{ matrix.lock_suffix }}
+      CQ_NATIVE_FEATURE_TREE: 'aa44c9e85898498307a6fa43d77d55b4eee0e488'
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - &checkout_consumer
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ env.CQ_CONSUMER_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - &verify_consumer
+        name: Verify the exact consumer commit and tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CQ_CONSUMER_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$CQ_CONSUMER_TREE"
+          test -z "$(git status --porcelain)"
+          printf 'Consumer commit %s, tree %s.\n' "$CQ_CONSUMER_SHA" "$CQ_CONSUMER_TREE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the disposable Intel runner and stage the retained wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$RUNNER_OS/$RUNNER_ARCH/$(uname -m)" = macOS/X64/x86_64
+          test "$(sw_vers -productVersion)" = 15.7.9
+          test "${ImageVersion:?runner image identity required}" = 20260824.0482.1
+          root="$(cd "$RUNNER_TEMP" && pwd -P)/cq-darwin-consumer-$CQ_PYTHON_PATCH"
+          mkdir -m 0700 "$root"
+          mkdir -m 0700 "$root/evidence" "$root/tmp"
+          /usr/bin/python3 -E -s -B .github/scripts/sdk_python_darwin_wheel.py \
+            --python "$CQ_PYTHON_PATCH" --output "$root/intake"
+          cp "$root/intake/intake.json" "$root/evidence/"
+          printf 'CQ_INSTALL_ROOT=%s\nTMPDIR=%s/tmp\n' "$root" "$root" >> "$GITHUB_ENV"
+      - *install_verified_framework
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Resolve both applicable closures and prove fresh offline installation
+        id: consumer_locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_INSTALL_ROOT"
+          evidence="$root/evidence"
+          export CQ_FRAMEWORK_RECEIPT="$root/framework-receipt.json"
+          /usr/bin/python3 -I - "$root" "$CQ_CONSUMER_TREE" "$CQ_PYTHON_PATCH" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+
+          root, tree, patch = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          receipt = json.loads((root / "framework-receipt.json").read_text())
+          assert receipt["identity"][:3] == [patch, "x86_64", "darwin"]
+          assert receipt["feature_tree"] == tree and receipt["installed_trust_verified"]
+          assert hashlib.sha256((root / "framework-runtime.sb").read_bytes()).hexdigest() == receipt["runtime_profile_sha256"]
+          PY
+          cp "$CQ_FRAMEWORK_RECEIPT" "$evidence/"
+          minor="${CQ_PYTHON_PATCH%.*}"
+          framework="/Library/Frameworks/Python.framework/Versions/$minor/bin/python$minor"
+          profile="$root/framework-runtime.sb"
+          offline="$root/offline.sb"
+          cp "$profile" "$offline"
+          printf '\n(deny network-outbound)\n' >> "$offline"
+          sandbox=/usr/bin/sandbox-exec
+          venv() {
+            "$sandbox" -f "$offline" "$framework" -I -B -S -m venv --without-pip "$1"
+            "$sandbox" -f "$offline" "$1/bin/python" -I -B - <<'PY'
+          import ensurepip, hashlib, json, os, runpy, sys
+          from pathlib import Path
+
+          bundled = json.loads(Path(os.environ["CQ_FRAMEWORK_RECEIPT"]).read_text())["bundled_pip"]
+          wheel = Path(ensurepip.__file__).parent / "_bundled" / bundled["name"]
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest() == bundled["sha256"]
+          assert sys.prefix != sys.base_prefix
+          assert all(Path(p).is_relative_to(Path(sys.prefix)) for p in sys.path if "site-packages" in p)
+          sys.path.insert(0, str(wheel))
+          sys.argv = ["pip", "--isolated", "install", "--no-index", "--no-deps", str(wheel)]
+          runpy.run_module("pip", run_name="__main__")
+          PY
+          }
+          wheel="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["wheel"])' "$evidence/intake.json")"
+          custody="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["custody"])' "$evidence/intake.json")"
+          venv "$root/resolver"
+          resolver="$root/resolver/bin/python"
+          resolve() {
+            local kind="$1" requirements="$2" prefix="$evidence/$1" house="$root/$1-wheelhouse"
+            local consumer="$root/$1/bin/python"
+            "$sandbox" -f "$profile" "$resolver" -I -B -m pip --isolated --disable-pip-version-check install \
+              --no-input --no-cache-dir --dry-run --ignore-installed --only-binary=:all: \
+              --index-url https://pypi.org/simple --report "$prefix.report.json" -r "$requirements" "$root/intake/$wheel"
+            "$sandbox" -f "$offline" "$resolver" -I -B .github/scripts/sdk_python_lock.py \
+              --report "$prefix.report.json" --requirements "$requirements" --output "$prefix.txt" \
+              --receipt "$prefix.receipt.txt" --revision "$CQ_CONSUMER_SHA" \
+              --darwin-archive "$root/intake/archive.zip" --darwin-wheel "$root/intake/$wheel" \
+              --darwin-python "$CQ_PYTHON_PATCH" --darwin-custody "$custody"
+            "$sandbox" -f "$profile" "$resolver" -I -B -m pip --isolated --disable-pip-version-check download \
+              --no-input --no-cache-dir --only-binary=:all: --require-hashes --index-url https://pypi.org/simple \
+              --find-links "$root/intake" --dest "$house" -r "$prefix.txt"
+            venv "$root/$kind"
+            "$sandbox" -f "$offline" "$consumer" -I -B -m pip --isolated --disable-pip-version-check install \
+              --no-input --no-index --find-links "$house" --require-hashes --only-binary=:all: -r "$prefix.txt"
+            "$sandbox" -f "$offline" "$consumer" -I -B -m pip check
+            "$sandbox" -f "$offline" "$consumer" -I -B - "$CQ_PYTHON_PATCH" <<'PY'
+          import platform, sys
+          import cryptography
+          from cryptography.hazmat.backends import default_backend
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+          assert (platform.python_version(), platform.machine(), sys.platform) == (sys.argv[1], "x86_64", "darwin")
+          assert cryptography.__version__ == "50.0.2"
+          assert default_backend().openssl_version_text().startswith("OpenSSL 3.5.9 ")
+          cipher = AESGCM(bytes(32))
+          nonce = bytes(12)
+          assert cipher.decrypt(nonce, cipher.encrypt(nonce, b"consumer", None), None) == b"consumer"
+          print("Verified offline cryptography consumer and OpenSSL runtime")
+          PY
+            printf 'offline_install=passed\npip_check=passed\ncrypto_runtime=passed\n' > "$prefix.offline.txt"
+          }
+          resolve "runtime-darwin-$CQ_LOCK_SUFFIX" sdk/python/requirements-test.txt
+          if test "$CQ_LOCK_SUFFIX" = py314; then
+            resolve ci-darwin-py314 sdk/python/requirements-ci.txt
+          fi
+      - name: Measure the native runtime SDK coverage
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$CQ_INSTALL_ROOT"
+          /usr/bin/sandbox-exec -f "$root/offline.sb" "$root/runtime-darwin-$CQ_LOCK_SUFFIX/bin/python" -I -B \
+            .github/scripts/sdk_python_check.py --check coverage --report "$root/evidence/coverage.json" \
+            --progress "$root/evidence/coverage-progress.json" --timeout-seconds 1200
+      - name: Run static SDK checks and the lock helper suite
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' && matrix.lock_suffix == 'py314' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$CQ_INSTALL_ROOT"
+          python=(/usr/bin/sandbox-exec -f "$root/offline.sb" "$root/ci-darwin-py314/bin/python" -I -B)
+          status=0
+          "${python[@]}" -m unittest discover -s .github/scripts/tests -v || status=1
+          for check in ruff mypy bandit; do
+            "${python[@]}" .github/scripts/sdk_python_check.py --check "$check" \
+              --report "$root/evidence/$check.json" --timeout-seconds 300 || status=1
+          done
+          exit "$status"
+      - name: Build and exercise the installed Python SDK against native cq
+        if: ${{ !cancelled() && steps.consumer_locks.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root="$CQ_INSTALL_ROOT"
+          python=(/usr/bin/sandbox-exec -f "$root/offline.sb" "$root/runtime-darwin-$CQ_LOCK_SUFFIX/bin/python" -I -B)
+          test "$(go env GOVERSION)" = go1.27.4
+          go build -trimpath -o "$root/cq" ./cmd/cq
+          "${python[@]}" -m build --no-isolation --outdir "$root/dist" sdk/python
+          "${python[@]}" -m pip --isolated --disable-pip-version-check install --no-index --no-deps "$root/dist/"*.whl
+          "${python[@]}" -m pip check
+          CQ_EXECUTABLE="$root/cq" "${python[@]}" - "$root" <<'PY'
+          import asyncio, hashlib, os, sys
+          from pathlib import Path
+          from cq import LocalCLIClient
+
+          async def main():
+              root = Path(sys.argv[1])
+              executable = Path(os.environ["CQ_EXECUTABLE"])
+              digest = hashlib.sha256(executable.read_bytes()).hexdigest()
+              client = LocalCLIClient(executable, digest, root / "policy.json", root / "state", environment={})
+              await client.config_init()
+              await client.doctor()
+              await client.plan()
+
+          asyncio.run(main())
+          PY
+          config="$root/mcp.json"
+          state="$root/mcp-state"
+          mkdir -m 0700 "$state"
+          "$root/cq" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$root/cq" --config "$config" config set --pointer /mcp --value-file -
+          identity="$("$root/cq" doctor --identity-only)"
+          subject="$(printf '%s' "$identity" | /usr/bin/python3 -I -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')"
+          SUBJECT="$subject" /usr/bin/python3 -I - <<'PY' | "$root/cq" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          CQ_EXECUTABLE="$root/cq" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "${python[@]}" sdk/conformance/python-mcp.py
+          printf 'local_cli=passed\nmcp_conformance=passed\n' > "$root/evidence/operating-path.txt"
+      - name: Retain native consumer evidence
+        if: ${{ !cancelled() && env.CQ_INSTALL_ROOT != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: darwin-consumer-${{ matrix.lock_suffix }}
+          path: ${{ env.CQ_INSTALL_ROOT }}/evidence
+          if-no-files-found: error
+          retention-days: 7
+
+  darwin-consumer-audit:
+    name: Strict audit of the six Intel Darwin Python closures
+    needs: darwin-consumer
+    if: >-
+      ${{ !cancelled() && github.repository == 'maldous/CircularQuay' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.candidate == 'darwin-consumer' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - *checkout_consumer
+      - *verify_consumer
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          check-latest: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: darwin-consumer-py*
+          path: ${{ runner.temp }}/cq-darwin-closures
+      - name: Audit every complete hash-locked closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          tool_lock=sdk/python/locks/ci-linux-py314.txt
+          python .github/scripts/sdk_python_lock.py --verify-lock "$tool_lock" --requirements sdk/python/requirements-ci.txt
+          python -m pip --isolated --disable-pip-version-check install --no-input --require-hashes --only-binary=:all: -r "$tool_lock"
+          status=0
+          for version in py311 py312 py313 py314 py315; do
+            path="$RUNNER_TEMP/cq-darwin-closures/darwin-consumer-$version/runtime-darwin-$version.txt"
+            python .github/scripts/sdk_python_lock.py --verify-lock "$path" --requirements sdk/python/requirements-test.txt || { status=1; continue; }
+            python -m pip_audit --strict --disable-pip --require-hashes -r "$path" || status=1
+          done
+          path="$RUNNER_TEMP/cq-darwin-closures/darwin-consumer-py314/ci-darwin-py314.txt"
+          python .github/scripts/sdk_python_lock.py --verify-lock "$path" --requirements sdk/python/requirements-ci.txt
+          python -m pip_audit --strict --disable-pip --require-hashes -r "$path" || status=1
+          exit "$status"
+
+  candidate-result:
+    name: Frozen candidate result
+    if: >-
+      ${{ always() && github.repository == 'maldous/CircularQuay' && ((github.event_name == 'pull_request' && github.event.pull_request.number == 12 && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'ci/frozen-candidate-qualification' && github.base_ref == 'main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
+    needs: [health, native-platforms, darwin-preflight, darwin-inputs, cpython-inputs, cpython-provenance, darwin-native-prerequisites, darwin-native-wheels, python-static-security, python, darwin-consumer, darwin-consumer-audit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CQ_SELECTION: ${{ github.event_name == 'pull_request' && 'integrated' || inputs.candidate }}
+      HEALTH_RESULT: ${{ needs.health.result }}
+      NATIVE_RESULT: ${{ needs.native-platforms.result }}
+      DARWIN_RESULT: ${{ needs.darwin-preflight.result }}
+      DARWIN_INPUTS_RESULT: ${{ needs.darwin-inputs.result }}
+      CPYTHON_INPUTS_RESULT: ${{ needs.cpython-inputs.result }}
+      CPYTHON_PROVENANCE_RESULT: ${{ needs.cpython-provenance.result }}
+      DARWIN_NATIVE_PREREQUISITES_RESULT: ${{ needs.darwin-native-prerequisites.result }}
+      DARWIN_NATIVE_WHEELS_RESULT: ${{ needs.darwin-native-wheels.result }}
+      PYTHON_STATIC_RESULT: ${{ needs.python-static-security.result }}
+      PYTHON_RESULT: ${{ needs.python.result }}
+      DARWIN_CONSUMER_RESULT: ${{ needs.darwin-consumer.result }}
+      DARWIN_AUDIT_RESULT: ${{ needs.darwin-consumer-audit.result }}
+    steps:
+      - name: Require the selected qualification jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CQ_SELECTION" in
+            integrated)
+              test "$HEALTH_RESULT" = success
+              test "$NATIVE_RESULT" = success
+              test "$PYTHON_STATIC_RESULT" = success
+              test "$PYTHON_RESULT" = success
+              ;;
+            darwin-inputs) test "$DARWIN_INPUTS_RESULT" = success ;;
+            cpython-inputs) test "$CPYTHON_INPUTS_RESULT" = success ;;
+            cpython-provenance) test "$CPYTHON_PROVENANCE_RESULT" = success ;;
+            darwin-native-prerequisites) test "$DARWIN_NATIVE_PREREQUISITES_RESULT" = success ;;
+            darwin-native-wheels) test "$DARWIN_NATIVE_WHEELS_RESULT" = success ;;
+            darwin-consumer)
+              test "$DARWIN_CONSUMER_RESULT" = success
+              test "$DARWIN_AUDIT_RESULT" = success
+              ;;
+            health) test "$HEALTH_RESULT" = success && test "$NATIVE_RESULT" = success ;;
+            darwin) test "$DARWIN_RESULT" = success ;;
+            python) test "$PYTHON_STATIC_RESULT" = success && test "$PYTHON_RESULT" = success ;;
+            *) echo 'Unsupported candidate' >&2; exit 1 ;;
+          esac
