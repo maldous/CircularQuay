@@ -76,7 +76,7 @@ func validateResourceConfig(config *model.Observability) error {
 }
 
 func validateSignalConfig(config *model.Observability) error {
-	if enabled(config.Traces) && (config.Traces.SampleRatio == nil || *config.Traces.SampleRatio < 0 || *config.Traces.SampleRatio > 1) {
+	if enabled(config.Traces) && !validRuntimeTraceSampleRatio(config.Traces.SampleRatio) {
 		return fault.New(fault.Invalid, "observability traces")
 	}
 	if enabled(config.Metrics) && config.Metrics.IntervalSeconds < 1 {
@@ -86,6 +86,11 @@ func validateSignalConfig(config *model.Observability) error {
 		return fault.New(fault.Invalid, "observability signals")
 	}
 	return nil
+}
+
+func validRuntimeTraceSampleRatio(value *float64) bool {
+	// Positive bounds also reject NaN, whose less/greater comparisons are false.
+	return value != nil && *value >= 0 && *value <= 1
 }
 
 func enabled(signal any) bool {

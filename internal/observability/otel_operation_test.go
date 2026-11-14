@@ -49,12 +49,23 @@ func operationLogRuntime(t *testing.T, exportError error) (*Runtime, *operationL
 
 func assertOperationLog(t *testing.T, record sdklog.Record, operation Operation, outcome Outcome, severity otellog.Severity) string {
 	t.Helper()
+	assertOperationLogEnvelope(t, record, outcome, severity)
+	attributes := assertOperationLogAttributes(t, record, operation, outcome)
+	return assertOperationLogCorrelation(t, attributes["cq.correlation_id"])
+}
+
+func assertOperationLogEnvelope(t *testing.T, record sdklog.Record, outcome Outcome, severity otellog.Severity) {
+	t.Helper()
 	if record.EventName() != "cq.operation" || record.Body().AsString() != "cq.operation" {
 		t.Fatalf("unexpected operation log event or body: %q / %q", record.EventName(), record.Body().AsString())
 	}
 	if record.Severity() != severity || record.SeverityText() != string(outcome) || record.Timestamp().IsZero() {
 		t.Fatalf("operation log envelope: severity=%v text=%q timestamp=%v", record.Severity(), record.SeverityText(), record.Timestamp())
 	}
+}
+
+func assertOperationLogAttributes(t *testing.T, record sdklog.Record, operation Operation, outcome Outcome) map[string]string {
+	t.Helper()
 	attributes := map[string]string{}
 	record.WalkAttributes(func(value attribute.KeyValue) bool {
 		attributes[string(value.Key)] = value.Value.AsString()
@@ -68,11 +79,16 @@ func assertOperationLog(t *testing.T, record sdklog.Record, operation Operation,
 		attributes["cq.outcome"] != string(outcome) {
 		t.Fatalf("unexpected operation log attributes: %#v", attributes)
 	}
-	correlation, err := hex.DecodeString(attributes["cq.correlation_id"])
+	return attributes
+}
+
+func assertOperationLogCorrelation(t *testing.T, value string) string {
+	t.Helper()
+	correlation, err := hex.DecodeString(value)
 	if err != nil || len(correlation) != 16 {
-		t.Fatalf("operation log correlation is not an opaque 128-bit identifier: %q", attributes["cq.correlation_id"])
+		t.Fatalf("operation log correlation is not an opaque 128-bit identifier: %q", value)
 	}
-	return attributes["cq.correlation_id"]
+	return value
 }
 
 func TestOTelOperationLogsKeepOnlyBoundedMetadata(t *testing.T) {
