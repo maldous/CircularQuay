@@ -56,13 +56,25 @@ func validateRuntimeConfig(config *model.Observability) error {
 }
 
 func validatePipelineConfig(config *model.Observability) error {
-	if config.ServiceName == "" || config.Endpoint == "" || config.TimeoutSeconds < 1 || config.ExportIntervalSeconds < 1 || config.BatchSize < 1 || config.QueueSize < config.BatchSize {
+	if config.ServiceName == "" || config.Endpoint == "" || !validRuntimePipelineBounds(config) {
 		return fault.New(fault.Invalid, "observability configuration")
 	}
 	if _, err := parseCollectorURLs(config.Endpoint); err != nil || (config.TrustStoreFile == "") != (config.TrustStoreSHA256 == "") {
 		return fault.New(fault.Invalid, "observability transport")
 	}
 	return nil
+}
+
+func validRuntimePipelineBounds(config *model.Observability) bool {
+	return runtimeIntegerInRange(config.TimeoutSeconds, 1, 30) &&
+		runtimeIntegerInRange(config.ExportIntervalSeconds, 1, 60) &&
+		runtimeIntegerInRange(config.BatchSize, 1, 512) &&
+		runtimeIntegerInRange(config.QueueSize, 1, 8192) &&
+		config.BatchSize <= config.QueueSize
+}
+
+func runtimeIntegerInRange(value, minimum, maximum int) bool {
+	return value >= minimum && value <= maximum
 }
 
 func validateResourceConfig(config *model.Observability) error {
@@ -79,7 +91,7 @@ func validateSignalConfig(config *model.Observability) error {
 	if enabled(config.Traces) && !validRuntimeTraceSampleRatio(config.Traces.SampleRatio) {
 		return fault.New(fault.Invalid, "observability traces")
 	}
-	if enabled(config.Metrics) && config.Metrics.IntervalSeconds < 1 {
+	if enabled(config.Metrics) && !runtimeIntegerInRange(config.Metrics.IntervalSeconds, 1, 3600) {
 		return fault.New(fault.Invalid, "observability metrics")
 	}
 	if !enabled(config.Metrics) && !enabled(config.Traces) && !enabled(config.Logs) {
