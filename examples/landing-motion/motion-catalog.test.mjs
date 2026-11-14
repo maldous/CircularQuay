@@ -1,11 +1,22 @@
 import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
+import assert from 'node:assert/strict';
+import test from 'node:test';
 import { motionCatalog } from './motion-catalog.js';
 import { createScenarioSession, createVariantRotation } from './scenario-flow.js';
 const root = path.dirname(new URL(import.meta.url).pathname);
 const integrations = JSON.parse(await readFile(path.join(root, 'integrations.json'), 'utf8'));
 const expected = integrations.groups.flatMap(group => group.items.map(item => `${group.id}:${item.id}`));
 const actual = [...motionCatalog.identity, ...motionCatalog.local, ...Object.values(['shell','container','cloud','ci']).flatMap(slot => motionCatalog[slot])].map(item => `${item.group}:${item.id}`);
+test('paired identity and source pools retain matching values without shared mutable entries', () => {
+  for (const [left, right] of [['identity', 'identity-2'], ['local', 'remote']]) {
+    assert.deepEqual(motionCatalog[left], motionCatalog[right]);
+    assert.notStrictEqual(motionCatalog[left], motionCatalog[right]);
+    for (let index = 0; index < motionCatalog[left].length; index += 1) {
+      assert.notStrictEqual(motionCatalog[left][index], motionCatalog[right][index]);
+    }
+  }
+});
 if (expected.length !== 113 || new Set(actual).size !== 113 || expected.some(id => !actual.includes(id))) throw new Error('All 113 catalog entries must appear exactly once across the canonical pools');
 for (const [slot, entries] of Object.entries(motionCatalog)) for (const entry of entries) { await access(path.join(root, entry.asset)); if (!entry.role || !entry.intent || entry.intent.includes('unidentified') || !entry.action.includes(entry.name)) throw new Error(`Invalid ${slot}/${entry.id}`); }
 const fixed = Object.fromEntries(Object.entries(motionCatalog).map(([slot, entries]) => [slot, entries[0]]));
