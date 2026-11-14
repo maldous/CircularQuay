@@ -288,6 +288,17 @@ func (b *otelBackend) configureTraces(ctx context.Context, config model.Observab
 	}
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(resource),
+		// Keep the SDK's no-environment defaults: ambient limits must not drop
+		// or truncate CQ's explicitly bounded operational vocabulary.
+		sdktrace.WithRawSpanLimits(sdktrace.SpanLimits{
+			AttributeValueLengthLimit:   sdktrace.DefaultAttributeValueLengthLimit,
+			AttributeValueDepthLimit:    sdktrace.DefaultAttributeValueDepthLimit,
+			AttributeCountLimit:         sdktrace.DefaultAttributeCountLimit,
+			EventCountLimit:             sdktrace.DefaultEventCountLimit,
+			LinkCountLimit:              sdktrace.DefaultLinkCountLimit,
+			AttributePerEventCountLimit: sdktrace.DefaultAttributePerEventCountLimit,
+			AttributePerLinkCountLimit:  sdktrace.DefaultAttributePerLinkCountLimit,
+		}),
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(*config.Traces.SampleRatio)),
 		sdktrace.WithBatcher(safeTraceExporter{next: exporter, health: b.exportState},
 			sdktrace.WithMaxQueueSize(config.QueueSize),
@@ -381,7 +392,13 @@ func (b *otelBackend) configureLogs(ctx context.Context, config model.Observabil
 		sdklog.WithExportInterval(time.Duration(config.ExportIntervalSeconds)*time.Second),
 		sdklog.WithExportTimeout(signalTimeout(config)),
 	)
-	provider := sdklog.NewLoggerProvider(sdklog.WithResource(resource), sdklog.WithProcessor(processor))
+	provider := sdklog.NewLoggerProvider(
+		sdklog.WithResource(resource), sdklog.WithProcessor(processor),
+		// These are the pinned SDK's defaults without environment overrides.
+		sdklog.WithAttributeCountLimit(128),
+		sdklog.WithAttributeValueLengthLimit(-1),
+		sdklog.WithAttributeValueDepthLimit(64),
+	)
 	b.logs = provider
 	b.logger = provider.Logger(instrumentationScope)
 	return nil
