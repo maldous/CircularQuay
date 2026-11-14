@@ -275,6 +275,22 @@ jobs:
           else
             fail "typescript-dependency-install-failed"
           fi
+          # Sonar imports coverage only for indexed production files. Omit the
+          # classified test files and the ignored worker module they generate.
+          # Keep repeated source records for SonarJS to merge.
+          mkdir -p "$evidence/browser" || fatal "browser-evidence-directory-failed"
+          browser_coverage_status=0
+          node --test --experimental-test-coverage \
+            --test-coverage-exclude='examples/landing-motion/**/*.test.mjs' \
+            --test-coverage-exclude=examples/landing-motion/.local/worker-routes.mjs \
+            --test-reporter=spec --test-reporter=lcov \
+            --test-reporter-destination=stdout --test-reporter-destination="$evidence/browser/lcov.info" \
+            examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs \
+            >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+          printf 'browser_test_exit=%s\n' "$browser_coverage_status" >"$evidence/browser-test-status.txt"
+          (( browser_coverage_status == 0 )) || fail "browser-tests-failed:$browser_coverage_status"
+          test -s "$evidence/browser/lcov.info" || fail "browser-coverage-report-missing"
+
           # The scanner's source root is the checkout. Move generated test
           # dependencies outside it before the scanner indexes source files.
           if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
@@ -343,7 +359,7 @@ jobs:
               -Dsonar.scm.revision="$GITHUB_SHA" \
               -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
               -Dsonar.python.coverage.reportPaths="$evidence/python-coverage.xml" \
-              -Dsonar.javascript.lcov.reportPaths="$evidence/typescript/lcov.info" \
+              -Dsonar.javascript.lcov.reportPaths="$evidence/typescript/lcov.info,$evidence/browser/lcov.info" \
               -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
               -Dsonar.working.directory="$root/scanner-work" \
               -Dsonar.qualitygate.wait=true \
