@@ -359,6 +359,14 @@ jobs:
           (( scanner_warnings == 0 )) || fail "scanner-warnings:$scanner_warnings"
 
           readback_ok=1
+          : >"$evidence/readback-failures.txt"
+          readback_fail() {
+            readback_ok=0
+            # Callers supply fixed reason codes and local request names/indices.
+            # Never include server response bodies, component keys or credentials.
+            printf '%s\n' "$1" >>"$evidence/readback-failures.txt"
+            printf 'sonar-readback-failure:%s\n' "$1"
+          }
           warning_count_is_zero() {
             jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' "$1" >/dev/null 2>&1
           }
@@ -372,7 +380,7 @@ jobs:
             route=$2
             status="$(curl --connect-timeout 5 --max-time 30 --silent --show-error --output "$evidence/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
             printf '%s\n' "$status" >"$evidence/${name}.status"
-            test "$status" = 200 || readback_ok=0
+            test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
           }
           if test -r "$state/scanner.token" && test -s "$evidence/report-task.raw.txt"; then
             sonar_token="$(<"$state/scanner.token")"
@@ -381,12 +389,12 @@ jobs:
             unset sonar_token
             awk -F= '$1 == "ceTaskId" || $1 == "projectKey" || $1 == "projectName" {print}' "$evidence/report-task.raw.txt" >"$evidence/report-task.txt"
             ce_task="$(awk -F= '$1 == "ceTaskId" {print $2}' "$evidence/report-task.raw.txt")"
-            test -n "$ce_task" || readback_ok=0
+            test -n "$ce_task" || readback_fail "ce-task-id-missing"
             request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
-            analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_ok=0
-            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_ok=0
+            analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_fail "analysis-id-invalid"
+            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_fail "ce-task-contract"
             request current-analysis '/api/project_analyses/search?project=cq&ps=100'
-            jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_ok=0
+            jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_fail "current-analysis-revision-or-id"
             request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
             request metrics '/api/measures/component?component=cq&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
             # Match the strict inspector contract. Accepted and false-positive
@@ -409,20 +417,20 @@ jobs:
               name=$1
               route=$2
               if (( readonly_request_count >= readonly_request_limit )); then
-                readback_ok=0
+                readback_fail "private-request-limit"
                 return 1
               fi
               readonly_request_count=$((readonly_request_count + 1))
               status="$(curl --connect-timeout 5 --max-time 30 --max-filesize "$readonly_response_max_bytes" --silent --show-error --output "$state/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
               printf '%s\n' "$status" >"$evidence/${name}.status"
-              test "$status" = 200 || readback_ok=0
+              test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
             }
             request_private duplicate-components '/api/measures/component_tree?component=cq&metricKeys=duplicated_lines,duplicated_blocks,duplicated_lines_density&qualifiers=FIL&strategy=leaves&s=metric&metricSort=duplicated_lines&metricSortFilter=withMeasuresOnly&asc=false&ps=500&p=1'
             jq -e '
               (.paging | type == "object" and (.pageIndex | type == "number" and . == 1) and (.pageSize | type == "number" and . > 0 and . <= 500) and (.total | type == "number" and . >= 0 and . <= 500)) and
               (.components | type == "array" and length <= 500) and
               all(.components[]; (.key | type == "string") and (.path | type == "string") and .qualifier == "FIL" and (.measures | type == "array"))
-            ' "$state/duplicate-components.json" >/dev/null 2>&1 || readback_ok=0
+            ' "$state/duplicate-components.json" >/dev/null 2>&1 || readback_fail "duplicate-components-shape-or-paging"
             jq -r '
               [ .components[]
                 | select(.qualifier == "FIL")
@@ -431,11 +439,11 @@ jobs:
                 | select(($lines | type == "string") and ($lines | test("^[0-9]+$")) and ($lines | tonumber) > 0)
                 | $key
               ] | unique | if length <= 50 then .[] else error("too-many-duplicated-components") end
-            ' "$state/duplicate-components.json" >"$state/duplicate-components.txt" || readback_ok=0
+            ' "$state/duplicate-components.json" >"$state/duplicate-components.txt" || readback_fail "duplicate-components-selection"
             mapfile -t duplicate_components <"$state/duplicate-components.txt"
-            duplication_density="$(jq -er '[.component.measures[] | select(.metric == "duplicated_lines_density") | .value | tonumber] | if length == 1 then .[0] else error("missing-density") end' "$evidence/metrics.json" 2>/dev/null)" || readback_ok=0
+            duplication_density="$(jq -er '[.component.measures[] | select(.metric == "duplicated_lines_density") | .value | tonumber] | if length == 1 then .[0] else error("missing-density") end' "$evidence/metrics.json" 2>/dev/null)" || readback_fail "duplication-density-invalid"
             if [[ "$duplication_density" =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk "BEGIN { exit !($duplication_density > 0) }"; then
-              (( ${#duplicate_components[@]} > 0 )) || readback_ok=0
+              (( ${#duplicate_components[@]} > 0 )) || readback_fail "positive-density-without-components"
             fi
             : >"$state/duplication-blocks.ndjson"
             emitted_groups=0
@@ -448,8 +456,8 @@ jobs:
             }
             duplication_index=0
             for component_key in "${duplicate_components[@]}"; do
-              public_component_path "$component_key" || { readback_ok=0; continue; }
-              encoded_component="$(jq -rn --arg key "$component_key" '$key | @uri')" || { readback_ok=0; continue; }
+              public_component_path "$component_key" || { readback_fail "component-path-not-tracked"; continue; }
+              encoded_component="$(jq -rn --arg key "$component_key" '$key | @uri')" || { readback_fail "component-key-encoding"; continue; }
               duplication_index=$((duplication_index + 1))
               response_name="duplication-${duplication_index}"
               request_private "$response_name" "/api/duplications/show?key=${encoded_component}"
@@ -458,25 +466,25 @@ jobs:
                 .files as $files | ($files | type == "object" and length <= 100) and (.duplications | type == "array" and length >= 1 and length <= 20) and
                 ([.duplications[].blocks[]] | length <= 100) and
                 all(.duplications[]; (.blocks | type == "array" and length >= 2 and length <= 10) and all(.blocks[]; (._ref | type == "string") and ($files[._ref].key | type == "string") and (.from | type == "number" and . >= 1 and floor == .) and (.size | type == "number" and . >= 1 and floor == .)))
-              ' "$response" >/dev/null 2>&1 || { readback_ok=0; continue; }
-              response_groups="$(jq -er '.duplications | length' "$response")" || { readback_ok=0; continue; }
-              response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_ok=0; continue; }
-              if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 500 )); then readback_ok=0; continue; fi
+              ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-shape:${duplication_index}"; continue; }
+              response_groups="$(jq -er '.duplications | length' "$response")" || { readback_fail "duplication-group-count:${duplication_index}"; continue; }
+              response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_fail "duplication-block-count:${duplication_index}"; continue; }
+              if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 500 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
               participants_ok=true
               while IFS= read -r participant_key; do public_component_path "$participant_key" || participants_ok=false; done < <(jq -r '.files[]?.key' "$response")
-              if test "$participants_ok" != true; then readback_ok=0; continue; fi
+              if test "$participants_ok" != true; then readback_fail "participant-path-not-tracked:${duplication_index}"; continue; fi
               jq -c --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" '
                 .files as $files | .duplications[] |
                 {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^cq:"; "")),from:.from,size:.size}]}
-              ' "$response" >>"$state/duplication-blocks.ndjson" || readback_ok=0
+              ' "$response" >>"$state/duplication-blocks.ndjson" || readback_fail "duplication-group-serialization:${duplication_index}"
               emitted_groups=$((emitted_groups + response_groups))
               emitted_blocks=$((emitted_blocks + response_blocks))
             done
             jq -s --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" --arg tree "$(cat "$evidence/tree.txt")" '
               {schema_version:1,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",duplication_groups:.}
-            ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_ok=0
+            ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_fail "duplication-attribution-serialization"
           else
-            readback_ok=0
+            readback_fail "readback-prerequisite-missing"
           fi
           (( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
           jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
