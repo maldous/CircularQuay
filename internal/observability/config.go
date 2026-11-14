@@ -21,13 +21,18 @@ type Options struct {
 }
 
 // New constructs an explicitly configured OpenTelemetry pipeline. It does not
-// inspect OTEL_*, proxy, credential, or resource environment variables. An
-// absent or disabled declaration returns a no-op runtime without I/O.
+// accept ambient destinations, credentials or resource labels as CQ policy.
+// Malformed resource environment syntax is rejected before SDK diagnostics;
+// exported resources are constrained to CQ's declaration. An absent or disabled
+// declaration returns a no-op runtime without I/O.
 func New(ctx context.Context, config *model.Observability, options Options) (*Runtime, error) {
 	if config == nil || config.Enabled == nil || !*config.Enabled {
 		return Disabled(), nil
 	}
 	if err := validateRuntimeConfig(config); err != nil {
+		return nil, err
+	}
+	if err := validateCollectorEnvironment(); err != nil {
 		return nil, err
 	}
 	token, err := readToken(config.TokenFile)

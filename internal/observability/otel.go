@@ -274,8 +274,13 @@ func telemetryResource(config model.Observability, version string) (*resource.Re
 }
 
 func (b *otelBackend) configureTraces(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	client, err := collectorResourceClient(client, resource, collectorTrace)
+	if err != nil {
+		return err
+	}
 	exporter, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpointURL(endpoint),
+		otlptracehttp.WithEncoding(otlptracehttp.EncodingProtobuf),
 		otlptracehttp.WithHTTPClient(client),
 		otlptracehttp.WithHeaders(headers),
 		otlptracehttp.WithCompression(otlptracehttp.NoCompression),
@@ -313,6 +318,10 @@ func (b *otelBackend) configureTraces(ctx context.Context, config model.Observab
 }
 
 func (b *otelBackend) configureMetrics(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	client, err := collectorResourceClient(client, resource, collectorMetrics)
+	if err != nil {
+		return err
+	}
 	exporter, err := otlpmetrichttp.New(ctx,
 		otlpmetrichttp.WithEndpointURL(endpoint),
 		otlpmetrichttp.WithHTTPClient(client),
@@ -374,6 +383,10 @@ func saturatingInt64(value uint64) int64 {
 }
 
 func (b *otelBackend) configureLogs(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	client, err := collectorResourceClient(client, resource, collectorLogs)
+	if err != nil {
+		return err
+	}
 	exporter, err := otlploghttp.New(ctx,
 		otlploghttp.WithEndpointURL(endpoint),
 		otlploghttp.WithHTTPClient(client),
