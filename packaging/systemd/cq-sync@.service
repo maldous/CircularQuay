@@ -1,0 +1,23 @@
+[Unit]
+Description=Reconcile CQ workload %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cq
+Group=cq
+UMask=0077
+ExecStart=/usr/local/bin/cq --config /etc/cq/policy.json --state-dir /var/lib/cq sync --workload %i
+StateDirectory=cq
+StateDirectoryMode=0700
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cq
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Install only after policy/identity enrollment and a synthetic test. Do not put
+# key values in Environment=. The reconciler must have only its assigned grants.

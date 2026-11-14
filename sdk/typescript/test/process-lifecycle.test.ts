@@ -1,0 +1,338 @@
+import assert from "node:assert/strict";
+import childProcess from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import fsPromises from "node:fs/promises";
+import { EventEmitter } from "node:events";
+import { syncBuiltinESMExports } from "node:module";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { test } from "node:test";
+
+type SDK = typeof import("../src/index.ts");
+type ChildPlan = (child: SyntheticChild) => void;
+
+class SyntheticInput extends EventEmitter {
+  received: string | undefined;
+
+  end(input?: string): void {
+    this.received = input;
+    this.emit("end", input);
+  }
+}
+
+class SyntheticChild extends EventEmitter {
+  readonly stdin = new SyntheticInput();
+  readonly stdout = new EventEmitter();
+  readonly stderr = new EventEmitter();
+  readonly signals: string[] = [];
+  onKill: (() => void) | undefined;
+
+  kill(signal?: string): boolean {
+    this.signals.push(signal ?? "SIGTERM");
+    this.onKill?.();
+    return true;
+  }
+}
+
+class ChildHarness {
+  readonly children: SyntheticChild[] = [];
+  readonly starts: Array<{ readonly executable: string; readonly args: readonly string[] }> = [];
+  #plans: ChildPlan[] = [];
+  #waiters: Array<(child: SyntheticChild) => void> = [];
+  #throwOnStart = false;
+
+  enqueue(plan: ChildPlan): void { this.#plans.push(plan); }
+  failNextStart(): void { this.#throwOnStart = true; }
+
+  spawn = (executable: string, args: readonly string[]): unknown => {
+    if (this.#throwOnStart) {
+      this.#throwOnStart = false;
+      throw new Error("synthetic spawn failure");
+    }
+    const plan = this.#plans.shift();
+    if (plan === undefined) throw new Error("synthetic child plan missing");
+    const child = new SyntheticChild();
+    this.starts.push({ executable, args });
+    this.children.push(child);
+    plan(child);
+    this.#waiters.shift()?.(child);
+    return child;
+  };
+
+  latest(): SyntheticChild {
+    const child = this.children.at(-1);
+    if (child === undefined) throw new Error("synthetic child missing");
+    return child;
+  }
+
+  waitFor(count: number): Promise<SyntheticChild> {
+    const child = this.children[count - 1];
+    return child === undefined ? new Promise(resolve => this.#waiters.push(resolve)) : Promise.resolve(child);
+  }
+}
+
+test("local client safely maps synthetic child lifecycle outcomes", async t => {
+  const harness = new ChildHarness();
+  const originalSpawn = childProcess.spawn;
+  childProcess.spawn = harness.spawn as typeof childProcess.spawn;
+  syncBuiltinESMExports();
+  const sdk = await import("../src/index.ts") as SDK;
+  try {
+    await t.test("completes a bounded JSON request and sends JSON only through stdin", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => {
+        child.stdin.once("end", () => queueMicrotask(() => finish(child, '{"accepted":true}', 0)));
+      });
+      assert.deepEqual(await client.configSet("/workloads/api", { enabled: true }), { accepted: true });
+      assert.equal(harness.latest().stdin.received, '{"enabled":true}');
+    });
+
+    await t.test("malformed and unsafe native JSON stays a protocol error", async () => {
+      const client = await createClient(sdk, harness);
+      for (const stdout of ["not-json-synthetic-detail", '{"count":9007199254740992}']) {
+        harness.enqueue(child => queueMicrotask(() => finish(child, stdout, 0)));
+        await assert.rejects(client.providers(), error =>
+          error instanceof sdk.CqError && error.category === "protocol" && !error.message.includes(stdout));
+      }
+    });
+
+    await t.test("preserves native UTF-8 JSON across every byte boundary", async () => {
+      const client = await createClient(sdk, harness);
+      const expected = { value: "synthetic-é-€-🔑" };
+      const bytes = Buffer.from(JSON.stringify(expected));
+      for (let split = 1; split < bytes.length; split += 1) {
+        harness.enqueue(child => queueMicrotask(() => {
+          child.stdout.emit("data", bytes.subarray(0, split));
+          child.stdout.emit("data", bytes.subarray(split));
+          child.emit("close", 0);
+        }));
+        assert.deepEqual(await client.providers(), expected);
+      }
+    });
+
+    await t.test("flushes an incomplete trailing UTF-8 sequence before parsing native JSON", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => {
+        child.stdout.emit("data", Buffer.from("{}"));
+        child.stdout.emit("data", Buffer.from([0xe2]));
+        child.emit("close", 0);
+      }));
+      await assert.rejects(client.providers(), category(sdk, "protocol"));
+    });
+
+    await t.test("accepts split UTF-8 at the exact captured-output byte limit", async () => {
+      const client = await createClient(sdk, harness);
+      const expected = { value: "é" };
+      const json = Buffer.from(JSON.stringify(expected));
+      const bytes = Buffer.concat([Buffer.alloc(1024 * 1024 - json.length, 32), json]);
+      const split = bytes.indexOf(0xc3) + 1;
+      harness.enqueue(child => queueMicrotask(() => {
+        child.stdout.emit("data", bytes.subarray(0, split));
+        child.stdout.emit("data", bytes.subarray(split));
+        child.emit("close", 0);
+      }));
+      assert.deepEqual(await client.providers(), expected);
+    });
+
+    await t.test("maps bounded native failures without exposing diagnostics", async () => {
+      const client = await createClient(sdk, harness);
+      await assertProcessCategory(() => client.providers(), harness, '{"error":"access_denied"}', "denied", sdk);
+      await assertProcessCategory(() => client.updateCheck(), harness, "malformed", "protocol", sdk);
+      await assertProcessCategory(() => client.doctor(), harness, "", "process", sdk);
+      for (const stderr of ['{"error":false}', '{"error":"access_denied","extra":true}']) {
+        await assertProcessCategory(() => client.providers(), harness, stderr, "protocol", sdk);
+      }
+    });
+
+    await t.test("preserves an explicit effectful nonzero exit result", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => child.emit("close", 7)));
+      assert.deepEqual(await client.run("api"), { exitCode: 7, stdout: "" });
+    });
+
+    await t.test("uses public config-init and flow-run contracts", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => finish(child, '{"created":true}', 0)));
+      assert.deepEqual(await client.configInit("/synthetic/generated.json"), { created: true });
+      assert.deepEqual(harness.starts.at(-1)?.args, ["--config", "/synthetic/config.json", "--state-dir", "/synthetic/state", "config", "init", "--output", "/synthetic/generated.json"]);
+
+      harness.enqueue(child => queueMicrotask(() => finish(child, "", 0)));
+      assert.deepEqual(await client.flowRun("api", completePin()), { exitCode: 0, stdout: "" });
+      assert.deepEqual(harness.starts.at(-1)?.args, ["--config", "/synthetic/config.json", "--state-dir", "/synthetic/state", "flow", "run", "--workload", "api", "--config-source", "https://github.com/acme/policy", "--config-ref", "a".repeat(40), "--config-path", "policy.json", "--config-sha256", "b".repeat(64), "--non-interactive"]);
+    });
+
+    await t.test("rejects malformed remote URLs before a local process starts", async () => {
+      const client = await createClient(sdk, harness);
+      const before = harness.children.length;
+      assert.throws(() => client.bootstrap({ ...completePin(), configSource: "https://[", output: "/synthetic/policy.json" }), category(sdk, "invalid"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("rejects unsafe explicit environment entries before a local process starts", async () => {
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      for (const environment of [
+        { AWS_SECRET_ACCESS_KEY: "synthetic" },
+        { "not-valid": "synthetic" },
+        { SAFE: "synthetic\0value" },
+        { SAFE: "x".repeat(32_769) }
+      ]) {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, environment }), category(sdk, "invalid"));
+      }
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("rejects process start and lifecycle stream failures with safe categories", async () => {
+      const client = await createClient(sdk, harness);
+      harness.failNextStart();
+      await assert.rejects(client.plan(), category(sdk, "process"));
+      await assertLifecycleFailure(() => client.configSet("/workloads/api", "value"), harness, child => child.stdin.emit("error", new Error("synthetic stdin")), sdk);
+      await assertLifecycleFailure(() => client.plan(), harness, child => child.emit("error", new Error("synthetic child")), sdk);
+    });
+
+    await t.test("terminates bounded captured output and rejects before dispatching oversized input", async () => {
+      const client = await createClient(sdk, harness);
+      await assertLifecycleFailure(() => client.status("api"), harness, child => child.stdout.emit("data", "x".repeat(1024 * 1024 + 1)), sdk, "protocol");
+      await assertLifecycleFailure(() => client.configValidate(), harness, child => child.stderr.emit("data", Buffer.alloc(1024 * 1024 + 1)), sdk, "protocol");
+      const before = harness.children.length;
+      assert.throws(() => client.configReplace("x".repeat(1024 * 1024 + 1)), category(sdk, "invalid"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("refuses missing or tampered executables before process start", async () => {
+      const before = harness.children.length;
+      const options = { expectedSHA256: "0".repeat(64), configPath: resolve("synthetic", "config.json"), stateDirectory: resolve("synthetic", "state") };
+      await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: process.execPath }), category(sdk, "integrity"));
+      const directory = await mkdtemp(join(tmpdir(), "cq-sdk-missing-"));
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: join(directory, "missing") }), category(sdk, "integrity"));
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("cancellation during executable verification prevents child dispatch", async () => {
+      const client = await createClient(sdk, harness);
+      const before = harness.children.length;
+      const controller = new AbortController();
+      const pending = client.plan({ signal: controller.signal });
+      controller.abort();
+      await assert.rejects(pending, category(sdk, "cancelled"));
+      assert.equal(harness.children.length, before);
+    });
+
+    await t.test("a signal-only process close remains a process failure", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => child.emit("close", null)));
+      await assert.rejects(client.providers(), category(sdk, "process"));
+    });
+
+    await t.test("non-files, empty files and a truncated executable fail integrity before dispatch", async () => {
+      const directory = await mkdtemp(join(tmpdir(), "cq-sdk-race-"));
+      const options = await trustedOptions();
+      const before = harness.children.length;
+      const originalOpen = fsPromises.open;
+      try {
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: directory }), category(sdk, "integrity"));
+        const file = join(directory, "synthetic-cq");
+        await writeFile(file, "");
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: file }), category(sdk, "integrity"));
+        await writeFile(file, "synthetic executable bytes");
+        const canonical = await fsPromises.realpath(file);
+        let closed = false;
+        fsPromises.open = async (...args: Parameters<typeof fsPromises.open>) => {
+          const handle = await originalOpen(...args);
+          if (args[0] === canonical) {
+            const stat = handle.stat.bind(handle);
+            const close = handle.close.bind(handle);
+            handle.stat = async () => { const observed = await stat(); await fsPromises.truncate(file, 0); return observed; };
+            handle.close = async () => { await close(); closed = true; };
+          }
+          return handle;
+        };
+        syncBuiltinESMExports();
+        await assert.rejects(sdk.LocalCLIClient.create({ ...options, executablePath: canonical }), category(sdk, "integrity"));
+        assert.equal(closed, true);
+        assert.equal(harness.children.length, before);
+      } finally {
+        fsPromises.open = originalOpen;
+        syncBuiltinESMExports();
+        await rm(directory, { force: true, recursive: true });
+      }
+    });
+
+    await t.test("failed termination still settles safely and tolerates a later close", async childTest => {
+      childTest.mock.timers.enable({ apis: ["setTimeout"] });
+      const client = await createClient(sdk, harness);
+      const controller = new AbortController();
+      harness.enqueue(child => {
+        child.onKill = () => { throw new Error("synthetic signal delivery failure"); };
+        queueMicrotask(() => controller.abort());
+      });
+      const pending = client.plan({ signal: controller.signal });
+      await harness.waitFor(harness.children.length + 1);
+      childTest.mock.timers.tick(6000);
+      await assert.rejects(pending, category(sdk, "cancelled"));
+      const child = harness.latest();
+      child.emit("close", null);
+      child.stdin.emit("error", new Error("synthetic late pipe error"));
+      assert.deepEqual(child.signals, ["SIGTERM", "SIGKILL"]);
+    });
+
+    await t.test("cancellation reaps an unresponsive child through the bounded fallback", async childTest => {
+      childTest.mock.timers.enable({ apis: ["setTimeout"] });
+      const client = await createClient(sdk, harness);
+      const controller = new AbortController();
+      harness.enqueue(child => queueMicrotask(() => controller.abort()));
+      const expectedChildCount = harness.children.length + 1;
+      const pending = client.plan({ signal: controller.signal });
+      await harness.waitFor(expectedChildCount);
+      childTest.mock.timers.tick(6000);
+      await assert.rejects(pending, category(sdk, "cancelled"));
+      assert.deepEqual(harness.latest().signals, ["SIGTERM", "SIGKILL"]);
+    });
+  } finally {
+    childProcess.spawn = originalSpawn;
+    syncBuiltinESMExports();
+  }
+});
+
+async function createClient(sdk: SDK, harness: ChildHarness): Promise<InstanceType<SDK["LocalCLIClient"]>> {
+  harness.enqueue(child => queueMicrotask(() => finish(child, '{"version":"1.0.0","commit":"synthetic","go":"go1.27.3","maturity":"development"}', 0)));
+  return sdk.LocalCLIClient.create(await trustedOptions());
+}
+
+async function trustedOptions(): Promise<{ readonly executablePath: string; readonly expectedSHA256: string; readonly configPath: string; readonly stateDirectory: string }> {
+  const executablePath = process.execPath;
+  const expectedSHA256 = createHash("sha256").update(await readFile(executablePath)).digest("hex");
+  return { executablePath, expectedSHA256, configPath: "/synthetic/config.json", stateDirectory: "/synthetic/state" };
+}
+
+function completePin(): { readonly configSource: string; readonly configRef: string; readonly configPath: string; readonly configSHA256: string } {
+  return { configSource: "https://github.com/acme/policy", configRef: "a".repeat(40), configPath: "policy.json", configSHA256: "b".repeat(64) };
+}
+
+async function assertProcessCategory(operation: () => Promise<unknown>, harness: ChildHarness, stderr: string, expected: string, sdk: SDK): Promise<void> {
+  harness.enqueue(child => queueMicrotask(() => finish(child, stderr, 1)));
+  await assert.rejects(operation(), category(sdk, expected));
+}
+
+async function assertLifecycleFailure(operation: () => Promise<unknown>, harness: ChildHarness, emit: (child: SyntheticChild) => void, sdk: SDK, expected = "process"): Promise<void> {
+  harness.enqueue(child => {
+    child.onKill = () => queueMicrotask(() => child.emit("close", 0));
+    queueMicrotask(() => emit(child));
+  });
+  await assert.rejects(operation(), category(sdk, expected));
+}
+
+function finish(child: SyntheticChild, stdoutOrStderr: string, code: number): void {
+  if (code === 0) child.stdout.emit("data", stdoutOrStderr);
+  else child.stderr.emit("data", stdoutOrStderr);
+  child.emit("close", code);
+}
+
+function category(sdk: SDK, expected: string): (error: unknown) => boolean {
+  return error => error instanceof sdk.CqError && error.category === expected;
+}

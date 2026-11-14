@@ -1,0 +1,25 @@
+:root { --flow-emphasis-width: 2px; }
+
+/* One edge weight connects the packet route, selected cards, optionals and hub. */
+.journey-connections path[data-active=true],
+.journey-connections path[data-delivered=true] { stroke-width: var(--flow-emphasis-width); }
+
+.node-face::after,
+.hub-disc::after,
+.optional-face::after { border-width: var(--flow-emphasis-width); }
+
+.hub-disc::after { inset: 0; }
+.landing-page .hub-disc { border: 0; }
+
+/* Optional emphasis uses one pseudo-element, never an outline plus a border. */
+.optional-face,
+.optional-node.is-session-active .optional-face,
+.is-session-delivered .optional-face { outline: none; }
+.optional-node.is-session-active .optional-face::after,
+.is-delivered .is-session-delivered .optional-face::after { opacity: 1; }
+
+/* The delivered summary is shared by every physical overlay; routes stay steady. */
+.is-delivered .is-session-delivered .node-face::after,
+.is-delivered .is-session-delivered .optional-face::after,
+.is-delivered .hub-disc::after { animation: delivered-summary 2.2s ease-in-out 1 both; }
+.is-delivered path[data-delivered=true] { animation: none; }

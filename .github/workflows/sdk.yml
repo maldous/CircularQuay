@@ -1,0 +1,746 @@
+name: SDK qualification
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+  push:
+    branches: [develop, main, 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-dependency-lock:
+    name: Go dependency lock reproducibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Resolve and retain bounded lock evidence
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cq-go-lock"
+          mkdir -m 0700 "$evidence"
+          sha256sum go.mod go.sum > "$evidence/before.sha256"
+          go mod tidy
+          go mod verify
+          sha256sum go.mod go.sum > "$evidence/after.sha256"
+          cp go.mod go.sum "$evidence/"
+          {
+            printf 'revision=%s\n' "$GITHUB_SHA"
+            go version
+            go env GOTOOLCHAIN GOFLAGS
+          } > "$evidence/receipt.txt"
+          if git diff --quiet -- go.mod go.sum; then
+            echo 'drift=false' >> "$GITHUB_OUTPUT"
+          else
+            git diff --binary -- go.mod go.sum > "$evidence/lock.diff"
+            echo 'drift=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload generated Go dependency evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-lock-${{ github.sha }}
+          path: ${{ runner.temp }}/cq-go-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed reproducible Go dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.resolve.outputs.drift }}' = false
+
+  go:
+    name: Go SDK (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Run complete Go SDK contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          go test -count=1 ./sdk/go
+          go vet ./sdk/go
+          test -z "$(gofmt -l sdk/go)"
+
+  python-static-security:
+    name: Python static and security (3.14, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ runner.os == 'macOS' && '3.14.10' || '3.14' }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - &stage_darwin_wheel
+        name: Stage the retained Intel macOS wheel for this interpreter
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          patch="$(python -I -c 'import platform,sys; assert (sys.platform, platform.machine(), sys.implementation.name) == ("darwin", "x86_64", "cpython"); print(platform.python_version())')"
+          python -E -s -B .github/scripts/sdk_python_darwin_wheel.py --python "$patch" --output "$RUNNER_TEMP/cq-darwin-intake"
+      - name: Install reviewed static-tool closure
+        id: static_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          lock="sdk/python/locks/ci-${p}-py314.txt"
+          test -f "$lock"
+          python .github/scripts/sdk_python_lock.py --verify-lock "$lock" --requirements sdk/python/requirements-ci.txt
+          if test "$RUNNER_OS" = macOS; then
+            house="$RUNNER_TEMP/cq-darwin-static-wheelhouse"
+            python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$lock"
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$lock"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
+          fi
+      - name: Test lock helper
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: python -m unittest discover -s .github/scripts/tests -v
+      - name: Lint Python SDK
+        id: python_ruff
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check ruff --report "$RUNNER_TEMP/cq-python-reports/ruff.json" --timeout-seconds 300
+      - name: Typecheck Python SDK
+        id: python_mypy
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check mypy --report "$RUNNER_TEMP/cq-python-reports/mypy.json" --timeout-seconds 300
+      - name: Bandit Python SDK
+        id: python_bandit
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check bandit --report "$RUNNER_TEMP/cq-python-reports/bandit.json" --timeout-seconds 300
+      - name: Upload Python static analyzer evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-analyzers-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/ruff.json
+            ${{ runner.temp }}/cq-python-reports/mypy.json
+            ${{ runner.temp }}/cq-python-reports/bandit.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Audit every reviewed Python lock
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in Linux) p=linux;; macOS) p=darwin;; Windows) p=win32;; *) exit 1;; esac
+          python -m pip_audit --strict --disable-pip --require-hashes -r "sdk/python/locks/ci-${p}-py314.txt"
+          for platform in linux darwin win32; do for interpreter in py311 py312 py313 py314 py315; do
+            lock="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
+            test -f "$lock"
+            python -m pip_audit --strict --disable-pip --require-hashes -r "$lock"
+          done; done
+      - name: Measure Python SDK coverage
+        id: python_static_coverage
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cq-python-reports/coverage.json" --progress "$RUNNER_TEMP/cq-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python static coverage evidence
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-static-coverage-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/coverage.json
+            ${{ runner.temp }}/cq-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Build Python SDK static lane
+        if: ${{ always() && steps.static_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cq-python-static-dist" sdk/python
+
+  typescript:
+    name: TypeScript SDK (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        node: ['22.23.4', '24.22.2', '26.13.0']
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Produce and compare npm lock closure
+        id: npm_lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cq-sdk-lock"
+          stage="$evidence/stage"
+          max_manifest_bytes=262144
+          max_lock_bytes=4194304
+          require_bounded_file() {
+            test -f "$1"
+            test "$(wc -c < "$1")" -le "$2"
+          }
+          mkdir -m 0700 "$evidence" "$stage"
+          trap 'rm -rf "$stage"' EXIT
+          require_bounded_file sdk/typescript/package.json "$max_manifest_bytes"
+          cp sdk/typescript/package.json "$stage/package.json"
+          if test -f sdk/typescript/package-lock.json; then
+            require_bounded_file sdk/typescript/package-lock.json "$max_lock_bytes"
+            cp sdk/typescript/package-lock.json "$stage/package-lock.json"
+            cp sdk/typescript/package-lock.json "$evidence/reviewed-package-lock.json"
+            reviewed=true
+          else
+            reviewed=false
+          fi
+          {
+            printf 'revision=%s\n' "$GITHUB_SHA"
+            printf 'tree=%s\n' "$(git rev-parse "${GITHUB_SHA}^{tree}")"
+            printf 'runner_os=%s\n' "$RUNNER_OS"
+            node --version
+            npm --version
+            sha256sum sdk/typescript/package.json
+            if test "$reviewed" = true; then sha256sum sdk/typescript/package-lock.json; fi
+          } > "$evidence/receipt.txt"
+          if ! (
+            cd "$stage"
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          ); then
+            printf 'producer=failed\n' >> "$evidence/receipt.txt"
+            echo 'status=producer_failed' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          require_bounded_file "$stage/package-lock.json" "$max_lock_bytes"
+          cp "$stage/package-lock.json" "$evidence/generated-package-lock.json"
+          sha256sum "$evidence"/*package-lock.json > "$evidence/locks.sha256"
+          if test "$reviewed" = true && cmp -s sdk/typescript/package-lock.json "$stage/package-lock.json"; then
+            echo 'status=match' >> "$GITHUB_OUTPUT"
+            printf 'comparison=match\n' >> "$evidence/receipt.txt"
+          else
+            echo 'status=drift' >> "$GITHUB_OUTPUT"
+            printf 'comparison=drift\n' >> "$evidence/receipt.txt"
+          fi
+      - name: Upload npm lock evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typescript-lock-${{ matrix.os }}-node-${{ matrix.node }}
+          path: ${{ runner.temp }}/cq-sdk-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: RequireReviewedLock
+        id: require_reviewed_lock
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.npm_lock.outputs.status }}' = match
+          test -f sdk/typescript/package-lock.json
+      - name: Install TypeScript dependencies from the reviewed lock
+        id: npm_install
+        if: ${{ always() && steps.require_reviewed_lock.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cd sdk/typescript
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lint TypeScript SDK
+        id: typescript_lint
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run lint
+      - name: Typecheck TypeScript SDK
+        id: typescript_typecheck
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run typecheck
+      - name: Measure TypeScript SDK coverage
+        id: typescript_coverage
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run coverage
+      - name: Build TypeScript SDK
+        id: typescript_build
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run build
+      - name: Verify TypeScript package contents
+        id: typescript_pack
+        if: ${{ always() && steps.typescript_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm pack --json > "$RUNNER_TEMP/cq-sdk-pack.json"
+          test -f package-lock.json
+          tarball=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (!Array.isArray(v) || v.length !== 1 || typeof v[0]?.filename !== "string") process.exit(1); process.stdout.write(v[0].filename)' "$RUNNER_TEMP/cq-sdk-pack.json")
+          test -f "$tarball"
+          pack_members="$RUNNER_TEMP/cq-sdk-pack-members.txt"
+          tar -tf "$tarball" > "$pack_members"
+          grep -Fxq 'package/dist/index.js' "$pack_members"
+          grep -Fxq 'package/dist/index.d.ts' "$pack_members"
+          grep -Fxq 'package/LICENSE' "$pack_members"
+      - name: Exercise the installed TypeScript local client against cq
+        if: ${{ always() && steps.typescript_pack.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cq_binary="$RUNNER_TEMP/cq-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          export CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256"
+          consumer=$(mktemp -d)
+          printf '{"name":"cq-sdk-consumer","private":true,"type":"module"}\n' > "$consumer/package.json"
+          tarball=$(find "$GITHUB_WORKSPACE/sdk/typescript" -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund --prefix "$consumer" "$tarball"
+          cat > "$consumer/conformance.mjs" <<'NODE'
+          import { LocalCLIClient } from "@maldous/cq-sdk";
+          import { mkdtemp, realpath } from "node:fs/promises";
+          import { tmpdir } from "node:os";
+          import { join } from "node:path";
+          const root = await realpath(await mkdtemp(join(tmpdir(), "cq-sdk-")));
+          const executablePath = await realpath(process.env.CQ_EXECUTABLE);
+          const client = await LocalCLIClient.create({ executablePath, expectedSHA256: process.env.CQ_EXECUTABLE_SHA256, configPath: join(root, "policy.json"), stateDirectory: join(root, "state"), environment: {} });
+          await client.configInit(join(root, "policy.json"));
+          await client.doctor();
+          await client.plan();
+          NODE
+          node "$consumer/conformance.mjs"
+      - name: Exercise the official MCP TypeScript client against synthetic cq
+        if: ${{ always() && steps.typescript_build.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.node == '24.22.2' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cq-sdk-mcp"
+          go build -trimpath -o "$binary" ./cmd/cq
+          config="$root/policy.json"
+          state="$root/state"
+          mkdir -m 0700 "$state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" node sdk/conformance/typescript-mcp.mjs
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" bash sdk/conformance/go-mcp.sh
+      - name: Audit every locked npm dependency
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm audit --audit-level=low
+
+  python:
+    name: Python SDK (Python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - { os: macos-15-intel, python: '3.11', exact_python: '3.11.9' }
+          - { os: macos-15-intel, python: '3.12', exact_python: '3.12.10' }
+          - { os: macos-15-intel, python: '3.13', exact_python: '3.13.17' }
+          - { os: macos-15-intel, python: '3.14', exact_python: '3.14.10' }
+          - { os: macos-15-intel, python: '3.15', exact_python: '3.15.2' }
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.exact_python || matrix.python }}
+          check-latest: ${{ runner.os != 'macOS' }}
+      - *stage_darwin_wheel
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Resolve or verify Python SDK lock evidence
+        id: python_lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cq-python-lock"
+          mkdir -m 0700 "$evidence"
+          case "$RUNNER_OS" in
+            Linux) platform=linux ;;
+            macOS) platform=darwin ;;
+            Windows) platform=win32 ;;
+            *) exit 1 ;;
+          esac
+          case '${{ matrix.python }}' in
+            3.11) interpreter=py311 ;;
+            3.12) interpreter=py312 ;;
+            3.13) interpreter=py313 ;;
+            3.14) interpreter=py314 ;;
+            3.15) interpreter=py315 ;;
+            *) exit 1 ;;
+          esac
+          committed="sdk/python/locks/runtime-${platform}-${interpreter}.txt"
+          if test -f "$committed"; then
+            cp "$committed" "$evidence/selected.txt"
+            python .github/scripts/sdk_python_lock.py --verify-lock "$evidence/selected.txt" --requirements sdk/python/requirements-test.txt
+            if test "$RUNNER_OS" = macOS; then
+              house="$RUNNER_TEMP/cq-darwin-runtime-wheelhouse"
+              python -m pip --isolated --disable-pip-version-check download --no-input --no-cache-dir --require-hashes --only-binary=:all: --index-url https://pypi.org/simple --find-links "$RUNNER_TEMP/cq-darwin-intake" --dest "$house" -r "$evidence/selected.txt"
+              python -m pip --isolated install --dry-run --ignore-installed --no-index --require-hashes --only-binary=:all: --find-links "$house" -r "$evidence/selected.txt"
+            else
+              python -m pip install --dry-run --ignore-installed --require-hashes --only-binary=:all: -r "$evidence/selected.txt"
+            fi
+            sha256sum sdk/python/requirements-test.txt "$evidence/selected.txt" > "$evidence/inputs.sha256"
+            echo 'missing=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python -m pip install --dry-run --ignore-installed --only-binary=:all: --report "$evidence/report.json" -r sdk/python/requirements-test.txt
+          python .github/scripts/sdk_python_lock.py --report "$evidence/report.json" --output "$evidence/generated.txt" --receipt "$evidence/receipt.txt" --revision "$GITHUB_SHA" --requirements sdk/python/requirements-test.txt
+          sha256sum sdk/python/requirements-test.txt "$evidence/generated.txt" > "$evidence/inputs.sha256"
+          echo 'missing=true' >> "$GITHUB_OUTPUT"
+      - name: Upload generated Python lock evidence
+        if: ${{ always() && steps.python_lock.outputs.missing == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-runtime-lock-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-python-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed reviewed Python lock
+        id: python_lock_committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.python_lock.outputs.missing }}' = false
+          test -f "$RUNNER_TEMP/cq-python-lock/selected.txt"
+      - name: Install Python SDK qualification tools
+        id: python_tools
+        if: ${{ always() && steps.python_lock_committed.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if test "$RUNNER_OS" = macOS; then
+            python -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
+      - name: Measure Python SDK coverage
+        id: python_coverage
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python .github/scripts/sdk_python_check.py --check coverage --report "$RUNNER_TEMP/cq-python-reports/coverage.json" --progress "$RUNNER_TEMP/cq-python-reports/coverage-progress.json" --timeout-seconds 1200
+      - name: Upload Python runtime coverage evidence
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-runtime-coverage-${{ matrix.os }}-python-${{ matrix.python }}
+          path: |
+            ${{ runner.temp }}/cq-python-reports/coverage.json
+            ${{ runner.temp }}/cq-python-reports/coverage-progress.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Build Python SDK distribution
+        id: python_build
+        if: ${{ always() && steps.python_tools.outcome == 'success' }}
+        shell: bash
+        run: |
+          python -m build --no-isolation --outdir "$RUNNER_TEMP/cq-python-dist" sdk/python
+      - name: Install Python SDK distribution in a fresh environment
+        id: python_install
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -m venv "$RUNNER_TEMP/cq-python-venv"
+          if test -x "$RUNNER_TEMP/cq-python-venv/bin/python"; then
+            cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          else
+            cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"
+          fi
+          if test "$RUNNER_OS" = macOS; then
+            "$cq_python" -m pip --isolated --disable-pip-version-check install --no-input --no-index --require-hashes --only-binary=:all: --find-links "$RUNNER_TEMP/cq-darwin-runtime-wheelhouse" -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          else
+            "$cq_python" -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/cq-python-lock/selected.txt"
+          fi
+          "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
+          "$cq_python" -c 'import cq; assert cq.__version__ == "1.0.0.dev0"'
+      - name: Exercise the installed Python local client against cq
+        id: python_installed_client
+        if: ${{ always() && steps.python_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cq_binary="$RUNNER_TEMP/cq-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"; fi
+          CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256" CQ_DIAGNOSTIC_ROOT_FILE="$RUNNER_TEMP/cq-python-diagnostic-root.txt" "$cq_python" - <<'PY'
+          import asyncio, os, subprocess, tempfile, uuid
+          from pathlib import Path
+          from cq import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
+          async def assert_unsafe_windows_root_rejected():
+              with tempfile.TemporaryDirectory(prefix="cq-sdk-negative-") as directory:
+                  root = Path(directory).resolve()
+                  system_root = Path(os.environ.get("SystemRoot", ""))
+                  icacls = system_root / "System32" / "icacls.exe"
+                  if not system_root.is_absolute() or not icacls.is_file():
+                      raise RuntimeError("Windows native ACL utility unavailable")
+                  result = subprocess.run(
+                      [str(icacls), str(root), "/inheritance:r", "/grant:r", "*S-1-1-0:(OI)(CI)F"],
+                      check=False,
+                      stdin=subprocess.DEVNULL,
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL,
+                      timeout=30,
+                  )
+                  if result.returncode != 0:
+                      raise RuntimeError("Windows native ACL fixture setup failed")
+                  client = LocalCLIClient(
+                      os.environ["CQ_EXECUTABLE"],
+                      os.environ["CQ_EXECUTABLE_SHA256"],
+                      root / "policy.json",
+                      root / "state",
+                      environment={},
+                  )
+                  try:
+                      await client.config_init()
+                  except CircularQuayError as error:
+                      if error.category == ErrorCategory.TRUST:
+                          return
+                      raise RuntimeError("Windows unsafe ACL negative case returned unexpected category") from None
+                  raise RuntimeError("Windows unsafe ACL negative case was accepted")
+
+          async def main():
+              policy, state = synthetic_paths("cq-sdk-")
+              client = LocalCLIClient(os.environ["CQ_EXECUTABLE"], os.environ["CQ_EXECUTABLE_SHA256"], policy, state, environment={})
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      try:
+                          Path(os.environ["CQ_DIAGNOSTIC_ROOT_FILE"]).write_text(str(policy.parent) + "\n", encoding="utf-8", newline="\n")
+                      except OSError:
+                          pass
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
+                  raise
+              await client.doctor()
+              await client.plan()
+              if os.name == "nt":
+                  await assert_unsafe_windows_root_rejected()
+          asyncio.run(main())
+          PY
+      - name: Diagnose native Windows user-config trust without retrying the consumer
+        if: ${{ always() && runner.os == 'Windows' && steps.python_installed_client.outcome == 'failure' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$RUNNER_TEMP/cq-python-diagnostic-root.txt"
+          if ! test -f "$request"; then
+            printf '%s\n' 'Native user-config trust diagnostic not selected; the original consumer failure remains.'
+            exit 0
+          fi
+          IFS= read -r diagnostic_root < "$request"
+          CQ_CONFIG_INIT_DIAGNOSTIC_ROOT="$diagnostic_root" go test -count=1 -timeout 2m -run '^TestConfigInitWindowsDiagnostic$' -v ./internal/cli
+      - name: Exercise Python local client without optional MCP dependency
+        if: ${{ always() && steps.python_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/cq-python-minimal"
+          cq_python="$RUNNER_TEMP/cq-python-minimal/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-minimal/Scripts/python.exe"; fi
+          "$cq_python" -m pip install --disable-pip-version-check --no-input --no-deps "$RUNNER_TEMP"/cq-python-dist/*.whl
+          cq_binary="$RUNNER_TEMP/cq-sdk-minimal"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256" "$cq_python" - <<'PY'
+          import asyncio, os, tempfile, uuid
+          from pathlib import Path
+          from cq import CircularQuayError, ErrorCategory, LocalCLIClient
+
+          def synthetic_paths(prefix):
+              if os.name != "nt":
+                  root = Path(tempfile.mkdtemp(prefix=prefix)).resolve()
+              else:
+                  appdata = os.environ.get("APPDATA", "")
+                  if appdata == "":
+                      raise RuntimeError("Windows standard user-config root unavailable")
+                  root = Path(appdata).resolve()
+                  if not root.is_absolute() or not root.is_dir():
+                      raise RuntimeError("Windows standard user-config root unavailable")
+              nonce = uuid.uuid4().hex
+              return root / f"{prefix}{nonce}.json", root / f"{prefix}{nonce}-state"
+
+          async def main():
+              policy, state = synthetic_paths("cq-sdk-minimal-")
+              client = LocalCLIClient(os.environ["CQ_EXECUTABLE"], os.environ["CQ_EXECUTABLE_SHA256"], policy, state, environment={})
+              try:
+                  await client.config_init()
+              except CircularQuayError as error:
+                  if os.name == "nt" and error.category == ErrorCategory.TRUST:
+                      raise RuntimeError("Windows user-config root failed native protected-directory preflight") from None
+                  raise
+              await client.doctor()
+          asyncio.run(main())
+          PY
+      - name: Exercise the official Python MCP client against synthetic cq
+        if: ${{ always() && steps.python_install.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.python == '3.15' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cq-sdk-python-mcp"
+          go build -trimpath -o "$binary" ./cmd/cq
+          config="$root/policy.json"
+          state="$root/state"
+          mkdir -m 0700 "$state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          cq_python="$RUNNER_TEMP/cq-python-venv/bin/python"
+          if ! test -x "$cq_python"; then cq_python="$RUNNER_TEMP/cq-python-venv/Scripts/python.exe"; fi
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" "$cq_python" sdk/conformance/python-mcp.py
+      - name: Upload Python package evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-sdk-${{ matrix.os }}-python-${{ matrix.python }}
+          path: ${{ runner.temp }}/cq-python-dist
+          if-no-files-found: warn
+          retention-days: 7
+
+  sdk-qualification:
+    name: SDK qualification
+    needs: [go-dependency-lock, go, typescript, python-static-security, python]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every SDK qualification family
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ needs['go-dependency-lock'].result }}' = success
+          test '${{ needs.go.result }}' = success
+          test '${{ needs.typescript.result }}' = success
+          test '${{ needs['python-static-security'].result }}' = success
+          test '${{ needs.python.result }}' = success

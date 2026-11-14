@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "sources": {
+    "fixture": {
+      "type": "json",
+      "path": "values.json"
+    }
+  },
+  "workloads": {
+    "demo": {
+      "mode": "offline",
+      "bindings": [
+        {
+          "name": "DEMO_MESSAGE",
+          "source": "fixture",
+          "field": "message",
+          "allow_offline": true
+        }
+      ]
+    }
+  },
+  "grants": [
+    {
+      "subject": "local:uid:1000",
+      "workload": "demo",
+      "operations": ["list", "status", "read"],
+      "keys": ["DEMO_MESSAGE"]
+    }
+  ],
+  "mcp": {
+    "audit_path": "../.local/mcp-audit.jsonl"
+  }
+}

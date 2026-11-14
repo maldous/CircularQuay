@@ -1,0 +1,10 @@
+# Sonar runs from the repository root. Keep report source paths relative to it.
+# Match the existing Python SDK source scope, branch mode and 100% threshold.
+[run]
+source = sdk/python/src
+branch = True
+relative_files = True
+
+[report]
+fail_under = 100
+show_missing = True

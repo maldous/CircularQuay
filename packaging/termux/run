@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+# Install as a reviewed termux-services/runit run script. Paths contain no keys.
+exec "$PREFIX/bin/cq" --config "$HOME/.config/cq/policy.json" --state-dir "$HOME/.local/state/cq" run --workload example

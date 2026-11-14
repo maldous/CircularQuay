@@ -1,0 +1,4 @@
+# Exact build-only inputs for the approved cryptography50.0.2 Intel source exception.
+cffi==2.1.1
+maturin==1.16.0
+setuptools==84.2.1

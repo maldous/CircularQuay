@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "source_commit": "023385e283d6e45c328209f6b7cd812a658d17e9",
+  "source_tree": "aa44c9e85898498307a6fa43d77d55b4eee0e488",
+  "workflow_head": "a361896062ef6cfa077da7f88ca5adf6e90ceb56",
+  "workflow_run_id": 43185865984,
+  "audit_job_id": 131080669699,
+  "requirements_sha256": {
+    "requirements-test.txt": "305e804be0bd9038bcfbb0fe4d22d2718c142bdd09f347044fd19122f468a7de",
+    "requirements-ci.txt": "f1c8388963130560f08550fe85740d0760e431fd13f9947b99d0c79865f4af95"
+  },
+  "locks": [
+    {
+      "file": "runtime-darwin-py311.txt",
+      "python": "3.11.9",
+      "platform": "darwin",
+      "lock_sha256": "8e82853526f0fff7bba16651741e1d321dc61744445cc25b16ff1f77b4175584",
+      "resolver_report_sha256": "9560c08c9124efbca98144540b0cd5dc78a6d9cd8fb8ed256f7f2f5d8ff1349f",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 38,
+        "bare_cr": 0
+      },
+      "pip": "24.0",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/0957fd5fb18adb0e261766274e99d07fca61aec8cde77b37128449b3e424b75a.zip",
+      "wheel_custody_git_blob": "82e5432faaee59be6e63ff497a678c1516236639",
+      "wheel_sha256": "f459d4de4163b5bb83a57a4df81a88635a122ec751b9079d6f13b6c39aab91a3",
+      "wheel_archive_sha256": "0957fd5fb18adb0e261766274e99d07fca61aec8cde77b37128449b3e424b75a",
+      "job_id": 131072736825,
+      "coverage_step": "failure",
+      "artifact_id": 13928492902,
+      "archive_sha256": "c5cf12b16dd47804abe0f6cc5d90470761fdcc015ec24ed91f2fd7234fb6e87f",
+      "framework_receipt_sha256": "e62a1078329437c8b0efa9dbdd1daffde914685b7c560c4f456938b056accfe0"
+    },
+    {
+      "file": "runtime-darwin-py312.txt",
+      "python": "3.12.10",
+      "platform": "darwin",
+      "lock_sha256": "cfe5330953af0eaf3bd699cdbb8d4ecb18f56b9266173d9af7180b99463d1d9e",
+      "resolver_report_sha256": "99c22e6600ecb3bde7527190d2754d56da6da194dba3f56b9740c78564d939af",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 38,
+        "bare_cr": 0
+      },
+      "pip": "25.0.1",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/e67110345740f881a143bf2a6162f020aa403db28b8e44f2fa88ad549764af36.zip",
+      "wheel_custody_git_blob": "1792a594d6a8203e448c868ad8f1de20a4704d13",
+      "wheel_sha256": "6356fa7bd70a735cf0d52442573faf02424d2950ec1e35fb60feeccbf31a664b",
+      "wheel_archive_sha256": "e67110345740f881a143bf2a6162f020aa403db28b8e44f2fa88ad549764af36",
+      "job_id": 131072736376,
+      "coverage_step": "failure",
+      "artifact_id": 13929815759,
+      "archive_sha256": "c5eb6f83fd2c6a6351c4002b74a61a33b8115210073b7f3d5d05f09ef859c68e",
+      "framework_receipt_sha256": "4f440f56885260c20ceba6bf67a44f32eca74a911fe6ef99ffc9412bdfefda72"
+    },
+    {
+      "file": "runtime-darwin-py313.txt",
+      "python": "3.13.17",
+      "platform": "darwin",
+      "lock_sha256": "56c313efb72feaadb44a9b8519d6eb37e5dc1ea74737f147447f9e375ba5c4c1",
+      "resolver_report_sha256": "682e6b3f466bd95ae0af6f18353d85dc2559437e41746256e20507978681360e",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 38,
+        "bare_cr": 0
+      },
+      "pip": "26.2.2",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/40b6e6c470d0717383ed247b208c4c6c80b4fad905d489788945fe50e65008f9.zip",
+      "wheel_custody_git_blob": "b795acc428e91553df5cc03c516aa88ed66c778e",
+      "wheel_sha256": "27313a2d5b8c4ed304d356011cb893f527c7ba2a4d8fc576238fee0d350a3a1f",
+      "wheel_archive_sha256": "40b6e6c470d0717383ed247b208c4c6c80b4fad905d489788945fe50e65008f9",
+      "job_id": 131072737054,
+      "coverage_step": "failure",
+      "artifact_id": 13929207147,
+      "archive_sha256": "c321a6904429a0c0db8325109af9ba82af1151190125312ce943b5a7383ec99d",
+      "framework_receipt_sha256": "19a5c7e9f4549722c6110152150dad2a308f66f3aa3f200247630162e6b163d5"
+    },
+    {
+      "file": "runtime-darwin-py314.txt",
+      "python": "3.14.10",
+      "platform": "darwin",
+      "lock_sha256": "8e69bbe7f2e64ad48bf18c1280d81a05061cf6bf42926540e23c07d49b138f16",
+      "resolver_report_sha256": "428ab506795aa674f4c07c94f40839d03edaeb35f9b19274978bd8b1d186b9f1",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 38,
+        "bare_cr": 0
+      },
+      "pip": "26.2.2",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc.zip",
+      "wheel_custody_git_blob": "fa4e120d11c867b824e81c26351c8bac11199d6e",
+      "wheel_sha256": "4fc7702a193c89e2953a4480d8ea9bebad5d6820bf0052eee920ce39876e6a2b",
+      "wheel_archive_sha256": "4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc",
+      "job_id": 131072736768,
+      "coverage_step": "failure",
+      "artifact_id": 13928454531,
+      "archive_sha256": "e3833b020129e03e7e012e41fe1f6fbeb3d9fa3392c514c8e4f4656469614183",
+      "framework_receipt_sha256": "bcb56883bde6a412b164835ba8558491fe2461760dd1b872051251e637fe0dcf"
+    },
+    {
+      "file": "ci-darwin-py314.txt",
+      "python": "3.14.10",
+      "platform": "darwin",
+      "lock_sha256": "9cc018b47c8050f05c00f36bb8b61d30d9a22120c897e5cc022c2399f4971849",
+      "resolver_report_sha256": "ca9cc4b177b2f5e823f25f4c726ca6b876ed12fdaaa82b29798cece6f0194aa8",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 71,
+        "bare_cr": 0
+      },
+      "pip": "26.2.2",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc.zip",
+      "wheel_custody_git_blob": "fa4e120d11c867b824e81c26351c8bac11199d6e",
+      "wheel_sha256": "4fc7702a193c89e2953a4480d8ea9bebad5d6820bf0052eee920ce39876e6a2b",
+      "wheel_archive_sha256": "4299125afb3dd2bc1a1ba91bbeb32647f5f65358412407b5bfa7f69d60b6fdcc",
+      "job_id": 131072736768,
+      "coverage_step": "failure",
+      "artifact_id": 13928454531,
+      "archive_sha256": "e3833b020129e03e7e012e41fe1f6fbeb3d9fa3392c514c8e4f4656469614183",
+      "framework_receipt_sha256": "bcb56883bde6a412b164835ba8558491fe2461760dd1b872051251e637fe0dcf"
+    },
+    {
+      "file": "runtime-darwin-py315.txt",
+      "python": "3.15.2",
+      "platform": "darwin",
+      "lock_sha256": "d09cb4df5315568ce8229533c43caf876a6bce6bcef287e7a06b1cd164df718a",
+      "resolver_report_sha256": "7b6cde54351f72735e0f0fc773d1730bafcf09a348046b169fa3e5dad6859286",
+      "raw_line_endings": {
+        "crlf": 0,
+        "lf": 38,
+        "bare_cr": 0
+      },
+      "pip": "26.2.2",
+      "wheel_custody": "git+https://github.com/maldous/CircularQuay.git@f8b06fa61ff41039c78d29379b8754be4bb5863d:archives/sha256/39f075159edb0d1a87f303ff121aa9f3c6f9fc4bba39cf174d35a7eb80bcfd88.zip",
+      "wheel_custody_git_blob": "b70980ffd1139ee6d253a88ac0f663e98979e6e7",
+      "wheel_sha256": "a31cad858bfb14110c8107a399ddf14b0719c72a0f6b89b87759495f8fe3fc78",
+      "wheel_archive_sha256": "39f075159edb0d1a87f303ff121aa9f3c6f9fc4bba39cf174d35a7eb80bcfd88",
+      "job_id": 131072736948,
+      "coverage_step": "failure",
+      "artifact_id": 13929128036,
+      "archive_sha256": "9c940181229cc71c3bf61a8de0ad828a52a3780c926af98fd26dcc598fb7f07d",
+      "framework_receipt_sha256": "19fafdcc0699fe2b5524139b3085dbc41c5155356d8c5d63a4e236ec692d9e09"
+    }
+  ]
+}

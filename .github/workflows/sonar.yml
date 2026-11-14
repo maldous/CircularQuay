@@ -1,0 +1,553 @@
+name: Ephemeral SonarQube gate
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sonar:
+    # This stable name is bound to the protected-branch required check.
+    name: Hosted ephemeral SonarQube gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOMAXPROCS: '2'
+      GOTOOLCHAIN: local
+      GOFLAGS: -p=1 -mod=readonly
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: '3.14', check-latest: true }
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24.22.2'
+          package-manager-cache: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+      - name: Produce fresh isolated Sonar evidence
+        shell: bash
+        run: |
+          # SonarQube's Linux prerequisite reference for the pinned server:
+          # https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/
+          set -uo pipefail
+          umask 077
+
+          root="$RUNNER_TEMP/cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          state="$root/state"
+          evidence="$root/evidence"
+          mkdir -p "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+          chmod 700 "$root" "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+          printf 'CQ_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
+          printf 'CQ_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
+          export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
+
+          compose_project="cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
+          compose_start_attempted=0
+          startup_diagnostics_collected=0
+          collect_startup_diagnostics() {
+            (( compose_start_attempted == 1 && startup_diagnostics_collected == 0 )) || return 0
+            startup_diagnostics_collected=1
+            set +e
+            states="$state/startup-container-states.ndjson"
+            classes="$state/startup-failure-classes.txt"
+            : >"$states"
+            : >"$classes"
+            for service in sonarqube database; do
+              inspect_available=false
+              lifecycle=''
+              running=''
+              exit_code=''
+              oom_killed=''
+              restart_count=''
+              health=''
+              container_id="$(timeout 10s "${compose[@]}" ps --all -q "$service" 2>/dev/null)"
+              if [[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+                # Inspect exactly the service lifecycle fields needed to
+                # distinguish exit, OOM, restart, and health states.
+                fields="$(timeout 10s docker inspect --format '{{.State.Status}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null)"
+                IFS='|' read -r lifecycle running exit_code oom_killed restart_count health <<<"$fields"
+                if test -n "${lifecycle:-}" && test -n "${running:-}" && test -n "${exit_code:-}" && test -n "${oom_killed:-}" && test -n "${restart_count:-}" && test -n "${health:-}"; then
+                  inspect_available=true
+                fi
+              fi
+              timeout 15s "${compose[@]}" logs --no-color --tail 200 "$service" >"$state/${service}-startup.log" 2>&1
+              log_exit_status=$?
+              case "$log_exit_status" in ''|*[!0-9]*) log_exit_status=255;; esac
+              if test "$inspect_available" = true; then
+                jq -cn --arg service "$service" --arg lifecycle "$lifecycle" --arg running "$running" --arg exit_code "$exit_code" --arg oom_killed "$oom_killed" --arg restart_count "$restart_count" --arg health "$health" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:true,status:$lifecycle,running:$running,exit_code:$exit_code,oom_killed:$oom_killed,restart_count:$restart_count,health:$health,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+              else
+                jq -cn --arg service "$service" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:false,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+              fi
+            done
+            for class in 'java.lang.OutOfMemoryError' 'java.lang.IllegalStateException' 'java.net.BindException' 'java.net.ConnectException' 'java.sql.SQLException' 'org.elasticsearch.bootstrap.BootstrapException' 'org.elasticsearch.ElasticsearchException'; do
+              grep -Fqs "$class" "$state/sonarqube-startup.log" "$state/database-startup.log" && printf '%s\n' "$class" >>"$classes"
+            done
+            timeout 15s "${compose[@]}" exec -T sonarqube sh -c 'for process in /proc/[0-9]*; do test -r "$process/comm" || continue; comm=$(cat "$process/comm"); case "$comm" in java|java*) printf "pid=%s comm=%s\\n" "${process##*/}" "$comm"; cat "$process/limits"; exit 0;; esac; done; exit 3' >"$evidence/sonarqube-java-process-limits.txt" 2>&1
+            java_limits_status=$?
+            java_process_found=false
+            if test "$java_limits_status" = 0 && grep -q '^pid=[0-9][0-9]* comm=java' "$evidence/sonarqube-java-process-limits.txt"; then java_process_found=true; fi
+            jq -n --slurpfile container_states "$states" --rawfile failure_classes "$classes" --arg java_process_status "$java_limits_status" --argjson java_process_found "$java_process_found" '{container_inspect:$container_states,known_startup_failure_classes:($failure_classes | split("\n") | map(select(length > 0))),java_process_limits:{available:($java_process_status == "0"),process_found:$java_process_found},diagnostics_availability:"present; classifications are not proof of zero startup failures"}' >"$evidence/startup-diagnostics.json"
+            return 0
+          }
+          cleanup() {
+            status=$?
+            trap - EXIT INT TERM
+            set +e
+            if (( compose_start_attempted == 0 )); then
+              printf 'cleanup=skipped-no-compose-resources\n' >"$evidence/cleanup-status.txt"
+              exit "$status"
+            fi
+            collect_startup_diagnostics
+            if ! test -f "$state/compose.env"; then
+              printf 'cleanup_status=missing-compose-env\n' >"$evidence/cleanup-status.txt"
+              if (( status == 0 )); then exit 1; fi
+              exit "$status"
+            fi
+            timeout 60s "${compose[@]}" down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
+            cleanup_status=$?
+            if (( cleanup_status != 0 )); then
+              printf 'cleanup_status=%s\n' "$cleanup_status" >"$evidence/cleanup-status.txt"
+              if (( status == 0 )); then exit 1; fi
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          result=0
+          fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-failure:%s\n' "$1" >&2; result=1; }
+          fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-fatal:%s\n' "$1" >&2; exit 2; }
+          for command in docker curl jq sha256sum unzip timeout go python node npm java keytool; do
+            command -v "$command" >>"$evidence/tools.txt" 2>&1 || fatal "missing-tool:$command"
+          done
+          docker compose version >>"$evidence/tools.txt" 2>&1 || fatal "missing-compose-plugin"
+          git rev-parse --show-toplevel >"$evidence/source-root.txt" 2>&1 || fatal "source-root-unavailable"
+          test "$(cat "$evidence/source-root.txt")" = "$GITHUB_WORKSPACE" || fatal "source-root-not-workspace"
+          git rev-parse HEAD >"$evidence/head.txt" 2>&1 || fatal "head-unavailable"
+          git rev-parse 'HEAD^{tree}' >"$evidence/tree.txt" 2>&1 || fatal "tree-unavailable"
+          git diff --quiet && git diff --cached --quiet || fatal "checkout-not-clean"
+          test "$(cat "$evidence/head.txt")" = "$GITHUB_SHA" || fatal "head-not-triggering-sha"
+          printf '%s\n' "https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/" >"$evidence/sonar-linux-prerequisite-reference.txt"
+          vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable"
+          printf 'before=%s\n' "$vm_max_map_count" >"$evidence/vm.max_map_count.txt"
+          [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] || fatal "vm-max-map-count-invalid"
+          if (( vm_max_map_count < 524288 )); then
+            command -v sudo >>"$evidence/tools.txt" 2>&1 || fatal "vm-max-map-count-sudo-unavailable"
+            sudo -n sysctl -w vm.max_map_count=524288 >>"$evidence/vm.max_map_count.txt" 2>&1 || fatal "vm-max-map-count-set-failed"
+          fi
+          vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable-after-set"
+          printf 'after=%s\n' "$vm_max_map_count" >>"$evidence/vm.max_map_count.txt"
+          [[ "$vm_max_map_count" =~ ^[0-9]+$ ]] && (( vm_max_map_count >= 524288 )) || fatal "vm-max-map-count-too-low"
+          # These are diagnostics for the shell driving Docker, not the
+          # SonarQube service process. The enforced values are read from PID 1
+          # after Compose applies audit/compose.yaml's service ulimits.
+          printf 'nofile_soft=%s\nnofile_hard=%s\nnproc_soft=%s\nnproc_hard=%s\n' "$(ulimit -Sn)" "$(ulimit -Hn)" "$(ulimit -Su)" "$(ulimit -Hu)" >"$evidence/runner-shell-limits.txt"
+          limit_is_adequate() { [[ "$1" == unlimited ]] || { [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" >= "$2" )); }; }
+          cat /proc/sys/fs/file-max >"$evidence/fs.file-max.txt" 2>&1 || fatal "fs-file-max-unavailable"
+          test "$(cat "$evidence/fs.file-max.txt")" -ge 131072 || fatal "fs-file-max-too-low"
+          awk '/MemAvailable:|MemTotal:/{print}' /proc/meminfo >"$evidence/memory.txt" 2>&1 || fatal "memory-unavailable"
+          if test -r /sys/fs/cgroup/memory.max; then cat /sys/fs/cgroup/memory.max >>"$evidence/memory.txt"; fi
+          if test -r /sys/fs/cgroup/memory/memory.limit_in_bytes; then cat /sys/fs/cgroup/memory/memory.limit_in_bytes >>"$evidence/memory.txt"; fi
+
+          # The port is allocated only for this runner-local, loopback service.
+          sonar_port="$(python3 - <<'PY'
+          import socket
+          with socket.socket() as s:
+              s.bind(('127.0.0.1', 0))
+              print(s.getsockname()[1])
+          PY
+          )" || fatal "loopback-port-allocation-failed"
+          export SONAR_PORT="$sonar_port"
+
+          go build -p 1 -trimpath -o "$root/cq-audit" ./cmd/cq-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
+          "$root/cq-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+          compose_start_attempted=1
+          timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
+          timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
+          timeout 20s "${compose[@]}" port sonarqube 9000 >"$evidence/sonarqube-port.txt" 2>&1 || fatal "sonarqube-port-readback-unavailable"
+          sonar_port_mapping="$(cat "$evidence/sonarqube-port.txt")"
+          test "$sonar_port_mapping" = "127.0.0.1:${sonar_port}" || fatal "sonarqube-port-not-requested-loopback"
+          sonar_container_id="$(timeout 10s "${compose[@]}" ps --all -q sonarqube 2>/dev/null)" || fatal "sonarqube-container-id-unavailable"
+          [[ "$sonar_container_id" =~ ^[0-9a-f]{12,64}$ ]] || fatal "sonarqube-container-id-invalid"
+          timeout 10s docker inspect --format '{{json .NetworkSettings.Ports}}' "$sonar_container_id" >"$evidence/sonarqube-port-inspect.json" 2>&1 || fatal "sonarqube-port-inspect-unavailable"
+          jq -e --arg port "$sonar_port" '
+            type == "object" and keys == ["9000/tcp"] and
+            .["9000/tcp"] as $bindings |
+            ($bindings | type == "array" and length == 1 and
+             .[0].HostIp == "127.0.0.1" and .[0].HostPort == $port)
+          ' "$evidence/sonarqube-port-inspect.json" >/dev/null || fatal "sonarqube-port-inspect-not-requested-loopback"
+          timeout 20s "${compose[@]}" exec -T sonarqube cat /proc/1/limits >"$evidence/sonarqube-process-limits.txt" 2>&1 || fatal "sonarqube-process-limits-unavailable"
+          read -r sonar_nofile_soft sonar_nofile_hard < <(awk '$1 == "Max" && $2 == "open" && $3 == "files" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+          test -n "${sonar_nofile_soft:-}" && test -n "${sonar_nofile_hard:-}" || fatal "sonarqube-nofile-limits-missing"
+          limit_is_adequate "$sonar_nofile_soft" 131072 && limit_is_adequate "$sonar_nofile_hard" 131072 || fatal "sonarqube-nofile-limits-too-low"
+          read -r sonar_nproc_soft sonar_nproc_hard < <(awk '$1 == "Max" && $2 == "processes" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+          test -n "${sonar_nproc_soft:-}" && test -n "${sonar_nproc_hard:-}" || fatal "sonarqube-nproc-limits-missing"
+          limit_is_adequate "$sonar_nproc_soft" 8192 && limit_is_adequate "$sonar_nproc_hard" 8192 || fatal "sonarqube-nproc-limits-too-low"
+
+          ready=0
+          for _ in $(seq 1 90); do
+            if curl --connect-timeout 5 --max-time 10 --fail --silent --show-error "http://127.0.0.1:${sonar_port}/api/system/status" >"$evidence/system-status.json" 2>>"$evidence/bootstrap.log"; then
+              if jq -e '.status == "UP"' "$evidence/system-status.json" >/dev/null; then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          if (( ready != 1 )); then
+            collect_startup_diagnostics
+            fatal "sonar-not-ready"
+          fi
+          "$root/cq-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project cq --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
+
+          # The lock's archive digest was read from the official SonarSource
+          # .sha256 sidecar; the executable digest is an independent receipt.
+          lock=tools/sonar-scanner.json
+          archive_url="$(jq -er '.archive_url | select(startswith("https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/"))' "$lock")" || fatal "scanner-lock-url-invalid"
+          archive_sha="$(jq -er '.archive_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-digest-invalid"
+          archive_sha_source="$(jq -er '.archive_sha256_source | select(. == "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.3.1.16491-linux-x64.zip.sha256")' "$lock")" || fatal "scanner-lock-source-invalid"
+          executable_path="$(jq -er '.executable_path | select(test("^sonar-scanner-[0-9.]+-linux-x64/bin/sonar-scanner$"))' "$lock")" || fatal "scanner-lock-path-invalid"
+          executable_sha="$(jq -er '.executable_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-executable-digest-invalid"
+          cp "$lock" "$evidence/sonar-scanner-lock.json"
+          curl --connect-timeout 15 --max-time 30 --max-filesize 4096 --fail --silent --show-error --location "$archive_sha_source" --output "$evidence/scanner-archive.sha256" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-sidecar-download-failed"
+          sidecar_sha="$(awk 'NR == 1 { print $1 } NR > 1 { invalid = 1 } END { if (NR != 1 || invalid) exit 1 }' "$evidence/scanner-archive.sha256")" || fatal "scanner-sidecar-format-invalid"
+          [[ "$sidecar_sha" =~ ^[0-9a-f]{64}$ ]] || fatal "scanner-sidecar-digest-invalid"
+          test "$sidecar_sha" = "$archive_sha" || fatal "scanner-sidecar-lock-mismatch"
+          curl --connect-timeout 15 --max-time 300 --max-filesize 200000000 --fail --silent --show-error --location "$archive_url" --output "$root/scanner.zip" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-download-failed"
+          printf '%s  %s\n' "$archive_sha" "$root/scanner.zip" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-archive-digest-mismatch"
+          unzip -q "$root/scanner.zip" -d "$root/scanner" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-extraction-failed"
+          scanner="$root/scanner/$executable_path"
+          printf '%s  %s\n' "$executable_sha" "$scanner" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-executable-digest-mismatch"
+          "$scanner" --version >"$evidence/scanner-version.txt" 2>&1 || fatal "scanner-version-failed"
+          grep -F '8.3.1.16491' "$evidence/scanner-version.txt" >/dev/null || fatal "scanner-version-mismatch"
+
+          # Produce reports in this same checkout before scanning; do not import
+          # another revision's artifact or turn a failed producer into a pass.
+          if python -m venv "$root/python" >"$evidence/python-install.log" 2>&1; then
+            python_tool="$root/python/bin/python"
+            python_lock_status=0
+            "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1 || python_lock_status=$?
+            (( python_lock_status == 0 )) || fail "python-lock-invalid:$python_lock_status"
+            if (( python_lock_status == 0 )) && "$python_tool" -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r sdk/python/locks/ci-linux-py314.txt >>"$evidence/python-install.log" 2>&1; then
+              export COVERAGE_FILE="$evidence/python.coverage"
+              python_test_status=0
+              PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
+              (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
+              python_coverage_status=0
+              "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
+              (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
+              unset COVERAGE_FILE
+            else
+              fail "python-dependency-install-failed"
+            fi
+          else
+            fail "python-venv-failed"
+          fi
+
+          typescript_dependencies=sdk/typescript/node_modules
+          if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+            fatal "unexpected-typescript-dependency-directory"
+          fi
+          if npm --prefix sdk/typescript ci --ignore-scripts --no-audit --no-fund >"$evidence/typescript-install.log" 2>&1; then
+            # Run c8 from the repository root so LCOV SF paths match Sonar's
+            # root. These are the existing SDK coverage gates and verifier.
+            typescript_coverage_status=0
+            sdk/typescript/node_modules/.bin/c8 --all --src sdk/typescript/src --include '**/*.ts' --extension .ts --exclude-after-remap --reports-dir "$evidence/typescript" --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm --prefix sdk/typescript test >"$evidence/typescript-coverage.log" 2>&1 || typescript_coverage_status=$?
+            (( typescript_coverage_status == 0 )) || fail "typescript-coverage-not-100:$typescript_coverage_status"
+            typescript_report_status=0
+            node sdk/typescript/test/verify-coverage.mjs "$evidence/typescript/coverage-final.json" >>"$evidence/typescript-coverage.log" 2>&1 || typescript_report_status=$?
+            (( typescript_report_status == 0 )) || fail "typescript-coverage-report-invalid:$typescript_report_status"
+          else
+            fail "typescript-dependency-install-failed"
+          fi
+          # Sonar imports coverage only for indexed production files. Omit the
+          # classified test files and the ignored worker module they generate.
+          # Keep repeated source records for SonarJS to merge.
+          mkdir -p "$evidence/browser" || fatal "browser-evidence-directory-failed"
+          browser_coverage_status=0
+          node --test --experimental-test-coverage \
+            --test-coverage-exclude='examples/landing-motion/**/*.test.mjs' \
+            --test-coverage-exclude=examples/landing-motion/.local/worker-routes.mjs \
+            --test-reporter=spec --test-reporter=lcov \
+            --test-reporter-destination=stdout --test-reporter-destination="$evidence/browser/lcov.info" \
+            examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs \
+            >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+          printf 'browser_test_exit=%s\n' "$browser_coverage_status" >"$evidence/browser-test-status.txt"
+          (( browser_coverage_status == 0 )) || fail "browser-tests-failed:$browser_coverage_status"
+          test -s "$evidence/browser/lcov.info" || fail "browser-coverage-report-missing"
+
+          # The scanner's source root is the checkout. Move generated test
+          # dependencies outside it before the scanner indexes source files.
+          if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+            mv "$typescript_dependencies" "$root/typescript-node_modules" || fatal "typescript-dependency-isolation-failed"
+          fi
+          test -s "$evidence/python-coverage.xml" || fail "python-coverage-report-missing"
+          test -s "$evidence/typescript/lcov.info" || fail "typescript-coverage-report-missing"
+
+          # Reuse the integration lane's pinned synthetic WireMock input.
+          # Join only the existing tagged provider lane. Other tagged suites
+          # retain their own explicit fixture and admission requirements.
+          wiremock_url="$(jq -er '.wiremock.jar' tools/integration-tools.json)" || fatal "wiremock-url-missing"
+          wiremock_source="$(jq -er '.wiremock.source' tools/integration-tools.json)" || fatal "wiremock-checksum-source-missing"
+          wiremock_sha="$(jq -er '.wiremock.sha256 | select(test("^[0-9a-f]{64}$"))' tools/integration-tools.json)" || fatal "wiremock-digest-invalid"
+          curl --connect-timeout 15 --max-time 60 --max-filesize 256 --fail --silent --show-error "$wiremock_source" --output "$root/wiremock.sha256" >"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-checksum-download-failed"
+          published_wiremock_sha="$(<"$root/wiremock.sha256")"
+          test "$published_wiremock_sha" = "$wiremock_sha" || fatal "wiremock-published-digest-mismatch"
+          export CQ_WIREMOCK_JAR="$root/wiremock-standalone.jar"
+          curl --connect-timeout 15 --max-time 300 --max-filesize 268435456 --fail --silent --show-error "$wiremock_url" --output "$CQ_WIREMOCK_JAR" >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-download-failed"
+          printf '%s  %s\n' "$wiremock_sha" "$CQ_WIREMOCK_JAR" | sha256sum -c - >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-digest-mismatch"
+
+          mapfile -t packages < <(go list -f '{{.ImportPath}}' ./... 2>"$evidence/go-list.log")
+          (( ${#packages[@]} > 0 )) || fail "no-module-packages"
+          coverage="$evidence/coverage.raw.out"
+          coverpkg="$(IFS=,; printf '%s' "${packages[*]}")"
+          set +e
+          go test -count=1 -p 1 -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$coverage" ./... >"$evidence/go-test.log" 2>&1
+          coverage_test_status=$?
+          (( coverage_test_status == 0 )) || fail "coverage-test-failed:$coverage_test_status"
+          integration_coverage="$evidence/coverage.integration.out"
+          go test -count=1 -p 1 -tags=integration -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$integration_coverage" ./internal/integration >"$evidence/go-integration-test.log" 2>&1
+          integration_test_status=$?
+          (( integration_test_status == 0 )) || fail "integration-coverage-test-failed:$integration_test_status"
+          coverage_profiles=("$coverage")
+          if test -s "$integration_coverage"; then
+            coverage_profiles+=("$integration_coverage")
+          else
+            fail "integration-coverage-profile-missing"
+          fi
+          if test -s "$coverage"; then
+            awk '
+              FNR == 1 { if ($0 != "mode: atomic") bad=1; if (NR == 1) print; next }
+              { key=$1; statements=$2; count=$3; if (key in seen && seen[key] != statements) { bad=1; next }; seen[key]=statements; if (!(key in maximum) || count > maximum[key]) maximum[key]=count }
+              END { if (bad) exit 2; for (key in seen) print key " " seen[key] " " maximum[key] }
+            ' "${coverage_profiles[@]}" >"$evidence/coverage.out"
+            coverage_union_status=$?
+            (( coverage_union_status == 0 )) || fail "coverage-union-invalid"
+            awk 'NR > 1 { total += $2; if ($3 > 0) covered += $2 } END { if (total == 0) exit 2; printf "covered_statements=%d\ntotal_statements=%d\ncoverage_percent=%.9f\n", covered, total, 100*covered/total; if (covered != total) exit 1 }' "$evidence/coverage.out" >"$evidence/coverage-summary.txt"
+            coverage_status=$?
+            (( coverage_status == 0 )) || fail "coverage-not-100:$coverage_status"
+          else
+            fail "coverage-profile-missing"
+          fi
+
+          # Scanner and server readback deliberately run even after coverage
+          # has failed, so one report retains both strict gate outcomes.
+          scanner_status=127
+          if test -r "$state/scanner.token" && test -x "$scanner"; then
+            sonar_token="$(<"$state/scanner.token")"
+            # Community Build has no branch or PR analysis. Scanner CLI can
+            # auto-detect GitHub PR parameters, so run it with a deliberately
+            # minimal environment while retaining the explicit revision fence.
+            env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_TOKEN="$sonar_token" "$scanner" \
+              -Dsonar.host.url="http://127.0.0.1:${sonar_port}" \
+              -Dsonar.projectKey=cq \
+              -Dsonar.scm.revision="$GITHUB_SHA" \
+              -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
+              -Dsonar.python.coverage.reportPaths="$evidence/python-coverage.xml" \
+              -Dsonar.javascript.lcov.reportPaths="$evidence/typescript/lcov.info,$evidence/browser/lcov.info" \
+              -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
+              -Dsonar.working.directory="$root/scanner-work" \
+              -Dsonar.qualitygate.wait=true \
+              -Dsonar.qualitygate.ignoreSmallChanges=false >"$evidence/scanner.log" 2>&1
+            scanner_status=$?
+            unset sonar_token
+          else
+            fail "scanner-prerequisite-missing"
+          fi
+          printf 'scanner_exit=%s\n' "$scanner_status" >"$evidence/scanner-status.txt"
+          scanner_warnings="$(grep -Eic '(^|[^[:alpha:]])WARN([^[:alpha:]]|$)' "$evidence/scanner.log" 2>/dev/null || true)"
+          printf 'scanner_warning_lines=%s\n' "$scanner_warnings" >"$evidence/scanner-warnings.txt"
+          (( scanner_warnings == 0 )) || fail "scanner-warnings:$scanner_warnings"
+
+          readback_ok=1
+          : >"$evidence/readback-failures.txt"
+          readback_fail() {
+            readback_ok=0
+            # Callers supply fixed reason codes and local request names/indices.
+            # Never include server response bodies, component keys or credentials.
+            printf '%s\n' "$1" >>"$evidence/readback-failures.txt"
+            printf 'sonar-readback-failure:%s\n' "$1"
+          }
+          warning_count_is_zero() {
+            jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' "$1" >/dev/null 2>&1
+          }
+          for fixture in '{"task":{}}' '{"task":{"warningCount":"0"}}' '{"task":{"warningCount":1}}'; do
+            if printf '%s\n' "$fixture" | jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' >/dev/null 2>&1; then
+              fatal "ce-warning-contract-fixture-accepted"
+            fi
+          done
+          request() {
+            name=$1
+            route=$2
+            status="$(curl --connect-timeout 5 --max-time 30 --silent --show-error --output "$evidence/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
+            printf '%s\n' "$status" >"$evidence/${name}.status"
+            test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
+          }
+          if test -r "$state/scanner.token" && test -s "$evidence/report-task.raw.txt"; then
+            sonar_token="$(<"$state/scanner.token")"
+            printf 'user = "%s:"\n' "$sonar_token" >"$state/curl.config"
+            chmod 600 "$state/curl.config"
+            unset sonar_token
+            awk -F= '$1 == "ceTaskId" || $1 == "projectKey" || $1 == "projectName" {print}' "$evidence/report-task.raw.txt" >"$evidence/report-task.txt"
+            ce_task="$(awk -F= '$1 == "ceTaskId" {print $2}' "$evidence/report-task.raw.txt")"
+            test -n "$ce_task" || readback_fail "ce-task-id-missing"
+            request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
+            analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_fail "analysis-id-invalid"
+            jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_fail "ce-task-contract"
+            request current-analysis '/api/project_analyses/search?project=cq&ps=100'
+            jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_fail "current-analysis-revision-or-id"
+            request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
+            request metrics '/api/measures/component?component=cq&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
+            # Match the strict inspector contract. Accepted and false-positive
+            # dispositions must block, never waive, this gate.
+            request all-issues '/api/issues/search?componentKeys=cq&issueStatuses=OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX&ps=500&p=1'
+            request hotspots '/api/hotspots/search?project=cq&ps=500&p=1'
+
+            # Attribution is deliberately a post-analysis read-only receipt.
+            # SonarQube Community Build 26.10.0.133078 declares both public
+            # endpoints and their request parameters in its shipped Web API
+            # snapshot. Its response examples define component-tree paging and
+            # duplication blocks (`_ref`, `from`, and `size`):
+            # https://github.com/SonarSource/sonarqube/tree/26.10.0.133078/sonar-ws-generator/src/main/resources
+            # Keep raw responses in state (not the uploaded artifact); retain
+            # only tracked public paths and line ranges in the evidence summary.
+            readonly_request_limit=51
+            readonly_request_count=0
+            readonly_response_max_bytes=262144
+            request_private() {
+              name=$1
+              route=$2
+              if (( readonly_request_count >= readonly_request_limit )); then
+                readback_fail "private-request-limit"
+                return 1
+              fi
+              readonly_request_count=$((readonly_request_count + 1))
+              status="$(curl --connect-timeout 5 --max-time 30 --max-filesize "$readonly_response_max_bytes" --silent --show-error --output "$state/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
+              printf '%s\n' "$status" >"$evidence/${name}.status"
+              test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
+            }
+            request_private duplicate-components '/api/measures/component_tree?component=cq&metricKeys=duplicated_lines,duplicated_blocks,duplicated_lines_density&qualifiers=FIL&strategy=leaves&s=metric&metricSort=duplicated_lines&metricSortFilter=withMeasuresOnly&asc=false&ps=500&p=1'
+            jq -e '
+              (.paging | type == "object" and (.pageIndex | type == "number" and . == 1) and (.pageSize | type == "number" and . > 0 and . <= 500) and (.total | type == "number" and . >= 0 and . <= 500)) and
+              (.components | type == "array" and length <= 500) and
+              all(.components[]; (.key | type == "string") and (.path | type == "string") and .qualifier == "FIL" and (.measures | type == "array"))
+            ' "$state/duplicate-components.json" >/dev/null 2>&1 || readback_fail "duplicate-components-shape-or-paging"
+            jq -r '
+              [ .components[]
+                | select(.qualifier == "FIL")
+                | (.key) as $key
+                | ([.measures[]? | select(.metric == "duplicated_lines") | .value] | first) as $lines
+                | select(($lines | type == "string") and ($lines | test("^[0-9]+$")) and ($lines | tonumber) > 0)
+                | $key
+              ] | unique | if length <= 50 then .[] else error("too-many-duplicated-components") end
+            ' "$state/duplicate-components.json" >"$state/duplicate-components.txt" || readback_fail "duplicate-components-selection"
+            mapfile -t duplicate_components <"$state/duplicate-components.txt"
+            duplication_density="$(jq -er '[.component.measures[] | select(.metric == "duplicated_lines_density") | .value | tonumber] | if length == 1 then .[0] else error("missing-density") end' "$evidence/metrics.json" 2>/dev/null)" || readback_fail "duplication-density-invalid"
+            if [[ "$duplication_density" =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk "BEGIN { exit !($duplication_density > 0) }"; then
+              (( ${#duplicate_components[@]} > 0 )) || readback_fail "positive-density-without-components"
+            fi
+            : >"$state/duplication-blocks.ndjson"
+            emitted_groups=0
+            emitted_blocks=0
+            unavailable_groups=0
+            unavailable_blocks=0
+            public_component_path() {
+              case "$1" in cq:*) path="${1#cq:}";; *) return 1;; esac
+              test -n "$path" && test "${path#/}" = "$path" && test "${path//\\/}" = "$path" || return 1
+              case "/$path/" in *'/./'*|*'/../'*|*'//'*) return 1;; esac
+              test "$(git cat-file -t "$GITHUB_SHA:$path" 2>/dev/null)" = blob
+            }
+            duplication_index=0
+            for component_key in "${duplicate_components[@]}"; do
+              public_component_path "$component_key" || { readback_fail "component-path-not-tracked"; continue; }
+              encoded_component="$(jq -rn --arg key "$component_key" '$key | @uri')" || { readback_fail "component-key-encoding"; continue; }
+              duplication_index=$((duplication_index + 1))
+              response_name="duplication-${duplication_index}"
+              request_private "$response_name" "/api/duplications/show?key=${encoded_component}"
+              response="$state/${response_name}.json"
+              # The server can omit _ref for a removed file. Validate the API
+              # shape separately from CQ's unchanged attribution budgets.
+              jq -e '
+                .files as $files | ($files | type == "object") and (.duplications | type == "array") and
+                all(.duplications[]; (.blocks | type == "array") and all(.blocks[];
+                  (if has("_ref") then (._ref | type == "string") and ($files[._ref].key | type == "string") else true end) and
+                  (.from | type == "number" and . >= 1 and floor == .) and (.size | type == "number" and . >= 1 and floor == .)))
+              ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-shape:${duplication_index}"; continue; }
+              # Counts are bounded by the existing response-byte cap and reveal
+              # neither raw responses nor component names or paths.
+              jq '{files:(.files | length),groups:(.duplications | length),blocks:([.duplications[].blocks[]] | length),maximum_group_blocks:([.duplications[].blocks | length] | max // 0)}' \
+                "$response" >"$evidence/duplication-counts-${duplication_index}.json" || { readback_fail "duplication-count-summary:${duplication_index}"; continue; }
+              jq -e '
+                (.files | length <= 100) and (.duplications | length >= 1 and length <= 22) and
+                ([.duplications[].blocks[]] | length <= 461) and
+                all(.duplications[]; (.blocks | length >= 2 and length <= 101))
+              ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-bounds:${duplication_index}"; continue; }
+              response_groups="$(jq -er '.duplications | length' "$response")" || { readback_fail "duplication-group-count:${duplication_index}"; continue; }
+              response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_fail "duplication-block-count:${duplication_index}"; continue; }
+              if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 873 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
+              participants_ok=true
+              while IFS= read -r participant_key; do public_component_path "$participant_key" || participants_ok=false; done < <(jq -r '.files[]?.key' "$response")
+              if test "$participants_ok" != true; then readback_fail "participant-path-not-tracked:${duplication_index}"; continue; fi
+              removed_groups="$(jq -er '[.duplications[] | select(any(.blocks[]; has("_ref") | not))] | length' "$response")" || { readback_fail "removed-group-count:${duplication_index}"; continue; }
+              removed_blocks="$(jq -er '[.duplications[].blocks[] | select(has("_ref") | not)] | length' "$response")" || { readback_fail "removed-block-count:${duplication_index}"; continue; }
+              unavailable_groups=$((unavailable_groups + removed_groups))
+              unavailable_blocks=$((unavailable_blocks + removed_blocks))
+              if (( removed_blocks > 0 )); then
+                readback_fail "removed-file-attribution-unavailable:${duplication_index}"
+              fi
+              # Do not manufacture paths for removed files or export a partial
+              # group as if it were a complete current-source duplication.
+              jq -c --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" '
+                .files as $files | .duplications[] | select(all(.blocks[]; has("_ref"))) |
+                {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^cq:"; "")),from:.from,size:.size}]}
+              ' "$response" >>"$state/duplication-blocks.ndjson" || readback_fail "duplication-group-serialization:${duplication_index}"
+              emitted_groups=$((emitted_groups + response_groups))
+              emitted_blocks=$((emitted_blocks + response_blocks))
+            done
+            jq -s --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" --arg tree "$(cat "$evidence/tree.txt")" \
+              --argjson readback_ok "$readback_ok" --argjson unavailable_groups "$unavailable_groups" --argjson unavailable_blocks "$unavailable_blocks" '
+              {schema_version:2,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",attribution_complete:($readback_ok == 1),omitted_removed_file_groups:$unavailable_groups,unavailable_removed_file_blocks:$unavailable_blocks,duplication_groups:.}
+            ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_fail "duplication-attribution-serialization"
+          else
+            readback_fail "readback-prerequisite-missing"
+          fi
+          (( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
+          jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
+          jq -e '[.component.measures[] | select(.metric == "coverage" or .metric == "new_coverage") | .value | tonumber] | length == 2 and all(.[]; . == 100)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-coverage-not-100"
+          jq -e '[.component.measures[] | select(.metric == "duplicated_lines_density" or .metric == "new_duplicated_lines_density") | .value | tonumber] | length == 2 and all(.[]; . == 0)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-duplication-not-zero"
+          jq -e '.paging.total == 0 and (.issues | length) == 0' "$evidence/all-issues.json" >/dev/null 2>&1 || fail "issues-not-zero-or-unpaged"
+          jq -e '.paging.total == 0 and (.hotspots | length) == 0' "$evidence/hotspots.json" >/dev/null 2>&1 || fail "hotspots-not-zero-or-unpaged"
+          warning_count_is_zero "$evidence/ce-task.json" || fail "ce-warnings-not-zero"
+          if (( scanner_status != 0 )); then
+            if (( scanner_status == 3 )) && jq -e '.task.status == "SUCCESS"' "$evidence/ce-task.json" >/dev/null 2>&1; then
+              fail "scanner-quality-gate-failed"
+            else
+              fail "scanner-upload-or-analysis-failed:$scanner_status"
+            fi
+          fi
+
+          sha256sum "$evidence"/* >"$evidence/SHA256SUMS" 2>/dev/null || true
+          (( result == 0 )) || exit 1
+      - name: Upload redacted Sonar evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sonar-ephemeral-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.CQ_SONAR_EVIDENCE }}
+          if-no-files-found: error
+          retention-days: 14

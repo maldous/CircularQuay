@@ -1,0 +1,836 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CircularQuay help interchange v1 closed draft",
+  "description": "Exact supported v1 shapes; all objects closed; no extension namespace or unknown metadata permitted. Source binding arrays may vary in length and their declared optional properties are listed explicitly.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "artifactType": {
+          "const": "help-index"
+        },
+        "authoringState": {
+          "type": "string"
+        },
+        "contentVersion": {
+          "type": "string"
+        },
+        "contractId": {
+          "const": "cq.help"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "audiences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "bodyMarkdown": {
+                "type": "string"
+              },
+              "canonicalRefs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "repoPath": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "repoPath",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "capabilityStatus": {
+                "type": "string"
+              },
+              "contentStage": {
+                "type": "string"
+              },
+              "controlFamilies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "id": {
+                "type": "string"
+              },
+              "journeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "anchor": {
+                    "type": "null"
+                  },
+                  "repoPath": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "anchor",
+                  "repoPath",
+                  "revision",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              "summary": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "audiences",
+              "bodyMarkdown",
+              "canonicalRefs",
+              "capabilityStatus",
+              "controlFamilies",
+              "id",
+              "journeys",
+              "keywords",
+              "source",
+              "summary",
+              "title"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "product": {
+          "const": "cq"
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "status": {
+          "const": "draft"
+        }
+      },
+      "required": [
+        "artifactType",
+        "authoringState",
+        "contentVersion",
+        "contractId",
+        "entries",
+        "product",
+        "schemaVersion",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "artifactType": {
+          "const": "coverage"
+        },
+        "authoredProcedureTopics": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authoringState": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "object",
+          "properties": {
+            "acceptedInventory": {
+              "type": "string"
+            },
+            "acceptedInventorySha256": {
+              "type": "string"
+            },
+            "bindingSeed": {
+              "type": "string"
+            },
+            "bindingSeedSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "frontendManifest": {
+              "type": "string"
+            },
+            "frontendManifestSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "nativeRevision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "acceptedInventory",
+            "acceptedInventorySha256",
+            "bindingSeed",
+            "bindingSeedSha256",
+            "frontendManifest",
+            "frontendManifestSha256",
+            "nativeRevision"
+          ],
+          "additionalProperties": false
+        },
+        "contentEvidence": {
+          "type": "object",
+          "properties": {
+            "browserDescriptionSources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "candidateUndoSource": {
+              "type": "object",
+              "properties": {
+                "manifestSha256": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "manifestSha256",
+                "path",
+                "sha256"
+              ],
+              "additionalProperties": false
+            },
+            "limit": {
+              "type": "string"
+            },
+            "nativeRevision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "browserDescriptionSources",
+            "candidateUndoSource",
+            "limit",
+            "nativeRevision"
+          ],
+          "additionalProperties": false
+        },
+        "contentGaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "scope"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "contentVersion": {
+          "type": "string"
+        },
+        "contractId": {
+          "const": "cq.help"
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "fieldDeclarationsMapped": {
+              "type": "integer"
+            },
+            "initialRenderedRouteEvidence": {
+              "type": "integer"
+            },
+            "routeDeclarationsMapped": {
+              "type": "integer"
+            },
+            "schemaPatternsMapped": {
+              "type": "integer"
+            },
+            "sourceOccurrencesAwaitingContextMapping": {
+              "type": "integer"
+            },
+            "topics": {
+              "type": "integer"
+            },
+            "unknownTopicIds": {
+              "type": "integer"
+            },
+            "visibleElementInstances": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "fieldDeclarationsMapped",
+            "initialRenderedRouteEvidence",
+            "routeDeclarationsMapped",
+            "schemaPatternsMapped",
+            "sourceOccurrencesAwaitingContextMapping",
+            "topics",
+            "unknownTopicIds",
+            "visibleElementInstances"
+          ],
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "product": {
+          "const": "cq"
+        },
+        "renderedInitialEvidence": {
+          "type": "object",
+          "properties": {
+            "interpretation": {
+              "type": "string"
+            },
+            "observation": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "predecessorCoverageSnapshot": {
+              "type": "string"
+            },
+            "predecessorSha256": {
+              "type": "string"
+            },
+            "routes": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "visibleElementInstances": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "interpretation",
+            "observation",
+            "path",
+            "predecessorCoverageSnapshot",
+            "predecessorSha256",
+            "routes",
+            "sha256",
+            "visibleElementInstances"
+          ],
+          "additionalProperties": false
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "status": {
+          "const": "draft"
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "bindingStatus": {
+                "type": "string"
+              },
+              "contentStatus": {
+                "type": "string"
+              },
+              "documentationOnlyTopic": {
+                "type": "boolean"
+              },
+              "fieldIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "gap": {
+                "type": "string"
+              },
+              "initialRenderedRoutes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "routeId": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "visibleElementInstances": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "routeId",
+                    "state",
+                    "visibleElementInstances"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "requiresBrowserControl": {
+                "type": "boolean"
+              },
+              "routeIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "schemaPatternIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "topicId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "bindingStatus",
+              "contentStatus",
+              "documentationOnlyTopic",
+              "fieldIds",
+              "gap",
+              "initialRenderedRoutes",
+              "requiresBrowserControl",
+              "routeIds",
+              "schemaPatternIds",
+              "topicId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "unmappedTopicDisposition": {
+          "type": "string"
+        },
+        "unmappedTopicIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "artifactType",
+        "authoredProcedureTopics",
+        "authoringState",
+        "basis",
+        "contentEvidence",
+        "contentGaps",
+        "contentVersion",
+        "contractId",
+        "counts",
+        "limits",
+        "product",
+        "renderedInitialEvidence",
+        "schemaVersion",
+        "status",
+        "topics",
+        "unmappedTopicDisposition",
+        "unmappedTopicIds"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "artifactType": {
+          "const": "frontend-bindings"
+        },
+        "basis": {
+          "type": "object",
+          "properties": {
+            "correctionIntegration": {
+              "type": "string"
+            },
+            "docsReceipt": {
+              "type": "string"
+            },
+            "docsReceiptSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "docsRevision": {
+              "type": "string"
+            },
+            "frontendManifest": {
+              "type": "string"
+            },
+            "frontendManifestSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "correctionIntegration",
+            "docsReceipt",
+            "docsReceiptSha256",
+            "docsRevision",
+            "frontendManifest",
+            "frontendManifestSha256",
+            "issues"
+          ],
+          "additionalProperties": false
+        },
+        "contractId": {
+          "const": "cq.help"
+        },
+        "existingTopicIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "observationEvidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "ownership": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "integrationAndIssueWriter": {
+              "type": "string"
+            },
+            "ui": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "content",
+            "integrationAndIssueWriter",
+            "ui"
+          ],
+          "additionalProperties": false
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "audiences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "capabilityStatus": {
+                "type": "string"
+              },
+              "collectionAction": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "selector": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "topic": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "key",
+                    "label",
+                    "selector",
+                    "state",
+                    "topic",
+                    "type"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "id": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              },
+              "plane": {
+                "type": "string"
+              },
+              "readonly": {
+                "type": "boolean"
+              },
+              "route": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "topic": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "audiences",
+              "capabilityStatus",
+              "fields",
+              "id",
+              "key",
+              "plane",
+              "readonly",
+              "route",
+              "scope",
+              "title",
+              "topic"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "schemaPaths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "audiences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "control": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "route": {
+                "type": "string"
+              },
+              "schemaInventoryIndex": {
+                "type": "integer"
+              },
+              "selectorPattern": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "topic": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "audiences",
+              "control",
+              "id",
+              "path",
+              "route",
+              "schemaInventoryIndex",
+              "selectorPattern",
+              "state",
+              "topic",
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "sourceControls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "evidence": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "occurrences": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dynamic": {
+                      "type": "boolean"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "dynamic",
+                    "kind",
+                    "line",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "evidence",
+              "file",
+              "occurrences",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sourceSeedSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "const": "draft"
+        }
+      },
+      "required": [
+        "artifactType",
+        "basis",
+        "contractId",
+        "existingTopicIds",
+        "limits",
+        "next",
+        "observationEvidence",
+        "ownership",
+        "routes",
+        "schemaPaths",
+        "schemaVersion",
+        "sourceControls",
+        "sourceSeedSha256",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

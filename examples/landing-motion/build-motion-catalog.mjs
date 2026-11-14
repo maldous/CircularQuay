@@ -1,0 +1,60 @@
+import { readFile, writeFile, access } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const integrations = JSON.parse(await readFile(path.join(root, 'integrations.json'), 'utf8'));
+const config = JSON.parse(await readFile(path.join(root, 'motion-catalog.config.json'), 'utf8'));
+const byGroup = Object.fromEntries(integrations.groups.map(group => [group.id, group.items]));
+const appRole = {
+  shell: 'Shell', container: 'Runtime', cloud: 'Cloud', ci: 'CI/CD',
+  kubernetes: 'Containers', docker: 'Containers', helm: 'Containers', postgresql: 'Database', redis: 'Database',
+  'anthropic-api-keys': 'AI API', 'gemini-api-keys': 'AI API', 'hugging-face': 'AI API', ollama: 'AI API',
+  npm: 'Packages', pnpm: 'Packages', yarn: 'Packages', composer: 'Packages', 'apache-maven': 'Packages', gradle: 'Packages', uv: 'Packages', poetry: 'Packages',
+  terraform: 'Infra', opentofu: 'Infra', pulumi: 'Infra', ansible: 'Automation', temporal: 'Automation', n8n: 'Automation', mcp: 'Automation'
+};
+const appIntent = {
+  postgresql: ['query', 'query a database'], redis: ['query', 'query a cache'], kubernetes: ['run on', 'run a container workload'], docker: ['run with', 'run a container workload'], helm: ['deploy with', 'deploy a chart'],
+  'anthropic-api-keys': ['call', 'call an AI model'], 'gemini-api-keys': ['call', 'call an AI model'], 'hugging-face': ['call', 'call an AI model'], ollama: ['call', 'call an AI model'],
+  'cloudflare-workers': ['deploy to', 'deploy an edge service'], vercel: ['deploy to', 'deploy a web service'], netlify: ['deploy to', 'deploy a web service'], railway: ['deploy to', 'deploy an application'], render: ['deploy to', 'deploy an application'],
+  'github-actions': ['run with', 'run a pipeline'], 'gitlab-ci-cd': ['run with', 'run a pipeline'], jenkins: ['run with', 'run a pipeline'], circleci: ['run with', 'run a pipeline'], 'argo-cd': ['deploy with', 'deploy a release'], flux: ['deploy with', 'deploy a release'],
+  jupyter: ['run in', 'run a notebook'], temporal: ['run with', 'run a workflow'], n8n: ['run with', 'run an automation'], mcp: ['connect to', 'connect an AI tool']
+};
+const removableNameSuffixes = ['OAuth', 'Login', 'identity', 'Authentication', 'repositories', 'Object Storage'];
+function shortName(item) {
+  if (config.shortNames[item.id]) return config.shortNames[item.id];
+  const name = item.name.trimEnd();
+  const suffix = removableNameSuffixes.find(candidate => name.toLocaleLowerCase().endsWith(` ${candidate.toLocaleLowerCase()}`));
+  return suffix ? name.slice(0, -suffix.length).trimEnd() : item.name;
+}
+function appDescriptor(item, pool) { const [verb, intent] = appIntent[item.id] || (pool === 'shell' ? ['run with', 'run a command'] : ['use', 'run an application']); const name = shortName(item); return { id:item.id, group:'applications', name, fullName:item.name, asset:item.asset, role:appRole[item.id] || appRole[pool], intent, action:`${verb} ${name}` }; }
+function sourceDescriptor(item) { const name = shortName(item); return { id:item.id, group:'sources', name, fullName:item.name, asset:item.asset, role:'Encrypted', intent:'read an encrypted source', action:`read from ${name}` }; }
+function identityDescriptor(item) { const name = shortName(item); return { id:item.id, group:'identity', name, fullName:item.name, asset:item.asset, role:'Authentication', intent:'sign in with an identity provider', action:`sign in with ${name}` }; }
+const identity = byGroup.identity.map(identityDescriptor);
+const sources = byGroup.sources.map(sourceDescriptor);
+const applications = Object.fromEntries(Object.entries(config.applicationPools).map(([slot, ids]) => [slot, ids.map(id => { const item=byGroup.applications.find(candidate=>candidate.id===id); if(!item) throw new Error(`Unknown application ${id}`); return appDescriptor(item, slot); })]));
+const motionCatalog = { identity, 'identity-2': identity, local: sources, remote: sources, ...applications };
+const all = Object.values(motionCatalog).flat();
+const assets = new Set(integrations.groups.flatMap(group => group.items.map(item => item.asset)));
+const sourceIds = new Set(integrations.groups.flatMap(group => group.items.map(item => `${group.id}:${item.id}`)));
+const seen = new Set([...identity.map(item=>`identity:${item.id}`), ...sources.map(item=>`sources:${item.id}`), ...Object.values(applications).flat().map(item=>`applications:${item.id}`)]);
+if (seen.size !== sourceIds.size || [...sourceIds].some(id=>!seen.has(id))) throw new Error('Catalog coverage is incomplete or duplicated');
+for (const item of all) { if (!assets.has(item.asset) || !item.action.includes(item.name) || !item.intent || item.intent.includes('unidentified')) throw new Error(`Invalid descriptor ${item.id}`); await access(path.join(root, item.asset), constants.R_OK); }
+// Store each descriptor once while retaining every pool's order and independent entries.
+const fields = ['id', 'group', 'name', 'fullName', 'asset', 'role', 'intent', 'action'];
+const descriptors = [];
+const descriptorIndices = new Map();
+const pools = Object.fromEntries(Object.entries(motionCatalog).map(([slot, entries]) => [slot, entries.map(entry => {
+  const values = fields.map(field => entry[field]);
+  const signature = JSON.stringify(values);
+  if (!descriptorIndices.has(signature)) {
+    descriptorIndices.set(signature, descriptors.length);
+    descriptors.push(values);
+  }
+  return descriptorIndices.get(signature);
+})]));
+const rows = descriptors.map(values => `  ${JSON.stringify(values)}`).join(',\n');
+const output = `// Generated by build-motion-catalog.mjs; do not edit manually.\n// Canonical descriptors and ordered pool references avoid repeated payloads.\nconst fields = ${JSON.stringify(fields)};\nconst descriptors = [\n${rows}\n];\nconst pools = ${JSON.stringify(pools, null, 2)};\n\nexport const motionCatalog = Object.fromEntries(Object.entries(pools).map(([slot, indices]) => [\n  slot, indices.map(index => Object.fromEntries(fields.map((field, position) => [field, descriptors[index][position]]))),\n]));\n`;
+const target = path.join(root, 'motion-catalog.js');
+if (process.argv.includes('--check')) { if (await readFile(target, 'utf8') !== output) throw new Error('motion-catalog.js is stale'); } else await writeFile(target, output);
