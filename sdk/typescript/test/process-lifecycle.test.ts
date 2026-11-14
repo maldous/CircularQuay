@@ -97,6 +97,44 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       }
     });
 
+    await t.test("preserves native UTF-8 JSON across every byte boundary", async () => {
+      const client = await createClient(sdk, harness);
+      const expected = { value: "synthetic-é-€-🔑" };
+      const bytes = Buffer.from(JSON.stringify(expected));
+      for (let split = 1; split < bytes.length; split += 1) {
+        harness.enqueue(child => queueMicrotask(() => {
+          child.stdout.emit("data", bytes.subarray(0, split));
+          child.stdout.emit("data", bytes.subarray(split));
+          child.emit("close", 0);
+        }));
+        assert.deepEqual(await client.providers(), expected);
+      }
+    });
+
+    await t.test("flushes an incomplete trailing UTF-8 sequence before parsing native JSON", async () => {
+      const client = await createClient(sdk, harness);
+      harness.enqueue(child => queueMicrotask(() => {
+        child.stdout.emit("data", Buffer.from("{}"));
+        child.stdout.emit("data", Buffer.from([0xe2]));
+        child.emit("close", 0);
+      }));
+      await assert.rejects(client.providers(), category(sdk, "protocol"));
+    });
+
+    await t.test("accepts split UTF-8 at the exact captured-output byte limit", async () => {
+      const client = await createClient(sdk, harness);
+      const expected = { value: "é" };
+      const json = Buffer.from(JSON.stringify(expected));
+      const bytes = Buffer.concat([Buffer.alloc(1024 * 1024 - json.length, 32), json]);
+      const split = bytes.indexOf(0xc3) + 1;
+      harness.enqueue(child => queueMicrotask(() => {
+        child.stdout.emit("data", bytes.subarray(0, split));
+        child.stdout.emit("data", bytes.subarray(split));
+        child.emit("close", 0);
+      }));
+      assert.deepEqual(await client.providers(), expected);
+    });
+
     await t.test("maps bounded native failures without exposing diagnostics", async () => {
       const client = await createClient(sdk, harness);
       await assertProcessCategory(() => client.providers(), harness, '{"error":"access_denied"}', "denied", sdk);
