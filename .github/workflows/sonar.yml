@@ -448,6 +448,8 @@ jobs:
             : >"$state/duplication-blocks.ndjson"
             emitted_groups=0
             emitted_blocks=0
+            unavailable_groups=0
+            unavailable_blocks=0
             public_component_path() {
               case "$1" in cq:*) path="${1#cq:}";; *) return 1;; esac
               test -n "$path" && test "${path#/}" = "$path" && test "${path//\\/}" = "$path" || return 1
@@ -462,26 +464,48 @@ jobs:
               response_name="duplication-${duplication_index}"
               request_private "$response_name" "/api/duplications/show?key=${encoded_component}"
               response="$state/${response_name}.json"
+              # The server can omit _ref for a removed file. Validate the API
+              # shape separately from CQ's unchanged attribution budgets.
               jq -e '
-                .files as $files | ($files | type == "object" and length <= 100) and (.duplications | type == "array" and length >= 1 and length <= 20) and
-                ([.duplications[].blocks[]] | length <= 100) and
-                all(.duplications[]; (.blocks | type == "array" and length >= 2 and length <= 10) and all(.blocks[]; (._ref | type == "string") and ($files[._ref].key | type == "string") and (.from | type == "number" and . >= 1 and floor == .) and (.size | type == "number" and . >= 1 and floor == .)))
+                .files as $files | ($files | type == "object") and (.duplications | type == "array") and
+                all(.duplications[]; (.blocks | type == "array") and all(.blocks[];
+                  (if has("_ref") then (._ref | type == "string") and ($files[._ref].key | type == "string") else true end) and
+                  (.from | type == "number" and . >= 1 and floor == .) and (.size | type == "number" and . >= 1 and floor == .)))
               ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-shape:${duplication_index}"; continue; }
+              # Counts are bounded by the existing response-byte cap and reveal
+              # neither raw responses nor component names or paths.
+              jq '{files:(.files | length),groups:(.duplications | length),blocks:([.duplications[].blocks[]] | length),maximum_group_blocks:([.duplications[].blocks | length] | max // 0)}' \
+                "$response" >"$evidence/duplication-counts-${duplication_index}.json" || { readback_fail "duplication-count-summary:${duplication_index}"; continue; }
+              jq -e '
+                (.files | length <= 100) and (.duplications | length >= 1 and length <= 20) and
+                ([.duplications[].blocks[]] | length <= 100) and
+                all(.duplications[]; (.blocks | length >= 2 and length <= 10))
+              ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-bounds:${duplication_index}"; continue; }
               response_groups="$(jq -er '.duplications | length' "$response")" || { readback_fail "duplication-group-count:${duplication_index}"; continue; }
               response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_fail "duplication-block-count:${duplication_index}"; continue; }
               if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 500 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
               participants_ok=true
               while IFS= read -r participant_key; do public_component_path "$participant_key" || participants_ok=false; done < <(jq -r '.files[]?.key' "$response")
               if test "$participants_ok" != true; then readback_fail "participant-path-not-tracked:${duplication_index}"; continue; fi
+              removed_groups="$(jq -er '[.duplications[] | select(any(.blocks[]; has("_ref") | not))] | length' "$response")" || { readback_fail "removed-group-count:${duplication_index}"; continue; }
+              removed_blocks="$(jq -er '[.duplications[].blocks[] | select(has("_ref") | not)] | length' "$response")" || { readback_fail "removed-block-count:${duplication_index}"; continue; }
+              unavailable_groups=$((unavailable_groups + removed_groups))
+              unavailable_blocks=$((unavailable_blocks + removed_blocks))
+              if (( removed_blocks > 0 )); then
+                readback_fail "removed-file-attribution-unavailable:${duplication_index}"
+              fi
+              # Do not manufacture paths for removed files or export a partial
+              # group as if it were a complete current-source duplication.
               jq -c --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" '
-                .files as $files | .duplications[] |
+                .files as $files | .duplications[] | select(all(.blocks[]; has("_ref"))) |
                 {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^cq:"; "")),from:.from,size:.size}]}
               ' "$response" >>"$state/duplication-blocks.ndjson" || readback_fail "duplication-group-serialization:${duplication_index}"
               emitted_groups=$((emitted_groups + response_groups))
               emitted_blocks=$((emitted_blocks + response_blocks))
             done
-            jq -s --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" --arg tree "$(cat "$evidence/tree.txt")" '
-              {schema_version:1,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",duplication_groups:.}
+            jq -s --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" --arg tree "$(cat "$evidence/tree.txt")" \
+              --argjson readback_ok "$readback_ok" --argjson unavailable_groups "$unavailable_groups" --argjson unavailable_blocks "$unavailable_blocks" '
+              {schema_version:2,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",attribution_complete:($readback_ok == 1),omitted_removed_file_groups:$unavailable_groups,unavailable_removed_file_blocks:$unavailable_blocks,duplication_groups:.}
             ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_fail "duplication-attribution-serialization"
           else
             readback_fail "readback-prerequisite-missing"
