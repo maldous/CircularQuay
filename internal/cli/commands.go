@@ -21,6 +21,14 @@ import (
 	"github.com/maldous/CircularQuay/internal/state"
 )
 
+// initializeContext rejects cancelled requests before initialization effects.
+func (a application) initializeContext(ctx context.Context, args []string) (int, error) {
+	if err := configurationWriteContext(ctx); err != nil {
+		return 0, err
+	}
+	return a.initialize(args)
+}
+
 func (a application) initialize(args []string) (int, error) {
 	f := flag.NewFlagSet("init", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
