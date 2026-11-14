@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 const MAX_STDIO_BYTES = 1024 * 1024;
@@ -631,7 +632,9 @@ function spawnOwned(executable: string, args: string[], environment: Readonly<Re
   });
 }
 class ProcessState {
-  #stdout = ""; #stderr = ""; #stderrBytes = 0; #overflow = false; #stdinFailure = false; #childFailure = false; #cancelled = false; #settled = false;
+  #stdout = ""; #stderr = ""; #stdoutBytes = 0; #stderrBytes = 0; #overflow = false; #stdinFailure = false; #childFailure = false; #cancelled = false; #settled = false;
+  readonly #stdoutDecoder = new StringDecoder("utf8");
+  readonly #stderrDecoder = new StringDecoder("utf8");
   #killTimer: ReturnType<typeof setTimeout> | undefined; #fallbackTimer: ReturnType<typeof setTimeout> | undefined;
   #abortListener: (() => void) | undefined;
   readonly #signal: AbortSignal | undefined;
@@ -648,12 +651,12 @@ class ProcessState {
     this.#reject = reject;
   }
   appendStdout(chunk: Buffer | string, child: ChildProcess): void {
-    const next = appendBounded(this.#stdout, chunk);
-    if (next === undefined) {
+    this.#stdoutBytes += Buffer.byteLength(chunk);
+    if (this.#stdoutBytes > MAX_STDIO_BYTES) {
       this.overflow(child);
       return;
     }
-    this.#stdout = next;
+    this.#stdout += decodeOutput(this.#stdoutDecoder, chunk);
   }
   appendStderr(chunk: Buffer | string, child: ChildProcess): void {
     this.#stderrBytes += Buffer.byteLength(chunk);
@@ -661,7 +664,7 @@ class ProcessState {
       this.overflow(child);
       return;
     }
-    this.#stderr += chunk.toString();
+    this.#stderr += decodeOutput(this.#stderrDecoder, chunk);
   }
   cancel(child: ChildProcess): void { this.#cancelled = true; this.terminate(child); }
   overflow(child: ChildProcess): void { this.#overflow = true; this.terminate(child); }
@@ -672,6 +675,8 @@ class ProcessState {
     this.#signal?.addEventListener("abort", this.#abortListener, { once: true });
   }
   close(code: number | null, allowNonZero: boolean): void {
+    this.#stdout += this.#stdoutDecoder.end();
+    this.#stderr += this.#stderrDecoder.end();
     const result = { exitCode: code ?? 1, stdout: this.#stdout };
     this.finish(this.closeError(code, allowNonZero), result);
   }
@@ -733,10 +738,7 @@ function startChild(executable: string, args: string[], environment: Readonly<Re
     return undefined;
   }
 }
-function appendBounded(current: string, chunk: Buffer | string): string | undefined {
-  const next = current + chunk.toString();
-  return encodedLength(next) <= MAX_STDIO_BYTES ? next : undefined;
-}
+function decodeOutput(decoder: StringDecoder, chunk: Buffer | string): string { return decoder.write(typeof chunk === "string" ? Buffer.from(chunk) : chunk); }
 function nativeFailure(stderr: string): CqError {
   if (stderr === "") return new CqError("process");
   const category = nativeErrorCategory(stderr);
