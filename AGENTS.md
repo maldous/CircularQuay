@@ -46,6 +46,13 @@ maintenance-account bindings, orchestration policies and session allocations
 are supplied by the selected execution environment; they are not product
 prerequisites or permission grants.
 
+When UIF orchestration is selected, the environment supplies its pinned
+[UIF operating policy](https://github.com/maldous/uif/blob/develop/docs/agents/uif-worker-policy.md)
+and CircularQuay executor profile. Include the actual policy version, digest,
+source revision and executor in the existing handoff. A policy link is not
+proof of installation, adoption, current ownership or product qualification.
+Keep quota recovery and shared-host allocation outside product source.
+
 Pass the exact product task, source revision, owned paths, applicable security
 requirements and current assignment restrictions to any delegated work.
 
