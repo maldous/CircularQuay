@@ -103,3 +103,6 @@ function initialise() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialise, { once: true });
 else initialise();
+
+// Keep the existing browser-module boundary explicit for module loaders.
+export {};

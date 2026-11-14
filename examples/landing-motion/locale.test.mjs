@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import vm from 'node:vm';
 
-const source = await readFile(new URL('./locale.js', import.meta.url), 'utf8');
 const landing = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 const messageKeys = [...new Set([...landing.matchAll(/data-i18n="([^"]+)"/g)].map(match => match[1]))];
 const storageKey = 'circularquay-motion-language';
 
-function fixture({ saved = null, blockedStorage = false, loading = false } = {}) {
+let fixtureId = 0;
+async function fixture(t, { saved = null, blockedStorage = false, loading = false } = {}) {
   const messages = messageKeys.map(key => ({ dataset: { i18n: key }, textContent: `untranslated:${key}` }));
   const listeners = new Map(), ready = [], writes = [], events = [], timers = [];
   const select = {
@@ -25,7 +24,7 @@ function fixture({ saved = null, blockedStorage = false, loading = false } = {})
     querySelector(selector) { return nodes.get(selector); },
     addEventListener(name, callback, options) { ready.push({ name, callback, options }); },
   };
-  vm.runInNewContext(source, {
+  const globals = {
     document,
     localStorage: {
       getItem(key) { assert.equal(key, storageKey); if (blockedStorage) throw new Error('unavailable'); return saved; },
@@ -35,12 +34,26 @@ function fixture({ saved = null, blockedStorage = false, loading = false } = {})
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; },
     clearTimeout() {},
+  };
+  const original = new Map(Object.keys(globals).map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const name of Object.keys(globals)) {
+      if (original.get(name)) Object.defineProperty(globalThis, name, original.get(name));
+      else delete globalThis[name];
+    }
   });
+  for (const [name, value] of Object.entries(globals)) {
+    Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
+  }
+  // A distinct module instance isolates each page load while using the actual source file.
+  const moduleUrl = new URL('./locale.js', import.meta.url);
+  moduleUrl.searchParams.set('fixture', String(++fixtureId));
+  await import(moduleUrl.href);
   return { document, select, flag, status, login, messages, ready, writes, events, timers, listeners };
 }
 
-test('English startup translates landing messages without overwriting a saved preference', () => {
-  const view = fixture();
+test('English startup translates landing messages without overwriting a saved preference', async t => {
+  const view = await fixture(t);
   assert.equal(view.document.documentElement.lang, 'en');
   assert.equal(view.document.documentElement.dir, 'ltr');
   assert.equal(view.select.value, 'en');
@@ -53,8 +66,8 @@ test('English startup translates landing messages without overwriting a saved pr
   assert.deepEqual(view.events, [{ type: 'localechange', locale: 'en' }]);
 });
 
-test('Arabic preference and subsequent changes preserve direction, controls and login feedback', () => {
-  const view = fixture({ saved: 'ar' });
+test('Arabic preference and subsequent changes preserve direction, controls and login feedback', async t => {
+  const view = await fixture(t, { saved: 'ar' });
   assert.equal(view.document.documentElement.lang, 'ar');
   assert.equal(view.document.documentElement.dir, 'rtl');
   assert.equal(view.flag.src, 'assets/flag-ar.svg');
@@ -73,8 +86,8 @@ test('Arabic preference and subsequent changes preserve direction, controls and 
   assert.equal(view.status.hidden, true);
 });
 
-test('language switching remains usable when browser storage is unavailable', () => {
-  const view = fixture({ blockedStorage: true });
+test('language switching remains usable when browser storage is unavailable', async t => {
+  const view = await fixture(t, { blockedStorage: true });
   view.select.value = 'ar';
   view.listeners.get('change')({ currentTarget: view.select });
   assert.equal(view.document.documentElement.lang, 'ar');
@@ -83,8 +96,8 @@ test('language switching remains usable when browser storage is unavailable', ()
   assert.deepEqual(view.events.at(-1), { type: 'localechange', locale: 'ar' });
 });
 
-test('initialization waits for the DOM and registers a one-time ready listener', () => {
-  const view = fixture({ saved: 'ar', loading: true });
+test('initialization waits for the DOM and registers a one-time ready listener', async t => {
+  const view = await fixture(t, { saved: 'ar', loading: true });
   assert.equal(view.select.disabled, true);
   assert.equal(view.ready.length, 1);
   assert.equal(view.ready[0].name, 'DOMContentLoaded');
