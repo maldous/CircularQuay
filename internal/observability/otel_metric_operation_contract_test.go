@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -96,7 +97,7 @@ func assertOperationDuration(t *testing.T, metric metricdata.Metrics) {
 		t.Fatal("operation duration lost its seconds histogram contract")
 	}
 	point := histogram.DataPoints[0]
-	if operationMetricLabels(t, point.Attributes) != "cli/none/failed" || point.Count != 1 || !(point.Sum >= 0) {
+	if operationMetricLabels(t, point.Attributes) != "cli/none/failed" || point.Count != 1 || math.IsNaN(point.Sum) || point.Sum < 0 {
 		t.Fatal("operation duration leaked labels or counted standalone events")
 	}
 }
