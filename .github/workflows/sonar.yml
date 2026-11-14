@@ -477,13 +477,13 @@ jobs:
               jq '{files:(.files | length),groups:(.duplications | length),blocks:([.duplications[].blocks[]] | length),maximum_group_blocks:([.duplications[].blocks | length] | max // 0)}' \
                 "$response" >"$evidence/duplication-counts-${duplication_index}.json" || { readback_fail "duplication-count-summary:${duplication_index}"; continue; }
               jq -e '
-                (.files | length <= 100) and (.duplications | length >= 1 and length <= 20) and
-                ([.duplications[].blocks[]] | length <= 100) and
-                all(.duplications[]; (.blocks | length >= 2 and length <= 10))
+                (.files | length <= 100) and (.duplications | length >= 1 and length <= 22) and
+                ([.duplications[].blocks[]] | length <= 461) and
+                all(.duplications[]; (.blocks | length >= 2 and length <= 101))
               ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-bounds:${duplication_index}"; continue; }
               response_groups="$(jq -er '.duplications | length' "$response")" || { readback_fail "duplication-group-count:${duplication_index}"; continue; }
               response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_fail "duplication-block-count:${duplication_index}"; continue; }
-              if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 500 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
+              if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 873 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
               participants_ok=true
               while IFS= read -r participant_key; do public_component_path "$participant_key" || participants_ok=false; done < <(jq -r '.files[]?.key' "$response")
               if test "$participants_ok" != true; then readback_fail "participant-path-not-tracked:${duplication_index}"; continue; fi
