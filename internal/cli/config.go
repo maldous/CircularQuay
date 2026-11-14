@@ -41,7 +41,7 @@ func (a application) configCommand(ctx context.Context, args []string) (int, err
 		return 0, fault.New(fault.Invalid, "config command")
 	}
 	handlers := map[string]func([]string) (int, error){
-		"init":     a.initialize,
+		"init":     func(arguments []string) (int, error) { return a.initializeContext(ctx, arguments) },
 		"validate": func(arguments []string) (int, error) { return a.configValidate(ctx, arguments) },
 		"get":      a.configGet,
 		"list":     a.configList,

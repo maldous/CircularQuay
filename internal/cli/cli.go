@@ -150,7 +150,7 @@ func (a application) dispatch(ctx context.Context, args []string) (int, error) {
 func (a application) dispatchConfigured(ctx context.Context, args []string) (int, error) {
 	switch args[0] {
 	case "init":
-		return a.initialize(args[1:])
+		return a.initializeContext(ctx, args[1:])
 	case "config":
 		return a.configCommand(ctx, args[1:])
 	case "doctor":
