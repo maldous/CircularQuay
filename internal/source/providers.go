@@ -66,6 +66,9 @@ func (r *Registry) Register(name string, reader Reader) {
 func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (value model.Value, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseSource, ProviderKind: s.Type})
 	defer func() { complete(observability.OutcomeForError(err)) }()
+	if ctx.Err() != nil {
+		return model.Value{}, fault.New(fault.Denied, "provider_cancelled")
+	}
 	if !allowed(s, b) {
 		return model.Value{}, fault.New(fault.Denied, "source_scope")
 	}
@@ -79,6 +82,9 @@ func (r *Registry) Read(ctx context.Context, s model.Source, b model.Binding) (v
 		return model.Value{}, fault.New(fault.Unsupported, "source_type")
 	}
 	value, err = reader.Read(ctx, s, b)
+	if ctx.Err() != nil {
+		return model.Value{}, fault.New(fault.Denied, "provider_cancelled")
+	}
 	return value, err
 }
 
