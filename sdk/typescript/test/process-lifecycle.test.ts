@@ -121,6 +121,25 @@ test("local client safely maps synthetic child lifecycle outcomes", async t => {
       await assert.rejects(client.providers(), category(sdk, "protocol"));
     });
 
+    await t.test("rejects native JSON whose decoded UTF-8 size exceeds the response limit", async () => {
+      const client = await createClient(sdk, harness);
+      const limit = 1024 * 1024;
+      const bytes = Buffer.concat([
+        Buffer.from('"'),
+        Buffer.alloc(Math.floor(limit / 3) + 1, 0xff),
+        Buffer.from('"')
+      ]);
+      const decoded = bytes.toString("utf8");
+      assert.ok(bytes.length < limit);
+      assert.ok(Buffer.byteLength(decoded) > limit);
+      assert.equal(typeof JSON.parse(decoded), "string");
+      harness.enqueue(child => queueMicrotask(() => {
+        child.stdout.emit("data", bytes);
+        child.emit("close", 0);
+      }));
+      await assert.rejects(client.providers(), category(sdk, "protocol"));
+    });
+
     await t.test("accepts split UTF-8 at the exact captured-output byte limit", async () => {
       const client = await createClient(sdk, harness);
       const expected = { value: "é" };
