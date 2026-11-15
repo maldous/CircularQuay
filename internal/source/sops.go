@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/maldous/CircularQuay/internal/fault"
+	"github.com/maldous/CircularQuay/internal/jsondocument"
 	"github.com/maldous/CircularQuay/internal/model"
 	"github.com/maldous/CircularQuay/internal/platform"
 )
@@ -151,13 +152,16 @@ type sopsMetadata struct {
 }
 
 func validateSOPSMetadata(data []byte, config model.Source, transit bool) error {
-	var document struct {
-		SOPS sopsMetadata `json:"sops"`
-	}
-	if err := json.Unmarshal(data, &document); err != nil || document.SOPS.MAC == "" {
+	// SOPS owns the document schema, but ambiguous JSON must not select which
+	// recipient policy is inspected before any helper or identity access.
+	var document map[string]json.RawMessage
+	if err := jsondocument.Decode(data, &document); err != nil {
 		return fault.New(fault.Invalid, "SOPS metadata required")
 	}
-	m := document.SOPS
+	var m sopsMetadata
+	if err := json.Unmarshal(document["sops"], &m); err != nil || m.MAC == "" {
+		return fault.New(fault.Invalid, "SOPS metadata required")
+	}
 	if hasUnsupportedSOPSRecipients(m) {
 		return fault.New(fault.Unsupported, "SOPS recipient backend")
 	}
