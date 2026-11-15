@@ -22,6 +22,10 @@ belong in [RELEASE.md](../RELEASE.md). See the primary
 [Entra API permission reference](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-protected-web-api-expose-scopes),
 and [Okta authorization-server reference](https://developer.okta.com/docs/concepts/auth-servers/).
 
+For a revision-bound map of implemented token profiles, verifier/DPoP/MCP
+source and tests, external integration obligations and retained evidence, see
+[identity support and evidence](identity-support.md).
+
 ## Application and administration entry points
 
 CLI, official SDK, agent/plugin and optional MCP callers retain their own
