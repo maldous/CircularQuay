@@ -34,6 +34,9 @@ const (
 // Read resolves one string field, after inspecting online key metadata before a
 // token is supplied. Transit sources cannot silently use an offline recipient.
 func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.Binding) (model.Value, error) {
+	if ctx.Err() != nil {
+		return model.Value{}, fault.New(fault.Denied, "provider_cancelled")
+	}
 	if err := validateVersionCapability(config, binding); err != nil {
 		return model.Value{}, err
 	}
@@ -85,6 +88,9 @@ func selectedField(binding model.Binding) string {
 // EncryptSnapshot writes a static value map using only the declared age recipients.
 // Eligibility and generation completeness are enforced by the policy/resolver.
 func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[string]string) error {
+	if ctx.Err() != nil {
+		return fault.New(fault.Denied, "provider_cancelled")
+	}
 	if len(config.Recipients) == 0 {
 		return fault.New(fault.Invalid, "snapshot recipients required")
 	}
@@ -113,6 +119,9 @@ func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[stri
 
 // DecryptSnapshot reads an age-only snapshot, with no implicit token/key discovery.
 func DecryptSnapshot(ctx context.Context, config model.Snapshot) (map[string]string, error) {
+	if ctx.Err() != nil {
+		return nil, fault.New(fault.Denied, "provider_cancelled")
+	}
 	data, err := platform.ReadProtected(config.Path, true)
 	if err != nil {
 		return nil, err
@@ -245,6 +254,11 @@ func (b *cappedBuffer) Write(data []byte) (int, error) {
 func (b *cappedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
 func runSOPS(ctx context.Context, executable string, args []string, input []byte, ageFile, tokenFile string, allowlist []string) ([]byte, error) {
+	// Cancellation must fence helper and credential preparation, not only the
+	// eventual child process start performed by CommandContext.
+	if ctx.Err() != nil {
+		return nil, fault.New(fault.Denied, "provider_cancelled")
+	}
 	if !filepath.IsAbs(executable) {
 		return nil, fault.New(fault.Unsupported, "absolute SOPS executable required")
 	}
