@@ -275,6 +275,101 @@ is not a running service or a production acceptance result; consult the
 
 Basic offline installation and synthetic local auditing require no external secret-provider account. OpenBao and SonarQube can run on the operator's own infrastructure without a SaaS subscription. Do not modify an unrelated operational host to satisfy an audit kernel setting or resource requirement; use an isolated machine with the documented prerequisites.
 
+### Configured-integration readiness and first run
+
+Use one readiness contract for the integrations actually enabled and applicable
+to the selected configuration, workload and operation. The
+[integration inventory](docs/integrations.md), [provider profiles](docs/providers.md)
+and [first-run acceptance](docs/implementation-plan.md#established-baseline-and-first-run-acceptance)
+define the required behavior. Installed dependencies, a provider-schema branch,
+an available vendor service or a paid plan do not enable an integration or prove
+entitlement. Disabled optional integrations must not become startup dependencies;
+unsupported required capabilities must block the affected operation.
+
+This is a release acceptance procedure, not an implemented universal startup
+command. Current `init` creates a synthetic local policy and fixture; it does
+not authenticate a user, provision profile/key associations or enroll a provider.
+`doctor` checks local declarations, executable availability and protected-file
+metadata without invoking providers or reading credential contents. Neither
+result proves live identity, custody, authorization or recovery. Consult the
+exact candidate's [qualification record](docs/qualification.md) before use.
+
+For each selected integration, retain the following in the existing protected
+operator/qualification records. Public evidence contains only safe metadata;
+configuration, source credentials and protected references stay client-owned.
+
+| Readiness field | Required operator binding and acceptance |
+| --- | --- |
+| Applicability and enablement | Selected configuration revision, workload/operation, effective setting, precedence and locks; distinguish enabled, explicitly disabled and not applicable with rationale. Unknown applicability is unresolved. |
+| Implementation and versions | Exact source/tree, executable or service artifact digest, schema, adapter/SDK/tool/API versions and supported capability. A provider read, key operation, authentication exchange and publication are separate capabilities. |
+| Identity and resource | Exact provider instance/account/tenant/project, region/origin, issuer/audience/client/workload identity, resource and version, scoped grants and required audit destination. Keep sensitive identifiers in protected records. |
+| Construction and prerequisites | When the affected client is constructed, which local tools/trust roots and protected authentication references it needs, and which checks can run without network or credential-content access. Validate declarations and opt-outs before affected client construction or network work. |
+| Authority and consent | Accountable resource owner, actual enrollment/provisioning grant, entitlement and consent for the specific data flow. A successful authentication does not authorize resource creation, secret reads, billing or production activation. |
+| Lifecycle and limits | Finite startup/request/shutdown deadlines, retry attempts/backoff and total budget, cancellation, expiry/refresh, offline behavior, disable/revocation and cleanup. Record unsupported behavior explicitly rather than inheriting an SDK default. |
+| Evidence and disposition | Exact synthetic contract/denial/fault receipts, separately authorized live-profile receipts, failures/unknown outcomes, recovery owner and next action. Configured, locally validated, deployed and independently verified remain separate states. |
+
+Apply this contract to every selected boundary, including integrations outside
+the secret-source registry:
+
+| Boundary | Prerequisites, authority and disable/cleanup responsibility |
+| --- | --- |
+| Native source providers | Cover all fourteen source-schema branches through the [provider contracts](docs/providers.md), selecting only those used by the operation. Bind exact authentication/resource/version and upstream native crypto behavior; no ambient developer-login fallback. The source owner supplies scoped authentication and handles native lease/session cleanup. Read authority grants no write/export authority. |
+| Identity and enterprise/workload federation | Pin issuer, audience, client, trust roots, claim/grant mapping and freshness; qualify the selected OIDC, SCIM or SPIFFE/SPIRE profile separately. The identity administrator owns registration/revocation. Disabling an integration must not silently replace required identity with local or broader authority. |
+| Repository discovery and signing | Approve repository, immutable revision/tree/path, signer/trust policy, verifier executable and scoped read identity before retrieval. Discovery is not authority. The repository/signing owner handles grants and temporary verification state; disabling discovery cannot bypass required signature checks. |
+| AGE/KMS and hosted key service | Resolve hosted CLI/configuration opt-outs and locks before registration, authentication-client construction or affected network access. Enrollment needs its own authority and must reconcile both crypto and age associations before readiness. Key owners retain independent grants, key/context/version, windows, revocation and encrypted recovery; disabling future access cannot recall copied keys/plaintext. See [managed enrollment](#optional-managed-key-service-enrollment). |
+| OTLP metrics, traces and diagnostics | Use explicit per-signal settings, protected collector authentication/trust and finite export/queue/shutdown budgets from [operational configuration](docs/operational-configuration.md). The telemetry owner controls consent, destination and retention. Disable the object with `{"enabled": false}` and no endpoint/options; metrics opt-out alone neither enables nor prohibits other integration traffic. Required audit remains independent. |
+| Update awareness | Select the update policy, authenticated feed/trust and bounded schedule/request behavior separately. The installation owner controls checking and removal; awareness does not authorize downloading or installing an update. An absent update object makes no feed connection. |
+| SDK and MCP clients | Bind installed native/SDK/client versions, transport, catalog, authentication, operation/disclosure grants and cancellation/shutdown behavior. The client owner verifies installation/reload/removal and withdraws only its scoped grants; a skill or catalog entry does not supply permission. |
+| Hosting and support services | Select the actual application/environment, tenant/storage separation, entitlement, consent and narrow support/sender route below. Platform administration, application identity and key access are separate. Their owners reconcile delivery/deployment outcomes and remove only approved resources/settings/grants; no automatic diagnostic attachment or configuration upload. |
+
+The first-run sequence to implement and qualify is:
+
+1. Resolve trusted configuration, enrolled discovery or manual fallback on the
+   client. Validate the configured set and effective locks/precedence without
+   probing vendors or inspecting operational credential contents. Reject invalid,
+   untrusted or unsupported required declarations before affected upstream work.
+2. Apply early per-integration opt-outs before constructing the affected client
+   or making its network call. For enabled applicable integrations, check local
+   prerequisites, then authenticate only through the selected native profile.
+   Missing authority/consent is a blocked prerequisite, never a prompt to acquire
+   a new account or use another credential chain implicitly.
+3. Provision only under an explicit resource grant. Reconcile one logical
+   enrollment and its existing resources across concurrency, retries and partial
+   or uncertain responses; do not create replacement associations or duplicate
+   billing events because a reply was lost. Keep readiness pending until every
+   required association, grant and audit prerequisite is verified.
+4. Bound requests, retries and shutdown, honoring cancellation before dispatch
+   and before value release. Do not retry denial, trust/version mismatch,
+   malformed responses or cancellation as availability failures. Preserve the
+   original uncertain effect and reconcile it before retrying a mutation.
+   Online-only fails closed; hybrid requires its separately approved complete
+   snapshot/window and positively classified availability failure.
+5. Exercise disable, revocation, restart and recovery for the same profile.
+   Stop new affected work, bound in-flight cleanup, revoke only the selected
+   grants and dispose of owned temporary state under its retention policy.
+   Preserve required audit, recovery material and uncertain operations; a UI
+   toggle or local file removal is not provider-side revocation or deletion.
+
+Use the existing [WireMock process suite](docs/integration-testing.md#synthetic-wiremock-process-profile)
+for its synthetic OpenBao KV v2 scope and the
+[cloud validation matrix](docs/integrations/cloud-provider-validation.md) for
+provider-specific local contracts. LocalStack profiles remain separately gated;
+Azurite tests storage, not Key Vault; Google/Firebase emulators do not establish
+Secret Manager support. Netlify/Cloudflare developer environments test their
+selected hosting boundaries, not live key custody or account entitlement.
+Keycloak/OpenBao fixtures and SPIFFE/SPIRE plans do not establish an executed
+identity environment. Preserve these distinctions and the exact existing
+receipts rather than rerunning accepted validation or treating a different
+edition/account/capability as qualified.
+
+Retain source-bound success, denial-before-contact, wrong identity/version,
+timeout/fault/cancellation, opt-out-before-contact, partial-enrollment and
+disable/recovery receipts for each applicable implemented boundary. Separately
+authorized live acceptance must bind the selected profile's identity, custody,
+audit, version and recovery evidence. Missing implementation, permission or
+required validation remains blocked/unqualified; this checklist grants no live
+connection, operational credential read, provisioning, purchase or deployment.
+
 ### Product go-live and commercialization: service provisioning
 
 This same release/operator document owns the product go-live and
