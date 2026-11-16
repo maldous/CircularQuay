@@ -37,6 +37,18 @@ Report exact changed paths, purpose, checks and their scope, unresolved gates,
 and the owner handoff/next action. Do not claim runtime verification from a
 source or documentation check.
 
+## Task tooling and environment verification
+
+Use the [environment capability guidance](docs/agent-onboarding.md#environment-capabilities-and-white-room-verification)
+when selecting or recovering an executor. Verify installed files, current skill
+discovery, authenticated scope, safe invocation and actual execution separately
+for each environment. Use the verified repository-docs-review workflow for
+documentation and Impeccable for applicable frontend work; retain CQ's approved
+visual brief. Context7, provider, language/style and security skills are
+operation-specific tools, not product prerequisites or permission grants.
+Report missing or stale capabilities without inventing global availability,
+copying shared tools into product dependencies or adding blanket delivery gates.
+
 ## Product checkout and bootstrap branch
 
 This repository contains the CircularQuay product and its product-specific
