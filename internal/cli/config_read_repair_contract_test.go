@@ -26,26 +26,33 @@ func TestConfigReadFailuresPreserveOriginalBytesAndDoNotCreateMutationState(t *t
 		{"invalid declaration", []byte(`{"version":1,"sources":{},"workloads":{}}`), 2, "invalid_policy"},
 	}
 	for _, scenario := range cases {
-		for _, command := range []string{"get", "list"} {
-			t.Run(scenario.name+" "+command, func(t *testing.T) {
-				path := filepath.Join(privateCLIDirectory(t), "policy.json")
-				if scenario.data != nil {
-					writeProtectedFixture(t, path, scenario.data)
-				}
-				var output, diagnostics bytes.Buffer
-				runner := Runner{Out: &output, Err: &diagnostics}
-				code := runner.Run(context.Background(), []string{"--config", path, "config", command, "--pointer", ""})
-				assertConfigMutationRefused(t, code, &output, &diagnostics, scenario.code, scenario.category, "SYNTHETIC_CONFIG_PRIVATE")
-				assertRawConfigPreserved(t, path, scenario.data)
-				if _, err := os.Stat(filepath.Join(filepath.Dir(path), ".cq-config-lock")); !os.IsNotExist(err) {
-					t.Fatalf("refused read created mutation state: %v", err)
-				}
-			})
-		}
+		t.Run(scenario.name, func(t *testing.T) {
+			assertConfigReadFailure(t, scenario.data, scenario.code, scenario.category)
+		})
 	}
 }
 
-func TestConfigSetConsumesProtectedValueFileWithoutRetrievingProviderValue(t *testing.T) {
+func assertConfigReadFailure(t *testing.T, data []byte, expectedCode int, category string) {
+	t.Helper()
+	for _, command := range []string{"get", "list"} {
+		t.Run(command, func(t *testing.T) {
+			path := filepath.Join(privateCLIDirectory(t), "policy.json")
+			if data != nil {
+				writeProtectedFixture(t, path, data)
+			}
+			var output, diagnostics bytes.Buffer
+			runner := Runner{Out: &output, Err: &diagnostics}
+			code := runner.Run(context.Background(), []string{"--config", path, "config", command, "--pointer", ""})
+			assertConfigMutationRefused(t, code, &output, &diagnostics, expectedCode, category, "SYNTHETIC_CONFIG_PRIVATE")
+			assertRawConfigPreserved(t, path, data)
+			if _, err := os.Stat(filepath.Join(filepath.Dir(path), ".cq-config-lock")); !os.IsNotExist(err) {
+				t.Fatalf("refused read created mutation state: %v", err)
+			}
+		})
+	}
+}
+
+func TestConfigSetCommitsSelectedProtectedValueFileAndReceipt(t *testing.T) {
 	path := configFixture(t)
 	valuePath := filepath.Join(filepath.Dir(path), "value.json")
 	writeProtectedFixture(t, valuePath, []byte(`"from-protected-file.json"`))
