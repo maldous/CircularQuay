@@ -22,15 +22,20 @@ func TestConfigOrdinaryMutationCannotImplicitlyCreateOrRepairAnUnreadablePolicy(
 	}
 	for _, scenario := range cases {
 		t.Run(scenario.name, func(t *testing.T) {
-			for _, command := range []string{"set", "delete"} {
-				t.Run(command, func(t *testing.T) {
-					args := []string{command, "--pointer", "/sources/fixture/path"}
-					if command == "set" {
-						args = append(args, "--value-json", `"SYNTHETIC_MUTATION_PRIVATE.json"`)
-					}
-					assertUnreadableConfigMutationRefused(t, scenario.data, args, nil, scenario.code, scenario.category)
-				})
+			assertOrdinaryConfigMutationCommandsRefused(t, scenario.data, scenario.code, scenario.category)
+		})
+	}
+}
+
+func assertOrdinaryConfigMutationCommandsRefused(t *testing.T, original []byte, code int, category string) {
+	t.Helper()
+	for _, command := range []string{"set", "delete"} {
+		t.Run(command, func(t *testing.T) {
+			args := []string{command, "--pointer", "/sources/fixture/path"}
+			if command == "set" {
+				args = append(args, "--value-json", `"SYNTHETIC_MUTATION_PRIVATE.json"`)
 			}
+			assertUnreadableConfigMutationRefused(t, original, args, nil, code, category)
 		})
 	}
 }
