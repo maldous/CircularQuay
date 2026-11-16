@@ -227,7 +227,9 @@ func contains(values []string, wanted string) bool {
 
 func decodeStrings(data []byte) (map[string]string, error) {
 	var values map[string]string
-	if len(data) > platform.MaxDocumentSize || json.Unmarshal(data, &values) != nil || values == nil {
+	// Decrypted output is still untrusted input. Do not let duplicate names
+	// replace a snapshot envelope or coerce null/invalid UTF-8 into strings.
+	if len(data) > platform.MaxDocumentSize || jsondocument.Decode(data, &values) != nil || values == nil {
 		return nil, fault.New(fault.Invalid, "string document required")
 	}
 	for key, value := range values {
