@@ -31,6 +31,9 @@ jobs:
           go-version: '1.27.4'
           cache: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        id: analyzer-python
+        with: { python-version: '3.14.3', check-latest: false }
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: '3.14', check-latest: true }
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -41,6 +44,8 @@ jobs:
           distribution: temurin
           java-version: '21.0.13+9'
       - name: Produce fresh isolated Sonar evidence
+        env:
+          CQ_ANALYZER_PYTHON: ${{ steps.analyzer-python.outputs.python-path }}
         shell: bash
         run: |
           # SonarQube's Linux prerequisite reference for the pinned server:
@@ -58,7 +63,7 @@ jobs:
           export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
 
           compose_project="cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml)
+          compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml -f "$state/analyzer-override.json")
           compose_start_attempted=0
           startup_diagnostics_collected=0
           collect_startup_diagnostics() {
@@ -179,6 +184,20 @@ jobs:
 
           go build -p 1 -trimpath -o "$root/cq-audit" ./cmd/cq-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
           "$root/cq-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+          # Build public pinned source in this job; never export a Foo-built JAR.
+          bash tools/build-sonar-python.sh "$root/analyzer-build" "$evidence" "$CQ_ANALYZER_PYTHON" || fatal "analyzer-source-build-failed"
+          # JSON is YAML-compatible. Replace only the exact bundled Python JAR,
+          # using the pre-start read-only mount from the retained runtime proof.
+          python - "$root/analyzer-build/analyzer.jar" "$state/analyzer-override.json" <<'PYTHON'
+          import json, sys
+          source, output = sys.argv[1:]
+          with open(output, 'w', encoding='utf-8') as stream:
+              json.dump({'services': {'sonarqube': {'volumes': [{
+                  'type': 'bind', 'source': source,
+                  'target': '/opt/sonarqube/lib/extensions/sonar-python-plugin-5.32.0.37250.jar',
+                  'read_only': True}]}}}, stream)
+          PYTHON
+          sha256sum "$state/analyzer-override.json" >"$evidence/analyzer-overlay.sha256"
           compose_start_attempted=1
           timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
           timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
@@ -194,6 +213,11 @@ jobs:
             ($bindings | type == "array" and length == 1 and
              .[0].HostIp == "127.0.0.1" and .[0].HostPort == $port)
           ' "$evidence/sonarqube-port-inspect.json" >/dev/null || fatal "sonarqube-port-inspect-not-requested-loopback"
+          analyzer_sha="$(awk 'NR == 1 {print $1}' "$evidence/analyzer-jar.sha256")"
+          [[ "$analyzer_sha" =~ ^[0-9a-f]{64}$ ]] || fatal "built-analyzer-digest-invalid"
+          timeout 20s "${compose[@]}" exec -T sonarqube sha256sum /opt/sonarqube/lib/extensions/sonar-python-plugin-5.32.0.37250.jar >"$evidence/server-python-analyzer.sha256" 2>&1 || fatal "server-analyzer-digest-unavailable"
+          server_analyzer_sha="$(awk 'NR == 1 {print $1}' "$evidence/server-python-analyzer.sha256")"
+          test "$server_analyzer_sha" = "$analyzer_sha" || fatal "server-analyzer-digest-mismatch"
           timeout 20s "${compose[@]}" exec -T sonarqube cat /proc/1/limits >"$evidence/sonarqube-process-limits.txt" 2>&1 || fatal "sonarqube-process-limits-unavailable"
           read -r sonar_nofile_soft sonar_nofile_hard < <(awk '$1 == "Max" && $2 == "open" && $3 == "files" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
           test -n "${sonar_nofile_soft:-}" && test -n "${sonar_nofile_hard:-}" || fatal "sonarqube-nofile-limits-missing"
@@ -353,7 +377,7 @@ jobs:
             # Community Build has no branch or PR analysis. Scanner CLI can
             # auto-detect GitHub PR parameters, so run it with a deliberately
             # minimal environment while retaining the explicit revision fence.
-            env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_TOKEN="$sonar_token" "$scanner" \
+            env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_USER_HOME="$root/scanner-cache" SONAR_TOKEN="$sonar_token" "$scanner" \
               -Dsonar.host.url="http://127.0.0.1:${sonar_port}" \
               -Dsonar.projectKey=cq \
               -Dsonar.scm.revision="$GITHUB_SHA" \
@@ -370,6 +394,41 @@ jobs:
             fail "scanner-prerequisite-missing"
           fi
           printf 'scanner_exit=%s\n' "$scanner_status" >"$evidence/scanner-status.txt"
+          # Check the exact analyzer bytes actually downloaded by this scanner.
+          # A matching version label alone is not an artifact identity binding.
+          python - "$root/scanner-cache" "$analyzer_sha" "$evidence/scanner-python-analyzer.json" <<'PYTHON' || fail "scanner-analyzer-digest-contract"
+          import hashlib, json, pathlib, sys, zipfile
+          root, expected, output = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          if not root.is_dir() or root.is_symlink():
+              raise SystemExit("scanner cache unavailable")
+          found = []
+          entries = 0
+          for path in root.rglob('*'):
+              entries += 1
+              if entries > 2000 or path.is_symlink():
+                  raise SystemExit("scanner cache shape exceeds contract")
+              if not path.is_file() or path.suffix != '.jar':
+                  continue
+              if path.stat().st_size > 200000000:
+                  raise SystemExit("scanner JAR exceeds contract")
+              with zipfile.ZipFile(path) as archive:
+                  try:
+                      info = archive.getinfo('META-INF/MANIFEST.MF')
+                  except KeyError:
+                      continue
+                  if info.file_size > 65536:
+                      raise SystemExit("scanner manifest exceeds contract")
+                  manifest = archive.read(info).decode('utf-8').replace('\r\n ', '').splitlines()
+              if 'Plugin-Key: python' not in manifest:
+                  continue
+              with path.open('rb') as stream:
+                  digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+              found.append({'path': str(path.relative_to(root)), 'sha256': digest})
+          if len(found) != 1 or found[0]['sha256'] != expected:
+              raise SystemExit("cached Python analyzer absent, ambiguous or mismatched")
+          with open(output, 'w', encoding='utf-8') as stream:
+              json.dump({'expected_sha256': expected, 'scanner_cached_python_analyzers': found}, stream)
+          PYTHON
           scanner_warnings="$(grep -Eic '(^|[^[:alpha:]])WARN([^[:alpha:]]|$)' "$evidence/scanner.log" 2>/dev/null || true)"
           printf 'scanner_warning_lines=%s\n' "$scanner_warnings" >"$evidence/scanner-warnings.txt"
           (( scanner_warnings == 0 )) || fail "scanner-warnings:$scanner_warnings"
@@ -409,6 +468,8 @@ jobs:
             request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
             analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_fail "analysis-id-invalid"
             jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_fail "ce-task-contract"
+            request installed-plugins '/api/plugins/installed'
+            jq -e '[.plugins[] | select(.key == "python")] | length == 1 and .[0].version == "5.33-SNAPSHOT"' "$evidence/installed-plugins.json" >/dev/null 2>&1 || readback_fail "loaded-python-analyzer-contract"
             request current-analysis '/api/project_analyses/search?project=cq&ps=100'
             jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_fail "current-analysis-revision-or-id"
             request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
@@ -551,3 +612,4 @@ jobs:
           path: ${{ env.CQ_SONAR_EVIDENCE }}
           if-no-files-found: error
           retention-days: 14
+
