@@ -21,9 +21,18 @@ func (a application) checkUpdates(ctx context.Context, command string, config *m
 	if !shouldCheckUpdates(command, config, interactiveTerminal(a.runner.In, a.runner.Err)) {
 		return nil
 	}
+	return a.checkUpdateNotice(ctx, config)
+}
+
+// checkUpdateNotice runs only after startup notice eligibility is established.
+func (a application) checkUpdateNotice(ctx context.Context, config *model.Updates) error {
 	store, err := a.store()
 	if err != nil {
-		return err
+		// An unavailable advisory cache must not prevent command dispatch.
+		// Explicit update inspection and workload access retain their own
+		// state admission checks; this path neither reads nor migrates state.
+		_, _ = fmt.Fprintln(a.runner.Err, "CircularQuay could not check for updates; continuing.")
+		return nil
 	}
 	result, err := update.Check(ctx, config, update.Options{Version: a.version(), StateDirectory: store.Directory})
 	if err != nil {
