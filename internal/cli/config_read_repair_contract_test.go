@@ -23,7 +23,7 @@ func TestConfigReadFailuresPreserveOriginalBytesAndDoNotCreateMutationState(t *t
 		{"missing", nil, 1, "missing_value"},
 		{"oversized valid JSON", oversized, 2, "invalid_policy"},
 		{"malformed JSON", []byte(`{"SYNTHETIC_CONFIG_PRIVATE":`), 2, "invalid_policy"},
-		{"invalid declaration", []byte(`{"version":1,"sources":{},"workloads":{}}`), 2, "invalid_policy"},
+		{"invalid typed declaration", []byte(`{"version":"SYNTHETIC_CONFIG_PRIVATE","sources":{},"workloads":{}}`), 2, "invalid_policy"},
 	}
 	for _, scenario := range cases {
 		t.Run(scenario.name, func(t *testing.T) {
