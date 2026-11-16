@@ -30,22 +30,30 @@ func TestVerifyRejectsNoncanonicalSignatureFields(t *testing.T) {
 	valid := signed(t, claimsFor(input), private, "key-1", nil)
 	for _, field := range []string{"protected", "signature"} {
 		t.Run(field, func(t *testing.T) {
-			var env envelope
-			if err := json.Unmarshal(valid, &env); err != nil {
-				t.Fatal(err)
-			}
-			if field == "protected" {
-				env.Signatures[0].Protected = "="
-			} else {
-				env.Signatures[0].Signature = "="
-			}
-			raw, err := json.Marshal(env)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertBoundaryRefusal(t, raw, input, fault.Invalid)
+			assertBoundaryRefusal(t, noncanonicalSignatureField(t, valid, field), input, fault.Invalid)
 		})
 	}
+}
+
+func noncanonicalSignatureField(t *testing.T, raw []byte, field string) []byte {
+	t.Helper()
+	var env envelope
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	switch field {
+	case "protected":
+		env.Signatures[0].Protected = "="
+	case "signature":
+		env.Signatures[0].Signature = "="
+	default:
+		t.Fatalf("unsupported signature fixture field: %s", field)
+	}
+	changed, err := json.Marshal(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return changed
 }
 
 func TestVerifyRejectsInvalidEnrolledKeyMetadata(t *testing.T) {
