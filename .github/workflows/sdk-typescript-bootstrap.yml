@@ -1,0 +1,223 @@
+name: Bootstrap TypeScript SDK qualification
+
+# The ordinary SDK workflow targets develop/main/release. This disjoint event
+# route qualifies the established TypeScript matrix during the PR1 bootstrap
+# exception without retargeting a PR or rerunning Go/Python SDK families.
+# Job body below is byte-identical to sdk.yml:typescript at the selected source.
+on:
+  pull_request:
+    branches: ['feature/initial-implementation']
+    paths:
+      - 'sdk/typescript/**'
+      - 'sdk/conformance/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/sdk.yml'
+      - '.github/workflows/sdk-typescript-bootstrap.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-typescript-bootstrap-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript SDK (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, windows-2025]
+        node: ['22.23.4', '24.22.2', '26.13.0']
+    env:
+      GOMAXPROCS: '2'
+      GOFLAGS: '-mod=readonly -p=1'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Produce and compare npm lock closure
+        id: npm_lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          evidence="$RUNNER_TEMP/cq-sdk-lock"
+          stage="$evidence/stage"
+          max_manifest_bytes=262144
+          max_lock_bytes=4194304
+          require_bounded_file() {
+            test -f "$1"
+            test "$(wc -c < "$1")" -le "$2"
+          }
+          mkdir -m 0700 "$evidence" "$stage"
+          trap 'rm -rf "$stage"' EXIT
+          require_bounded_file sdk/typescript/package.json "$max_manifest_bytes"
+          cp sdk/typescript/package.json "$stage/package.json"
+          if test -f sdk/typescript/package-lock.json; then
+            require_bounded_file sdk/typescript/package-lock.json "$max_lock_bytes"
+            cp sdk/typescript/package-lock.json "$stage/package-lock.json"
+            cp sdk/typescript/package-lock.json "$evidence/reviewed-package-lock.json"
+            reviewed=true
+          else
+            reviewed=false
+          fi
+          {
+            printf 'revision=%s\n' "$GITHUB_SHA"
+            printf 'tree=%s\n' "$(git rev-parse "${GITHUB_SHA}^{tree}")"
+            printf 'runner_os=%s\n' "$RUNNER_OS"
+            node --version
+            npm --version
+            sha256sum sdk/typescript/package.json
+            if test "$reviewed" = true; then sha256sum sdk/typescript/package-lock.json; fi
+          } > "$evidence/receipt.txt"
+          if ! (
+            cd "$stage"
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          ); then
+            printf 'producer=failed\n' >> "$evidence/receipt.txt"
+            echo 'status=producer_failed' >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          require_bounded_file "$stage/package-lock.json" "$max_lock_bytes"
+          cp "$stage/package-lock.json" "$evidence/generated-package-lock.json"
+          sha256sum "$evidence"/*package-lock.json > "$evidence/locks.sha256"
+          if test "$reviewed" = true && cmp -s sdk/typescript/package-lock.json "$stage/package-lock.json"; then
+            echo 'status=match' >> "$GITHUB_OUTPUT"
+            printf 'comparison=match\n' >> "$evidence/receipt.txt"
+          else
+            echo 'status=drift' >> "$GITHUB_OUTPUT"
+            printf 'comparison=drift\n' >> "$evidence/receipt.txt"
+          fi
+      - name: Upload npm lock evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typescript-lock-${{ matrix.os }}-node-${{ matrix.node }}
+          path: ${{ runner.temp }}/cq-sdk-lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: RequireReviewedLock
+        id: require_reviewed_lock
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test '${{ steps.npm_lock.outputs.status }}' = match
+          test -f sdk/typescript/package-lock.json
+      - name: Install TypeScript dependencies from the reviewed lock
+        id: npm_install
+        if: ${{ always() && steps.require_reviewed_lock.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cd sdk/typescript
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lint TypeScript SDK
+        id: typescript_lint
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run lint
+      - name: Typecheck TypeScript SDK
+        id: typescript_typecheck
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run typecheck
+      - name: Measure TypeScript SDK coverage
+        id: typescript_coverage
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run coverage
+      - name: Build TypeScript SDK
+        id: typescript_build
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: cd sdk/typescript && npm run build
+      - name: Verify TypeScript package contents
+        id: typescript_pack
+        if: ${{ always() && steps.typescript_build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm pack --json > "$RUNNER_TEMP/cq-sdk-pack.json"
+          test -f package-lock.json
+          tarball=$(node -e 'const fs=require("fs"); const v=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if (!Array.isArray(v) || v.length !== 1 || typeof v[0]?.filename !== "string") process.exit(1); process.stdout.write(v[0].filename)' "$RUNNER_TEMP/cq-sdk-pack.json")
+          test -f "$tarball"
+          pack_members="$RUNNER_TEMP/cq-sdk-pack-members.txt"
+          tar -tf "$tarball" > "$pack_members"
+          grep -Fxq 'package/dist/index.js' "$pack_members"
+          grep -Fxq 'package/dist/index.d.ts' "$pack_members"
+          grep -Fxq 'package/LICENSE' "$pack_members"
+      - name: Exercise the installed TypeScript local client against cq
+        if: ${{ always() && steps.typescript_pack.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cq_binary="$RUNNER_TEMP/cq-sdk-conformance"
+          if [ "$RUNNER_OS" = Windows ]; then cq_binary="$cq_binary.exe"; fi
+          go build -trimpath -o "$cq_binary" ./cmd/cq
+          cq_sha256=$(sha256sum --binary --zero "$cq_binary" | cut -c 1-64)
+          [[ "$cq_sha256" =~ ^[a-f0-9]{64}$ ]]
+          export CQ_EXECUTABLE="$cq_binary" CQ_EXECUTABLE_SHA256="$cq_sha256"
+          consumer=$(mktemp -d)
+          printf '{"name":"cq-sdk-consumer","private":true,"type":"module"}\n' > "$consumer/package.json"
+          tarball=$(find "$GITHUB_WORKSPACE/sdk/typescript" -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$tarball"
+          npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund --prefix "$consumer" "$tarball"
+          cat > "$consumer/conformance.mjs" <<'NODE'
+          import { LocalCLIClient } from "@maldous/cq-sdk";
+          import { mkdtemp, realpath } from "node:fs/promises";
+          import { tmpdir } from "node:os";
+          import { join } from "node:path";
+          const root = await realpath(await mkdtemp(join(tmpdir(), "cq-sdk-")));
+          const executablePath = await realpath(process.env.CQ_EXECUTABLE);
+          const client = await LocalCLIClient.create({ executablePath, expectedSHA256: process.env.CQ_EXECUTABLE_SHA256, configPath: join(root, "policy.json"), stateDirectory: join(root, "state"), environment: {} });
+          await client.configInit(join(root, "policy.json"));
+          await client.doctor();
+          await client.plan();
+          NODE
+          node "$consumer/conformance.mjs"
+      - name: Exercise the official MCP TypeScript client against synthetic cq
+        if: ${{ always() && steps.typescript_build.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.node == '24.22.2' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          root=$(mktemp -d)
+          binary="$RUNNER_TEMP/cq-sdk-mcp"
+          go build -trimpath -o "$binary" ./cmd/cq
+          config="$root/policy.json"
+          state="$root/state"
+          mkdir -m 0700 "$state"
+          "$binary" --config "$config" --state-dir "$state" config init --output "$config"
+          printf '%s\n' '{"audit_path":"mcp-audit.jsonl"}' | "$binary" --config "$config" config set --pointer /mcp --value-file -
+          identity=$("$binary" doctor --identity-only)
+          subject=$(printf '%s' "$identity" | python3 -c 'import json,sys; print(json.load(sys.stdin)["local_subject"])')
+          SUBJECT="$subject" python3 - <<'PY' | "$binary" --config "$config" config set --pointer /grants --value-file -
+          import json, os
+          print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
+          PY
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" node sdk/conformance/typescript-mcp.mjs
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" bash sdk/conformance/go-mcp.sh
+      - name: Audit every locked npm dependency
+        if: ${{ always() && steps.npm_install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sdk/typescript
+          npm audit --audit-level=low
