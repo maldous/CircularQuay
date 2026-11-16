@@ -32,15 +32,7 @@ func TestDefaultPublicationEndpointsPreserveSingleTargetScope(t *testing.T) {
 			calls := 0
 			client := &http.Client{Transport: deliveryRoundTrip(func(request *http.Request) (*http.Response, error) {
 				calls++
-				if request.Method != http.MethodPut || request.URL.Scheme != "https" || request.URL.Host != test.host || request.URL.Path != test.path {
-					t.Errorf("publication escaped the selected default target: %s %s", request.Method, request.URL)
-				}
-				if request.Header.Get("Authorization") != "Bearer synthetic-token" {
-					t.Error("publication omitted the explicit synthetic credential")
-				}
-				if test.kind == "netlify" && request.URL.Query().Get("site_id") != "site" {
-					t.Error("default Netlify endpoint lost the selected site")
-				}
+				assertDefaultPublicationRequest(t, request, test.kind, test.host, test.path)
 				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(test.body))}, nil
 			})}
 			target := model.Target{Type: test.kind, Account: "account", Resource: "script", Project: "site", Environment: "production", Path: "BUNDLE", TokenFile: deliveryToken(t), AcceptSnapshot: true}
@@ -48,6 +40,19 @@ func TestDefaultPublicationEndpointsPreserveSingleTargetScope(t *testing.T) {
 				t.Fatalf("default endpoint did not perform exactly one scoped publication: calls=%d err=%v", calls, err)
 			}
 		})
+	}
+}
+
+func assertDefaultPublicationRequest(t *testing.T, request *http.Request, kind, host, path string) {
+	t.Helper()
+	if request.Method != http.MethodPut || request.URL.Scheme != "https" || request.URL.Host != host || request.URL.Path != path {
+		t.Errorf("publication escaped the selected default target: %s %s", request.Method, request.URL)
+	}
+	if request.Header.Get("Authorization") != "Bearer synthetic-token" {
+		t.Error("publication omitted the explicit synthetic credential")
+	}
+	if kind == "netlify" && request.URL.Query().Get("site_id") != "site" {
+		t.Error("default Netlify endpoint lost the selected site")
 	}
 }
 
