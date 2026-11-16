@@ -3,6 +3,7 @@ package securitycontext
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -76,7 +77,7 @@ func TestVerifyRejectsInvalidSignedCapabilitySets(t *testing.T) {
 			case "absent":
 				claims.Capabilities = nil
 			case "over limit":
-				claims.Capabilities = make([]CapabilityEvidence, 33)
+				claims.Capabilities = boundaryCapabilities(33, capability)
 			case "malformed":
 				claims.Capabilities = []CapabilityEvidence{{}}
 			case "duplicate control":
@@ -85,6 +86,26 @@ func TestVerifyRejectsInvalidSignedCapabilitySets(t *testing.T) {
 			assertBoundaryRefusal(t, signed(t, claims, private, "key-1", nil), input, fault.Trust)
 		})
 	}
+}
+
+func TestVerifyAcceptsCapabilityCountLimit(t *testing.T) {
+	input, private := fixture(t)
+	claims := claimsFor(input)
+	capability := CapabilityEvidence{ImplementationID: "implementation", Version: "1", Platform: "synthetic", ExpiresAt: claims.ExpiresAt}
+	claims.Capabilities = boundaryCapabilities(32, capability)
+	verified, err := Verify(signed(t, claims, private, "key-1", nil), input)
+	if err != nil || !verified.Verified() {
+		t.Fatalf("valid capability set at the count limit was rejected: %v", err)
+	}
+}
+
+func boundaryCapabilities(count int, exemplar CapabilityEvidence) []CapabilityEvidence {
+	capabilities := make([]CapabilityEvidence, count)
+	for index := range capabilities {
+		capabilities[index] = exemplar
+		capabilities[index].ControlID = "control-" + strconv.Itoa(index)
+	}
+	return capabilities
 }
 
 func TestVerifyRejectsSkippedSuccessorSequence(t *testing.T) {
