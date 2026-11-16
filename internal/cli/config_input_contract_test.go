@@ -94,8 +94,13 @@ func (input *failingConfigInput) Read(destination []byte) (int, error) {
 	if input.delivered {
 		return 0, io.EOF
 	}
+	n := copy(destination, input.data)
+	input.data = input.data[n:]
+	if len(input.data) != 0 {
+		return n, nil
+	}
 	input.delivered = true
-	return copy(destination, input.data), errors.New("SYNTHETIC_CONFIG_INPUT read failure")
+	return n, errors.New("SYNTHETIC_CONFIG_INPUT read failure")
 }
 
 func assertConfigInputRefusal(t *testing.T, args []string, input io.Reader, code int, category string) {
