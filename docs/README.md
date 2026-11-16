@@ -47,6 +47,7 @@ verify it.
 ## Develop, verify and release
 
 - [Fast AI-agent orientation](agent-onboarding.md) and [repository instructions](../AGENTS.md)
+- [Documentation inventory, canonical references and gap dispositions](documentation-map.md)
 
 - [Integration testing locally and in CI](integration-testing.md)
 - [Testing and audit results](verification.md)
