@@ -596,11 +596,11 @@ async function hashRegularFile(path: string): Promise<string> {
 async function observe<T>(observer: Observer | undefined, action: Observation["action"], signal: AbortSignal | undefined, operation: () => Promise<T>): Promise<T> {
   const startedAt = Date.now();
   let outcome: Observation["outcome"] = "unavailable";
+  let result: T;
   try {
     if (signal?.aborted) throw new CqError("cancelled");
-    const result = await operation();
+    result = await operation();
     outcome = "success";
-    return result;
   } catch (error) {
     const safe = observationError(error, signal);
     outcome = safe.category;
@@ -608,6 +608,7 @@ async function observe<T>(observer: Observer | undefined, action: Observation["a
   } finally {
     if (observer !== undefined) try { await observer({ action, outcome, durationMs: Math.max(0, Date.now() - startedAt) }); } catch { /* observer failure cannot affect operation */ }
   }
+  return result;
 }
 function observationError(error: unknown, signal: AbortSignal | undefined): CqError {
   if (error instanceof CqError) return error;
