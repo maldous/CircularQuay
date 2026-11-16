@@ -23,6 +23,11 @@ func Apply(ctx context.Context, target model.Target, generation model.Generation
 
 // ApplyWithClient permits isolated transport contract tests.
 func ApplyWithClient(ctx context.Context, client *http.Client, t model.Target, g model.Generation) error {
+	// Cancellation must fence bundle and credential preparation, not only the
+	// eventual provider request.
+	if ctx.Err() != nil {
+		return fault.New(fault.Denied, "provider_cancelled")
+	}
 	if !t.AcceptSnapshot {
 		return fault.New(fault.Denied, "snapshot_publication")
 	}
