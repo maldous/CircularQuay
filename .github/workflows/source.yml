@@ -209,7 +209,15 @@ jobs:
         with:
           go-version: '1.27.4'
           cache: false
+      - name: Check bounded evidence retention contracts
+        shell: bash --noprofile --norc -eo pipefail {0}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 --version
+          python3 -B -m unittest discover -s .github/scripts/tests -p test_retain_audit_evidence.py
       - name: Run the actual source profile
+        id: source_audit
         shell: bash --noprofile --norc -eo pipefail {0}
         run: |
           set -euo pipefail
@@ -217,6 +225,7 @@ jobs:
           cq_audit_dir=''
           cq_audit_dir=$(mktemp -d "${HOME}/cq-source-audit.XXXXXX")
           chmod 0700 "$cq_audit_dir"
+          printf 'audit_dir=%s\n' "$cq_audit_dir" >> "$GITHUB_OUTPUT"
           cq_tool_dir="$cq_audit_dir/tools"
           cq_home_dir="$cq_audit_dir/home"
           cq_tmp_dir="$cq_audit_dir/tmp"
@@ -298,3 +307,30 @@ jobs:
             GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" \
             CQ_GOFMT="$CQ_GOFMT" CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" \
             "$cq_audit_dir/cq-audit" run --profile source --tool-manifest "$CQ_TOOL_MANIFEST" --go "$CQ_GO" --output "$cq_audit_dir/evidence"
+      - name: Retain bounded source audit evidence
+        id: retain_audit
+        if: ${{ always() && steps.source_audit.outputs.audit_dir != '' }}
+        shell: bash --noprofile --norc -eo pipefail {0}
+        env:
+          CQ_AUDIT_DIRECTORY: ${{ steps.source_audit.outputs.audit_dir }}
+        run: |
+          set -euo pipefail
+          umask 077
+          # A failed audit stays failed. This step only retains its bounded
+          # public-source evidence; it cannot manufacture a qualification pass.
+          python3 -B .github/scripts/retain_audit_evidence.py \
+            --source "$GITHUB_WORKSPACE" --audit "$CQ_AUDIT_DIRECTORY/evidence" \
+            --output "$RUNNER_TEMP/cq-source-evidence" --expected-commit "$GITHUB_SHA"
+          test -f "$RUNNER_TEMP/cq-source-evidence/coverage.out"
+          test -f "$RUNNER_TEMP/cq-source-evidence/metadata.json"
+          printf 'retained=true\n' >> "$GITHUB_OUTPUT"
+      - name: Upload bounded source audit evidence
+        if: ${{ always() && steps.retain_audit.outcome == 'success' && steps.retain_audit.outputs.retained == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: source-audit-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cq-source-evidence/coverage.out
+            ${{ runner.temp }}/cq-source-evidence/metadata.json
+          if-no-files-found: error
+          retention-days: 7
