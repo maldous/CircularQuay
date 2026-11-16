@@ -318,6 +318,40 @@ needs actual reachable provider/agent capability and explicit profile scope.
 No fleet-agent/admin command was verified in native source; no backend config
 broker, VPN proxy or live fleet action is authorized by this design.
 
+## Environment capabilities and White Room verification
+
+At startup, recovery or an executor change, verify the selected environment
+rather than replaying a historical readiness claim. Bind the check to the
+repository, commit/tree, task-owned paths and current publisher. Keep dirty
+source, an immutable snapshot and a published commit as distinct identities.
+Preserve existing work and reconcile original operations before any retry.
+
+For each relevant capability, record separately: readable installed files and
+their version/digest; discovery in this agent's current catalog or an explicit
+supported path; authenticated account/project scope; safe invocation; admitted
+resources; and the original execution receipt. Neither a skill file nor a
+successful identity read proves a build, deployment or test passed. Do not copy
+private configuration or credentials into diagnostics.
+
+| Capability | Selection and verification |
+| --- | --- |
+| Native Go | Use `go.mod` and the selected workflows' exact toolchain pins. Verify the executable/archive digest, dependency-lock identity, allowed acquisition route and task-private caches. An ambient `go version` is not the identity of an isolated runner. |
+| TypeScript and Python SDKs | Follow each SDK's package metadata, locks, scripts and workflow matrix. Verify the selected runtime and necessary installed dependencies. One interpreter or typecheck does not qualify the full matrix or installed artifacts. |
+| Repository documentation | Use the environment's verified `repository-docs-review` skill when available. If it is not in the catalog, read its actual installed `SKILL.md` through a supported path. Report a missing distribution narrowly and use Git tracked-file enumeration and scoped retrieval for independent work. Do not invent an installation or duplicate shared guidance inside product runtime dependencies. |
+| Frontend/design | For relevant UI work, use the verified Impeccable skill and preserve CQ's approved brief. Inspect the installed skill/launcher version and its supported invocation before using it; keep unsafe local-agent fallback disabled. Static detectors and a readable skill do not establish rendered accessibility or browser behavior. |
+| External library documentation | Use Context7 only when actually installed and available for the selected operation; otherwise consult authoritative upstream documentation. Do not send private project source to a new service or infer installation from a directory listing. |
+| Go/Python/TypeScript, style and security review | Select available language, formatter, testing and security skills for the actual changed boundary. Repository-pinned checks and product security invariants control; a skill supplies neither permissions nor a waiver. |
+| Cloudflare and Netlify | Relevant to the selected managed-service/hosting boundary, not mandatory for local product builds. Verify the connected identity and exact account/destination/operation scope. Inspect the applicable provider skill and repository configuration; MCP authentication does not establish CLI login, paid entitlement or deployment authority. |
+| CI and deterministic helpers | Verify the deployed helper/workflow hash, source-selection contract, exact profile, toolchain/dependency pins, resource/network policy and terminal receipt. A reviewed draft, installed host binary and deployed profile are different capabilities. A missing profile blocks only dependent operations. |
+
+Do not install, upgrade, copy shared tools, enable optional providers or change
+credentials/security settings as an incidental readiness check. Route authorized
+shared-tool recovery to its existing custodian and preserve product-local pins.
+Keep operational skills and disposable indexes outside shipped runtime
+dependencies so CQ remains independently buildable. Record environment-specific
+findings and actual adoption in the existing issue/handoff; do not hardcode
+transient machine versions or another project's defaults as product requirements.
+
 ## Set up and verify a bounded change
 
 Read [getting started](getting-started.md) for synthetic setup. Native source
@@ -329,10 +363,11 @@ runtimes, development dependencies, lock/provenance and scripts are defined in
 [SDK workflow](../.github/workflows/sdk.yml). Do not regenerate locks or install
 dependencies merely to orient yourself.
 
-[AGENTS.md](../AGENTS.md) preserves the shared Foo resource hold and BAU priority.
-While it applies, use read-only/source/static checks and owner-coordinated hosted
-evidence. Builds, dependency resolution, full test/audit runs and containers are
-not orientation steps. When the owner releases the hold for an isolated synthetic
+[AGENTS.md](../AGENTS.md) requires the selected executor's actual resource
+admission and current assignment restrictions. Preserve applicable shared-host
+holds and BAU priority; source publication does not release them. Builds,
+dependency resolution, tests, audits and containers are not orientation steps.
+When the exact operation is authorized and admitted for an isolated synthetic
 change, the documented native build is `go build -o ./cq ./cmd/cq`;
 a focused package test uses `go test ./internal/NAME` for the affected package,
 with the selected toolchain, protected temporary files and Unix `umask 077`.
