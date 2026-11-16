@@ -391,13 +391,13 @@ function sorted(values: readonly string[]): boolean {
   return true;
 }
 function isAbort(value: unknown): boolean { return typeof value === "object" && value !== null && (value as { name?: unknown }).name === "AbortError"; }
-function flags<T extends object>(input: T, names: Readonly<Partial<Record<keyof T, string>>>): string[] {
+// Flag names are complete module-owned declarations; caller values still need validation.
+function flags<T extends object>(input: T, names: Readonly<Record<keyof T, string>>): string[] {
   const result: string[] = [];
   for (const key of Object.keys(names) as (keyof T)[]) {
     const flag = names[key];
     const value = (input as Record<keyof T, unknown>)[key];
     if (value !== undefined) {
-      if (flag === undefined) continue;
       validateFlagValue(value);
       result.push(flag, value);
     }
@@ -631,8 +631,11 @@ function spawnOwned(executable: string, args: string[], environment: Readonly<Re
     writeInput(child, options.stdin);
   });
 }
+type ProcessFailure = "cancelled" | "protocol" | "process";
+
 class ProcessState {
-  #stdout = ""; #stderr = ""; #stdoutBytes = 0; #stderrBytes = 0; #overflow = false; #stdinFailure = false; #childFailure = false; #cancelled = false; #settled = false;
+  #stdout = ""; #stderr = ""; #stdoutBytes = 0; #stderrBytes = 0; #terminating = false; #settled = false;
+  #terminationReason: ProcessFailure = "process";
   readonly #stdoutDecoder = new StringDecoder("utf8");
   readonly #stderrDecoder = new StringDecoder("utf8");
   #killTimer: ReturnType<typeof setTimeout> | undefined; #fallbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -666,10 +669,10 @@ class ProcessState {
     }
     this.#stderr += decodeOutput(this.#stderrDecoder, chunk);
   }
-  cancel(child: ChildProcess): void { this.#cancelled = true; this.terminate(child); }
-  overflow(child: ChildProcess): void { this.#overflow = true; this.terminate(child); }
-  stdinError(child: ChildProcess): void { this.#stdinFailure = true; this.terminate(child); }
-  childError(child: ChildProcess): void { this.#childFailure = true; this.terminate(child); }
+  cancel(child: ChildProcess): void { this.terminate(child, "cancelled"); }
+  overflow(child: ChildProcess): void { this.terminate(child, "protocol"); }
+  stdinError(child: ChildProcess): void { this.terminate(child, "process"); }
+  childError(child: ChildProcess): void { this.terminate(child, "process"); }
   bindAbort(child: ChildProcess): void {
     this.#abortListener = () => { this.cancel(child); };
     this.#signal?.addEventListener("abort", this.#abortListener, { once: true });
@@ -680,11 +683,14 @@ class ProcessState {
     const result = { exitCode: code ?? 1, stdout: this.#stdout };
     this.finish(this.closeError(code, allowNonZero), result);
   }
-  terminate(child: ChildProcess): void {
+  private terminate(child: ChildProcess, reason: ProcessFailure): void {
+    this.#terminationReason = strongestProcessFailure(this.#terminationReason, reason);
+    this.#terminating = true;
     if (this.#settled || this.#killTimer !== undefined) return;
     try { child.kill("SIGTERM"); } catch { /* wait for close */ }
     this.#killTimer = setTimeout(() => { killChild(child, "SIGKILL"); }, 5000);
-    this.#fallbackTimer = setTimeout(() => { this.finish(this.terminalError() ?? new CqError("process"), { exitCode: 1, stdout: "" }); }, 6000);
+    // Entering termination requires a typed reason, so fallback cannot resolve success.
+    this.#fallbackTimer = setTimeout(() => { this.finish(new CqError(this.#terminationReason), { exitCode: 1, stdout: "" }); }, 6000);
   }
   finish(error: CqError | undefined, result: LocalResult): void {
     if (this.#settled) return;
@@ -706,11 +712,13 @@ class ProcessState {
   }
 
   private terminalError(): CqError | undefined {
-    if (this.#cancelled) return new CqError("cancelled");
-    if (this.#overflow) return new CqError("protocol");
-    if (this.#stdinFailure || this.#childFailure) return new CqError("process");
-    return undefined;
+    return this.#terminating ? new CqError(this.#terminationReason) : undefined;
   }
+}
+function strongestProcessFailure(current: ProcessFailure, next: ProcessFailure): ProcessFailure {
+  if (current === "cancelled" || next === "cancelled") return "cancelled";
+  if (current === "protocol" || next === "protocol") return "protocol";
+  return "process";
 }
 function bindProcessLifecycle(child: ChildProcess, state: ProcessState, options: LocalRunOptions): void {
   state.bindAbort(child);
