@@ -272,25 +272,27 @@ jobs:
               python_test_status=0
               PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
               (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
-              # Append only this helper's actual measured tests. Keep the SDK
+              # Append only these helpers' actual measured tests. Keep the SDK
               # data and its original source/branch denominator intact.
               cp "$evidence/python.coverage" "$state/sdk-python.coverage" || fail "python-metric-coverage-prior-unavailable"
               cat >"$state/sonar-metric.coveragerc" <<'METRIC_COVERAGE'
           [run]
           branch = True
           relative_files = True
-          include = .github/scripts/sonar_metric_contract.py
+          include =
+              .github/scripts/sonar_metric_contract.py
+              .github/scripts/sonar_coverage_contract.py
           METRIC_COVERAGE
               metric_test_status=0
-              "$python_tool" -m coverage run --append --rcfile "$state/sonar-metric.coveragerc" -m unittest discover -s .github/scripts/tests -p test_sonar_metric_contract.py -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
+              "$python_tool" -m coverage run --append --rcfile "$state/sonar-metric.coveragerc" -m unittest discover -s .github/scripts/tests -p 'test_sonar_*_contract.py' -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
               (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
               python_coverage_status=0
               "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
               (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
               # Use the pinned coverage tool's public read API, not fabricated
-              # counters. XML must retain the SDK files and the added helper.
+              # counters. XML must retain the SDK files and both measured helpers.
               "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
-          import os, pathlib, sys, xml.etree.ElementTree as ET
+          import os, pathlib, runpy, sys
           from coverage import CoverageData
           try:
               before, after = (CoverageData(basename=path) for path in sys.argv[1:3])
@@ -303,20 +305,26 @@ jobs:
                       raise ValueError("missing prior lines")
                   if not set(before.arcs(name) or ()) <= set(after.arcs(name) or ()):
                       raise ValueError("missing prior arcs")
-              helper = ".github/scripts/sonar_metric_contract.py"
-              if helper not in after.measured_files() or not after.lines(helper):
-                  raise ValueError("missing helper execution")
+              helpers = {".github/scripts/sonar_metric_contract.py", ".github/scripts/sonar_coverage_contract.py"}
+              for helper in helpers:
+                  if helper not in after.measured_files() or not after.lines(helper):
+                      raise ValueError("missing helper execution")
               with pathlib.Path(sys.argv[3]).open("rb") as stream:
                   raw = stream.read((16 << 20) + 1)
               if len(raw) > 16 << 20:
                   raise ValueError("oversize XML")
-              report = ET.fromstring(raw)
-              workspace = sys.argv[4]
-              sources = [workspace] + [os.path.join(workspace, item.text or "") for item in report.findall("./sources/source")]
-              reported = {os.path.normpath(os.path.join(source, item.get("filename", ""))) for source in sources for item in report.findall(".//class")}
-              required = {os.path.normpath(os.path.join(workspace, name)) for name in before.measured_files() | {helper}}
+              workspace = pathlib.Path(sys.argv[4]).resolve(strict=True)
+              if workspace != pathlib.Path.cwd().resolve():
+                  raise ValueError("checkout root mismatch")
+              contract = runpy.run_path(str(workspace / ".github/scripts/sonar_coverage_contract.py"))
+              updated = contract["with_repository_source"](raw, str(workspace))
+              reported = contract["resolved_file_paths"](updated, str(workspace))
+              required = {os.path.normpath(os.path.join(workspace, name)) for name in before.measured_files() | helpers}
               if not required <= reported:
                   raise ValueError("filtered XML")
+              # Insert only the explicit source element; never serialize class
+              # subtrees or modify measured lines, branches or totals.
+              pathlib.Path(sys.argv[3]).write_bytes(updated)
           except Exception:
               raise SystemExit("python-metric-coverage-preservation-invalid") from None
           METRIC_PRESERVATION
@@ -635,16 +643,34 @@ jobs:
           fi
           (( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
           jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
+          # Retain a bounded, safe call receipt, not raw stderr or API fields.
+          # This is an input snapshot, not a diagnosis of an earlier failure.
+          metric_input_bytes="$( { wc -c <"$evidence/metrics.json"; } 2>>"$state/metric-contract.stderr")"
+          metric_input_sha=""
+          if [[ "$metric_input_bytes" =~ ^[0-9]+$ ]] && (( metric_input_bytes > 0 && metric_input_bytes <= 65536 )); then
+            metric_input_sha="$( { sha256sum <"$evidence/metrics.json"; } 2>>"$state/metric-contract.stderr" | awk '{print $1}')"
+          fi
+          if [[ "$metric_input_sha" =~ ^[0-9a-f]{64}$ && "$metric_input_bytes" =~ ^[0-9]+$ ]]; then
+            printf 'input_sha256=%s\ninput_bytes=%s\n' "$metric_input_sha" "$metric_input_bytes" >"$evidence/metric-contract-outcome.txt"
+          else
+            printf 'input_metadata=unavailable\n' >"$evidence/metric-contract-outcome.txt"
+            fail "sonar-metric-input-metadata-unavailable"
+          fi
           metric_failures="$("$CQ_ANALYZER_PYTHON" .github/scripts/sonar_metric_contract.py "$evidence/metrics.json" 2>"$state/metric-contract.stderr")"
           metric_status=$?
+          printf 'metric_exit=%s\n' "$metric_status" >>"$evidence/metric-contract-outcome.txt"
           case "$metric_status" in
             0) test -z "$metric_failures" || fail "sonar-metric-contract-output-invalid" ;;
             1|2)
               test -n "$metric_failures" || fail "sonar-metric-contract-output-invalid"
               while IFS= read -r reason; do
                 case "$reason" in
-                  sonar-metric-evidence-invalid|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero) fail "$reason" ;;
-                  *) fail "sonar-metric-contract-output-invalid" ;;
+                  sonar-metric-evidence-invalid|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero)
+                    printf 'failure_code=%s\n' "$reason" >>"$evidence/metric-contract-outcome.txt"
+                    fail "$reason" ;;
+                  *)
+                    printf 'stdout=unallowlisted\n' >>"$evidence/metric-contract-outcome.txt"
+                    fail "sonar-metric-contract-output-invalid" ;;
                 esac
               done <<<"$metric_failures"
               ;;
