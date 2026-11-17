@@ -37,7 +37,8 @@ SETTINGS
 analyzer_preflight_stage interpreter-version
 # The original test uses stdout even if the probe exits nonzero. Keep that
 # predicate, while withholding arbitrary probe diagnostics and non-version text.
-analyzer_python_version="$("$python_executable" -c 'import platform; print(platform.python_version())' 2>/dev/null)" || :
+analyzer_python_version="$(env -i PATH="$build_path" JAVA_HOME="$JAVA_HOME" HOME="$build_root/home" TMPDIR="$build_root/tmp" LANG=C.UTF-8 IS_COMMUNITY=true MAVEN_SKIP_RC=true MAVEN_OPTS="-Duser.home=$build_root/home -Djava.io.tmpdir=$build_root/tmp" \
+  "$python_executable" -c 'import platform; print(platform.python_version())' 2>/dev/null)" || :
 if [[ "$analyzer_python_version" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
   printf 'sonar-analyzer-python-version:%s\n' "$analyzer_python_version" >&2 || :
 else
@@ -83,7 +84,8 @@ analyzer_preflight_stage build-input-record
   printf 'maven_archive_sha256=80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb\n'
   "$JAVA_HOME/bin/java" -version 2>&1
   env -i PATH="$build_path" JAVA_HOME="$JAVA_HOME" HOME="$build_root/home" TMPDIR="$build_root/tmp" MAVEN_SKIP_RC=true MAVEN_OPTS="-Duser.home=$build_root/home -Djava.io.tmpdir=$build_root/tmp" "$maven" -version
-  "$python_executable" --version
+  env -i PATH="$build_path" JAVA_HOME="$JAVA_HOME" HOME="$build_root/home" TMPDIR="$build_root/tmp" LANG=C.UTF-8 IS_COMMUNITY=true MAVEN_SKIP_RC=true MAVEN_OPTS="-Duser.home=$build_root/home -Djava.io.tmpdir=$build_root/tmp" \
+    "$python_executable" --version
 } >"$evidence/analyzer-build-inputs.txt"
 cp "$source_root/LICENSE.txt" "$evidence/analyzer-LICENSE.txt"
 analyzer_preflight_stage upstream-maven-build
