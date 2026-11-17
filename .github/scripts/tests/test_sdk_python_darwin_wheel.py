@@ -14,10 +14,12 @@ import io
 import json
 import os
 import runpy
+import socket
 import stat
 import sys
 import tempfile
 import unittest
+import urllib.request
 import zipfile
 from pathlib import Path
 from unittest import mock
@@ -29,8 +31,11 @@ LOCK = importlib.util.module_from_spec(LOCK_SPEC)
 SPEC = importlib.util.spec_from_file_location("darwin_wheel_contract", SCRIPTS / "sdk_python_darwin_wheel.py")
 assert SPEC is not None and SPEC.loader is not None
 WHEEL = importlib.util.module_from_spec(SPEC)
-# Keep the helper's real import/API, without relying on another test module's
-# import order or leaving a replacement module registered for other suites.
+# Import canonical transport before patch.dict can restore the module map.
+# Otherwise the loaded helper may retain an orphan request module while runpy
+# imports a fresh one that does not carry the fixture transport patch.
+# Keep the helper's real import/API without leaving a replacement lock module
+# registered for other suites.
 with mock.patch.dict(sys.modules, {"sdk_python_lock": LOCK}):
     LOCK_SPEC.loader.exec_module(LOCK)
     SPEC.loader.exec_module(WHEEL)
@@ -61,6 +66,21 @@ def archive_bytes(filename: str = NAME, wheel: bytes = b"synthetic opaque wheel;
 
 
 class DarwinWheelStagingContracts(unittest.TestCase):
+    def setUp(self) -> None:
+        # Every transport path must fail before DNS/HTTP/socket effects if a
+        # fixture patch is ever absent. These guards are cleanup-scoped and
+        # do not replace the owned opener/BytesIO response used by stage().
+        for target, attribute in (
+            (urllib.request.OpenerDirector, "open"),
+            (socket, "create_connection"),
+            (socket, "getaddrinfo"),
+            (socket.socket, "connect"),
+            (socket.socket, "connect_ex"),
+        ):
+            self.enterContext(mock.patch.object(
+                target, attribute, side_effect=AssertionError("wheel contract forbids real transport"),
+            ))
+
     def fixture(self, body: bytes | None = None, filename: str = NAME):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -80,7 +100,8 @@ class DarwinWheelStagingContracts(unittest.TestCase):
                                          "wheel_uri": "file:///synthetic/not-retained"})
         stack = self.enterContext(contextlib.ExitStack())
         stack.enter_context(mock.patch.object(WHEEL, "MANIFEST", manifest))
-        builder = stack.enter_context(mock.patch.object(WHEEL.urllib.request, "build_opener", return_value=opener))
+        self.assertIs(urllib.request, WHEEL.urllib.request)
+        builder = stack.enter_context(mock.patch.object(urllib.request, "build_opener", return_value=opener))
         stack.enter_context(mock.patch.object(WHEEL, "darwin_intake", intake))
         return root, manifest, row, response, builder, opener, intake
 
@@ -241,7 +262,7 @@ class DarwinWheelStagingContracts(unittest.TestCase):
         stage.assert_not_called()
 
     def test_script_entry_stages_only_owned_bytes_and_never_reads_native_manifest(self) -> None:
-        root, manifest, row, response, _, opener, _ = self.fixture()
+        root, manifest, row, response, builder, opener, _ = self.fixture()
         raw = manifest.read_bytes()
         output = root / "entry-stage"
         native_manifest = SCRIPTS.resolve().parents[1] / "sdk/python/darwin-qualified-wheels.json"
@@ -256,13 +277,25 @@ class DarwinWheelStagingContracts(unittest.TestCase):
                 mock.patch.object(Path, "read_bytes", autospec=True, side_effect=only_manifest) as read, \
                 mock.patch.object(sys, "argv", ["stage", "--python", VERSION, "--output", str(output)]), \
                 contextlib.redirect_stdout(standard_output):
+            # Bind the fresh script import to the exact canonical request
+            # object whose builder is patched; never rely on an orphan alias.
+            self.assertIs(urllib.request, sys.modules["urllib.request"])
+            self.assertIs(urllib.request, WHEEL.urllib.request)
             with self.assertRaises(SystemExit) as caught:
                 runpy.run_path(str(SCRIPTS / "sdk_python_darwin_wheel.py"), run_name="__main__")
         self.assertEqual(0, caught.exception.code)
         self.assertEqual(NAME + "\n", standard_output.getvalue())
         read.assert_called_once_with(native_manifest)
         intake.assert_called_once_with(output / "archive.zip", output / NAME, VERSION, row["custody"])
-        opener.open.assert_called_once()
+        builder.assert_called_once()
+        redirect_class = builder.call_args.args[0]
+        self.assertEqual("__main__", redirect_class.__module__)
+        self.assertTrue(issubclass(redirect_class, urllib.request.HTTPRedirectHandler))
+        opener.open.assert_called_once_with(
+            f"https://raw.githubusercontent.com/maldous/CircularQuay/{COMMIT}/archives/sha256/{row['artifact_sha256']}.zip",
+            timeout=60,
+        )
+        self.assertEqual([WHEEL.MAX_ARCHIVE + 1], response.read_sizes)
         self.assertTrue(response.closed)
         self.assertEqual({"wheel": NAME}, json.loads((output / "intake.json").read_bytes()))
 

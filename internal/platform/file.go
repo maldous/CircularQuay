@@ -22,6 +22,10 @@ var appendMu sync.Mutex
 // EnsurePrivateDirectory establishes a local owner-controlled state directory.
 // Existing insecure directories fail rather than having their grants rewritten.
 func EnsurePrivateDirectory(path string) error {
+	return ensurePrivateDirectoryWithProtection(path, protectNewDirectory)
+}
+
+func ensurePrivateDirectoryWithProtection(path string, protect func(string, bool) error) error {
 	if !filepath.IsAbs(path) {
 		return fault.New(fault.Invalid, "absolute private directory required")
 	}
@@ -35,7 +39,7 @@ func EnsurePrivateDirectory(path string) error {
 	if !resolvedPathIsOriginal(path) {
 		return fault.New(fault.Trust, "symbolic private directory")
 	}
-	if err := protectNewDirectory(path, created); err != nil {
+	if err := protect(path, created); err != nil {
 		return err
 	}
 	if !privateDirectorySecure(path) {
@@ -66,10 +70,14 @@ func privateDirectoryAbsent(path string) (bool, error) {
 }
 
 func protectNewDirectory(path string, created bool) error {
+	return protectNewDirectoryWithOperation(path, created, protectDirectory)
+}
+
+func protectNewDirectoryWithOperation(path string, created bool, protect func(string) error) error {
 	if !created {
 		return nil
 	}
-	if err := protectDirectory(path); err != nil {
+	if err := protect(path); err != nil {
 		return fault.New(fault.Apply, "protect private directory")
 	}
 	return nil
@@ -83,6 +91,10 @@ func privateDirectorySecure(path string) bool {
 // AppendProtected appends one bounded JSON receipt. A single configured writer
 // and a local filesystem are required; external log transport is not provided.
 func AppendProtected(path string, data []byte) error {
+	return appendProtectedWithOperations(path, data, defaultPlatformBoundaryOperations())
+}
+
+func appendProtectedWithOperations(path string, data []byte, ops platformBoundaryOperations) error {
 	data, err := normalizeReceipt(path, data)
 	if err != nil {
 		return err
@@ -92,7 +104,7 @@ func AppendProtected(path string, data []byte) error {
 	if err := EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
 		return err
 	}
-	f, err := openReceiptLog(path)
+	f, err := ops.receipt(path)
 	if err != nil {
 		return err
 	}
@@ -100,10 +112,10 @@ func AppendProtected(path string, data []byte) error {
 	if !openedRegularFileMatches(f, path) {
 		return fault.New(fault.Trust, "receipt log changed")
 	}
-	if n, err := f.Write(data); err != nil || n != len(data) {
+	if n, err := ops.write(f, data); err != nil || n != len(data) {
 		return fault.New(fault.Apply, "write receipt")
 	}
-	if err = f.Sync(); err != nil {
+	if err = ops.sync(f); err != nil {
 		return fault.New(fault.Apply, "sync receipt")
 	}
 	return nil
@@ -133,9 +145,13 @@ func normalizeReceipt(path string, data []byte) ([]byte, error) {
 }
 
 func openReceiptLog(path string) (*os.File, error) {
-	f, err := openInParent(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|os.O_EXCL, 0o600)
+	return openReceiptLogWithOperations(path, defaultPlatformBoundaryOperations())
+}
+
+func openReceiptLogWithOperations(path string, ops platformBoundaryOperations) (*os.File, error) {
+	f, err := ops.open(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE|os.O_EXCL, 0o600)
 	if err == nil {
-		if err := protectFile(path); err != nil {
+		if err := ops.protect(path); err != nil {
 			_ = f.Close()
 			return nil, fault.New(fault.Apply, "protect receipt log")
 		}
@@ -147,7 +163,7 @@ func openReceiptLog(path string) (*os.File, error) {
 	if err := ValidateProtectedPath(path); err != nil {
 		return nil, err
 	}
-	f, err = openInParent(path, os.O_WRONLY|os.O_APPEND, 0o600)
+	f, err = ops.open(path, os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, fault.New(fault.Apply, "open receipt log")
 	}
@@ -174,11 +190,15 @@ func ValidateProtectedPath(path string) error {
 // that was validated; callers must close it. Secret files must deny group and
 // other access on Unix platforms.
 func OpenProtected(path string, secret bool) (*os.File, error) {
+	return openProtectedWithOperation(path, secret, openInParent)
+}
+
+func openProtectedWithOperation(path string, secret bool, open func(string, int, os.FileMode) (*os.File, error)) (*os.File, error) {
 	before, err := protectedFileInfo(path, secret)
 	if err != nil {
 		return nil, err
 	}
-	f, err := openInParent(path, os.O_RDONLY, 0)
+	f, err := open(path, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fault.New(fault.Denied, "open protected file")
 	}
@@ -245,7 +265,11 @@ func WriteProtected(path string, data []byte) error {
 }
 
 func protectedDestination(dir, path string) error {
-	if err := EnsurePrivateDirectory(dir); err != nil {
+	return protectedDestinationWithDirectory(dir, path, EnsurePrivateDirectory)
+}
+
+func protectedDestinationWithDirectory(dir, path string, ensure func(string) error) error {
+	if err := ensure(dir); err != nil {
 		return err
 	}
 	if !resolvedPathIsOriginal(dir) {
@@ -266,6 +290,10 @@ func stageProtectedFile(dir string, data []byte) (string, error) {
 }
 
 func stageProtectedFileWithWriter(dir string, data []byte, write func(*os.File, []byte) error) (string, error) {
+	return stageProtectedFileWithProtection(dir, data, write, protectFile)
+}
+
+func stageProtectedFileWithProtection(dir string, data []byte, write func(*os.File, []byte) error, protect func(string) error) (string, error) {
 	file, err := os.CreateTemp(dir, ".cq-stage-*")
 	if err != nil {
 		return "", fault.New(fault.Apply, "stage protected file")
@@ -278,7 +306,7 @@ func stageProtectedFileWithWriter(dir string, data []byte, write func(*os.File, 
 			_ = os.Remove(name)
 		}
 	}()
-	if err := protectFile(file.Name()); err != nil {
+	if err := protect(file.Name()); err != nil {
 		return "", fault.New(fault.Apply, "protect staging ACL")
 	}
 	if err := write(file, data); err != nil {
@@ -289,32 +317,21 @@ func stageProtectedFileWithWriter(dir string, data []byte, write func(*os.File, 
 }
 
 func activateStagedFile(name, path, dir string) error {
+	return activateStagedFileWithSync(name, path, dir, syncDirectory)
+}
+
+func activateStagedFileWithSync(name, path, dir string, sync func(string) error) error {
 	if err := replaceFile(name, path); err != nil {
 		return fault.New(fault.Apply, "activate protected file")
 	}
-	if err := syncDirectory(dir); err != nil {
+	if err := sync(dir); err != nil {
 		return fault.New(fault.Apply, "sync destination directory")
 	}
 	return nil
 }
 
 func writeAndSync(f *os.File, data []byte) error {
-	if err := f.Chmod(0o600); err != nil {
-		_ = f.Close()
-		return fault.New(fault.Apply, "protect staged file")
-	}
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close()
-		return fault.New(fault.Apply, "write staged file")
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return fault.New(fault.Apply, "sync staged file")
-	}
-	if err := f.Close(); err != nil {
-		return fault.New(fault.Apply, "close staged file")
-	}
-	return nil
+	return writeAndSyncHandle(f, data)
 }
 
 // EncodeValues emits a JSON map, not a shell program or environment-file syntax.
@@ -337,15 +354,19 @@ func EncodeValues(gen model.Generation) ([]byte, error) {
 // The file must remain at its stable pathname; replacing a locked inode would
 // allow two reconcilers to hold different locks for the same workload.
 func OpenLockFile(path string) (*os.File, error) {
+	return openLockFileWithOperations(path, defaultPlatformBoundaryOperations())
+}
+
+func openLockFileWithOperations(path string, ops platformBoundaryOperations) (*os.File, error) {
 	if err := EnsurePrivateDirectory(filepath.Dir(path)); err != nil {
 		return nil, err
 	}
-	f, created, err := openOrCreateLock(path)
+	f, created, err := ops.lock(path)
 	if err != nil {
 		return nil, err
 	}
 	if created {
-		if err = protectFile(path); err != nil {
+		if err = ops.protect(path); err != nil {
 			_ = f.Close()
 			return nil, fault.New(fault.Apply, "protect lock file")
 		}
@@ -358,7 +379,11 @@ func OpenLockFile(path string) (*os.File, error) {
 }
 
 func openOrCreateLock(path string) (*os.File, bool, error) {
-	file, err := openInParent(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	return openOrCreateLockWithOperation(path, openInParent)
+}
+
+func openOrCreateLockWithOperation(path string, open func(string, int, os.FileMode) (*os.File, error)) (*os.File, bool, error) {
+	file, err := open(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 	if err == nil {
 		return file, true, nil
 	}
@@ -368,7 +393,7 @@ func openOrCreateLock(path string) (*os.File, bool, error) {
 	if err := ValidateProtectedPath(path); err != nil {
 		return nil, false, err
 	}
-	file, err = openInParent(path, os.O_RDWR, 0600)
+	file, err = open(path, os.O_RDWR, 0600)
 	if err != nil {
 		return nil, false, fault.New(fault.Apply, "open lock file")
 	}

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import hashlib
 import importlib.util
 import io
 import json
 import os
 import runpy
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -237,6 +239,80 @@ class SonarMetricContracts(unittest.TestCase):
             self.assertEqual(0, result.exception.code)
             self.assertEqual("", output.getvalue())
             self.assertEqual("", errors.getvalue())
+
+    def isolated_cli(self, root: Path, script: Path, path: Path, status: int, expected: bytes) -> None:
+        """Run only the declared Python/stdlib helper with owned bounded I/O."""
+        interpreter = Path(os.environ.get("CQ_ANALYZER_PYTHON", sys.executable))
+        self.assertTrue(interpreter.is_absolute(), "declared interpreter must be absolute")
+        closure = {
+            "PATH": os.environ.get("PATH", os.defpath), "HOME": str(root / "home"),
+            "TMPDIR": str(root / "tmp"), "LANG": "C.UTF-8",
+        }
+        self.assertEqual({"PATH", "HOME", "TMPDIR", "LANG"}, set(closure))
+        with tempfile.TemporaryFile(dir=root / "tmp") as output, \
+                tempfile.TemporaryFile(dir=root / "tmp") as errors:
+            try:
+                result = subprocess.run(
+                    [str(interpreter), "-I", "-S", str(script), str(path)],
+                    env=closure, cwd=root, stdin=subprocess.DEVNULL,
+                    stdout=output, stderr=errors, close_fds=True, timeout=5, check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                raise AssertionError("isolated metric subprocess unavailable or timed out") from None
+            self.assertEqual(status, result.returncode)
+            self.assertLessEqual(os.fstat(output.fileno()).st_size, 1024)
+            self.assertEqual(0, os.fstat(errors.fileno()).st_size, "stderr must remain empty")
+            output.seek(0)
+            self.assertTrue(output.read(1025) == expected, "unexpected isolated fixed-code output")
+
+    def test_isolated_subprocess_cli_keeps_strict_outputs_and_ignores_ambient_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "home").mkdir(mode=0o700)
+            (root / "tmp").mkdir(mode=0o700)
+            runner = root / "runner"
+            runner.mkdir(mode=0o700)
+            script = runner / SCRIPT.name
+            original = SCRIPT.read_bytes()
+            script.write_bytes(original)
+            # These files must never execute. -I excludes the script/ambient
+            # search paths and -S disables global/user site initialization.
+            shadow = "raise RuntimeError('synthetic ambient module selected')\n"
+            (runner / "json.py").write_text(shadow)
+            (runner / "sitecustomize.py").write_text(shadow)
+            current = response()
+            current["component"]["measures"] = [current["component"]["measures"][i] for i in (0, 2, 4, 5)]
+            current["component"]["measures"][0]["value"] = "81.9"
+            cases = (
+                ("strict", encoded(response()), 0, b""),
+                ("current-only", encoded(current), 2,
+                 b"sonar-coverage-evidence-missing\nsonar-duplication-evidence-missing\n"),
+                ("invalid", b'{"synthetic":"unrecognized"}', 2,
+                 (METRICS.INVALID_EVIDENCE + "\n" + METRICS.SCHEMA_STAGE + "\n").encode()),
+            )
+            ambient = {"PYTHONPATH": str(runner), "PYTHONHOME": str(runner),
+                       "PYTHONSTARTUP": str(runner / "sitecustomize.py"), "LD_LIBRARY_PATH": str(runner)}
+            with mock.patch.dict(os.environ, ambient):
+                for name, raw, status, expected in cases:
+                    with self.subTest(case=name):
+                        path = root / (name + ".json")
+                        path.write_bytes(raw)
+                        path.chmod(0o400)
+                        self.isolated_cli(root, script, path, status, expected)
+                        self.assertEqual(hashlib.sha256(raw).hexdigest(), hashlib.sha256(path.read_bytes()).hexdigest())
+                self.isolated_cli(root, script, root / "missing.json", 2,
+                                  (METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n").encode())
+            self.assertEqual(hashlib.sha256(original).hexdigest(), hashlib.sha256(script.read_bytes()).hexdigest())
+            self.assertFalse((runner / "__pycache__").exists())
+
+    def test_workflow_keeps_one_primary_call_under_the_declared_stdlib_closure(self) -> None:
+        workflow = (SCRIPT.parents[1] / "workflows/sonar.yml").read_text()
+        lines = [line.strip() for line in workflow.splitlines() if line.lstrip().startswith("metric_failures=")]
+        expected = ('metric_failures="$(env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" '
+                    'LANG=C.UTF-8 "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_metric_contract.py '
+                    '"$evidence/metrics.json" 2>"$state/metric-contract.stderr")"')
+        self.assertEqual([expected], lines)
+        self.assertEqual(1, workflow.count('"$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_metric_contract.py'))
 
     def set_percentage(self, document: dict, index: int, value: object) -> None:
         measure = document["component"]["measures"][index]

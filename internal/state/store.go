@@ -52,10 +52,14 @@ type TargetRecord struct {
 type Store struct{ Directory string }
 
 func (s Store) path(name string) (string, error) {
+	return s.pathWithResolver(name, filepath.Abs)
+}
+
+func (s Store) pathWithResolver(name string, absolute func(string) (string, error)) (string, error) {
 	if !namePattern.MatchString(name) || s.Directory == "" {
 		return "", fault.New(fault.Invalid, "state path")
 	}
-	directory, err := filepath.Abs(s.Directory)
+	directory, err := absolute(s.Directory)
 	if err != nil {
 		return "", fault.New(fault.Invalid, "state directory")
 	}
@@ -114,15 +118,19 @@ func (s Store) Lock(name string) (func() error, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = lock(f); err != nil {
-		if closeErr := f.Close(); closeErr != nil {
+	return lockOpenedFile(f, lock, unlock, (*os.File).Close)
+}
+
+func lockOpenedFile(f *os.File, acquire, release func(*os.File) error, closeFile func(*os.File) error) (func() error, error) {
+	if err := acquire(f); err != nil {
+		if closeErr := closeFile(f); closeErr != nil {
 			return nil, fault.New(fault.Apply, "state lock cleanup")
 		}
 		return nil, fault.New(fault.Unavailable, "reconciliation busy")
 	}
 	return func() error {
-		e := unlock(f)
-		c := f.Close()
+		e := release(f)
+		c := closeFile(f)
 		if e != nil || c != nil {
 			return fault.New(fault.Apply, "state unlock")
 		}

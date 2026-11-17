@@ -343,6 +343,10 @@ func readRootFile(directory, name string, maximum int64) ([]byte, error) {
 }
 
 func fileSHA256(root, name string, expected os.FileInfo, maximum int64, signature []byte) ([sha256.Size]byte, error) {
+	return fileSHA256WithDigest(root, name, expected, maximum, signature, boundedFileSHA256)
+}
+
+func fileSHA256WithDigest(root, name string, expected os.FileInfo, maximum int64, signature []byte, digest func(*os.File, int64, int64) ([sha256.Size]byte, error)) ([sha256.Size]byte, error) {
 	if expected.Size() < 0 || maximum < 0 || expected.Size() > maximum {
 		return [sha256.Size]byte{}, errors.New("source file exceeds byte budget")
 	}
@@ -355,7 +359,7 @@ func fileSHA256(root, name string, expected os.FileInfo, maximum int64, signatur
 	if !matchesFileSignature(file, signature) {
 		return [sha256.Size]byte{}, errors.New("source file has an invalid signature")
 	}
-	sum, err := boundedFileSHA256(file, expected.Size(), maximum)
+	sum, err := digest(file, expected.Size(), maximum)
 	if err != nil || !fileStillMatches(file, expected) {
 		return [sha256.Size]byte{}, errSourceChangedDuringRead
 	}

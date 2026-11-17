@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -39,14 +40,18 @@ func ValidateFetchIdentity() error {
 // ValidateUnprivilegedExecution also rejects a helper carrying any file
 // capability or set-ID bit. Such a helper could gain CAP_SYS_RESOURCE at exec.
 func ValidateUnprivilegedExecution(path string) error {
-	if err := ValidateFetchIdentity(); err != nil {
+	return validateUnprivilegedExecution(path, ValidateFetchIdentity, fileCapability)
+}
+
+func validateUnprivilegedExecution(path string, identity func() error, capabilities func(string) ([]byte, error)) error {
+	if err := identity(); err != nil {
 		return err
 	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return ErrPrivileged
 	}
-	capability, err := fileCapability(path)
+	capability, err := capabilities(path)
 	return validateFilePrivilege(info.Mode(), capability, err)
 }
 
@@ -58,7 +63,11 @@ func validateFilePrivilege(mode os.FileMode, capability []byte, err error) error
 }
 
 func readCapabilityStatus() []byte {
-	data, err := os.ReadFile("/proc/self/status")
+	return readCapabilityStatusWith(os.ReadFile)
+}
+
+func readCapabilityStatusWith(read func(string) ([]byte, error)) []byte {
+	data, err := read("/proc/self/status")
 	if err != nil {
 		return nil
 	}
@@ -103,8 +112,12 @@ func capabilitySetName(name string) bool {
 }
 
 func fileCapability(path string) ([]byte, error) {
+	return fileCapabilityWith(path, unix.Getxattr)
+}
+
+func fileCapabilityWith(path string, get func(string, string, []byte) (int, error)) ([]byte, error) {
 	data := make([]byte, 64)
-	size, err := unix.Getxattr(path, "security.capability", data)
+	size, err := get(path, "security.capability", data)
 	if errors.Is(err, unix.ENODATA) {
 		return nil, nil
 	}
@@ -178,7 +191,18 @@ func quotaUserID(uid int) (uint32, error) {
 }
 
 func quotaControl(directory, command, id int, address unsafe.Pointer) error {
+	return quotaControlWith(directory, command, id, address, quotaSyscall)
+}
+
+func quotaSyscall(directory, command, id int, address unsafe.Pointer) syscall.Errno {
 	_, _, errno := unix.Syscall6(unix.SYS_QUOTACTL_FD, uintptr(directory), uintptr(command), uintptr(id), uintptr(address), 0, 0)
+	return errno
+}
+
+// quotaControlWith isolates ABI result handling without replacing process-wide
+// syscall state. Only quotaControl supplies the actual native operation.
+func quotaControlWith(directory, command, id int, address unsafe.Pointer, invoke func(int, int, int, unsafe.Pointer) syscall.Errno) error {
+	errno := invoke(directory, command, id, address)
 	if errno != 0 {
 		return errno
 	}

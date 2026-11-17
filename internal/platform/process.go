@@ -34,10 +34,14 @@ func Run(ctx context.Context, work model.Workload, gen model.Generation, overrid
 // Caller-supplied blocking readers/writers need their own cancellation contract;
 // the pipe-drain bound does not contain descendants or interrupt arbitrary I/O.
 func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	return runWithIOOperations(ctx, work, gen, override, stdin, stdout, stderr, launchInputs, (*exec.Cmd).Run)
+}
+
+func runWithIOOperations(ctx context.Context, work model.Workload, gen model.Generation, override []string, stdin io.Reader, stdout, stderr io.Writer, prepare func(model.Workload, model.Generation, []string) ([]string, []string, string, error), run func(*exec.Cmd) error) (int, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	args, env, directory, err := launchInputs(work, gen, override)
+	args, env, directory, err := prepare(work, gen, override)
 	if err != nil {
 		return 0, err
 	}
@@ -52,7 +56,7 @@ func RunWithIO(ctx context.Context, work model.Workload, gen model.Generation, o
 	// the pipe drain so that such a descriptor does not indefinitely retain the
 	// caller, but do not claim this closes or contains that descendant.
 	cmd.WaitDelay = pipeDrainWaitDelay
-	runErr := cmd.Run()
+	runErr := run(cmd)
 	if err := ctx.Err(); err != nil {
 		// CommandContext can surface cancellation as an ExitError after killing
 		// the immediate child. Preserve the caller's cancellation contract rather
@@ -140,11 +144,15 @@ func generationCurrent(gen model.Generation) bool {
 // VerifyExecutable binds a registered action to reviewed bytes. Pinning the
 // executable does not by itself make editable scripts or arbitrary code safe.
 func VerifyExecutable(path, expected string) error {
+	return verifyExecutableWithOperations(path, expected, defaultExecutableBoundaryOperations())
+}
+
+func verifyExecutableWithOperations(path, expected string, ops executableBoundaryOperations) error {
 	decoded, err := expectedExecutableDigest(path, expected)
 	if err != nil {
 		return err
 	}
-	f, resolved, before, err := openVerifiedExecutable(path)
+	f, resolved, before, err := ops.open(path)
 	if err != nil {
 		return err
 	}
@@ -152,7 +160,7 @@ func VerifyExecutable(path, expected string) error {
 	if !withinExecutableReadBound(before.Size()) {
 		return fault.New(fault.Trust, executableSizeOperation)
 	}
-	digest, exceeded, err := boundedExecutableDigest(f, maxVerifiedExecutableBytes)
+	digest, exceeded, err := ops.digest(f, maxVerifiedExecutableBytes)
 	if err != nil {
 		return fault.New(fault.Trust, executableSizeOperation)
 	}
@@ -215,14 +223,18 @@ func secureRegularFile(info os.FileInfo) bool {
 }
 
 func openVerifiedExecutable(path string) (*os.File, string, os.FileInfo, error) {
+	return openVerifiedExecutableWithOperations(path, filepath.EvalSymlinks, openInParent)
+}
+
+func openVerifiedExecutableWithOperations(path string, resolve func(string) (string, error), open func(string, int, os.FileMode) (*os.File, error)) (*os.File, string, os.FileInfo, error) {
 	if err := ValidateExecutable(path); err != nil {
 		return nil, "", nil, err
 	}
-	resolved, err := filepath.EvalSymlinks(path)
+	resolved, err := resolve(path)
 	if err != nil {
 		return nil, "", nil, fault.New(fault.Trust, "registered executable unavailable")
 	}
-	f, err := openInParent(resolved, os.O_RDONLY, 0)
+	f, err := open(resolved, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, "", nil, fault.New(fault.Trust, "registered executable unavailable")
 	}

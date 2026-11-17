@@ -262,20 +262,42 @@ func auditPipelineReadImage(t *testing.T, file *os.File, before os.FileInfo) []b
 
 func auditPipelineExclusiveTool(t *testing.T, path string, data []byte) string {
 	t.Helper()
-	// Reserve a fresh owned filename. The protected writer replaces only this
-	// reservation, applying the same Unix/Windows file controls as the old fixtures.
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
+	if len(data) == 0 || int64(len(data)) > maxToolBinaryBytes {
+		t.Fatal("owned tool fixture exceeds the executable byte bound")
+	}
+	// Protect an empty owned reservation through the document writer, retaining
+	// its Unix/Windows controls without treating executable bytes as a document.
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = file.Close(); err != nil {
 		t.Fatal(err)
 	}
-	auditPipelineWrite(t, path, data)
+	auditPipelineWrite(t, path, nil)
+	auditPipelinePopulateTool(t, path, data)
 	if err = os.Chmod(path, 0700); err != nil {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func auditPipelinePopulateTool(t *testing.T, path string, data []byte) {
+	t.Helper()
+	file, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if count, err := file.Write(data); err != nil || count != len(data) {
+		t.Fatal("owned executable fixture write was incomplete")
+	}
+	if err = file.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if err = file.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func auditPipelineWrite(t *testing.T, path string, data []byte) {

@@ -272,6 +272,10 @@ func helperExecutable(path string) bool {
 }
 
 func writeHelper(sourcePath, target string) error {
+	return writeHelperWithCopy(sourcePath, target, copyHelperBytes)
+}
+
+func writeHelperWithCopy(sourcePath, target string, copyBytes func(*os.File, *os.File) (int64, error)) error {
 	source, opened, err := openToolFile(sourcePath)
 	if err != nil {
 		return err
@@ -289,7 +293,7 @@ func writeHelper(sourcePath, target string) error {
 	if err != nil {
 		return err
 	}
-	read, err := copyHelperBytes(destination, source)
+	read, err := copyBytes(destination, source)
 	if err != nil || unchangedToolFile(sourcePath, opened, source, read) != nil {
 		_ = root.Remove(name)
 		return os.ErrInvalid

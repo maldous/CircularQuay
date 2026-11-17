@@ -404,12 +404,16 @@ func verifyExecutableIdentity(declaredPath, expected, source, output string, see
 }
 
 func executableSHA256(path string) (string, error) {
+	return executableSHA256WithHash(path, boundedToolHash)
+}
+
+func executableSHA256WithHash(path string, digest func(*os.File) (string, int64, error)) (string, error) {
 	file, opened, err := openToolFile(path)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
-	hash, read, err := boundedToolHash(file)
+	hash, read, err := digest(file)
 	if err != nil {
 		return "", err
 	}

@@ -145,23 +145,42 @@ func prepareFetchTemporary(s *store) (func(), error) {
 // temporary directory for offline signature verification. Current deliberately
 // does not inherit a caller's temporary environment or reuse Fetch's lifetime.
 func prepareCurrentVerificationTemporary(s *store) (func() error, error) {
-	directory, err := os.MkdirTemp(s.repo.Directory, ".verify-tmp-")
+	return prepareVerificationTemporary(s, verificationTemporaryOperations{
+		create: os.MkdirTemp,
+		ensure: platform.EnsurePrivateDirectory,
+		verify: protectedDirectory,
+		remove: os.RemoveAll,
+	})
+}
+
+// verificationTemporaryOperations is a per-call filesystem boundary, never
+// caller policy or a package-global override. Production retains the native
+// private-directory checks and cleanup operations above in their original order.
+type verificationTemporaryOperations struct {
+	create func(string, string) (string, error)
+	ensure func(string) error
+	verify func(string) error
+	remove func(string) error
+}
+
+func prepareVerificationTemporary(s *store, operations verificationTemporaryOperations) (func() error, error) {
+	directory, err := operations.create(s.repo.Directory, ".verify-tmp-")
 	if err != nil {
 		return nil, failure(fault.Trust, "verification_temporary")
 	}
-	if err = platform.EnsurePrivateDirectory(directory); err != nil {
-		_ = os.RemoveAll(directory)
+	if err = operations.ensure(directory); err != nil {
+		_ = operations.remove(directory)
 		return nil, failure(fault.Trust, "verification_temporary")
 	}
-	if err = protectedDirectory(directory); err != nil {
-		_ = os.RemoveAll(directory)
+	if err = operations.verify(directory); err != nil {
+		_ = operations.remove(directory)
 		return nil, err
 	}
 	previous := s.temporary
 	s.temporary = directory
 	return func() error {
 		s.temporary = previous
-		if err := os.RemoveAll(directory); err != nil {
+		if err := operations.remove(directory); err != nil {
 			return failure(fault.Trust, "verification_temporary")
 		}
 		return nil

@@ -51,14 +51,21 @@ func registerCloud(r *Registry) {
 
 // awsConfiguration selects workload credentials, never a developer profile or ambient key.
 func awsConfiguration(ctx context.Context, s model.Source) (aws.Config, error) {
+	return awsConfigurationWithTransport(ctx, s, awsCredentialsProvider, nil)
+}
+
+// awsConfigurationWithTransport keeps workload-identity selection and the
+// account check in one path. The explicit collaborators are private test seams;
+// production supplies only the closed workload provider and hardened transport.
+func awsConfigurationWithTransport(ctx context.Context, s model.Source, credentials func(model.Source) (aws.CredentialsProvider, error), base http.RoundTripper) (aws.Config, error) {
 	if s.Account == "" || s.Region == "" || s.Profile != "" || s.Endpoint != "" {
 		return aws.Config{}, fault.New(fault.Invalid, "aws_identity")
 	}
-	provider, err := awsCredentialsProvider(s)
+	provider, err := credentials(s)
 	if err != nil {
 		return aws.Config{}, err
 	}
-	cfg := aws.Config{Region: s.Region, Credentials: aws.NewCredentialsCache(provider), HTTPClient: cloudHTTPClient(nil)}
+	cfg := aws.Config{Region: s.Region, Credentials: aws.NewCredentialsCache(provider), HTTPClient: cloudHTTPClient(base)}
 	result, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return aws.Config{}, cloudError(err)
@@ -114,10 +121,16 @@ func metadataTransport() *http.Transport {
 func cloudHTTPClient(base http.RoundTripper) *http.Client { return transport.NewHTTPClient(base) }
 
 func readAWSSecret(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	return readAWSSecretWithConfiguration(ctx, s, b, awsConfiguration)
+}
+
+// readAWSSecretWithConfiguration never calls its identity collaborator until
+// the requested ARN has passed the same account, region and service boundary.
+func readAWSSecretWithConfiguration(ctx context.Context, s model.Source, b model.Binding, configure func(context.Context, model.Source) (aws.Config, error)) (model.Value, error) {
 	if err := validateAWSResource(s, b, "secretsmanager"); err != nil {
 		return model.Value{}, err
 	}
-	cfg, err := awsConfiguration(ctx, s)
+	cfg, err := configure(ctx, s)
 	if err != nil {
 		return model.Value{}, err
 	}
@@ -177,10 +190,16 @@ func validateAWSSecretVersion(b model.Binding, result *secretsmanager.GetSecretV
 }
 
 func readAWSParameter(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	return readAWSParameterWithConfiguration(ctx, s, b, awsConfiguration)
+}
+
+// readAWSParameterWithConfiguration retains the SSM ARN gate before identity
+// and value retrieval; production uses the ordinary workload configurator.
+func readAWSParameterWithConfiguration(ctx context.Context, s model.Source, b model.Binding, configure func(context.Context, model.Source) (aws.Config, error)) (model.Value, error) {
 	if err := validateAWSResource(s, b, "ssm"); err != nil {
 		return model.Value{}, err
 	}
-	cfg, err := awsConfiguration(ctx, s)
+	cfg, err := configure(ctx, s)
 	if err != nil {
 		return model.Value{}, err
 	}

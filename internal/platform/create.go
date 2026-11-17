@@ -13,6 +13,10 @@ import (
 // parent is permitted; the new file is protected before any data is written.
 // A failed write removes only this call's file when it still occupies the name.
 func CreateProtectedExclusive(path string, data []byte) error {
+	return createProtectedExclusiveWithOperations(path, data, defaultCreationBoundaryOperations())
+}
+
+func createProtectedExclusiveWithOperations(path string, data []byte, ops creationBoundaryOperations) error {
 	if !filepath.IsAbs(path) || len(data) > MaxDocumentSize {
 		return fault.New(fault.Invalid, "protected creation destination")
 	}
@@ -22,7 +26,7 @@ func CreateProtectedExclusive(path string, data []byte) error {
 	}
 	defer root.Close()
 	name := filepath.Base(path)
-	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	file, err := ops.open(root, name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return fault.New(fault.Apply, "create protected file")
 	}
@@ -38,10 +42,10 @@ func CreateProtectedExclusive(path string, data []byte) error {
 			removeCreatedFile(root, name, created)
 		}
 	}()
-	if err := populateCreatedFile(file, path, data); err != nil {
+	if err := ops.populate(file, path, data); err != nil {
 		return err
 	}
-	if err := syncDirectory(filepath.Dir(path)); err != nil {
+	if err := ops.sync(filepath.Dir(path)); err != nil {
 		return fault.New(fault.Apply, "sync created file directory")
 	}
 	complete = true
@@ -49,7 +53,11 @@ func CreateProtectedExclusive(path string, data []byte) error {
 }
 
 func populateCreatedFile(file *os.File, path string, data []byte) error {
-	if err := protectFile(path); err != nil {
+	return populateCreatedFileWithProtection(file, path, data, protectFile)
+}
+
+func populateCreatedFileWithProtection(file *os.File, path string, data []byte, protect func(string) error) error {
+	if err := protect(path); err != nil {
 		return fault.New(fault.Apply, "protect created file")
 	}
 	if !openedRegularFileMatches(file, path) || ValidateProtectedPath(path) != nil {
@@ -66,11 +74,15 @@ func removeCreatedFile(root *os.Root, name string, created os.FileInfo) {
 }
 
 func openCreationRoot(directory string) (*os.Root, error) {
+	return openCreationRootWithOperation(directory, os.OpenRoot)
+}
+
+func openCreationRootWithOperation(directory string, open func(string) (*os.Root, error)) (*os.Root, error) {
 	before, err := os.Lstat(directory)
 	if err != nil || !before.IsDir() || !secureMode(before.Mode(), false) || !checkNativeSecurity(directory, false) || !resolvedPathIsOriginal(directory) {
 		return nil, fault.New(fault.Trust, "protected creation directory")
 	}
-	root, err := os.OpenRoot(directory)
+	root, err := open(directory)
 	if err != nil {
 		return nil, fault.New(fault.Apply, "open protected creation directory")
 	}

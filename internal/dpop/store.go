@@ -138,10 +138,20 @@ func validStoreInput(ctx context.Context, binding string, expires time.Time) boo
 }
 
 func (s *PersistentStore) update(ctx context.Context, change func(*persistedCache, time.Time) error) error {
+	return s.updateWithLock(ctx, change, func(name string) (func() error, error) {
+		return (state.Store{Directory: s.directory}).Lock(name)
+	})
+}
+
+// updateWithLock keeps cancellation checkpoints around an owned lock lifetime.
+// Production supplies the native state lock above; tests can coordinate a
+// cancellation at acquisition without racing an unrelated process or replacing
+// a global lock implementation.
+func (s *PersistentStore) updateWithLock(ctx context.Context, change func(*persistedCache, time.Time) error, acquire func(string) (func() error, error)) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	unlock, err := (state.Store{Directory: s.directory}).Lock(cacheName)
+	unlock, err := acquire(cacheName)
 	if err != nil {
 		return err
 	}

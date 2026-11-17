@@ -316,7 +316,7 @@ jobs:
               (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
               cp "$evidence/python.coverage" "$state/sonar-python.coverage" || fail "python-helper-coverage-prior-unavailable"
               helper_test_status=0
-              PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
+              PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel test_platform_coverage test_build_explore test_sdk_python_check_completion test_sdk_python_lock_completion test_go_mcp_coverage_completion test_retain_audit_evidence_completion test_sdk_python_darwin_source_policy_completion >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
               (( helper_test_status == 0 )) || fail "python-helper-tests-failed:$helper_test_status"
               python_coverage_status=0
               "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
@@ -344,7 +344,8 @@ jobs:
                   ".github/scripts/sdk_python_check.py", ".github/scripts/sdk_python_darwin_source_policy.py",
                   ".github/scripts/sdk_python_darwin_wheel.py",
                   ".github/scripts/sdk_python_lock.py", ".github/scripts/sonar_metric_contract.py",
-                  ".github/scripts/sonar_coverage_contract.py",
+                  ".github/scripts/sonar_coverage_contract.py", ".github/scripts/sonar_baseline_contract.py",
+                  ".github/scripts/platform_coverage.py", "examples/landing-motion/build-explore.py",
               }
               for helper in helpers:
                   if helper not in after.measured_files() or not after.lines(helper):
@@ -469,6 +470,140 @@ jobs:
             fail "coverage-profile-missing"
           fi
 
+          # A real ancestor analysis in this SAME fresh server supplies a real
+          # analysis UUID. Pinned 26.10 SetAction/ShowAction bind the main
+          # branch, and NewLinesRepository uses its snapshot date. References:
+          # https://github.com/SonarSource/sonarqube/tree/26.10.0.133078/server/sonar-webserver-webapi/src/main/java/org/sonar/server/newcodeperiod/ws
+          # https://github.com/SonarSource/sonarqube/blob/26.10.0.133078/server/sonar-ce-task-projectanalysis/src/main/java/org/sonar/ce/task/projectanalysis/source/NewLinesRepository.java
+          # It is an unqualified historical comparand, not an old
+          # qualification, a current report, or a fabricated successful scan.
+          baseline_state="$state/baseline"
+          mkdir -m 700 "$baseline_state" || fatal "baseline-state-unavailable"
+          baseline_requests=0
+          baseline_get() {
+            local name=$1 route=$2 http native_status
+            (( baseline_requests < 12 )) || return 1
+            baseline_requests=$((baseline_requests + 1))
+            http="$(curl --connect-timeout 5 --max-time 30 --max-filesize 131072 --silent --show-error \
+              --config "$baseline_state/scanner.config" --output "$baseline_state/$name.json" \
+              --write-out '%{http_code}' "http://127.0.0.1:${sonar_port}${route}" 2>>"$baseline_state/readback.log")"
+            native_status=$?
+            printf '%s\n' "$http" >"$evidence/baseline-$name.status"
+            test "$native_status" = 0 && test "$http" = 200
+          }
+          baseline_contract() {
+            env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+              "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_baseline_contract.py "$@" \
+              2>>"$baseline_state/contract.log"
+          }
+          produce_ancestor_baseline() {
+            local day branch encoded_branch ce_task uuid scan_status post_http post_status
+            local source="$root/baseline-source"
+            baseline_stage=source-preparation
+            day="$(baseline_contract prepare "$GITHUB_WORKSPACE" "$GITHUB_SHA" \
+              "$evidence/system-status.json" "$evidence/baseline-source.json" "$executable_sha" "$analyzer_sha")" || return 1
+            # Full-history checkout is already required. Never fetch a guessed
+            # historical body, run old product code, or change the main checkout.
+            baseline_stage=owned-clone
+            mkdir -m 700 "$baseline_state/empty-template" || return 1
+            # Use an ordinary independent local clone, not a linked-worktree
+            # SCM interpretation or a hidden host checkout. Object storage was
+            # bounded above; copy no hardlinks/alternates/templates/credentials.
+            timeout 90s env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+              GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
+              git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+              clone --local --no-hardlinks --no-checkout --template="$baseline_state/empty-template" \
+              "$GITHUB_WORKSPACE" "$source" >"$baseline_state/clone.log" 2>&1 || return 1
+            timeout 90s env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+              GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
+              git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false -C "$source" \
+              checkout --detach 4a9aae67eedfd161c4b23ecf6db1c767421447c3 \
+              >"$baseline_state/checkout.log" 2>&1 || return 1
+            baseline_contract verify "$source" || return 1
+            local token
+            token="$(<"$state/scanner.token")"
+            printf 'user = "%s:"\n' "$token" >"$baseline_state/scanner.config"
+            chmod 600 "$baseline_state/scanner.config"
+            unset token
+            baseline_stage=fresh-project
+            baseline_get before '/api/project_analyses/search?project=cq&ps=100' || return 1
+            baseline_contract empty "$baseline_state/before.json" || return 1
+            baseline_get branches '/api/project_branches/list?project=cq' || return 1
+            branch="$(baseline_contract branch "$baseline_state/branches.json")" || return 1
+            encoded_branch="$(jq -rn --arg value "$branch" '$value | @uri')" || return 1
+            token="$(<"$state/scanner.token")"
+            # The supported historical projectDate is ONLY the immutable Git
+            # committer UTC calendar day, not an invented earlier date. The
+            # exact returned effective date must match its conservative floor.
+            # CE submission/start/completion times are separately recorded NOW.
+            # Source-only ancestor analysis imports NO coverage from any head.
+            baseline_stage=ordinary-ancestor-analysis
+            ( cd "$source" && timeout --kill-after=15s 600s env -i \
+              PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" TZ=UTC \
+              SONAR_USER_HOME="$root/scanner-cache" SONAR_TOKEN="$token" "$scanner" \
+              -Dsonar.host.url="http://127.0.0.1:${sonar_port}" -Dsonar.projectKey=cq \
+              -Dsonar.scm.revision=4a9aae67eedfd161c4b23ecf6db1c767421447c3 \
+              -Dsonar.projectDate="$day" -Dsonar.scm.forceReloadAll=true \
+              -Dsonar.go.coverage.reportPaths= -Dsonar.python.coverage.reportPaths= \
+              -Dsonar.javascript.lcov.reportPaths= \
+              -Dsonar.scanner.metadataFilePath="$baseline_state/report-task.txt" \
+              -Dsonar.working.directory="$root/baseline-scanner-work" \
+              -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.ignoreSmallChanges=false \
+              >"$baseline_state/scanner.log" 2>&1 )
+            scan_status=$?
+            unset token
+            printf 'scanner_exit=%s\nqualified=false\n' "$scan_status" >"$evidence/baseline-scanner-status.txt"
+            baseline_contract verify "$source" || return 1
+            ce_task="$(awk -F= '$1 == "ceTaskId" {count++; value=$2} END {if(count!=1)exit 1; print value}' "$baseline_state/report-task.txt")" || return 1
+            [[ "$ce_task" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || return 1
+            baseline_get task "/api/ce/task?id=${ce_task}&additionalFields=warnings" || return 1
+            baseline_contract observe "$baseline_state/task.json" "$evidence/baseline-task-observation.json" || return 1
+            jq -e --arg expected "$ce_task" '.task.id == $expected and .task.componentKey == "cq" and .task.status == "SUCCESS"' \
+              "$baseline_state/task.json" >/dev/null 2>&1 || return 1
+            uuid="$(jq -er '.task.analysisId | select(type == "string" and test("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"))' "$baseline_state/task.json")" || return 1
+            baseline_get analyses '/api/project_analyses/search?project=cq&ps=100' || return 1
+            baseline_get gate "/api/qualitygates/project_status?analysisId=${uuid}" || return 1
+            baseline_stage=analysis-identity-binding
+            uuid="$(baseline_contract analysis "$evidence/baseline-source.json" "$baseline_state/report-task.txt" \
+              "$baseline_state/task.json" "$baseline_state/analyses.json" "$baseline_state/gate.json" \
+              "$scan_status" "$branch" "$evidence/baseline-analysis.json" unqualified)" || return 1
+            baseline_stage=specific-period-setting
+            baseline_contract admin "$state/admin.password" "$baseline_state/admin.config" || return 1
+            # Existing ephemeral administrator only, one project/branch setting;
+            # the separate scanner principal receives NO additional permission.
+            post_http="$(curl --connect-timeout 5 --max-time 30 --max-filesize 131072 --silent --show-error \
+              --config "$baseline_state/admin.config" --request POST \
+              --data-urlencode project=cq --data-urlencode "branch=$branch" \
+              --data-urlencode type=SPECIFIC_ANALYSIS --data-urlencode "value=$uuid" \
+              --output "$baseline_state/set-response" --write-out '%{http_code}' \
+              "http://127.0.0.1:${sonar_port}/api/new_code_periods/set" 2>>"$baseline_state/readback.log")"
+            post_status=$?
+            printf '%s\n' "$post_http" >"$evidence/baseline-setting.status"
+            # Never retry a potentially applied mutation. Reconcile its one
+            # original effect by branch-specific readback even on transport loss.
+            baseline_stage=branch-specific-period-readback
+            baseline_get period "/api/new_code_periods/show?project=cq&branch=${encoded_branch}" || return 1
+            baseline_get server '/api/system/status' || return 1
+            baseline_contract period "$baseline_state/period.json" "$evidence/baseline-analysis.json" \
+              "$baseline_state/server.json" "$evidence/baseline-period.json" || return 1
+            if test "$post_status" != 0 || test "$post_http" != 204; then
+              fail "baseline-setting-transport-not-clean"
+            fi
+            # Retain only sanitized identities/outcomes; never the private
+            # token/config, source worktree, raw scanner output or raw API data.
+            baseline_stage=established
+            return 0
+          }
+          baseline_stage=not-started
+          if produce_ancestor_baseline; then
+            printf 'status=established\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+          else
+            printf 'status=unavailable\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+            fail "baseline-producer-unavailable"
+          fi
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA" && git diff --quiet && git diff --cached --quiet \
+            && test -z "$(git status --porcelain --untracked-files=all)" || fatal "current-source-changed-by-baseline"
+
           # Scanner and server readback deliberately run even after coverage
           # has failed, so one report retains both strict gate outcomes.
           scanner_status=127
@@ -572,6 +707,26 @@ jobs:
             jq -e '[.plugins[] | select(.key == "python")] | length == 1 and .[0].version == "5.33-SNAPSHOT"' "$evidence/installed-plugins.json" >/dev/null 2>&1 || readback_fail "loaded-python-analyzer-contract"
             request current-analysis '/api/project_analyses/search?project=cq&ps=100'
             jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_fail "current-analysis-revision-or-id"
+            if test -s "$evidence/baseline-analysis.json" && test -s "$evidence/baseline-period.json"; then
+              baseline_get current-server '/api/system/status' || readback_fail "baseline-current-server-unavailable"
+              baseline_contract current "$evidence/baseline-analysis.json" "$evidence/ce-task.json" \
+                "$evidence/current-analysis.json" "$baseline_state/current-server.json" \
+                "$evidence/current-baseline-correspondence.json" || readback_fail "baseline-current-correspondence-invalid"
+              baseline_branch="$(jq -er '.branch' "$evidence/baseline-analysis.json")"
+              baseline_encoded_branch="$(jq -rn --arg value "$baseline_branch" '$value | @uri')"
+              baseline_get current-period "/api/new_code_periods/show?project=cq&branch=${baseline_encoded_branch}" || readback_fail "baseline-current-period-unavailable"
+              baseline_contract period "$baseline_state/current-period.json" "$evidence/baseline-analysis.json" \
+                "$baseline_state/current-server.json" "$evidence/current-baseline-period.json" || readback_fail "baseline-current-period-invalid"
+              baseline_get current-counts '/api/measures/component?component=cq&metricKeys=new_lines,new_lines_to_cover,new_conditions_to_cover' || readback_fail "baseline-new-counts-unavailable"
+              baseline_get after-counts '/api/project_analyses/search?project=cq&ps=100' || readback_fail "baseline-after-counts-unavailable"
+              baseline_contract current "$evidence/baseline-analysis.json" "$evidence/ce-task.json" \
+                "$baseline_state/after-counts.json" "$baseline_state/current-server.json" \
+                "$evidence/current-baseline-after-counts.json" || readback_fail "baseline-counts-analysis-drift"
+              baseline_contract denominators "$baseline_state/current-counts.json" \
+                "$evidence/current-baseline-after-counts.json" "$evidence/current-new-code-denominators.json" || readback_fail "baseline-new-denominators-not-positive"
+            else
+              readback_fail "baseline-not-established"
+            fi
             request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
             request metrics '/api/measures/component?component=cq&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
             # Match the strict inspector contract. Accepted and false-positive
@@ -882,7 +1037,7 @@ jobs:
             printf 'input_metadata=unavailable\n' >"$evidence/metric-contract-outcome.txt"
             fail "sonar-metric-input-metadata-unavailable"
           fi
-          metric_failures="$("$CQ_ANALYZER_PYTHON" .github/scripts/sonar_metric_contract.py "$evidence/metrics.json" 2>"$state/metric-contract.stderr")"
+          metric_failures="$(env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_metric_contract.py "$evidence/metrics.json" 2>"$state/metric-contract.stderr")"
           metric_status=$?
           printf 'metric_exit=%s\n' "$metric_status" >>"$evidence/metric-contract-outcome.txt"
           case "$metric_status" in
