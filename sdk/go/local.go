@@ -409,18 +409,22 @@ func (c *LocalClient) observe(operation, result string, duration time.Duration) 
 }
 
 type boundedBuffer struct {
-	bytes.Buffer
+	// Keep the buffer private: embedding would promote WriteString and
+	// ReadFrom, allowing io.WriteString or io.Copy to bypass the bounded Write.
+	buffer   bytes.Buffer
 	limit    int
 	overflow bool
 }
 
 func (b *boundedBuffer) Write(value []byte) (int, error) {
-	if b.overflow || len(value)+b.Len() > b.limit {
+	if b.overflow || len(value)+b.buffer.Len() > b.limit {
 		b.overflow = true
 		return len(value), nil
 	}
-	return b.Buffer.Write(value)
+	return b.buffer.Write(value)
 }
+
+func (b *boundedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
 func absolutePath(path string) bool { return path != "" && filepath.IsAbs(path) }
 

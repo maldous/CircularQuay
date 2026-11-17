@@ -20,14 +20,15 @@ func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Val
 	if err := validateVersionCapability(s, b); err != nil {
 		return model.Value{}, err
 	}
+	// Reject provider-specific scope before touching executable or bootstrap identity.
+	args, key, err := vendorCommand(s, b)
+	if err != nil {
+		return model.Value{}, err
+	}
 	if err := validateVendorExecutable(s.Path); err != nil {
 		return model.Value{}, err
 	}
 	token, err := transport.ReadCredentialFile(s.TokenFile)
-	if err != nil {
-		return model.Value{}, err
-	}
-	args, key, err := vendorCommand(s, b)
 	if err != nil {
 		return model.Value{}, err
 	}
