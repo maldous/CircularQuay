@@ -23,7 +23,8 @@ class RetentionContracts(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        # Keep synthetic paths canonical without weakening production's no-alias guard.
+        self.root = Path(self.temporary.name).resolve(strict=True)
         self.source = self.root / "source"
         self.source.mkdir(mode=0o700)
         (self.source / "owned.go").write_text("package example\n")
@@ -188,6 +189,7 @@ class RetentionContracts(unittest.TestCase):
         with self.assertRaises(RETAIN.InvalidEvidence):
             self.retain()
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO creation is unavailable on this platform")
     def test_rejects_fifo_without_blocking(self) -> None:
         path = self.audit / "coverage.out"
         path.unlink()

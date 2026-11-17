@@ -139,10 +139,11 @@ jobs:
           else
             python -m pip install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r "$lock"
           fi
-      - name: Test lock helper
+      # POSIX retention contracts remain mandatory in the Ubuntu Source assurance job.
+      - name: Test Python SDK helpers
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
-        run: python -m unittest discover -s .github/scripts/tests -v
+        run: python -m unittest discover -s .github/scripts/tests -p 'test_sdk_python_*.py' -v
       - name: Lint Python SDK
         id: python_ruff
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
