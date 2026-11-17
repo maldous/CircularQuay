@@ -665,7 +665,7 @@ jobs:
               test -n "$metric_failures" || fail "sonar-metric-contract-output-invalid"
               while IFS= read -r reason; do
                 case "$reason" in
-                  sonar-metric-evidence-invalid|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero)
+                  sonar-metric-evidence-invalid|sonar-metric-stage-arguments-refused|sonar-metric-stage-read-refused|sonar-metric-stage-schema-refused|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero)
                     printf 'failure_code=%s\n' "$reason" >>"$evidence/metric-contract-outcome.txt"
                     fail "$reason" ;;
                   *)

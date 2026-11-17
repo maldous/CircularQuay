@@ -14,6 +14,9 @@ MAX_INPUT_BYTES = 64 << 10
 PERCENT = re.compile(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?")
 COUNT = re.compile(r"0|[1-9][0-9]*")
 INVALID_EVIDENCE = "sonar-metric-evidence-invalid"
+ARGUMENT_STAGE = "sonar-metric-stage-arguments-refused"
+READ_STAGE = "sonar-metric-stage-read-refused"
+SCHEMA_STAGE = "sonar-metric-stage-schema-refused"
 OPTIONAL_COUNTS = frozenset({"violations", "security_hotspots"})
 REQUIRED_METRICS = frozenset({
     "coverage", "new_coverage", "duplicated_lines_density", "new_duplicated_lines_density",
@@ -154,13 +157,21 @@ def main(arguments: list[str] | None = None) -> int:
     """Exit 0 for a strict pass, 1 for measured failure, 2 for unavailable evidence."""
     arguments = sys.argv[1:] if arguments is None else arguments
     failures = (INVALID_EVIDENCE,)
+    stage = ARGUMENT_STAGE
     if len(arguments) == 1:
+        stage = READ_STAGE
         try:
-            failures = evaluate_metrics(read_evidence(arguments[0]))
+            data = read_evidence(arguments[0])
+            stage = SCHEMA_STAGE
+            failures = evaluate_metrics(data)
         except (OSError, ValueError):
             failures = (INVALID_EVIDENCE,)
     for code in failures:
         print(code)
+    # The original generic failure and exit remain mandatory. This fixed label
+    # reports only the last attempted boundary, never an error, value or path.
+    if failures == (INVALID_EVIDENCE,):
+        print(stage)
     if any(code in EVIDENCE_FAILURES for code in failures):
         return 2
     return 1 if failures else 0

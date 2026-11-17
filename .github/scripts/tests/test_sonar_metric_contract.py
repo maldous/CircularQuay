@@ -164,12 +164,41 @@ class SonarMetricContracts(unittest.TestCase):
             path.write_bytes(encoded(document))
             self.assert_main([str(path)], 2, "sonar-coverage-evidence-missing\n")
             path.write_bytes(b'{"private-api-body":"must-not-echo"}')
-            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n")
-            self.assert_main([str(Path(directory) / "private-missing-file")], 2, METRICS.INVALID_EVIDENCE + "\n")
-            self.assert_main([directory], 2, METRICS.INVALID_EVIDENCE + "\n")
-        self.assert_main([], 2, METRICS.INVALID_EVIDENCE + "\n")
-        self.assert_main(["private-argument", "private-extra"], 2, METRICS.INVALID_EVIDENCE + "\n")
-        self.assert_main(["private\x00path"], 2, METRICS.INVALID_EVIDENCE + "\n")
+            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.SCHEMA_STAGE + "\n")
+            self.assert_main([str(Path(directory) / "private-missing-file")], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
+            self.assert_main([directory], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
+        self.assert_main([], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.ARGUMENT_STAGE + "\n")
+        self.assert_main(["private-argument", "private-extra"], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.ARGUMENT_STAGE + "\n")
+        self.assert_main(["private\x00path"], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
+
+    def test_stage_markers_distinguish_real_read_refusal_from_schema_refusal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "private-metrics.json"
+            raw = b'{"private-api-body":"must-not-echo"}'
+            path.write_bytes(raw)
+            with mock.patch.object(METRICS, "evaluate_metrics", wraps=METRICS.evaluate_metrics) as evaluate:
+                self.assert_main([str(Path(directory) / "private-missing-file")], 2,
+                                 METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
+                evaluate.assert_not_called()
+                self.assert_main([str(path)], 2,
+                                 METRICS.INVALID_EVIDENCE + "\n" + METRICS.SCHEMA_STAGE + "\n")
+                evaluate.assert_called_once_with(raw)
+            with mock.patch.object(METRICS, "read_evidence", wraps=METRICS.read_evidence) as read:
+                self.assert_main([], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.ARGUMENT_STAGE + "\n")
+                read.assert_not_called()
+
+    def test_current_only_shape_still_requires_both_new_ratios_without_a_stage_failure(self) -> None:
+        document = {"component": {"key": "cq", "name": "CircularQuay", "qualifier": "TRK", "measures": [
+            {"metric": "coverage", "value": "74.6", "bestValue": False},
+            {"metric": "duplicated_lines_density", "value": "0.0", "bestValue": True},
+            {"metric": "violations", "value": "1", "bestValue": False},
+            {"metric": "security_hotspots", "value": "0", "bestValue": True},
+        ]}}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "current-metrics.json"
+            path.write_bytes(encoded(document))
+            self.assert_main([str(path)], 2,
+                             "sonar-coverage-evidence-missing\nsonar-duplication-evidence-missing\n")
 
     def test_owned_file_bounds_final_link_and_metadata_drift_refuse(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -178,13 +207,13 @@ class SonarMetricContracts(unittest.TestCase):
             path.write_bytes(padded)
             self.assert_main([str(path)], 0, "")
             path.write_bytes(padded + b" ")
-            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n")
+            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
             path.write_bytes(b"")
-            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n")
+            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
             path.write_bytes(encoded(response()))
             link = Path(directory) / "private-link"
             link.symlink_to(path)
-            self.assert_main([str(link)], 2, METRICS.INVALID_EVIDENCE + "\n")
+            self.assert_main([str(link)], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
             self.assert_mutation_refused(path, "mtime")
             self.assertEqual(encoded(response()), path.read_bytes())
 
@@ -229,7 +258,7 @@ class SonarMetricContracts(unittest.TestCase):
             return observed
 
         with mock.patch.object(METRICS.os, "fstat", side_effect=observe_and_mutate):
-            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n")
+            self.assert_main([str(path)], 2, METRICS.INVALID_EVIDENCE + "\n" + METRICS.READ_STAGE + "\n")
         self.assertEqual(2, calls)
 
     def mutate_owned_file(self, path: Path, mutation: str, modified: int) -> None:
