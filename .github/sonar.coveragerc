@@ -1,7 +1,12 @@
 # Sonar runs from the repository root. Keep report source paths relative to it.
-# Match the existing Python SDK source scope, branch mode and 100% threshold.
+# Measure all currently indexed production Python, not only imported SDK files.
+# Test-only omission matches sonar-project.properties; production stays visible.
 [run]
-source = sdk/python/src
+source =
+    sdk/python/src
+    .github/scripts
+    examples/landing-motion
+omit = .github/scripts/tests/*
 branch = True
 relative_files = True
 

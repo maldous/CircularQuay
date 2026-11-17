@@ -77,7 +77,7 @@ func TestCloudBoundaryContractTenantPayloadRefusalAndForwarding(t *testing.T) {
 	token := azcore.AccessToken{Token: "header.%.signature", ExpiresOn: time.Unix(2000000000, 0)}
 	calls := 0
 	credential := tenantCredential{
-		tenant:     "expected-tenant",
+		tenant: "expected-tenant",
 		credential: cloudBoundaryTokenFunc(func(gotContext context.Context, gotOptions azpolicy.TokenRequestOptions) (azcore.AccessToken, error) {
 			calls++
 			if gotContext != ctx || !reflect.DeepEqual(gotOptions, opts) {

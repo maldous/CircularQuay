@@ -131,7 +131,9 @@ func mergePlanAdmissionEdit(name string) (string, func(*model.Policy)) {
 	case "id":
 		return "include_id", func(root *model.Policy) { root.Composition.Includes[1].ID = root.Composition.Includes[0].ID }
 	case "namespace":
-		return "include_namespace", func(root *model.Policy) { root.Composition.Includes[1].Namespace = root.Composition.Includes[0].Namespace }
+		return "include_namespace", func(root *model.Policy) {
+			root.Composition.Includes[1].Namespace = root.Composition.Includes[0].Namespace
+		}
 	case "origin":
 		return "include_origin", mergePlanDuplicateOrigin
 	case "short_commit":
@@ -196,8 +198,8 @@ func newMergePlanFixture(t *testing.T, count int) mergePlanFixture {
 func mergePlanFragment(t *testing.T, source, job, binding string) []byte {
 	t.Helper()
 	return marshalValue(t, map[string]any{
-		"version":   1,
-		"sources":   map[string]model.Source{source: {Type: "json", Path: "values.json"}},
+		"version": 1,
+		"sources": map[string]model.Source{source: {Type: "json", Path: "values.json"}},
 		"workloads": map[string]any{job: map[string]any{
 			"mode":     "offline",
 			"bindings": []model.Binding{{Name: "VALUE", Source: binding, Field: "value", AllowOffline: true}},
@@ -246,8 +248,11 @@ func (fixture mergePlanFixture) reader(t *testing.T, files map[string][]byte, re
 			*fetches++
 			return fixture.release(t, repository, commit), nil
 		},
-		current: func(context.Context, model.Repository) (string, error) { t.Fatal("offline fallback called"); return "", nil },
-		now:     func() time.Time { return time.Unix(100, 0).UTC() },
+		current: func(context.Context, model.Repository) (string, error) {
+			t.Fatal("offline fallback called")
+			return "", nil
+		},
+		now: func() time.Time { return time.Unix(100, 0).UTC() },
 	}
 }
 

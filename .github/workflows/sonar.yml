@@ -268,44 +268,84 @@ jobs:
             "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1 || python_lock_status=$?
             (( python_lock_status == 0 )) || fail "python-lock-invalid:$python_lock_status"
             if (( python_lock_status == 0 )) && "$python_tool" -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r sdk/python/locks/ci-linux-py314.txt >>"$evidence/python-install.log" 2>&1; then
+              # Bind the report denominator to the tracked production Python
+              # inventory under the unchanged Sonar source/test declarations.
+              "$python_tool" - "$GITHUB_SHA" "$state/python-production-inventory.json" <<'PYTHON_INVENTORY' || fail "python-production-inventory-invalid"
+          import json, pathlib, re, subprocess, sys
+          try:
+              properties = dict(line.split("=", 1) for line in pathlib.Path("sonar-project.properties").read_text().splitlines() if line and not line.startswith("#"))
+              if properties["sonar.sources"] != "." or properties["sonar.tests"] != ".":
+                  raise ValueError("source scope changed")
+              patterns = properties["sonar.exclusions"].split(",") + properties["sonar.test.inclusions"].split(",")
+              def matches(name, pattern):
+                  expression = re.escape(pattern).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
+                  return re.fullmatch(expression, name) is not None
+              raw = subprocess.check_output(["git", "ls-tree", "-rz", sys.argv[1]])
+              if len(raw) > 4 << 20:
+                  raise ValueError("inventory bound")
+              inventory = []
+              for entry in raw.split(b"\0"):
+                  if not entry:
+                      continue
+                  header, path = entry.split(b"\t", 1)
+                  mode, kind, blob = header.decode().split()
+                  name = path.decode("utf-8")
+                  if not name.endswith(".py") or any(matches(name, pattern) for pattern in patterns):
+                      continue
+                  if kind != "blob" or mode not in {"100644", "100755"}:
+                      raise ValueError("production file type")
+                  if not name.startswith(("sdk/python/src/", ".github/scripts/", "examples/landing-motion/")):
+                      raise ValueError("unmeasured production root")
+                  inventory.append(name)
+              if not inventory or len(inventory) > 256:
+                  raise ValueError("production inventory size")
+              pathlib.Path(sys.argv[2]).write_text(json.dumps(sorted(inventory)) + "\n")
+          except Exception:
+              raise SystemExit("python-production-inventory-invalid") from None
+          PYTHON_INVENTORY
               export COVERAGE_FILE="$evidence/python.coverage"
               python_test_status=0
               PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
               (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
-              # Append only these helpers' actual measured tests. Keep the SDK
-              # data and its original source/branch denominator intact.
+              # Keep the original Sonar contracts as an independent append,
+              # then measure the already-required Source/SDK suites once each.
+              # The report includes production files no suite executes yet.
               cp "$evidence/python.coverage" "$state/sdk-python.coverage" || fail "python-metric-coverage-prior-unavailable"
-              cat >"$state/sonar-metric.coveragerc" <<'METRIC_COVERAGE'
-          [run]
-          branch = True
-          relative_files = True
-          include =
-              .github/scripts/sonar_metric_contract.py
-              .github/scripts/sonar_coverage_contract.py
-          METRIC_COVERAGE
               metric_test_status=0
-              "$python_tool" -m coverage run --append --rcfile "$state/sonar-metric.coveragerc" -m unittest discover -s .github/scripts/tests -p 'test_sonar_*_contract.py' -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
+              "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest discover -s .github/scripts/tests -p 'test_sonar_*_contract.py' -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
               (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
+              cp "$evidence/python.coverage" "$state/sonar-python.coverage" || fail "python-helper-coverage-prior-unavailable"
+              helper_test_status=0
+              PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
+              (( helper_test_status == 0 )) || fail "python-helper-tests-failed:$helper_test_status"
               python_coverage_status=0
               "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
               (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
               # Use the pinned coverage tool's public read API, not fabricated
-              # counters. XML must retain the SDK files and both measured helpers.
-              "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
-          import os, pathlib, runpy, sys
+              # counters. XML must retain every indexed production Python file.
+              "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" "$state/python-production-inventory.json" "$state/sonar-python.coverage" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
+          import json, os, pathlib, runpy, sys
           from coverage import CoverageData
           try:
-              before, after = (CoverageData(basename=path) for path in sys.argv[1:3])
-              before.read()
+              after = CoverageData(basename=sys.argv[2])
               after.read()
-              if not before.has_arcs() or not after.has_arcs() or not before.measured_files():
-                  raise ValueError("missing branch data")
-              for name in before.measured_files():
-                  if not set(before.lines(name) or ()) <= set(after.lines(name) or ()):
-                      raise ValueError("missing prior lines")
-                  if not set(before.arcs(name) or ()) <= set(after.arcs(name) or ()):
-                      raise ValueError("missing prior arcs")
-              helpers = {".github/scripts/sonar_metric_contract.py", ".github/scripts/sonar_coverage_contract.py"}
+              snapshots = [CoverageData(basename=path) for path in [sys.argv[1], sys.argv[6]]]
+              for before in snapshots:
+                  before.read()
+                  if not before.has_arcs() or not after.has_arcs() or not before.measured_files():
+                      raise ValueError("missing branch data")
+                  for name in before.measured_files():
+                      if not set(before.lines(name) or ()) <= set(after.lines(name) or ()):
+                          raise ValueError("missing prior lines")
+                      if not set(before.arcs(name) or ()) <= set(after.arcs(name) or ()):
+                          raise ValueError("missing prior arcs")
+              helpers = {
+                  ".github/scripts/go_mcp_coverage.py", ".github/scripts/retain_audit_evidence.py",
+                  ".github/scripts/sdk_python_check.py", ".github/scripts/sdk_python_darwin_source_policy.py",
+                  ".github/scripts/sdk_python_darwin_wheel.py",
+                  ".github/scripts/sdk_python_lock.py", ".github/scripts/sonar_metric_contract.py",
+                  ".github/scripts/sonar_coverage_contract.py",
+              }
               for helper in helpers:
                   if helper not in after.measured_files() or not after.lines(helper):
                       raise ValueError("missing helper execution")
@@ -319,9 +359,12 @@ jobs:
               contract = runpy.run_path(str(workspace / ".github/scripts/sonar_coverage_contract.py"))
               updated = contract["with_repository_source"](raw, str(workspace))
               reported = contract["resolved_file_paths"](updated, str(workspace))
-              required = {os.path.normpath(os.path.join(workspace, name)) for name in before.measured_files() | helpers}
-              if not required <= reported:
-                  raise ValueError("filtered XML")
+              inventory = set(json.loads(pathlib.Path(sys.argv[5]).read_text()))
+              if any(not set(before.measured_files()) <= inventory for before in snapshots) or not set(after.measured_files()) <= inventory:
+                  raise ValueError("coverage source classification")
+              required = {os.path.normpath(os.path.join(workspace, name)) for name in inventory}
+              if required != reported:
+                  raise ValueError("production XML denominator mismatch")
               # Insert only the explicit source element; never serialize class
               # subtrees or modify measured lines, branches or totals.
               pathlib.Path(sys.argv[3]).write_bytes(updated)
@@ -357,13 +400,16 @@ jobs:
           # Keep repeated source records for SonarJS to merge.
           mkdir -p "$evidence/browser" || fatal "browser-evidence-directory-failed"
           browser_coverage_status=0
-          node --test --experimental-test-coverage \
+          node --test --test-concurrency=1 --experimental-test-coverage \
             --test-coverage-exclude='examples/landing-motion/**/*.test.mjs' \
-            --test-coverage-exclude=web/help.test.mjs \
+            --test-coverage-exclude='web/**/*.test.mjs' \
             --test-coverage-exclude=examples/landing-motion/.local/worker-routes.mjs \
             --test-reporter=spec --test-reporter=lcov \
             --test-reporter-destination=stdout --test-reporter-destination="$evidence/browser/lcov.info" \
-            examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs web/help.test.mjs \
+            examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs \
+            web/boundary.test.mjs web/configuration-undo.test.mjs web/guided-policy.test.mjs \
+            web/imported-json.test.mjs web/module-boundary.test.mjs web/schema.test.mjs \
+            web/help.test.mjs web/presentation-preferences.test.mjs \
             >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
           printf 'browser_test_exit=%s\n' "$browser_coverage_status" >"$evidence/browser-test-status.txt"
           (( browser_coverage_status == 0 )) || fail "browser-tests-failed:$browser_coverage_status"
@@ -638,6 +684,186 @@ jobs:
               --argjson readback_ok "$readback_ok" --argjson unavailable_groups "$unavailable_groups" --argjson unavailable_blocks "$unavailable_blocks" '
               {schema_version:2,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",attribution_complete:($readback_ok == 1),omitted_removed_file_groups:$unavailable_groups,unavailable_removed_file_blocks:$unavailable_blocks,duplication_groups:.}
             ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_fail "duplication-attribution-serialization"
+            # Separate diagnostic payload: never widen the strict six-metric
+            # response or replace a failed threshold with a diagnostic total.
+            # Pinned 26.10 ComponentTreeAction permits path sorting and 15 keys.
+            coverage_keys=coverage,line_coverage,branch_coverage,lines_to_cover,uncovered_lines,conditions_to_cover,uncovered_conditions,new_coverage,new_line_coverage,new_branch_coverage,new_lines_to_cover,new_uncovered_lines,new_conditions_to_cover,new_uncovered_conditions,ncloc
+            printf '{"status":"unavailable"}\n' >"$evidence/coverage-breakdown.json"
+            coverage_request() {
+              local name=$1 route=$2 status curl_exit=0
+              status="$(curl --connect-timeout 5 --max-time 30 --max-filesize 1048576 --silent --show-error --output "$state/coverage-${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")" || curl_exit=$?
+              test "$curl_exit" = 0 && test "$status" = 200 || { readback_fail "coverage-readback-http-invalid"; return 1; }
+            }
+            coverage_capture_ok=1
+            coverage_pages=0
+            coverage_request project "/api/measures/component?component=cq&metricKeys=${coverage_keys}" || coverage_capture_ok=0
+            if coverage_request files-1 "/api/measures/component_tree?component=cq&metricKeys=${coverage_keys}&qualifiers=FIL&strategy=leaves&s=path&ps=500&p=1"; then
+              coverage_total="$(jq -er '.paging.total | select(type == "number" and . >= 1 and . <= 4000 and floor == .)' "$state/coverage-files-1.json" 2>/dev/null)"
+              if [[ "$coverage_total" =~ ^[0-9]+$ ]]; then
+                coverage_pages=$(( (coverage_total + 499) / 500 ))
+                for (( coverage_page=2; coverage_page<=coverage_pages; coverage_page++ )); do
+                  coverage_request "files-${coverage_page}" "/api/measures/component_tree?component=cq&metricKeys=${coverage_keys}&qualifiers=FIL&strategy=leaves&s=path&ps=500&p=${coverage_page}" || coverage_capture_ok=0
+                done
+              else
+                coverage_capture_ok=0
+              fi
+            else
+              coverage_capture_ok=0
+            fi
+            coverage_request analysis-after '/api/project_analyses/search?project=cq&ps=1' || coverage_capture_ok=0
+            if (( coverage_capture_ok == 1 )); then
+              python - "$state" "$evidence" "$GITHUB_SHA" "$analysis_id" "$coverage_pages" <<'COVERAGE_BREAKDOWN' || readback_fail "coverage-breakdown-contract-invalid"
+          import hashlib, json, pathlib, re, subprocess, sys
+          from decimal import Decimal
+          try:
+              state, evidence = map(pathlib.Path, sys.argv[1:3])
+              revision, analysis, page_count = sys.argv[3], sys.argv[4], int(sys.argv[5])
+              if not 1 <= page_count <= 8 or not re.fullmatch(r"[0-9a-f]{40}", revision) or not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", analysis):
+                  raise ValueError("identity or paging bounds")
+              def git(*args):
+                  return subprocess.check_output(["git", *args]).decode().strip()
+              tree = git("rev-parse", "HEAD^{tree}")
+              if git("rev-parse", "HEAD") != revision or tree != (evidence / "tree.txt").read_text().strip():
+                  raise ValueError("source identity drift")
+              if subprocess.call(["git", "diff", "--quiet"]) or subprocess.call(["git", "diff", "--cached", "--quiet"]):
+                  raise ValueError("source changed")
+              tracked = {}
+              raw_tree = subprocess.check_output(["git", "ls-tree", "-rz", revision])
+              if len(raw_tree) > 4 << 20:
+                  raise ValueError("source inventory bounds")
+              for entry in raw_tree.split(b"\0"):
+                  if entry:
+                      header, path = entry.split(b"\t", 1)
+                      mode, kind, blob = header.decode().split()
+                      if kind == "blob" and mode in {"100644", "100755"}:
+                          tracked[path.decode("utf-8")] = blob
+              def unique_object(pairs):
+                  result = {}
+                  for key, value in pairs:
+                      if key in result:
+                          raise ValueError("duplicate JSON member")
+                      result[key] = value
+                  return result
+              def read_json(path):
+                  with path.open("rb") as stream:
+                      raw = stream.read((1 << 20) + 1)
+                  if not 0 < len(raw) <= 1 << 20:
+                      raise ValueError("response bounds")
+                  return json.loads(raw, object_pairs_hook=unique_object, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("nonfinite JSON")))
+              for fence in [read_json(evidence / "current-analysis.json"), read_json(state / "coverage-analysis-after.json")]:
+                  current = fence["analyses"][0]
+                  if current["key"] != analysis or current["revision"] != revision:
+                      raise ValueError("analysis drift")
+              current_percent = {"coverage", "line_coverage", "branch_coverage"}
+              current_count = {"lines_to_cover", "uncovered_lines", "conditions_to_cover", "uncovered_conditions"}
+              new_keys = {"new_" + name for name in current_percent | current_count}
+              allowed = current_percent | current_count | new_keys | {"ncloc"}
+              def measures(component):
+                  raw = component.get("measures", [])
+                  if not isinstance(raw, list) or len(raw) > 15:
+                      raise ValueError("metric list")
+                  values = dict.fromkeys(sorted(allowed))
+                  seen = set()
+                  for item in raw:
+                      name = item.get("metric")
+                      if name not in allowed or name in seen:
+                          raise ValueError("metric identity")
+                      seen.add(name)
+                      if name.startswith("new_"):
+                          period = item.get("period")
+                          if "value" in item or not isinstance(period, dict) or ("index" in period and (type(period["index"]) is not int or period["index"] != 1)):
+                              raise ValueError("period shape")
+                          value = period.get("value")
+                      else:
+                          if "period" in item:
+                              raise ValueError("current shape")
+                          value = item.get("value")
+                      if not isinstance(value, str) or len(value) > 32:
+                          raise ValueError("metric value")
+                      if name in current_percent or name.removeprefix("new_") in current_percent:
+                          if re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?", value) is None or not Decimal(0) <= Decimal(value) <= Decimal(100):
+                              raise ValueError("percentage")
+                      elif re.fullmatch(r"0|[1-9][0-9]*", value) is None:
+                          raise ValueError("count")
+                      values[name] = value
+                  return values
+              project = read_json(state / "coverage-project.json")["component"]
+              if project.get("key") != "cq":
+                  raise ValueError("project")
+              project_values = measures(project)
+              if any(project_values[name] is None for name in current_percent | current_count):
+                  raise ValueError("missing current project totals")
+              rows, seen_paths, groups = [], set(), {}
+              totals = dict.fromkeys(sorted(current_count), 0)
+              total = None
+              untracked = 0
+              for page in range(1, page_count + 1):
+                  document = read_json(state / f"coverage-files-{page}.json")
+                  paging = document["paging"]
+                  if document["baseComponent"].get("key") != "cq" or any(type(paging.get(name)) is not int for name in ["pageIndex", "pageSize", "total"]):
+                      raise ValueError("page identity")
+                  if paging["pageIndex"] != page or paging["pageSize"] != 500 or not 1 <= paging["total"] <= 4000:
+                      raise ValueError("page bounds")
+                  if total is not None and total != paging["total"]:
+                      raise ValueError("paging drift")
+                  total = paging["total"]
+                  components = document["components"]
+                  if not isinstance(components, list) or len(components) != min(500, max(total - 500 * (page - 1), 0)):
+                      raise ValueError("page cardinality")
+                  for component in components:
+                      path = component.get("path")
+                      if not isinstance(path, str) or not 0 < len(path) <= 1024 or any(ord(c) < 32 for c in path) or "\\" in path or path.startswith("/") or any(part in {"", ".", ".."} for part in path.split("/")):
+                          raise ValueError("path shape")
+                      if component.get("key") != "cq:" + path or component.get("qualifier") != "FIL" or path in seen_paths:
+                          raise ValueError("file identity")
+                      seen_paths.add(path)
+                      language = component.get("language", "unknown")
+                      if not isinstance(language, str) or re.fullmatch(r"[a-zA-Z0-9_+.-]{1,32}", language) is None:
+                          raise ValueError("language identity")
+                      values = measures(component)
+                      group = groups.setdefault(language, {"files": 0, "counter_files": dict.fromkeys(sorted(current_count), 0), "counts": dict.fromkeys(sorted(current_count), 0)})
+                      group["files"] += 1
+                      for name in current_count:
+                          if values[name] is not None:
+                              value = int(values[name])
+                              totals[name] += value
+                              group["counts"][name] += value
+                              group["counter_files"][name] += 1
+                      if path not in tracked:
+                          untracked += 1
+                          continue  # Retain only its aggregate counters, never an unbound path.
+                      rows.append({"path": path, "blob": tracked[path], "language": language, "measures": values})
+              if total != len(seen_paths) or page_count != (total + 499) // 500:
+                  raise ValueError("incomplete pagination")
+              if any(totals[name] != int(project_values[name]) for name in current_count):
+                  raise ValueError("project-file count mismatch")
+              for counts in [totals] + [group["counts"] for group in groups.values()]:
+                  if counts["uncovered_lines"] > counts["lines_to_cover"] or counts["uncovered_conditions"] > counts["conditions_to_cover"]:
+                      raise ValueError("uncovered count bounds")
+              denominator = totals["lines_to_cover"] + totals["conditions_to_cover"]
+              numerator = denominator - totals["uncovered_lines"] - totals["uncovered_conditions"]
+              if denominator <= 0 or abs(Decimal(project_values["coverage"]) - Decimal(100) * numerator / denominator) > Decimal("0.05"):
+                  raise ValueError("weighted coverage identity")
+              report_hashes = {}
+              for name in ["coverage.out", "python-coverage.xml", "browser/lcov.info", "typescript/lcov.info"]:
+                  path = evidence / name
+                  if path.stat().st_size > 16 << 20:
+                      raise ValueError("report bound")
+                  with path.open("rb") as stream:
+                      report_hashes[name] = hashlib.file_digest(stream, "sha256").hexdigest()
+              output = {"schema": "cq-sonar-coverage-breakdown/1", "status": "complete" if untracked == 0 else "untracked-source", "revision": revision, "tree": tree, "analysis_id": analysis, "pages": page_count, "indexed_files": total, "public_tracked_files": len(rows), "untracked_indexed_files": untracked, "project": project_values, "weighted_counts": {"covered": numerator, "total": denominator}, "by_language": groups, "files": sorted(rows, key=lambda row: row["path"]), "report_sha256": report_hashes, "new_code_missing": sorted(name for name in new_keys if project_values[name] is None)}
+              encoded = (json.dumps(output, sort_keys=True, separators=(",", ":")) + "\n").encode()
+              if len(encoded) > 8 << 20:
+                  raise ValueError("output bound")
+              (evidence / "coverage-breakdown.json").write_bytes(encoded)
+              if untracked:
+                  raise ValueError("untracked indexed source")
+          except Exception:
+              raise SystemExit("coverage-breakdown-contract-invalid") from None
+          COVERAGE_BREAKDOWN
+            else
+              readback_fail "coverage-breakdown-request-incomplete"
+            fi
           else
             readback_fail "readback-prerequisite-missing"
           fi

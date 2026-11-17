@@ -159,12 +159,14 @@ func TestLocalInputContractMalformedOrHostlessSourceNeverDispatches(t *testing.T
 	}
 }
 
-func TestLocalInputContractVersionPreservesContextRefusal(t *testing.T) {
+func TestLocalInputContractVersionPreservesCancellation(t *testing.T) {
 	client := newLocalInputClient(t)
 	client.run = localInputTripwire(t)
-	version, err := client.Version(nil)
-	if version != (RuntimeVersion{}) || category(err) != CategoryInvalid {
-		t.Fatal("Version returned metadata after invalid-context refusal")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	version, err := client.Version(ctx)
+	if version != (RuntimeVersion{}) || category(err) != CategoryCancelled {
+		t.Fatal("Version returned metadata after cancellation refusal")
 	}
 }
 
