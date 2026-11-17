@@ -248,8 +248,9 @@ func toolExecutionBoundaryDescriptorCopy(t *testing.T, closed bool) {
 	}
 	count, err := copyHelperBytes(destination, source)
 	toolExecutionBoundaryCopyOutcome(t, closed, count, err, int64(len(content)))
-	if _, err = destination.Stat(); !errors.Is(err, os.ErrClosed) {
-		t.Fatalf("copy did not close destination: %v", err)
+	written, writeErr := destination.Write([]byte("destination must be closed"))
+	if written != 0 || !errors.Is(writeErr, os.ErrClosed) {
+		t.Fatalf("copy did not close destination: written=%d error=%v", written, writeErr)
 	}
 	want := content
 	if closed {
