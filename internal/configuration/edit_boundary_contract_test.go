@@ -170,9 +170,9 @@ func newEditBoundaryFixture(t *testing.T, overrides, locks []model.PolicyEdit) e
 	include := localInclude(t, fragment)
 	path := configurationPath(t)
 	master := model.Policy{
-		Version:     1,
-		Sources:     map[string]model.Source{"root": {Type: "json", Path: filepath.Join(filepath.Dir(path), "root.json")}},
-		Workloads:   map[string]model.Workload{"root": {Mode: "offline", Bindings: []model.Binding{{Name: "ROOT_VALUE", Source: "root", Field: "value", AllowOffline: true}}, Environment: map[string]string{"SYNTHETIC_BASE": "unchanged"}}},
+		Version:   1,
+		Sources:   map[string]model.Source{"root": {Type: "json", Path: filepath.Join(filepath.Dir(path), "root.json")}},
+		Workloads: map[string]model.Workload{"root": {Mode: "offline", Bindings: []model.Binding{{Name: "ROOT_VALUE", Source: "root", Field: "value", AllowOffline: true}}, Environment: map[string]string{"SYNTHETIC_BASE": "unchanged"}}},
 		Composition: &model.Composition{
 			Includes: []model.Include{include}, Conflicts: "reject", Overrides: overrides, Locks: locks,
 		},
