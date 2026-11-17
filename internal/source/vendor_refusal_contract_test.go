@@ -32,8 +32,8 @@ func vendorContractResponse(t *testing.T, provider, value string) []byte {
 		return []byte(value)
 	}
 	encoded, err := json.Marshal(map[string]string{
-		"projectId": "synthetic-project",
-		"value": value,
+		"projectId":    "synthetic-project",
+		"value":        value,
 		"revisionDate": "synthetic-revision",
 	})
 	if err != nil {
@@ -111,9 +111,9 @@ func TestVendorRefusalContractRequiredValueDistinguishesEmptyFromAbsent(t *testi
 
 func TestVendorRefusalContractSelectedFieldWithholdsDataButRetainsHints(t *testing.T) {
 	cases := []struct {
-		name string
-		body string
-		kind fault.Kind
+		name      string
+		body      string
+		kind      fault.Kind
 		operation string
 	}{
 		{"malformed selected document", `{"requested":`, fault.Trust, "json_source"},
@@ -145,11 +145,11 @@ func TestVendorRefusalContractSelectedFieldWithholdsDataButRetainsHints(t *testi
 
 func TestVendorRefusalContractCommandResourceRefusesBeforeSelection(t *testing.T) {
 	cases := []struct {
-		name string
-		provider string
-		project string
-		resource string
-		kind fault.Kind
+		name      string
+		provider  string
+		project   string
+		resource  string
+		kind      fault.Kind
 		operation string
 	}{
 		{"nul before unknown provider", "synthetic-unregistered", "synthetic-project", "id\x00tail", fault.Invalid, "vendor_resource"},
@@ -178,7 +178,7 @@ func TestVendorRefusalContractCommandResourceRefusesBeforeSelection(t *testing.T
 
 func TestVendorRefusalContractOnePasswordRequiresLiteralCompleteSelector(t *testing.T) {
 	resources := []struct {
-		name string
+		name     string
 		resource string
 	}{
 		{"missing scheme", "synthetic-project/item/field"},

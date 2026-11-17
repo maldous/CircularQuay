@@ -173,7 +173,7 @@ func runHostedRefusalResponses(t *testing.T, provider string, tests []hostedRefu
 func hostedRefusalSelection(t *testing.T, provider string) (model.Source, model.Binding) {
 	t.Helper()
 	return model.Source{Type: provider, Endpoint: "https://provider.synthetic", Mount: "kv", Namespace: "synthetic-namespace",
-		Project: "synthetic-project", Environment: "synthetic-environment", Path: "/application", TokenFile: tokenFixture(t), AuditVerified: true},
+			Project: "synthetic-project", Environment: "synthetic-environment", Path: "/application", TokenFile: tokenFixture(t), AuditVerified: true},
 		model.Binding{Name: "IGNORED_NAME", Resource: "fixture", Field: "PRIMARY"}
 }
 

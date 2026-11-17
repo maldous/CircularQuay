@@ -131,19 +131,13 @@ func (t *Transit) Wrap(ctx context.Context, request WrapRequest) (WrapResult, er
 
 // Unwrap decrypts one exact-version Transit ciphertext under the enrolled key.
 func (t *Transit) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResult, error) {
-	if err := transitUnwrapRequest(request); err != nil {
+	if err := transitUnwrapAdmission(ctx, request); err != nil {
 		return UnwrapResult{}, err
 	}
 	ciphertext := string(request.Ciphertext)
-	if !validTransitCiphertext(ciphertext) {
-		return UnwrapResult{}, fault.New(fault.Invalid, "transit_ciphertext")
-	}
 	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
 	if err != nil {
 		return UnwrapResult{}, err
-	}
-	if !transitCiphertextMatchesVersion(ciphertext, request.Association.KeyVersion) {
-		return UnwrapResult{}, fault.New(fault.Trust, "transit_ciphertext_version")
 	}
 	endpoint, err := transitURL(configuration, "decrypt", request.Association.KeyID)
 	if err != nil {
@@ -205,6 +199,11 @@ func (t *Transit) authorize(ctx context.Context, association KMSAssociation, req
 	}
 	configuration, err := t.privateConfiguration(ctx, association)
 	if err != nil {
+		return TransitConfiguration{}, "", transitKeyConfig{}, err
+	}
+	// Refuse a malformed declared key path before resolving bootstrap identity.
+	// nativeKeyConfig repeats URL validation at the actual request boundary.
+	if _, err := transitURL(configuration, "keys", association.KeyID); err != nil {
 		return TransitConfiguration{}, "", transitKeyConfig{}, err
 	}
 	token, err := t.credential(ctx, configuration)
@@ -275,6 +274,28 @@ func transitWrapRequest(request WrapRequest) error {
 func transitUnwrapRequest(request UnwrapRequest) error {
 	if !validTransitMaterial(request.Ciphertext) {
 		return fault.New(fault.Invalid, "transit_unwrap_request")
+	}
+	return nil
+}
+
+func transitUnwrapAdmission(ctx context.Context, request UnwrapRequest) error {
+	if err := transitUnwrapRequest(request); err != nil {
+		return err
+	}
+	if !validTransitCiphertext(string(request.Ciphertext)) {
+		return fault.New(fault.Invalid, "transit_ciphertext")
+	}
+	if err := transitContextError(ctx); err != nil {
+		return err
+	}
+	if err := validateTransitAssociation(request.Association, request.Context); err != nil {
+		return err
+	}
+	// A known version mismatch must not resolve private configuration or a
+	// bootstrap token, or reach the provider's key endpoint. authorize still
+	// rechecks context and association before any successful request proceeds.
+	if !transitCiphertextMatchesVersion(string(request.Ciphertext), request.Association.KeyVersion) {
+		return fault.New(fault.Trust, "transit_ciphertext_version")
 	}
 	return nil
 }
