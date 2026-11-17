@@ -197,6 +197,17 @@ func hostedRefusalResponseClient(t *testing.T, provider string, source model.Sou
 
 func assertHostedRefusalRequest(t *testing.T, request *http.Request, provider string, defaultEndpoint bool, version string) {
 	t.Helper()
+	assertHostedRefusalTarget(t, request, provider, defaultEndpoint)
+	assertHostedRefusalSelectors(t, request, provider, version)
+	if provider == "akeyless" {
+		assertHostedRefusalAkeylessBody(t, request)
+		return
+	}
+	assertHostedRefusalReadEnvelope(t, request, provider)
+}
+
+func assertHostedRefusalTarget(t *testing.T, request *http.Request, provider string, defaultEndpoint bool) {
+	t.Helper()
 	host := "provider.synthetic"
 	if defaultEndpoint {
 		host = map[string]string{"doppler": "api.doppler.com", "infisical": "us.infisical.com", "akeyless": "api.akeyless.io"}[provider]
@@ -208,6 +219,10 @@ func assertHostedRefusalRequest(t *testing.T, request *http.Request, provider st
 	if request.URL.Path != wantPath {
 		t.Fatal("request did not select the exact resource path")
 	}
+}
+
+func assertHostedRefusalSelectors(t *testing.T, request *http.Request, provider, version string) {
+	t.Helper()
 	query := url.Values{}
 	switch provider {
 	case "vault":
@@ -225,10 +240,10 @@ func assertHostedRefusalRequest(t *testing.T, request *http.Request, provider st
 	if request.URL.Query().Encode() != query.Encode() {
 		t.Fatal("request broadened or lost its declared selectors")
 	}
-	if provider == "akeyless" {
-		assertHostedRefusalAkeylessBody(t, request)
-		return
-	}
+}
+
+func assertHostedRefusalReadEnvelope(t *testing.T, request *http.Request, provider string) {
+	t.Helper()
 	if request.Method != http.MethodGet || request.Body != nil {
 		t.Fatal("read-only provider request changed method or gained a body")
 	}

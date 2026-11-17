@@ -58,18 +58,22 @@ func TestDiagnosticRefusalContractPublicRecordsAreBoundedJSONLines(t *testing.T)
 	if len(records) != 2 {
 		t.Fatal("public diagnostic events did not append separate JSONL records")
 	}
-	first := records[0]
-	if first.Event != "operation" || first.Phase != PhaseCLI || first.Provider != "none" || first.Outcome != OutcomeFailed {
-		t.Fatal("public event values were not normalized before diagnostic disclosure")
-	}
-	if decoded, err := hex.DecodeString(first.Correlation); err != nil || len(decoded) != 16 {
-		t.Fatal("public diagnostic record lacks bounded opaque correlation")
-	}
+	assertDiagnosticRefusalNormalizedOperation(t, records[0])
 	if records[1].Phase != PhaseResolve || records[1].Provider != "native" || records[1].Outcome != OutcomeSuccess {
 		t.Fatal("valid bounded event fields changed during append")
 	}
 	if runtime.Health() != (Health{}) {
 		t.Fatal("successful local diagnostic writes became pipeline failures")
+	}
+}
+
+func assertDiagnosticRefusalNormalizedOperation(t *testing.T, first diagnosticRecord) {
+	t.Helper()
+	if first.Event != "operation" || first.Phase != PhaseCLI || first.Provider != "none" || first.Outcome != OutcomeFailed {
+		t.Fatal("public event values were not normalized before diagnostic disclosure")
+	}
+	if decoded, err := hex.DecodeString(first.Correlation); err != nil || len(decoded) != 16 {
+		t.Fatal("public diagnostic record lacks bounded opaque correlation")
 	}
 }
 
@@ -144,9 +148,7 @@ func TestDiagnosticRefusalContractExporterErrorProducesOneSafeRecord(t *testing.
 	exporter := safeTraceExporter{next: delegate, health: health}
 	for range 2 {
 		err := exporter.ExportSpans(context.Background(), nil)
-		if err == nil || err.Error() != "telemetry export" || errors.Is(err, delegate.failure) || errors.Unwrap(err) != nil {
-			t.Fatal("exporter failure exposed its private cause")
-		}
+		assertDiagnosticRefusalExporterError(t, err, delegate.failure)
 	}
 	if health.count() != 2 || delegate.calls != 2 || sink.health() != 0 {
 		t.Fatal("export failure accounting was lost or became a diagnostic write error")
@@ -154,6 +156,13 @@ func TestDiagnosticRefusalContractExporterErrorProducesOneSafeRecord(t *testing.
 	records := diagnosticRefusalRecords(t, sink.path)
 	if len(records) != 1 || records[0].Event != "telemetry_export" || records[0].Outcome != OutcomeUnavailable {
 		t.Fatal("repeated exporter failure did not retain one bounded diagnostic event")
+	}
+}
+
+func assertDiagnosticRefusalExporterError(t *testing.T, err, privateCause error) {
+	t.Helper()
+	if err == nil || err.Error() != "telemetry export" || errors.Is(err, privateCause) || errors.Unwrap(err) != nil {
+		t.Fatal("exporter failure exposed its private cause")
 	}
 }
 
@@ -186,22 +195,27 @@ func diagnosticRefusalRecords(t *testing.T, path string) []diagnosticRecord {
 	lines := bytes.Split(bytes.TrimSuffix(data, []byte("\n")), []byte("\n"))
 	records := make([]diagnosticRecord, 0, len(lines))
 	for _, line := range lines {
-		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(line, &fields); err != nil {
-			t.Fatal("diagnostic append did not preserve individual JSON objects")
-		}
-		for name := range fields {
-			if !allowed[name] {
-				t.Fatal("diagnostic record disclosed an undeclared field")
-			}
-		}
-		var record diagnosticRecord
-		if err := json.Unmarshal(line, &record); err != nil || record.Time.IsZero() || record.Event == "" || record.Outcome == "" {
-			t.Fatal("diagnostic record lost its required bounded fields")
-		}
-		records = append(records, record)
+		records = append(records, diagnosticRefusalRecord(t, line, allowed))
 	}
 	return records
+}
+
+func diagnosticRefusalRecord(t *testing.T, line []byte, allowed map[string]bool) diagnosticRecord {
+	t.Helper()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(line, &fields); err != nil {
+		t.Fatal("diagnostic append did not preserve individual JSON objects")
+	}
+	for name := range fields {
+		if !allowed[name] {
+			t.Fatal("diagnostic record disclosed an undeclared field")
+		}
+	}
+	var record diagnosticRecord
+	if err := json.Unmarshal(line, &record); err != nil || record.Time.IsZero() || record.Event == "" || record.Outcome == "" {
+		t.Fatal("diagnostic record lost its required bounded fields")
+	}
+	return record
 }
 
 type diagnosticRefusalTraceExporter struct {

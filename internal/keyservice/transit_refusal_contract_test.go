@@ -74,45 +74,11 @@ func TestTransitRefusalContractMatchingVersionStillUnwraps(t *testing.T) {
 	counts := &transitAdmissionCounts{}
 	request := transitAdmissionRequest()
 	adapter := newTransitAdmissionAdapter(t, counts, func(r *http.Request) (*http.Response, error) {
-		if r.URL.Scheme != "https" || r.URL.Host != "transit.example.invalid" ||
-			r.Header.Get("X-Vault-Token") != "synthetic-token" ||
-			r.Header.Get("X-Vault-Namespace") != "synthetic-namespace" {
-			t.Fatal("matching version reached an unbound synthetic request")
-		}
-		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/v1/transit/keys/workload-key":
-			data, err := json.Marshal(transitKeyDocument(true, false, false, false))
-			if err != nil {
-				t.Fatal(err)
-			}
-			return transitAdmissionResponse(string(data)), nil
-		case r.Method == http.MethodPost && r.URL.Path == "/v1/transit/decrypt/workload-key":
-			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body) != 2 ||
-				body["ciphertext"] != string(request.Ciphertext) || body["context"] == "" {
-				t.Fatal("matching version changed the bounded synthetic decrypt request")
-			}
-			return transitAdmissionResponse(`{"data":{"plaintext":"c3ludGhldGljLWtleQ=="}}`), nil
-		default:
-			t.Fatal("matching version used an unexpected synthetic method or path")
-			return nil, errors.New("unexpected synthetic Transit request")
-		}
+		return transitAdmissionUnwrapReply(t, request, r)
 	})
 	result, err := adapter.Unwrap(context.Background(), request)
-	wantReceipt := KMSReceipt{
-		Provider:                 request.Association.Provider,
-		KeyID:                    request.Association.KeyID,
-		KeyVersion:               request.Association.KeyVersion,
-		Algorithm:                request.Association.Algorithm,
-		ConfigurationAttestation: request.Association.ConfigurationAttestation,
-		Context:                  request.Context,
-	}
-	if err != nil || string(result.Plaintext) != "synthetic-key" || result.Receipt != wantReceipt {
-		t.Fatal("matching enrolled version lost its plaintext or bound receipt")
-	}
-	if counts.configuration != 1 || counts.credential != 1 || counts.http != 2 {
-		t.Fatal("matching version did not use exactly the selected synthetic collaborators")
-	}
+	assertTransitAdmissionUnwrapResult(t, result, request, err)
+	assertTransitAdmissionSuccessCounts(t, counts, "matching version did not use exactly the selected synthetic collaborators")
 }
 
 func TestTransitRefusalContractResourceBeforeCredential(t *testing.T) {
@@ -159,37 +125,102 @@ func TestTransitRefusalContractResourceBeforeCredential(t *testing.T) {
 func TestTransitRefusalContractValidResourceStillWraps(t *testing.T) {
 	counts := &transitAdmissionCounts{}
 	adapter := newTransitAdmissionAdapter(t, counts, func(r *http.Request) (*http.Response, error) {
-		if r.URL.Scheme != "https" || r.URL.Host != "transit.example.invalid" ||
-			r.Header.Get("X-Vault-Token") != "synthetic-token" ||
-			r.Header.Get("X-Vault-Namespace") != "synthetic-namespace" {
-			t.Fatal("valid resource reached an unbound synthetic request")
-		}
-		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/v1/transit/keys/workload-key":
-			data, err := json.Marshal(transitKeyDocument(true, false, false, false))
-			if err != nil {
-				t.Fatal(err)
-			}
-			return transitAdmissionResponse(string(data)), nil
-		case r.Method == http.MethodPost && r.URL.Path == "/v1/transit/encrypt/workload-key":
-			var body map[string]json.RawMessage
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body) != 3 ||
-				string(body["plaintext"]) != `"c3ludGhldGljLWtleQ=="` ||
-				string(body["key_version"]) != "1" || len(body["context"]) <= 2 {
-				t.Fatal("valid resource changed the bounded synthetic encrypt request")
-			}
-			return transitAdmissionResponse(`{"data":{"ciphertext":"vault:v1:c3ludGhldGlj","key_version":1}}`), nil
-		default:
-			t.Fatal("valid resource used an unexpected synthetic method or path")
-			return nil, errors.New("unexpected synthetic Transit request")
-		}
+		return transitAdmissionWrapReply(t, r)
 	})
 	association := transitTestAssociation()
 	requestContext := transitTestContext()
 	result, err := adapter.Wrap(context.Background(), WrapRequest{
 		Association: association, Context: requestContext, Plaintext: []byte("synthetic-key"),
 	})
-	wantReceipt := KMSReceipt{
+	assertTransitAdmissionWrapResult(t, result, association, requestContext, err)
+	assertTransitAdmissionSuccessCounts(t, counts, "valid resource did not use exactly the selected synthetic collaborators")
+}
+
+func transitAdmissionUnwrapReply(t *testing.T, request UnwrapRequest, r *http.Request) (*http.Response, error) {
+	t.Helper()
+	assertTransitAdmissionRequestBinding(t, r, "matching version reached an unbound synthetic request")
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/transit/keys/workload-key":
+		return transitAdmissionKeyReply(t), nil
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/transit/decrypt/workload-key":
+		assertTransitAdmissionDecryptBody(t, r, request.Ciphertext)
+		return transitAdmissionResponse(`{"data":{"plaintext":"c3ludGhldGljLWtleQ=="}}`), nil
+	default:
+		t.Fatal("matching version used an unexpected synthetic method or path")
+		return nil, errors.New("unexpected synthetic Transit request")
+	}
+}
+
+func transitAdmissionWrapReply(t *testing.T, r *http.Request) (*http.Response, error) {
+	t.Helper()
+	assertTransitAdmissionRequestBinding(t, r, "valid resource reached an unbound synthetic request")
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/transit/keys/workload-key":
+		return transitAdmissionKeyReply(t), nil
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/transit/encrypt/workload-key":
+		assertTransitAdmissionEncryptBody(t, r)
+		return transitAdmissionResponse(`{"data":{"ciphertext":"vault:v1:c3ludGhldGlj","key_version":1}}`), nil
+	default:
+		t.Fatal("valid resource used an unexpected synthetic method or path")
+		return nil, errors.New("unexpected synthetic Transit request")
+	}
+}
+
+func assertTransitAdmissionRequestBinding(t *testing.T, r *http.Request, message string) {
+	t.Helper()
+	if r.URL.Scheme != "https" || r.URL.Host != "transit.example.invalid" ||
+		r.Header.Get("X-Vault-Token") != "synthetic-token" ||
+		r.Header.Get("X-Vault-Namespace") != "synthetic-namespace" {
+		t.Fatal(message)
+	}
+}
+
+func transitAdmissionKeyReply(t *testing.T) *http.Response {
+	t.Helper()
+	data, err := json.Marshal(transitKeyDocument(true, false, false, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return transitAdmissionResponse(string(data))
+}
+
+func assertTransitAdmissionDecryptBody(t *testing.T, r *http.Request, ciphertext []byte) {
+	t.Helper()
+	var body map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body) != 2 ||
+		body["ciphertext"] != string(ciphertext) || body["context"] == "" {
+		t.Fatal("matching version changed the bounded synthetic decrypt request")
+	}
+}
+
+func assertTransitAdmissionEncryptBody(t *testing.T, r *http.Request) {
+	t.Helper()
+	var body map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body) != 3 ||
+		string(body["plaintext"]) != `"c3ludGhldGljLWtleQ=="` ||
+		string(body["key_version"]) != "1" || len(body["context"]) <= 2 {
+		t.Fatal("valid resource changed the bounded synthetic encrypt request")
+	}
+}
+
+func assertTransitAdmissionUnwrapResult(t *testing.T, result UnwrapResult, request UnwrapRequest, err error) {
+	t.Helper()
+	wantReceipt := transitAdmissionExpectedReceipt(request.Association, request.Context)
+	if err != nil || string(result.Plaintext) != "synthetic-key" || result.Receipt != wantReceipt {
+		t.Fatal("matching enrolled version lost its plaintext or bound receipt")
+	}
+}
+
+func assertTransitAdmissionWrapResult(t *testing.T, result WrapResult, association KMSAssociation, requestContext AssociationContext, err error) {
+	t.Helper()
+	wantReceipt := transitAdmissionExpectedReceipt(association, requestContext)
+	if err != nil || string(result.Ciphertext) != "vault:v1:c3ludGhldGlj" || result.Receipt != wantReceipt {
+		t.Fatal("valid resource lost its ciphertext or bound receipt")
+	}
+}
+
+func transitAdmissionExpectedReceipt(association KMSAssociation, requestContext AssociationContext) KMSReceipt {
+	return KMSReceipt{
 		Provider:                 association.Provider,
 		KeyID:                    association.KeyID,
 		KeyVersion:               association.KeyVersion,
@@ -197,11 +228,12 @@ func TestTransitRefusalContractValidResourceStillWraps(t *testing.T) {
 		ConfigurationAttestation: association.ConfigurationAttestation,
 		Context:                  requestContext,
 	}
-	if err != nil || string(result.Ciphertext) != "vault:v1:c3ludGhldGlj" || result.Receipt != wantReceipt {
-		t.Fatal("valid resource lost its ciphertext or bound receipt")
-	}
+}
+
+func assertTransitAdmissionSuccessCounts(t *testing.T, counts *transitAdmissionCounts, message string) {
+	t.Helper()
 	if counts.configuration != 1 || counts.credential != 1 || counts.http != 2 {
-		t.Fatal("valid resource did not use exactly the selected synthetic collaborators")
+		t.Fatal(message)
 	}
 }
 

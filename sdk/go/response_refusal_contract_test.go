@@ -156,14 +156,24 @@ func TestSDKResponseRefusalRunDTOIsBoundedWithoutExecutingWorkload(t *testing.T)
 			}
 		})
 	}
+	assertSDKResponseRefusalExactRunRequest(t)
+	assertSDKResponseRefusalInvalidWorkloadDoesNotDispatch(t)
+}
+
+func assertSDKResponseRefusalExactRunRequest(t *testing.T) {
+	t.Helper()
 	want := RunResult{ID: "run-1", Status: "completed", ExitCode: 0}
 	caller := &sdkResponseRefusalCaller{result: &mcp.CallToolResult{StructuredContent: want}}
 	result, err := sdkResponseRefusalClient(t, caller).RunWorkload(context.Background(), "alpha")
 	if err != nil || result != want || caller.calls != 1 || caller.params.Name != "run_workload" || !reflect.DeepEqual(caller.params.Arguments, map[string]any{"workload": "alpha"}) {
 		t.Fatal("in-process run request lost its exact tool or arguments")
 	}
-	caller = &sdkResponseRefusalCaller{}
-	result, err = sdkResponseRefusalClient(t, caller).RunWorkload(context.Background(), "SYNTHETIC/INVALID")
+}
+
+func assertSDKResponseRefusalInvalidWorkloadDoesNotDispatch(t *testing.T) {
+	t.Helper()
+	caller := &sdkResponseRefusalCaller{}
+	result, err := sdkResponseRefusalClient(t, caller).RunWorkload(context.Background(), "SYNTHETIC/INVALID")
 	assertSDKResponseRefusal(t, err, CategoryInvalid)
 	if result != (RunResult{}) || caller.calls != 0 {
 		t.Fatal("invalid workload dispatched a call")
