@@ -30,6 +30,11 @@ node examples/landing-motion/server.mjs
 
 Open `http://localhost:5182/`, `/login` or `/explore`. The loopback preview requires Node.js 22+ and no package installation.
 
+The twelve page HTML files are indexed authoring templates with one fixed header slot. Their single literal header is maintained in `site-header.html`; `render-site-header.mjs` composes only those named local pages, without browser-side fetching or evaluating includes. Open pages through this preview or the standalone export, not by opening an unexpanded raw template. Both paths deliver complete no-JavaScript HTML with the existing navigation and unchanged search markup, scripts, styles and accessibility references. The fragment and renderer are not public routes.
+
+`build-public.mjs` writes complete rendered HTML to the existing ignored `.public-dist/` output and records its byte lengths and SHA-256 values in the existing upload manifest. `--check` compares every exported file with its expected rendered bytes (or unchanged raw bytes for other assets), then checks the exact manifest and Worker route module. The 902 routes and 554 public files are unchanged. Raw-template equality is not substituted for this rendered-byte check. Source templates are limited to 64 KiB and the header fragment to 8 KiB; invalid UTF-8, NUL, unknown page names, missing/duplicate slots and malformed literal headers refuse without output.
+
+
 ```sh
 node examples/landing-motion/render-integrations.mjs --check
 node examples/landing-motion/render-site-pages.mjs --check

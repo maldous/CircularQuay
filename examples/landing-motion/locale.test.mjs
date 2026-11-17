@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readSitePage } from './render-site-header.mjs';
 import test from 'node:test';
 
-const landing = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+const landing = (await readSitePage('index.html')).toString('utf8');
 const messageKeys = [...new Set([...landing.matchAll(/data-i18n="([^"]+)"/g)].map(match => match[1]))];
 const storageKey = 'circularquay-motion-language';
 

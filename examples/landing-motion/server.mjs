@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, normalize, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { readSitePage, SITE_PAGE_FILES } from './render-site-header.mjs';
 
 const host = '127.0.0.1';
 const port = 5182;
@@ -136,7 +137,7 @@ function reply(response, status, body = '') {
   response.end(body);
 }
 
-const server = http.createServer(async (request, response) => {
+export async function handleRequest(request, response) {
   if (!['GET', 'HEAD'].includes(request.method || '')) return reply(response, 405, 'Method Not Allowed');
 
   let pathname;
@@ -156,21 +157,25 @@ const server = http.createServer(async (request, response) => {
   if (!canonicalFile && !file.startsWith(`${root}/`)) return reply(response, 403, 'Forbidden');
 
   try {
-    const details = await stat(file);
-    if (!details.isFile()) return reply(response, 404, 'Not Found');
+    const rendered = SITE_PAGE_FILES.includes(asset) ? await readSitePage(asset) : null;
+    const details = rendered ? null : await stat(file);
+    if (details && !details.isFile()) return reply(response, 404, 'Not Found');
     const type = contentTypes[extname(file)] || 'application/octet-stream';
     response.writeHead(200, {
       ...securityHeaders,
       'Cache-Control': 'no-store',
-      'Content-Length': details.size,
+      'Content-Length': rendered ? rendered.length : details.size,
       'Content-Type': type,
     });
     if (request.method === 'HEAD') return response.end();
+    if (rendered) return response.end(rendered);
     createReadStream(file).pipe(response);
   } catch {
     return reply(response, 404, 'Not Found');
   }
-});
+}
+
+const server = http.createServer(handleRequest);
 
 if (!process.env.CQ_EXPORT_ROUTE_MAP) server.listen(port, host, () => {
   process.stdout.write(`CircularQuay landing-motion preview: http://${host}:${port}/\n`);

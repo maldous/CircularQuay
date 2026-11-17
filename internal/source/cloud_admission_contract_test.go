@@ -31,12 +31,12 @@ func cloudAdmissionECSCases(t *testing.T, sourceType, resource string, direct Re
 			// Setenv restores its prior state when this subtest completes.
 			t.Setenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", tc.locator)
 			source := model.Source{
-				Type:		sourceType,
-				Account:	"123456789012",
-				Region:		"ap-southeast-2",
-				Identity:	"ecs",
-				Resources:	[]string{resource},
-				AuditVerified:	true,
+				Type:          sourceType,
+				Account:       "123456789012",
+				Region:        "ap-southeast-2",
+				Identity:      "ecs",
+				Resources:     []string{resource},
+				AuditVerified: true,
 			}
 			binding := model.Binding{Resource: resource, Version: "3", Field: "selected"}
 			cloudAdmissionWrappersRefuse(t, source, binding, direct, fault.Invalid, "ecs_identity")
@@ -49,13 +49,13 @@ func TestCloudAdmissionContractAzureRejectsMetadataOverrideBeforeProvider(t *tes
 	// before inspecting any other environment key or creating managed identity.
 	t.Setenv("IDENTITY_ENDPOINT", "https://SYNTHETIC_PRIVATE_OVERRIDE.invalid/metadata")
 	source := model.Source{
-		Type:		"azure",
-		Endpoint:	syntheticAzureEndpoint,
-		Account:	"11111111-1111-4111-8111-111111111111",
-		Profile:	"22222222-2222-4222-8222-222222222222",
-		Identity:	"managed",
-		Resources:	[]string{"fixture"},
-		AuditVerified:	true,
+		Type:          "azure",
+		Endpoint:      syntheticAzureEndpoint,
+		Account:       "11111111-1111-4111-8111-111111111111",
+		Profile:       "22222222-2222-4222-8222-222222222222",
+		Identity:      "managed",
+		Resources:     []string{"fixture"},
+		AuditVerified: true,
 	}
 	binding := model.Binding{Resource: "fixture", Version: "expected", Field: "selected"}
 	cloudAdmissionWrappersRefuse(t, source, binding, ReadFunc(readAzure), fault.Trust, "azure_metadata_override")

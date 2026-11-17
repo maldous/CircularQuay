@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { readSitePage, SITE_PAGE_FILES } from './render-site-header.mjs';
 
 const here = resolve(import.meta.dirname);
 const publicDirectory = resolve(here, '.public-dist');
@@ -18,7 +20,7 @@ const assetBinding = {
     if (!file.startsWith(`${publicDirectory}/`)) return new Response('Not Found', { status: 404 });
     try {
       const bytes = await readFile(file);
-      return new Response(request.method === 'HEAD' ? null : bytes, { status: 200 });
+      return new Response(request.method === 'HEAD' ? null : bytes, { status: 200, headers: { 'Content-Length': String(bytes.length) } });
     } catch {
       return new Response('Not Found', { status: 404 });
     }
@@ -84,4 +86,41 @@ test('rejects methods, query strings, and private source paths', async () => {
   assert.equal((await dispatch('/explore-content/manifest.json')).status, 404);
   assert.equal((await dispatch('/evidence/review.json')).status, 404);
   assert.equal((await dispatch('/%')).status, 400);
+});
+
+
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const compareCodeUnits = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+
+test('rendered pages, export manifest and Worker retain exact public parity', async () => {
+  const manifest = JSON.parse(await readFile(resolve(here, '.local/public-upload-manifest.json'), 'utf8'));
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.routeCount, 902);
+  assert.equal(manifest.fileCount, 554);
+  const routes = manifest.routes.map(({ route, file, mime }) => ({ route, file, mime }))
+    .sort((left, right) => compareCodeUnits(left.route, right.route));
+  assert.equal(sha256(JSON.stringify(routes)), '6bbc8e3d19bd0ff586303b560f18caf9053e1d741d03563757c382cdfe321e3e');
+  const names = manifest.files.map(item => item.file).sort(compareCodeUnits);
+  assert.equal(sha256(JSON.stringify(names)), '56a1aa88f034de3994b5a4fefcc670b72d15297be0ae82d12bd7b891b1d6ff48');
+  for (const name of SITE_PAGE_FILES) {
+    const expected = await readSitePage(name);
+    const exported = await readFile(resolve(publicDirectory, name));
+    assert.deepEqual(exported, expected, name);
+    const recorded = manifest.files.find(item => item.file === name);
+    assert.ok(recorded, name);
+    assert.equal(recorded.bytes, expected.length, name);
+    assert.equal(recorded.sha256, sha256(expected), name);
+    const response = await dispatch(`/${name}`);
+    assert.equal(response.status, 200, name);
+    assert.equal(response.headers.get('content-length'), String(expected.length), name);
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', name);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), expected, name);
+    const head = await dispatch(`/${name}`, { method: 'HEAD' });
+    assert.equal(head.status, 200, name);
+    assert.equal(head.headers.get('content-length'), String(expected.length), name);
+    assert.equal(await head.text(), '', name);
+  }
+  for (const privatePath of ['/site-header.html', '/render-site-header.mjs', '/render-site-header.test.mjs']) {
+    assert.equal((await dispatch(privatePath)).status, 404, privatePath);
+  }
 });

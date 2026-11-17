@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readSitePage } from './render-site-header.mjs';
 import { documentationSuggestions, maximumSuggestions, mergeSuggestions } from './header-search.js';
 import { documentation } from './explore-manifest.js';
 
@@ -33,7 +33,7 @@ test('real manifest paths make the Python SDK discoverable with an unambiguous t
 test('shared headers retain a permitted text combobox and unique popup references', async () => {
   const pages = ['index', 'about', 'accessibility', 'contact', 'cookies', 'privacy', 'security', 'status', 'terms', 'explore', 'help', 'login'];
   for (const page of pages) {
-    const html = await readFile(new URL(`${page}.html`, import.meta.url), 'utf8');
+    const html = (await readSitePage(`${page}.html`)).toString('utf8');
     const header = html.match(/<header\b[^>]*>[\s\S]*?<\/header>/)?.[0];
     assert.ok(header, `${page} has a static header`);
     const inputs = [...header.matchAll(/<input\b[^>]*\sid="site-search"[^>]*>/g)];

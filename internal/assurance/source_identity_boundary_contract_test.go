@@ -167,7 +167,7 @@ func TestSourceIdentityBoundaryContractReplacedDescriptor(t *testing.T) {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := os.Lstat(path)
+	expected, err := sourceIdentityBoundaryFileStat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +188,25 @@ func TestSourceIdentityBoundaryContractReplacedDescriptor(t *testing.T) {
 	if !errors.Is(err, errSourceChangedDuringRead) || sum != ([sha256.Size]byte{}) {
 		t.Fatalf("replaced file hash returned %x, %v", sum, err)
 	}
+}
+
+func sourceIdentityBoundaryFileStat(path string) (os.FileInfo, error) {
+	// Windows pathname Stat/Lstat may defer loading the file ID until SameFile.
+	// Capture it from the original handle, then close before the rename so the
+	// fixture neither follows the replacement name nor keeps a Windows file lock.
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	info, statErr := file.Stat()
+	closeErr := file.Close()
+	if statErr != nil {
+		return nil, statErr
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	return info, nil
 }
 
 func assertSourceIdentityBoundaryClosed(t *testing.T, root, name string, expected os.FileInfo, want error) {

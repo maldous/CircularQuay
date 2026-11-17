@@ -1,6 +1,7 @@
-import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, extname, relative, resolve } from 'node:path';
+import { readSitePage, SITE_PAGE_FILES } from './render-site-header.mjs';
 
 process.env.CQ_EXPORT_ROUTE_MAP = '1';
 const { assets, canonicalHelpSources, contentTypes, root } = await import('./server.mjs');
@@ -26,6 +27,7 @@ const resolveSource = file => {
   if (!isInsideRoot(source)) throw new Error(`Unsafe public source path: ${file}`);
   return source;
 };
+const publicSourceBytes = (file, source) => SITE_PAGE_FILES.includes(file) ? readSitePage(file) : readFile(source);
 const sha256 = buffer => createHash('sha256').update(buffer).digest('hex');
 const routeType = file => contentTypes[extname(file)] || 'application/octet-stream';
 const compareCodeUnits = (left, right) => left < right ? -1 : left > right ? 1 : 0;
@@ -43,18 +45,18 @@ async function copyPublicFiles() {
     const destination = resolve(output, file);
     if (!isInsideRoot(destination.replace(output, root))) throw new Error(`Unsafe export path: ${file}`);
     await mkdir(dirname(destination), { recursive: true });
-    await copyFile(entry.source, destination);
+    if (SITE_PAGE_FILES.includes(file)) await writeFile(destination, await readSitePage(file));
+    else await copyFile(entry.source, destination);
   }
 }
 
 async function manifest() {
   const files = [];
   for (const [file, entry] of entriesByFile) {
-    const sourceBytes = await readFile(entry.source);
-    const details = await stat(entry.source);
+    const sourceBytes = await publicSourceBytes(file, entry.source);
     files.push({
       file,
-      bytes: details.size,
+      bytes: sourceBytes.length,
       sha256: sha256(sourceBytes),
       mime: routeType(file),
       routes: [...entry.routes].sort(compareCodeUnits),
@@ -78,7 +80,7 @@ function renderWorkerRoutes(current) {
 
 async function checkExport(current) {
   for (const file of entriesByFile.keys()) {
-    const [source, exported] = await Promise.all([readFile(resolveSource(file)), readFile(resolve(output, file))]);
+    const [source, exported] = await Promise.all([publicSourceBytes(file, resolveSource(file)), readFile(resolve(output, file))]);
     if (!source.equals(exported)) throw new Error(`Exported bytes differ for ${file}`);
   }
   const [savedManifest, savedRoutes] = await Promise.all([readFile(manifestPath, 'utf8'), readFile(modulePath, 'utf8')]);
