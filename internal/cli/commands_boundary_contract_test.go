@@ -92,7 +92,7 @@ func commandsBoundaryLoadedFixture(t *testing.T) (application, model.Policy, *co
 	probe := &commandPreflightProbe{}
 	app := application{
 		directory: filepath.Join(root, "unused-state"),
-		runner: Runner{In: bytes.NewReader(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}},
+		runner:    Runner{In: bytes.NewReader(nil), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}},
 		repository: repositoryOperations{
 			fetch: func(context.Context, model.Repository) (string, error) {
 				probe.fetches++
@@ -105,14 +105,14 @@ func commandsBoundaryLoadedFixture(t *testing.T) (application, model.Policy, *co
 		},
 	}
 	policy := model.Policy{
-		Version: 1,
+		Version:    1,
 		Repository: model.Repository{URL: "https://github.com/synthetic/config", Directory: filepath.Join(root, "repository"), Ref: "refs/heads/main", AllowedSignersFile: filepath.Join(root, "signers"), InitialCommit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-		Sources: map[string]model.Source{"repository": {Type: "json", Path: "repo:values.json"}},
+		Sources:    map[string]model.Source{"repository": {Type: "json", Path: "repo:values.json"}},
 		Workloads: map[string]model.Workload{"demo": {
-			Mode: "offline",
+			Mode:      "offline",
 			Directory: filepath.Join(root, "unused-work"),
-			Bindings: []model.Binding{{Name: "VALUE", Source: "repository", Field: "value", AllowOffline: true, AllowPublish: true}},
-			Targets: map[string]model.Target{"chosen": {Type: "file", Path: filepath.Join(root, "unused-output"), AcceptSnapshot: true}},
+			Bindings:  []model.Binding{{Name: "VALUE", Source: "repository", Field: "value", AllowOffline: true, AllowPublish: true}},
+			Targets:   map[string]model.Target{"chosen": {Type: "file", Path: filepath.Join(root, "unused-output"), AcceptSnapshot: true}},
 		}},
 	}
 	// This exercises the existing explicit loaded-policy seam. It does not
@@ -142,8 +142,8 @@ func TestCommandsBoundaryContractPlanSortsMetadataWithoutDisclosure(t *testing.T
 		Version: 1,
 		Sources: map[string]model.Source{"synthetic": {Type: "json", Path: filepath.Join(root, private+".json")}},
 		Workloads: map[string]model.Workload{
-			"zulu": {Mode: "hybrid", Directory: filepath.Join(root, "zulu"), Bindings: []model.Binding{first, second}, Targets: map[string]model.Target{"last": {Type: "file", Path: filepath.Join(root, private+"-last"), AcceptSnapshot: true}}},
-			"alpha": {Mode: "online", Directory: filepath.Join(root, "alpha"), Bindings: []model.Binding{first}, Targets: map[string]model.Target{"first": {Type: "file", Path: filepath.Join(root, private+"-first")}, "second": {Type: "file", Path: filepath.Join(root, private+"-second")}}},
+			"zulu":   {Mode: "hybrid", Directory: filepath.Join(root, "zulu"), Bindings: []model.Binding{first, second}, Targets: map[string]model.Target{"last": {Type: "file", Path: filepath.Join(root, private+"-last"), AcceptSnapshot: true}}},
+			"alpha":  {Mode: "online", Directory: filepath.Join(root, "alpha"), Bindings: []model.Binding{first}, Targets: map[string]model.Target{"first": {Type: "file", Path: filepath.Join(root, private+"-first")}, "second": {Type: "file", Path: filepath.Join(root, private+"-second")}}},
 			"middle": {Mode: "offline", Directory: filepath.Join(root, "middle"), Bindings: []model.Binding{first}},
 		},
 	}
