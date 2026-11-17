@@ -272,9 +272,54 @@ jobs:
               python_test_status=0
               PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
               (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
+              # Append only this helper's actual measured tests. Keep the SDK
+              # data and its original source/branch denominator intact.
+              cp "$evidence/python.coverage" "$state/sdk-python.coverage" || fail "python-metric-coverage-prior-unavailable"
+              cat >"$state/sonar-metric.coveragerc" <<'METRIC_COVERAGE'
+          [run]
+          branch = True
+          relative_files = True
+          include = .github/scripts/sonar_metric_contract.py
+          METRIC_COVERAGE
+              metric_test_status=0
+              "$python_tool" -m coverage run --append --rcfile "$state/sonar-metric.coveragerc" -m unittest discover -s .github/scripts/tests -p test_sonar_metric_contract.py -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
+              (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
               python_coverage_status=0
               "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
               (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
+              # Use the pinned coverage tool's public read API, not fabricated
+              # counters. XML must retain the SDK files and the added helper.
+              "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
+          import os, pathlib, sys, xml.etree.ElementTree as ET
+          from coverage import CoverageData
+          try:
+              before, after = (CoverageData(basename=path) for path in sys.argv[1:3])
+              before.read()
+              after.read()
+              if not before.has_arcs() or not after.has_arcs() or not before.measured_files():
+                  raise ValueError("missing branch data")
+              for name in before.measured_files():
+                  if not set(before.lines(name) or ()) <= set(after.lines(name) or ()):
+                      raise ValueError("missing prior lines")
+                  if not set(before.arcs(name) or ()) <= set(after.arcs(name) or ()):
+                      raise ValueError("missing prior arcs")
+              helper = ".github/scripts/sonar_metric_contract.py"
+              if helper not in after.measured_files() or not after.lines(helper):
+                  raise ValueError("missing helper execution")
+              with pathlib.Path(sys.argv[3]).open("rb") as stream:
+                  raw = stream.read((16 << 20) + 1)
+              if len(raw) > 16 << 20:
+                  raise ValueError("oversize XML")
+              report = ET.fromstring(raw)
+              workspace = sys.argv[4]
+              sources = [workspace] + [os.path.join(workspace, item.text or "") for item in report.findall("./sources/source")]
+              reported = {os.path.normpath(os.path.join(source, item.get("filename", ""))) for source in sources for item in report.findall(".//class")}
+              required = {os.path.normpath(os.path.join(workspace, name)) for name in before.measured_files() | {helper}}
+              if not required <= reported:
+                  raise ValueError("filtered XML")
+          except Exception:
+              raise SystemExit("python-metric-coverage-preservation-invalid") from None
+          METRIC_PRESERVATION
               unset COVERAGE_FILE
             else
               fail "python-dependency-install-failed"
@@ -590,8 +635,21 @@ jobs:
           fi
           (( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
           jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
-          jq -e '[.component.measures[] | select(.metric == "coverage" or .metric == "new_coverage") | .value | tonumber] | length == 2 and all(.[]; . == 100)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-coverage-not-100"
-          jq -e '[.component.measures[] | select(.metric == "duplicated_lines_density" or .metric == "new_duplicated_lines_density") | .value | tonumber] | length == 2 and all(.[]; . == 0)' "$evidence/metrics.json" >/dev/null 2>&1 || fail "sonar-duplication-not-zero"
+          metric_failures="$("$CQ_ANALYZER_PYTHON" .github/scripts/sonar_metric_contract.py "$evidence/metrics.json" 2>"$state/metric-contract.stderr")"
+          metric_status=$?
+          case "$metric_status" in
+            0) test -z "$metric_failures" || fail "sonar-metric-contract-output-invalid" ;;
+            1|2)
+              test -n "$metric_failures" || fail "sonar-metric-contract-output-invalid"
+              while IFS= read -r reason; do
+                case "$reason" in
+                  sonar-metric-evidence-invalid|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero) fail "$reason" ;;
+                  *) fail "sonar-metric-contract-output-invalid" ;;
+                esac
+              done <<<"$metric_failures"
+              ;;
+            *) fail "sonar-metric-contract-unavailable" ;;
+          esac
           jq -e '.paging.total == 0 and (.issues | length) == 0' "$evidence/all-issues.json" >/dev/null 2>&1 || fail "issues-not-zero-or-unpaged"
           jq -e '.paging.total == 0 and (.hotspots | length) == 0' "$evidence/hotspots.json" >/dev/null 2>&1 || fail "hotspots-not-zero-or-unpaged"
           warning_count_is_zero "$evidence/ce-task.json" || fail "ce-warnings-not-zero"
