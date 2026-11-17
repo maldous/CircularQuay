@@ -265,3 +265,34 @@ test('compact public help stays below the existing source cap with approved pars
   assert.equal(value.contentVersion, 'sha256:5162f1e0d999e62af1b5bad6e033e7618d2ddddaaceca8c8e944c794979caa63');
   assert.equal(hash(Buffer.from(JSON.stringify(canonical(value)))), 'e342234a10a5a55292ca40b3bbe8398f28616907d7249c081f3bdeb9cc197716');
 });
+
+test('help article cache evicts the least recent entry at the count bound without refetching a refreshed article', async () => {
+  const requests = [];
+  const store = createHelpStore(fileFetcher(requests));
+  const documents = (await store.catalog()).documents.slice(0, 33);
+  assert.equal(documents.length, 33);
+  assert.equal(new Set(documents.map(document => document.id)).size, 33);
+  assert.ok(documents.reduce((total, document) => total + document.article.bytes, 0) < 2 * 1024 * 1024, 'This fixture must exercise the article-count bound, not the byte bound.');
+
+  const initial = [];
+  for (const document of documents.slice(0, 32)) initial.push(await store.article(document.id));
+  assert.equal(requests.length, 34);
+  assert.equal(await store.article(documents[0].id), initial[0]);
+  assert.equal(requests.length, 34);
+
+  const added = await store.article(documents[32].id);
+  assert.equal(added.id, documents[32].id);
+  assert.equal(requests.length, 35);
+  assert.equal(await store.article(documents[0].id), initial[0]);
+  assert.equal(requests.length, 35);
+
+  const reloaded = await store.article(documents[1].id);
+  assert.notEqual(reloaded, initial[1]);
+  assert.deepEqual(reloaded, initial[1]);
+  assert.equal(requests.length, 36);
+  assert.equal(await store.article(documents[0].id), initial[0]);
+  assert.equal(requests.length, 36);
+  assert.equal(requests.filter(request => request.path === documents[0].article.path).length, 1);
+  assert.equal(requests.filter(request => request.path === documents[1].article.path).length, 2);
+  assert.equal(requests.filter(request => request.path === documents[32].article.path).length, 1);
+});
