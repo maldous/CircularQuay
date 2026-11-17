@@ -386,8 +386,11 @@ jobs:
           NODE
           node "$consumer/conformance.mjs"
       - name: Exercise the official MCP TypeScript client against synthetic cq
+        id: official_mcp_conformance
         if: ${{ always() && steps.typescript_build.outcome == 'success' && matrix.os == 'ubuntu-24.04' && matrix.node == '24.22.2' }}
         shell: bash
+        env:
+          CQ_PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           umask 077
@@ -406,7 +409,41 @@ jobs:
           print(json.dumps([{"subject": os.environ["SUBJECT"], "workload": "demo", "operations": ["list", "status", "read"], "keys": ["DEMO_API_KEY"]}]))
           PY
           CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" node sdk/conformance/typescript-mcp.mjs
-          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" bash sdk/conformance/go-mcp.sh
+          evidence=$(mktemp -d "$RUNNER_TEMP/cq-go-mcp-evidence.XXXXXX")
+          mkdir -m 0700 "$evidence/input"
+          go_binary=$(realpath -e "$(command -v go)")
+          python3 -B .github/scripts/go_mcp_coverage.py begin \
+            --source "$GITHUB_WORKSPACE" --output "$evidence/preflight" --expected-commit "$GITHUB_SHA" \
+            --go-binary "$go_binary" --cq-binary "$binary" --pr-head "$CQ_PR_HEAD" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --job-key "$GITHUB_JOB" --matrix ubuntu-24.04/node24.22.2
+          set +e
+          CQ_EXECUTABLE="$binary" CQ_CONFIG="$config" CQ_STATE_DIRECTORY="$state" \
+            CQ_GO_BINARY="$go_binary" CQ_GO_MCP_COVERPROFILE="$evidence/input/coverage.out" bash sdk/conformance/go-mcp.sh
+          conformance_exit=$?
+          set -e
+          # Retain only bounded public-source counters/identity, never policy,
+          # session/audit output or the synthetic server's environment.
+          python3 -B .github/scripts/go_mcp_coverage.py retain \
+            --source "$GITHUB_WORKSPACE" --coverage "$evidence/input/coverage.out" \
+            --preflight "$evidence/preflight/preflight.json" \
+            --output "$evidence/retained" --expected-commit "$GITHUB_SHA" \
+            --go-binary "$go_binary" --cq-binary "$binary" --pr-head "$CQ_PR_HEAD" \
+            --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" \
+            --job-key "$GITHUB_JOB" --matrix ubuntu-24.04/node24.22.2 \
+            --exit-code "$conformance_exit"
+          printf 'evidence=%s\nretained=true\n' "$evidence/retained" >> "$GITHUB_OUTPUT"
+          exit "$conformance_exit"
+      - name: Retain SDK-specific official Go MCP coverage
+        if: ${{ always() && steps.official_mcp_conformance.outputs.retained == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-mcp-coverage-${{ github.sha }}
+          path: |
+            ${{ steps.official_mcp_conformance.outputs.evidence }}/coverage.out
+            ${{ steps.official_mcp_conformance.outputs.evidence }}/sdk-metadata.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Audit every locked npm dependency
         if: ${{ always() && steps.npm_install.outcome == 'success' }}
         shell: bash

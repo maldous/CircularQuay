@@ -216,6 +216,7 @@ jobs:
           umask 077
           python3 --version
           python3 -B -m unittest discover -s .github/scripts/tests -p test_retain_audit_evidence.py
+          python3 -B -m unittest discover -s .github/scripts/tests -p test_go_mcp_coverage.py
       - name: Run the actual source profile
         id: source_audit
         shell: bash --noprofile --norc -eo pipefail {0}

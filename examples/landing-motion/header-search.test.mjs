@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { documentationSuggestions, maximumSuggestions, mergeSuggestions } from './header-search.js';
 import { documentation } from './explore-manifest.js';
 
@@ -27,4 +28,33 @@ test('documentation fills unused reserved slots without skipping ranked guides',
 test('real manifest paths make the Python SDK discoverable with an unambiguous title', () => {
   const result = documentationSuggestions('Python', documentation.documents).find(item => item.id === 'sdk-python-readme');
   assert.equal(result?.title, 'cq-sdk · Python');
+});
+
+test('shared headers retain a permitted text combobox and unique popup references', async () => {
+  const pages = ['index', 'about', 'accessibility', 'contact', 'cookies', 'privacy', 'security', 'status', 'terms', 'explore', 'help', 'login'];
+  for (const page of pages) {
+    const html = await readFile(new URL(`${page}.html`, import.meta.url), 'utf8');
+    const header = html.match(/<header\b[^>]*>[\s\S]*?<\/header>/)?.[0];
+    assert.ok(header, `${page} has a static header`);
+    const inputs = [...header.matchAll(/<input\b[^>]*\sid="site-search"[^>]*>/g)];
+    assert.equal(inputs.length, 1, `${page} has one search control`);
+    const input = inputs[0][0];
+    // ARIA in HTML permits combobox on text inputs without a list attribute.
+    assert.match(input, /\stype="text"/, page);
+    assert.match(input, /\srole="combobox"/, page);
+    assert.doesNotMatch(input, /\slist\s*=/, page);
+    assert.match(input, /\saria-autocomplete="list"/, page);
+    assert.match(input, /\saria-controls="site-search-results"/, page);
+    assert.match(input, /\saria-expanded="false"/, page);
+    assert.match(input, /\saria-describedby="site-search-hint"/, page);
+    assert.match(input, /\smaxlength="256"/, page);
+    assert.match(input, /\sdisabled(?:\s|>)/, page);
+    assert.match(header, /<label\b[^>]*\sfor="site-search"[^>]*>[^<]+<\/label>/, page);
+    assert.match(header, /<form\b[^>]*\srole="search"[^>]*>/, page);
+    assert.match(header, /<div\b[^>]*\sid="site-search-popup"[^>]*\shidden(?:\s|>)/, page);
+    assert.match(header, /<ul\b[^>]*\sid="site-search-results"[^>]*\srole="listbox"[^>]*>/, page);
+    for (const id of ['site-search', 'site-search-popup', 'site-search-results', 'site-search-status', 'site-search-hint']) {
+      assert.equal([...html.matchAll(new RegExp(`\\sid="${id}"`, 'g'))].length, 1, `${page} has one ${id}`);
+    }
+  }
 });

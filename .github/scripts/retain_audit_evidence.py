@@ -137,6 +137,34 @@ def source_identity(value: object, expected: str) -> dict[str, str]:
     return {key: value[key] for key in ("commit", "tree", "manifest_sha256")}
 
 
+def selected_go_probe(manifest: object) -> dict | None:
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("tools"), list):
+        return None
+    tools = manifest["tools"]
+    require(len(tools) <= 32)
+    selected = [tool for tool in tools if isinstance(tool, dict) and tool.get("id") == "go"]
+    require(len(selected) <= 1)
+    if selected and selected[0].get("probe") == {"id": "go", "status": "passed"}:
+        return selected[0]
+    return None
+
+
+def source_runtime(report: dict[str, object]) -> dict[str, str]:
+    """Retain no tool paths/stdout; incomplete old evidence cannot supply join pins."""
+    if "go_version" not in report:
+        return {}
+    version, platform = report["go_version"], report.get("platform")
+    require(isinstance(version, str) and re.fullmatch(r"go[0-9]+\.[0-9]+\.[0-9]+", version) is not None)
+    require(isinstance(platform, str) and re.fullmatch(r"[a-z0-9]+/[a-z0-9]+", platform) is not None)
+    result = {"go_version": version, "platform": platform}
+    tool = selected_go_probe(report.get("tool_manifest"))
+    if tool is not None:
+        require(tool.get("declared_version") == f"go version {version} {platform}")
+        require(isinstance(tool.get("sha256"), str) and HEX64.fullmatch(tool["sha256"]) is not None)
+        result["go_tool_sha256"] = tool["sha256"]
+    return result
+
+
 def report_metadata(content: bytes, expected: str) -> dict[str, object]:
     report = json.loads(content, object_pairs_hook=unique_object, parse_constant=reject_constant)
     require(isinstance(report, dict) and type(report.get("version")) is int)
@@ -155,6 +183,7 @@ def report_metadata(content: bytes, expected: str) -> dict[str, object]:
     }
     if report.get("source") is not None:
         result["source"] = source_identity(report["source"], expected)
+    result.update(source_runtime(report))
     return result
 
 

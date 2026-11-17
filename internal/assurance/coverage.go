@@ -12,6 +12,7 @@ import (
 )
 
 const modulePrefix = "github.com/maldous/CircularQuay/"
+const maximumCoverageProfileBytes = 16 << 20
 
 var coverageLine = regexp.MustCompile(`^(.+):([0-9]+)\.([0-9]+),([0-9]+)\.([0-9]+) ([0-9]+) ([0-9]+)$`)
 
@@ -30,7 +31,9 @@ type Coverage struct {
 
 // ParseCoverage validates an untrusted Go coverprofile and summarizes owned code.
 func ParseCoverage(r io.Reader) (Coverage, error) {
-	scanner := bufio.NewScanner(io.LimitReader(r, 16<<20))
+	// The extra byte distinguishes a complete bounded profile from a hidden tail.
+	limited := &io.LimitedReader{R: r, N: maximumCoverageProfileBytes + 1}
+	scanner := bufio.NewScanner(limited)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
 	if !scanner.Scan() || !validCoverageMode(scanner.Text()) {
 		return Coverage{}, errors.New("invalid coverage header")
@@ -50,6 +53,9 @@ func ParseCoverage(r io.Reader) (Coverage, error) {
 	}
 	if scanner.Err() != nil {
 		return Coverage{}, errors.New("coverage read failed")
+	}
+	if limited.N == 0 {
+		return Coverage{}, errors.New("coverage profile size limit exceeded")
 	}
 	if result.Total == 0 {
 		return Coverage{}, errors.New("coverage contains no executable statements")

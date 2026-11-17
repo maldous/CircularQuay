@@ -85,6 +85,37 @@ class RetentionContracts(unittest.TestCase):
         self.write_inputs()
         self.assertTrue(self.retain()["audit_passed"])
 
+    def runtime_report(self) -> dict:
+        return dict(self.report, go_version="go1.27.4", platform="linux/amd64", tool_manifest={
+            "tools": [{"id": "go", "sha256": "d" * 64,
+                       "declared_version": "go version go1.27.4 linux/amd64",
+                       "path": "/private/must-not-retain",
+                       "probe": {"id": "go", "status": "passed"}}]})
+
+    def test_retains_only_validated_runtime_identity_without_tool_paths(self) -> None:
+        result = RETAIN.report_metadata(json.dumps(self.runtime_report()).encode(), self.commit)
+        self.assertEqual("go1.27.4", result["go_version"])
+        self.assertEqual("linux/amd64", result["platform"])
+        self.assertEqual("d" * 64, result["go_tool_sha256"])
+        self.assertNotIn("must-not-retain", json.dumps(result))
+        self.assertFalse(result["passed"])
+
+    def test_rejects_invalid_runtime_identity_and_never_infers_missing_digest(self) -> None:
+        for key, value in (("go_version", "private/path"), ("go_version", True),
+                           ("platform", "linux/../../private")):
+            with self.subTest(key=key):
+                report = dict(self.runtime_report(), **{key: value})
+                with self.assertRaises(RETAIN.InvalidEvidence):
+                    RETAIN.report_metadata(json.dumps(report).encode(), self.commit)
+        report = self.runtime_report()
+        report["tool_manifest"]["tools"][0]["sha256"] = "not-a-digest"
+        with self.assertRaises(RETAIN.InvalidEvidence):
+            RETAIN.report_metadata(json.dumps(report).encode(), self.commit)
+        report["tool_manifest"]["tools"][0]["probe"]["status"] = "failed"
+        result = RETAIN.report_metadata(json.dumps(report).encode(), self.commit)
+        self.assertNotIn("go_tool_sha256", result)
+        self.assertNotIn("go_version", RETAIN.report_metadata(json.dumps(self.report).encode(), self.commit))
+
     def test_rejects_mismatched_commit(self) -> None:
         self.report["commit"] = "c" * 40
         self.write_inputs()
