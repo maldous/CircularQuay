@@ -159,7 +159,13 @@ func TestDiagnosticRefusalContractExporterErrorProducesOneSafeRecord(t *testing.
 
 func diagnosticRefusalRuntime(t *testing.T, level string) (*diagnostic, *Runtime, context.Context) {
 	t.Helper()
-	sink, err := newDiagnostic(level, filepath.Join(t.TempDir(), "diagnostics"))
+	// Darwin may place test data below a symlinked temporary root. Resolve only
+	// this synthetic fixture; the production private-path checks stay strict.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal("could not resolve the synthetic private diagnostic root")
+	}
+	sink, err := newDiagnostic(level, filepath.Join(root, "diagnostics"))
 	if err != nil {
 		t.Fatal("could not create the synthetic private diagnostic sink")
 	}

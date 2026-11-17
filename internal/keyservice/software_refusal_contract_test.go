@@ -41,7 +41,7 @@ func TestSoftwareRefusalContractInvalidUnwrapNeverResolves(t *testing.T) {
 			if entry.mutate != nil {
 				entry.mutate(&request)
 			}
-			var ctx context.Context = context.Background()
+			ctx := context.Background()
 			if entry.nilContext {
 				ctx = nil
 			}

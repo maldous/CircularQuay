@@ -25,8 +25,8 @@ func (roundTrip hostedRefusalRoundTripper) RoundTrip(request *http.Request) (*ht
 
 type hostedRefusalResponse struct {
 	name, body, version, wantData, wantVersion, operation string
-	kind                                                fault.Kind
-	defaultEndpoint, unselected                          bool
+	kind                                                  fault.Kind
+	defaultEndpoint, unselected                           bool
 }
 
 func TestHostedResponseRefusalContractVaultNamespaceAndSelectedValue(t *testing.T) {
