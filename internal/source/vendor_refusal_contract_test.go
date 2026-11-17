@@ -127,19 +127,24 @@ func TestVendorRefusalContractSelectedFieldWithholdsDataButRetainsHints(t *testi
 		t.Run(provider, func(t *testing.T) {
 			for _, item := range cases {
 				t.Run(item.name, func(t *testing.T) {
-					source := model.Source{Type: provider, Project: "synthetic-project", AuditVerified: true}
-					value, err := parseVendorOutput(source, model.Binding{Field: "requested"}, vendorContractResponse(t, provider, item.body))
-					requireVendorContractFault(t, err, item.kind, item.operation)
-					version := ""
-					if provider == "bitwarden" {
-						version = "synthetic-revision"
-					}
-					if value != (model.Value{Version: version, AuditVerified: true}) {
-						t.Fatal("field refusal leaked data or changed the leaf adapter's metadata contract")
-					}
+					assertVendorSelectedFieldRefusal(t, provider, item.body, item.kind, item.operation)
 				})
 			}
 		})
+	}
+}
+
+func assertVendorSelectedFieldRefusal(t *testing.T, provider, body string, kind fault.Kind, operation string) {
+	t.Helper()
+	source := model.Source{Type: provider, Project: "synthetic-project", AuditVerified: true}
+	value, err := parseVendorOutput(source, model.Binding{Field: "requested"}, vendorContractResponse(t, provider, body))
+	requireVendorContractFault(t, err, kind, operation)
+	version := ""
+	if provider == "bitwarden" {
+		version = "synthetic-revision"
+	}
+	if value != (model.Value{Version: version, AuditVerified: true}) {
+		t.Fatal("field refusal leaked data or changed the leaf adapter's metadata contract")
 	}
 }
 

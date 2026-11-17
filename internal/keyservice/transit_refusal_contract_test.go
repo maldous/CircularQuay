@@ -110,15 +110,20 @@ func TestTransitRefusalContractResourceBeforeCredential(t *testing.T) {
 				association := transitTestAssociation()
 				association.KeyID = tc.keyID
 				material, receipt, err := transitAdmissionResourceOperation(adapter, association, operation)
-				requireTransitAdmissionError(t, err, tc.kind, tc.operation)
-				if len(material) != 0 || receipt != (KMSReceipt{}) {
-					t.Fatal("invalid resource returned material or a success receipt")
-				}
-				if counts.configuration != 1 || counts.credential != 0 || counts.http != 0 {
-					t.Fatal("invalid resource or configuration reached credentials or provider transport")
-				}
+				assertTransitAdmissionResourceRefusal(t, material, receipt, err, tc.kind, tc.operation, counts)
 			})
 		}
+	}
+}
+
+func assertTransitAdmissionResourceRefusal(t *testing.T, material []byte, receipt KMSReceipt, err error, kind fault.Kind, operation string, counts *transitAdmissionCounts) {
+	t.Helper()
+	requireTransitAdmissionError(t, err, kind, operation)
+	if len(material) != 0 || receipt != (KMSReceipt{}) {
+		t.Fatal("invalid resource returned material or a success receipt")
+	}
+	if counts.configuration != 1 || counts.credential != 0 || counts.http != 0 {
+		t.Fatal("invalid resource or configuration reached credentials or provider transport")
 	}
 }
 

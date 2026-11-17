@@ -36,22 +36,27 @@ func TestSoftwareRefusalContractInvalidUnwrapNeverResolves(t *testing.T) {
 		{name: "empty_ciphertext", mutate: func(r *UnwrapRequest) { r.Ciphertext = nil }, kind: fault.Invalid, operation: "software_ciphertext"},
 	} {
 		t.Run(entry.name, func(t *testing.T) {
-			association, binding := softwareFixture()
-			request := UnwrapRequest{Association: association, Context: binding, Ciphertext: []byte("not-reached")}
-			if entry.mutate != nil {
-				entry.mutate(&request)
-			}
-			ctx := context.Background()
-			if entry.nilContext {
-				ctx = nil
-			}
-			resolver := &softwareResolver{key: softwareTestKEK()}
-			result, err := softwareAdapter(t, resolver).Unwrap(ctx, request)
-			assertSoftwareRefusal(t, err, entry.kind, entry.operation)
-			if result.Plaintext != nil || result.Receipt != (KMSReceipt{}) || len(resolver.issued) != 0 {
-				t.Fatal("invalid unwrap resolved material or returned a partial result")
-			}
+			assertSoftwareInvalidUnwrapRefusal(t, entry.mutate, entry.nilContext, entry.kind, entry.operation)
 		})
+	}
+}
+
+func assertSoftwareInvalidUnwrapRefusal(t *testing.T, mutate func(*UnwrapRequest), nilContext bool, kind fault.Kind, operation string) {
+	t.Helper()
+	association, binding := softwareFixture()
+	request := UnwrapRequest{Association: association, Context: binding, Ciphertext: []byte("not-reached")}
+	if mutate != nil {
+		mutate(&request)
+	}
+	ctx := context.Background()
+	if nilContext {
+		ctx = nil
+	}
+	resolver := &softwareResolver{key: softwareTestKEK()}
+	result, err := softwareAdapter(t, resolver).Unwrap(ctx, request)
+	assertSoftwareRefusal(t, err, kind, operation)
+	if result.Plaintext != nil || result.Receipt != (KMSReceipt{}) || len(resolver.issued) != 0 {
+		t.Fatal("invalid unwrap resolved material or returned a partial result")
 	}
 }
 
@@ -122,23 +127,38 @@ func TestSoftwareRefusalContractResolverCancellationClearsMaterial(t *testing.T)
 			association, binding := softwareFixture()
 			var err error
 			if operation == "wrap" {
-				var result WrapResult
-				result, err = adapter.Wrap(ctx, WrapRequest{Association: association, Context: binding, Plaintext: softwareTestDEK()})
-				if result.Ciphertext != nil || result.Receipt != (KMSReceipt{}) {
-					t.Fatal("canceled wrap returned a partial result")
-				}
+				err = softwareRefusalCanceledWrap(t, adapter, ctx, WrapRequest{Association: association, Context: binding, Plaintext: softwareTestDEK()})
 			} else {
-				var result UnwrapResult
-				result, err = adapter.Unwrap(ctx, UnwrapRequest{Association: association, Context: binding, Ciphertext: ciphertext})
-				if result.Plaintext != nil || result.Receipt != (KMSReceipt{}) {
-					t.Fatal("canceled unwrap returned a partial result")
-				}
+				err = softwareRefusalCanceledUnwrap(t, adapter, ctx, UnwrapRequest{Association: association, Context: binding, Ciphertext: ciphertext})
 			}
 			assertSoftwareRefusal(t, err, fault.Denied, "software_cancelled")
-			if strings.Contains(err.Error(), "SYNTHETIC_RESOLVER_DIAGNOSTIC") || len(resolver.issued) != 1 || !resolver.allCleared() {
-				t.Fatal("cancellation leaked a diagnostic, retried, or retained resolver material")
-			}
+			assertSoftwareRefusalCanceledMaterial(t, err, resolver)
 		})
+	}
+}
+
+func softwareRefusalCanceledWrap(t *testing.T, adapter *SoftwareKMS, ctx context.Context, request WrapRequest) error {
+	t.Helper()
+	result, err := adapter.Wrap(ctx, request)
+	if result.Ciphertext != nil || result.Receipt != (KMSReceipt{}) {
+		t.Fatal("canceled wrap returned a partial result")
+	}
+	return err
+}
+
+func softwareRefusalCanceledUnwrap(t *testing.T, adapter *SoftwareKMS, ctx context.Context, request UnwrapRequest) error {
+	t.Helper()
+	result, err := adapter.Unwrap(ctx, request)
+	if result.Plaintext != nil || result.Receipt != (KMSReceipt{}) {
+		t.Fatal("canceled unwrap returned a partial result")
+	}
+	return err
+}
+
+func assertSoftwareRefusalCanceledMaterial(t *testing.T, err error, resolver *softwareResolver) {
+	t.Helper()
+	if strings.Contains(err.Error(), "SYNTHETIC_RESOLVER_DIAGNOSTIC") || len(resolver.issued) != 1 || !resolver.allCleared() {
+		t.Fatal("cancellation leaked a diagnostic, retried, or retained resolver material")
 	}
 }
 

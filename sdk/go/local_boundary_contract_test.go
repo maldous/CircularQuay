@@ -14,28 +14,33 @@ import (
 func TestLocalBoundaryContractCancellationAfterDispatchWithholdsResults(t *testing.T) {
 	for _, operation := range []string{"json", "run", "flow"} {
 		t.Run(operation, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			observer := &localEventRecorder{}
-			client, err := NewLocal(localTestOptions(t), WithLocalObserver(observer))
-			if err != nil {
-				t.Fatal(err)
-			}
-			calls := 0
-			client.run = func(_ context.Context, runner cli.Runner, _ []string) int {
-				calls++
-				_, _ = io.WriteString(runner.Out, `{"accepted":true}`)
-				cancel()
-				return 23
-			}
-			assertLocalBoundaryCanceledResult(t, client, ctx, operation)
-			if calls != 1 || len(observer.events) != 1 {
-				t.Fatal("canceled operation was retried or lost its observation")
-			}
-			if observer.events[0].Outcome != string(CategoryCancelled) {
-				t.Fatal("late cancellation was reported as an ordinary process result")
-			}
+			assertLocalBoundaryCancellationAfterDispatch(t, operation)
 		})
+	}
+}
+
+func assertLocalBoundaryCancellationAfterDispatch(t *testing.T, operation string) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	observer := &localEventRecorder{}
+	client, err := NewLocal(localTestOptions(t), WithLocalObserver(observer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	client.run = func(_ context.Context, runner cli.Runner, _ []string) int {
+		calls++
+		_, _ = io.WriteString(runner.Out, `{"accepted":true}`)
+		cancel()
+		return 23
+	}
+	assertLocalBoundaryCanceledResult(t, client, ctx, operation)
+	if calls != 1 || len(observer.events) != 1 {
+		t.Fatal("canceled operation was retried or lost its observation")
+	}
+	if observer.events[0].Outcome != string(CategoryCancelled) {
+		t.Fatal("late cancellation was reported as an ordinary process result")
 	}
 }
 

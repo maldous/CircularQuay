@@ -134,17 +134,22 @@ func assertFragmentRefusalContract(t *testing.T, document map[string]any, allowe
 	}
 	decoded, err := decodeFragment(data, include)
 	if allowed {
-		if err != nil {
-			t.Fatalf("data-only fragment refused: %v", err)
-		}
-		if !reflect.DeepEqual(decoded, child) {
-			t.Fatal("accepted fragment changed its already-bound declaration")
-		}
+		assertAcceptedFragmentResult(t, decoded, child, err)
 	} else {
 		assertFragmentRefusalResult(t, decoded, err)
 	}
 	if !bytes.Equal(original, data) {
 		t.Fatal("fragment admission mutated the caller's serialized input")
+	}
+}
+
+func assertAcceptedFragmentResult(t *testing.T, decoded, child model.Policy, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("data-only fragment refused: %v", err)
+	}
+	if !reflect.DeepEqual(decoded, child) {
+		t.Fatal("accepted fragment changed its already-bound declaration")
 	}
 }
 

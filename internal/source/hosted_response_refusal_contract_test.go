@@ -148,25 +148,30 @@ func runHostedRefusalResponses(t *testing.T, provider string, tests []hostedRefu
 	t.Helper()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			source, binding := hostedRefusalSelection(t, provider)
-			binding.Version = test.version
-			if test.unselected {
-				binding.Field = ""
-			}
-			if test.defaultEndpoint {
-				source.Endpoint = ""
-			}
-			client, calls := hostedRefusalResponseClient(t, provider, source, binding, test.body)
-			value, err := readHostedRefusalProvider(client, provider, source, binding)
-			if test.kind != "" {
-				assertHostedRefusal(t, value, err, test.kind, test.operation)
-			} else if err != nil || value != (model.Value{Data: test.wantData, Version: test.wantVersion, AuditVerified: true}) {
-				t.Fatal("selected response did not retain only its declared value and metadata")
-			}
-			if *calls != 1 {
-				t.Fatalf("in-process request count = %d, want 1", *calls)
-			}
+			runHostedRefusalResponse(t, provider, test)
 		})
+	}
+}
+
+func runHostedRefusalResponse(t *testing.T, provider string, test hostedRefusalResponse) {
+	t.Helper()
+	source, binding := hostedRefusalSelection(t, provider)
+	binding.Version = test.version
+	if test.unselected {
+		binding.Field = ""
+	}
+	if test.defaultEndpoint {
+		source.Endpoint = ""
+	}
+	client, calls := hostedRefusalResponseClient(t, provider, source, binding, test.body)
+	value, err := readHostedRefusalProvider(client, provider, source, binding)
+	if test.kind != "" {
+		assertHostedRefusal(t, value, err, test.kind, test.operation)
+	} else if err != nil || value != (model.Value{Data: test.wantData, Version: test.wantVersion, AuditVerified: true}) {
+		t.Fatal("selected response did not retain only its declared value and metadata")
+	}
+	if *calls != 1 {
+		t.Fatalf("in-process request count = %d, want 1", *calls)
 	}
 }
 

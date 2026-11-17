@@ -116,14 +116,7 @@ func TestJSONRefusalContractOversizedDotenvLineRefusesWholeFile(t *testing.T) {
 func TestJSONRefusalContractStableDescriptorWithholdsReadAndMutationFailures(t *testing.T) {
 	t.Run("stable positive control", func(t *testing.T) {
 		file, opened := openJSONRefusalFixture(t)
-		data, version, err := readStableLiteralFile(file, opened)
-		if err != nil || !bytes.Equal(data, []byte("SYNTHETIC_FILE_VALUE")) {
-			t.Fatal("stable descriptor did not preserve its synthetic bytes")
-		}
-		want := fmt.Sprintf("file:%d:%d", opened.ModTime().UnixNano(), opened.Size())
-		if version != want {
-			t.Fatal("file version is not the declared metadata hint")
-		}
+		assertJSONRefusalStableDescriptor(t, file, opened)
 	})
 	t.Run("closed read", func(t *testing.T) {
 		file, opened := openJSONRefusalFixture(t)
@@ -150,6 +143,18 @@ func TestJSONRefusalContractStableDescriptorWithholdsReadAndMutationFailures(t *
 		data, version, err := readStableLiteralFile(file, opened)
 		assertJSONRefusalBytes(t, data, version, err, "source_file_changed")
 	})
+}
+
+func assertJSONRefusalStableDescriptor(t *testing.T, file *os.File, opened os.FileInfo) {
+	t.Helper()
+	data, version, err := readStableLiteralFile(file, opened)
+	if err != nil || !bytes.Equal(data, []byte("SYNTHETIC_FILE_VALUE")) {
+		t.Fatal("stable descriptor did not preserve its synthetic bytes")
+	}
+	want := fmt.Sprintf("file:%d:%d", opened.ModTime().UnixNano(), opened.Size())
+	if version != want {
+		t.Fatal("file version is not the declared metadata hint")
+	}
 }
 
 func TestJSONRefusalContractFileBoundsApplyBeforeAndAfterOpen(t *testing.T) {
