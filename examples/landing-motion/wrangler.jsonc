@@ -1,0 +1,11 @@
+{
+  "name": "circularquay",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-05",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".public-dist",
+    "html_handling": "none",
+    "run_worker_first": true
+  }
+}

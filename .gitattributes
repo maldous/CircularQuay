@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.go text
+*.md text
+*.json text
+*.yaml text
+*.yml text
+*.svg text
+*.mmd text
+*.tla text
+*.png binary
+*.zip binary
+*.mcpb binary

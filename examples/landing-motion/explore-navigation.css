@@ -1,0 +1,21 @@
+.explore-topic-menu { max-width: 62rem; }
+.explore-topic-menu:not(.is-compact) { margin: 0; padding: 0; list-style: none; }
+.explore-topic-menu + * { margin-top: 0; }
+.explore-home .explore-topic-menu { margin: 0; padding: 0; list-style: none; }
+.explore-topic-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; }
+.explore-topic-menu li { min-width: 0; }
+.explore-topic-menu a { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 2px; color: inherit; text-decoration: none; }
+.explore-topic-menu strong, .explore-topic-menu .topic-description { display: block; }
+.explore-topic-menu strong { font-size: 17px; line-height: 1.2; }
+.explore-topic-menu .topic-description { margin-top: 5px; max-width: 34ch; color: var(--reader-muted, var(--secondary, #52665d)); font-size: 13px; line-height: 1.45; }
+.explore-topic-menu .topic-description-short { display: none; }
+.explore-topic-menu svg { width: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; transition: transform 160ms ease; }
+.explore-topic-menu a:hover svg, .explore-topic-menu a:focus-visible svg { transform: translateX(4px); }
+.explore-topic-menu.is-compact { grid-template-columns: 1fr; }
+.explore-topic-menu.is-compact a { min-height: 44px; padding: 9px 0; }
+.explore-topic-menu.is-compact strong { font-size: 14px; }
+.explore-topic-menu.is-compact .topic-description { margin-top: 2px; font-size: 12px; }
+@media (max-width: 650px) { .explore-topic-menu { grid-template-columns: 1fr; } .explore-topic-menu a { min-height: 58px; padding-block: 10px; } .explore-topic-menu .topic-description-long { display: none; } .explore-topic-menu .topic-description-short { display: block; margin-top: 2px !important; font-size: 12px !important; } }
+
+.explore-topic-menu.is-compact .topic-description-long { display: none; }
+.explore-topic-menu.is-compact .topic-description-short { display: block; }

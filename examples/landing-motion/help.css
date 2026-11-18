@@ -1,0 +1,36 @@
+body.help-page { min-height: 100dvh; display: flex; flex-direction: column; }
+.help-page-shell { flex: 1; min-height: 0; padding-block: 24px 48px; }
+.help-heading h1 { font-size: clamp(30px, 3vw, 42px); }
+.help-heading p { color: var(--secondary); font-size: 15px; margin-block: 8px 0; }
+/* The shared header provides search; the upstream reader keeps its own state. */
+.help-query { display: none; }
+.help-status { color: var(--secondary); font-size: 12px; margin-block: 24px 12px; }
+.help-layout { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); gap: 40px; align-items: start; }
+.help-results { display: flex; flex-direction: column; border-top: 1px solid var(--rule); }
+.help-result { text-align: start; background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--ink); padding: 14px 10px; font: inherit; }
+.help-result strong { display: block; font-size: 13px; line-height: 1.4; font-weight: 650; }
+.help-result span { display: block; margin-top: 5px; color: var(--secondary); font-size: 12px; line-height: 1.5; }
+.help-result:hover, .help-result[aria-current=page] { background: var(--rule); }
+.help-article { min-width: 0; max-width: 72ch; padding-bottom: 32px; scroll-margin-top: 20px; }
+.help-article h2 { font-size: 28px; letter-spacing: -.025em; line-height: 1.2; margin: 0 0 14px; }
+.help-body h3 { font-size: 21px; margin: 32px 0 12px; letter-spacing: -.02em; }
+.help-body h4, .help-body h5, .help-body h6 { font-size: 17px; margin: 28px 0 10px; }
+.help-article p, .help-article li { font-size: 16px; line-height: 1.7; }
+.help-body ul, .help-body ol { padding-inline-start: 24px; }
+.help-body li + li { margin-top: 6px; }
+.help-article .help-capability { color: var(--secondary); font-size: 13px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+.help-body pre { max-width: 100%; overflow-x: auto; background: var(--surface); border-radius: 10px; padding: 18px; font-size: 13px; line-height: 1.6; }
+.help-body code { overflow-wrap: anywhere; }
+.help-body p code, .help-body li code { font-size: .88em; background: var(--surface); padding: 2px 4px; border-radius: 3px; }
+.help-references { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--secondary); }
+.help-references summary { font-size: 13px; cursor: pointer; min-height: 32px; }
+.help-references li { font-size: 12px; overflow-wrap: anywhere; }
+.help-no-results h2 { font-size: 18px; }
+.help-no-results button, .help-article button, .help-results > button[data-help-reload] { font: inherit; color: var(--ink); padding: 10px; border: 1px solid var(--rule); background: var(--surface); border-radius: 8px; }
+@media(max-width:760px) {
+  .help-page-shell { padding-inline: 20px; padding-top: 18px; }
+  .help-layout { display: flex; flex-direction: column-reverse; gap: 24px; }
+  .help-article, .help-results { width: 100%; }
+  .help-article h2 { font-size: 26px; }
+  .help-results { border-top: 1px solid var(--rule); }
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and community support
+    url: https://github.com/maldous/CircularQuay/discussions
+    about: Ask usage and design questions with synthetic examples.
+  - name: Private vulnerability report
+    url: https://github.com/maldous/CircularQuay/security/advisories/new
+    about: Report security concerns privately. Never post credentials in an issue.
