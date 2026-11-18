@@ -148,7 +148,7 @@ function setStory(activeIndex, complete, suppliedRefs, candidate = session, live
       stepNumber.className = 'story-step-number'; stepNumber.setAttribute('aria-label', `Step ${index + 1}`); stepNumber.textContent = String(index + 1);
       clause.append(stepNumber, ' ');
       const rawWords = clauseData.text.split(/\s+/);
-      const references = clauseData.references.map(reference => reference.split(/\s+/).map(normalise)).sort((left, right) => right.length - left.length);
+      const references = clauseData.references.map(reference => reference.split(/\s+/).map(normaliseStoryWord)).sort((left, right) => right.length - left.length);
       let offset = 0;
       const records = [];
       for (let wordIndex = 0; wordIndex < rawWords.length;) {

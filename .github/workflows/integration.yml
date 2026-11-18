@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [develop, main, 'release/**']
   push:
-    branches: [develop, main, 'feature/**', 'release/**']
+    branches: [develop, main, 'feature/**', 'release/**', 'hotfix/**']
 
 jobs:
   wiremock:
@@ -14,12 +14,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
+        include:
+          - os: ubuntu-24.04
+            role: linux
+          - os: macos-15
+            role: macos
+          - os: windows-2025
+            role: windows
     permissions:
       contents: read
     env:
       GOMAXPROCS: '2'
       GOTOOLCHAIN: local
+      GOENV: 'off'
+      GOWORK: 'off'
+      GOFLAGS: '-mod=readonly'
+      GOOS: ''
+      GOARCH: ''
+      GOEXPERIMENT: ''
+      CGO_ENABLED: ''
+      GO111MODULE: 'on'
+      GOAMD64: ''
+      GOARM64: ''
+      CQ_COVERAGE_PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      CQ_TAGGED_ROLE: ${{ matrix.role }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.1
         with:
@@ -58,11 +76,46 @@ jobs:
               raise SystemExit("WireMock JAR SHA-256 mismatch")
           (temporary / "wiremock-path").write_text(str(destination))
           PY
-      - name: Run tagged synthetic provider suite
+      - name: Bind tagged fixture identity before execution
+        id: tagged_begin
         shell: bash
         run: |
           set -euo pipefail
           umask 077
+          go_binary=$(python3 -c 'import pathlib,shutil; print(pathlib.Path(shutil.which("go")).resolve(strict=True))')
+          export GOROOT="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).parent.parent)' "$go_binary")"
+          printf 'go_binary=%s\n' "$go_binary" >> "$GITHUB_OUTPUT"
+          python3 -I -B .github/scripts/source_gate.py tagged-begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --go "$go_binary" --jar "$(cat "$RUNNER_TEMP/wiremock-path")" --role "$CQ_TAGGED_ROLE" --output "$RUNNER_TEMP/cq-tagged-$CQ_TAGGED_ROLE"
+      - name: Run tagged synthetic provider suite
+        id: tagged_suite
+        env:
+          CQ_TAGGED_GO: ${{ steps.tagged_begin.outputs.go_binary }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export GOROOT="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).parent.parent)' "$CQ_TAGGED_GO")"
           export CQ_WIREMOCK_JAR="$(cat "$RUNNER_TEMP/wiremock-path")"
-          go vet -tags=integration ./internal/integration
-          go test -p 1 -tags=integration ./internal/integration
+          set +e
+          "$CQ_TAGGED_GO" vet -tags=integration ./internal/integration
+          vet_exit=$?
+          test_exit=125
+          if test "$vet_exit" -eq 0; then
+            "$CQ_TAGGED_GO" test -p 1 -tags=integration ./internal/integration
+            test_exit=$?
+          fi
+          python3 -I -B .github/scripts/source_gate.py tagged-retain --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --go "$CQ_TAGGED_GO" --jar "$CQ_WIREMOCK_JAR" --role "$CQ_TAGGED_ROLE" --output "$RUNNER_TEMP/cq-tagged-$CQ_TAGGED_ROLE" --vet-exit "$vet_exit" --test-exit "$test_exit"
+          retain_exit=$?
+          set -e
+          if test "$retain_exit" -eq 0; then printf 'retained=true\n' >> "$GITHUB_OUTPUT"; fi
+          if test "$vet_exit" -ne 0; then exit "$vet_exit"; fi
+          if test "$test_exit" -ne 0; then exit "$test_exit"; fi
+          exit "$retain_exit"
+      - name: Upload bounded tagged fixture receipt
+        if: ${{ always() && steps.tagged_suite.outputs.retained == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tagged-source-${{ matrix.role }}-${{ github.sha }}
+          path: ${{ runner.temp }}/cq-tagged-${{ matrix.role }}/tagged.json
+          if-no-files-found: error
+          retention-days: 7

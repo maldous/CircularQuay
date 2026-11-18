@@ -34,6 +34,12 @@ const (
 // Read resolves one string field, after inspecting online key metadata before a
 // token is supplied. Transit sources cannot silently use an offline recipient.
 func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.Binding) (model.Value, error) {
+	return readSOPSWithRunner(ctx, config, binding, runSOPS)
+}
+
+type sopsRunner func(context.Context, string, []string, []byte, string, string, []string) ([]byte, error)
+
+func readSOPSWithRunner(ctx context.Context, config model.Source, binding model.Binding, run sopsRunner) (model.Value, error) {
 	if ctx.Err() != nil {
 		return model.Value{}, fault.New(fault.Denied, "provider_cancelled")
 	}
@@ -50,7 +56,7 @@ func (SOPSReader) Read(ctx context.Context, config model.Source, binding model.B
 		return model.Value{}, err
 	}
 	version := sopsVersion(data)
-	plaintext, err := runSOPS(ctx, config.SOPS, sopsDecryptArgs(), data, config.AgeIdentityFile, config.TokenFile, config.VaultAllowlist)
+	plaintext, err := run(ctx, config.SOPS, sopsDecryptArgs(), data, config.AgeIdentityFile, config.TokenFile, config.VaultAllowlist)
 	if err != nil {
 		return model.Value{}, err
 	}
@@ -88,6 +94,10 @@ func selectedField(binding model.Binding) string {
 // EncryptSnapshot writes a static value map using only the declared age recipients.
 // Eligibility and generation completeness are enforced by the policy/resolver.
 func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[string]string) error {
+	return encryptSnapshotWithRunner(ctx, config, values, runSOPS)
+}
+
+func encryptSnapshotWithRunner(ctx context.Context, config model.Snapshot, values map[string]string, run sopsRunner) error {
 	if ctx.Err() != nil {
 		return fault.New(fault.Denied, "provider_cancelled")
 	}
@@ -99,15 +109,15 @@ func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[stri
 			return fault.New(fault.Invalid, "snapshot age recipient")
 		}
 	}
-	plaintext, err := json.Marshal(values)
-	if err != nil {
-		return fault.New(fault.Invalid, "snapshot values")
-	}
-	if _, err = decodeStrings(plaintext); err != nil {
+	// The built-in map/string types cannot provide a custom marshaler, cycle
+	// or unsupported JSON value. Semantic refusals (including nil, size, keys
+	// and NUL) remain in decodeStrings before the runner or any write.
+	plaintext, _ := json.Marshal(values)
+	if _, err := decodeStrings(plaintext); err != nil {
 		return err
 	}
 	args := append(sopsEncryptArgs(), "--age", strings.Join(config.Recipients, ","))
-	encrypted, err := runSOPS(ctx, config.SOPS, args, plaintext, "", "", nil)
+	encrypted, err := run(ctx, config.SOPS, args, plaintext, "", "", nil)
 	if err != nil {
 		return err
 	}
@@ -119,6 +129,10 @@ func EncryptSnapshot(ctx context.Context, config model.Snapshot, values map[stri
 
 // DecryptSnapshot reads an age-only snapshot, with no implicit token/key discovery.
 func DecryptSnapshot(ctx context.Context, config model.Snapshot) (map[string]string, error) {
+	return decryptSnapshotWithRunner(ctx, config, runSOPS)
+}
+
+func decryptSnapshotWithRunner(ctx context.Context, config model.Snapshot, run sopsRunner) (map[string]string, error) {
 	if ctx.Err() != nil {
 		return nil, fault.New(fault.Denied, "provider_cancelled")
 	}
@@ -129,7 +143,7 @@ func DecryptSnapshot(ctx context.Context, config model.Snapshot) (map[string]str
 	if err := validateSOPSMetadata(data, model.Source{}, false); err != nil {
 		return nil, err
 	}
-	plaintext, err := runSOPS(ctx, config.SOPS, sopsDecryptArgs(), data, config.IdentityFile, "", nil)
+	plaintext, err := run(ctx, config.SOPS, sopsDecryptArgs(), data, config.IdentityFile, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +267,29 @@ func (b *cappedBuffer) Write(data []byte) (int, error) {
 
 func (b *cappedBuffer) Bytes() []byte { return b.buffer.Bytes() }
 
+type sopsExecution struct {
+	validate    func(string) error
+	makeHome    func(string, string) (string, error)
+	removeHome  func(string) error
+	environment func(string, string, string, []string) ([]string, error)
+	run         func(context.Context, sopsCommand) error
+}
+
+type sopsCommand struct {
+	executable  string
+	arguments   []string
+	environment []string
+	home        string
+	input       []byte
+	output      io.Writer
+}
+
 func runSOPS(ctx context.Context, executable string, args []string, input []byte, ageFile, tokenFile string, allowlist []string) ([]byte, error) {
+	operations := sopsExecution{validate: platform.ValidateExecutable, makeHome: os.MkdirTemp, removeHome: os.RemoveAll, environment: sopsEnvironment, run: executeSOPSCommand}
+	return runSOPSWithOperations(ctx, executable, args, input, ageFile, tokenFile, allowlist, operations)
+}
+
+func runSOPSWithOperations(ctx context.Context, executable string, args []string, input []byte, ageFile, tokenFile string, allowlist []string, operations sopsExecution) ([]byte, error) {
 	// Cancellation must fence helper and credential preparation, not only the
 	// eventual child process start performed by CommandContext.
 	if ctx.Err() != nil {
@@ -266,25 +302,23 @@ func runSOPS(ctx context.Context, executable string, args []string, input []byte
 	if err != nil || !info.Mode().IsRegular() {
 		return nil, fault.New(fault.Unsupported, "SOPS executable unavailable")
 	}
-	if err := platform.ValidateExecutable(executable); err != nil {
+	if err := operations.validate(executable); err != nil {
 		return nil, err
 	}
-	home, err := os.MkdirTemp("", "cq-sops-*")
+	home, err := operations.makeHome("", "cq-sops-*")
 	if err != nil {
 		return nil, fault.New(fault.Apply, "isolate SOPS identity discovery")
 	}
-	defer os.RemoveAll(home)
-	env, err := sopsEnvironment(home, ageFile, tokenFile, allowlist)
+	defer operations.removeHome(home)
+	env, err := operations.environment(home, ageFile, tokenFile, allowlist)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, executable, args...)
-	cmd.Env, cmd.Stdin, cmd.Dir = env, bytes.NewReader(input), home
 	var output cappedBuffer
-	cmd.Stdout, cmd.Stderr = &output, io.Discard
-	if err := cmd.Run(); err != nil {
+	command := sopsCommand{executable: executable, arguments: args, environment: env, home: home, input: input, output: &output}
+	if err := operations.run(ctx, command); err != nil {
 		return nil, fault.New(fault.Denied, "SOPS operation failed")
 	}
 	if output.overflow {
@@ -293,10 +327,21 @@ func runSOPS(ctx context.Context, executable string, args []string, input []byte
 	return output.Bytes(), nil
 }
 
+func executeSOPSCommand(ctx context.Context, command sopsCommand) error {
+	cmd := exec.CommandContext(ctx, command.executable, command.arguments...)
+	cmd.Env, cmd.Stdin, cmd.Dir = command.environment, bytes.NewReader(command.input), command.home
+	cmd.Stdout, cmd.Stderr = command.output, io.Discard
+	return cmd.Run()
+}
+
 func sopsEnvironment(home, ageFile, tokenFile string, allowlist []string) ([]string, error) {
+	return sopsEnvironmentWithLookup(home, ageFile, tokenFile, allowlist, os.Getenv)
+}
+
+func sopsEnvironmentWithLookup(home, ageFile, tokenFile string, allowlist []string, lookup func(string) string) ([]string, error) {
 	env := []string{"HOME=" + home, "USERPROFILE=" + home, "SOPS_HC_VAULT_ALLOWLIST=none"}
 	for _, key := range []string{"SystemRoot", "WINDIR", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR"} {
-		if value := os.Getenv(key); value != "" {
+		if value := lookup(key); value != "" {
 			env = append(env, key+"="+value)
 		}
 	}

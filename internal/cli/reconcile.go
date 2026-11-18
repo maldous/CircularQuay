@@ -36,13 +36,14 @@ func selectedTargets(w model.Workload, target string) ([]string, error) {
 // stores and cannot form a distributed transaction. No service is transitioned
 // until every selected projection has succeeded and its receipt is durable.
 func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g model.Generation, ids []string, operations targetOperations) (record state.Record, err error) {
+	return reconcileTargetsWithState(ctx, s, w, g, ids, operations, s.Read, s.Write)
+}
+
+func reconcileTargetsWithState(ctx context.Context, s state.Store, w model.Workload, g model.Generation, ids []string, operations targetOperations, read func(string) (state.Record, error), write func(state.Record) error) (record state.Record, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseProjection, ProviderKind: "none"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
-	record, err = generationRecord(w, g, "resolved")
-	if err != nil {
-		return record, err
-	}
-	previous, err := s.Read(g.Workload)
+	record = generationRecord(w, g, "resolved")
+	previous, err := read(g.Workload)
 	if err != nil {
 		return record, err
 	}
@@ -52,10 +53,10 @@ func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g mo
 	for _, id := range ids {
 		record.Targets[id] = state.TargetRecord{State: "resolved", Generation: record.Generation, Current: true}
 	}
-	if err = s.Write(record); err != nil {
+	if err = write(record); err != nil {
 		return record, err
 	}
-	reconciler := targetReconciler{store: s, workload: w, generation: g, record: &record, operations: operations, complete: selectionComplete}
+	reconciler := targetReconciler{store: s, workload: w, generation: g, record: &record, operations: operations, complete: selectionComplete, write: write}
 	if err = reconciler.projectAll(ctx, ids); err != nil {
 		return record, err
 	}
@@ -63,7 +64,7 @@ func reconcileTargets(ctx context.Context, s state.Store, w model.Workload, g mo
 		return record, err
 	}
 	record.State = reconciler.phase(completedPhase(w, ids))
-	return record, s.Write(record)
+	return record, write(record)
 }
 
 func retainedTargets(previous map[string]state.TargetRecord, capacity int) map[string]state.TargetRecord {
@@ -82,6 +83,7 @@ type targetReconciler struct {
 	record     *state.Record
 	operations targetOperations
 	complete   bool
+	write      func(state.Record) error
 }
 
 func (r targetReconciler) projectAll(ctx context.Context, ids []string) error {
@@ -92,7 +94,7 @@ func (r targetReconciler) projectAll(ctx context.Context, ids []string) error {
 			return r.failed(err)
 		}
 		r.record.Targets[id] = state.TargetRecord{State: "applied", Generation: r.record.Generation, Current: true, AppliedAt: time.Now().UTC()}
-		if err := r.store.Write(*r.record); err != nil {
+		if err := r.writeRecord(*r.record); err != nil {
 			return err
 		}
 	}
@@ -116,7 +118,7 @@ func (r targetReconciler) activate(ctx context.Context, id string) error {
 	entry.State = "pending_activation"
 	r.record.Targets[id] = entry
 	r.record.State = r.phase("pending_activation")
-	if err := r.store.Write(*r.record); err != nil {
+	if err := r.writeRecord(*r.record); err != nil {
 		return err
 	}
 	var err error
@@ -133,7 +135,7 @@ func (r targetReconciler) activate(ctx context.Context, id string) error {
 	entry.State = "activated"
 	entry.ActivatedAt = time.Now().UTC()
 	r.record.Targets[id] = entry
-	return r.store.Write(*r.record)
+	return r.writeRecord(*r.record)
 }
 
 func (r targetReconciler) phase(phase string) string {
@@ -149,7 +151,7 @@ func scopedPhase(complete bool, phase string) string {
 
 func (r targetReconciler) failed(cause error) error {
 	r.record.Error = fault.Category(cause)
-	if err := r.store.Write(*r.record); err != nil {
+	if err := r.writeRecord(*r.record); err != nil {
 		return err
 	}
 	return cause
@@ -215,7 +217,11 @@ func nativeOperations() targetOperations {
 // Native platform primitives also protect telemetry's files and transports, so
 // they must not depend on the observability backend they help initialize.
 func activateObservedTarget(ctx context.Context, target model.Target) (err error) {
+	return activateObservedTargetWithOperation(ctx, target, platform.Activate)
+}
+
+func activateObservedTargetWithOperation(ctx context.Context, target model.Target, activate func(context.Context, model.Target) error) (err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseActivation, ProviderKind: "native"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
-	return platform.Activate(ctx, target)
+	return activate(ctx, target)
 }

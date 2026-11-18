@@ -292,7 +292,21 @@ export async function configuration(root, state, hooks) {
     else if (name === 'import') {
       if (dirty) { notify('Save or discard the current proposal before importing.'); return; }
       dialogForm('Import local configuration JSON', '<label>JSON document<textarea name="json" id="cfg-import-text" required spellcheck="false"></textarea></label><label>Or select a local JSON file<input id="cfg-import-file" type="file" accept="application/json,.json"></label><p>Duplicate keys and malformed JSON reject the import. Unknown/unsupported fields remain visible with validation errors.</p>', 'Import locally', form => importText(form.get('json')));
-      root.querySelector('#cfg-import-file').onchange = async event => { const file = event.target.files[0]; if (!file) return; if (file.size > 1048576) { root.querySelector('#cfg-dialog-error').textContent = 'Maximum 1 MiB'; return; } root.querySelector('#cfg-import-text').value = await file.text(); };
+      const fileText = root.querySelector('#cfg-import-text');
+      const fileError = root.querySelector('#cfg-dialog-error');
+      let fileGeneration = 0;
+      root.querySelector('#cfg-import-file').onchange = async event => {
+        const current = ++fileGeneration;
+        const file = event.target.files[0];
+        if (!file) return;
+        if (file.size > 1048576) { fileError.textContent = 'Maximum 1 MiB'; return; }
+        try {
+          const text = await file.text();
+          if (current === fileGeneration && fileText.isConnected) fileText.value = text;
+        } catch {
+          if (current === fileGeneration && fileError.isConnected) fileError.textContent = 'The local file could not be read. Your current document is unchanged.';
+        }
+      };
     }
   }
   check(); render();

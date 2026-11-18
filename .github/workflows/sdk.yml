@@ -144,6 +144,46 @@ jobs:
         if: ${{ always() && steps.static_tools.outcome == 'success' }}
         shell: bash
         run: python -m unittest discover -s .github/scripts/tests -p 'test_sdk_python_*.py' -v
+      - name: Measure native Windows platform-helper counters
+        id: native_python_counters
+        if: ${{ always() && github.event_name == 'pull_request' && runner.os == 'Windows' && steps.static_tools.outcome == 'success' }}
+        env:
+          CQ_COVERAGE_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          output="$RUNNER_TEMP/cq-native-python-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export PYTHONDONTWRITEBYTECODE=1
+          export NO_COLOR=1 PYTHON_COLORS=0
+          export PYTHONPYCACHEPREFIX="$RUNNER_TEMP/cq-native-python-cache"
+          python -B .github/scripts/python_coverage.py begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$output"
+          export COVERAGE_FILE="$output/raw/coverage.data"
+          test_exit=0
+          PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" python -B -m coverage run --rcfile "$output/coverage.ini" -m unittest -v test_platform_coverage test_browser_coverage >"$output/raw/test.log" 2>&1 || test_exit=$?
+          report_exit=0
+          python -B -m coverage json --rcfile "$output/coverage.ini" -o "$output/raw/official.json" >"$output/raw/report.log" 2>&1 || report_exit=$?
+          retain_exit=0
+          if test "$report_exit" = 0; then
+            python -B .github/scripts/python_coverage.py retain --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$output" --test-exit "$test_exit" || retain_exit=$?
+          else
+            retain_exit=2
+          fi
+          printf 'native_python_test_exit=%s\nreport_exit=%s\nretain_exit=%s\n' "$test_exit" "$report_exit" "$retain_exit"
+          if test "$retain_exit" = 0; then printf 'retained=true\n' >> "$GITHUB_OUTPUT"; fi
+          test "$test_exit" = 0 || exit "$test_exit"
+          test "$report_exit" = 0 || exit "$report_exit"
+          exit "$retain_exit"
+      - name: Retain only native Python public counters and provenance
+        if: ${{ always() && steps.native_python_counters.outputs.retained == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-python-platform-coverage-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/cq-native-python-${{ github.run_id }}-${{ github.run_attempt }}/retained/coverage.json
+            ${{ runner.temp }}/cq-native-python-${{ github.run_id }}-${{ github.run_attempt }}/retained/metadata.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Lint Python SDK
         id: python_ruff
         if: ${{ always() && steps.static_tools.outcome == 'success' }}

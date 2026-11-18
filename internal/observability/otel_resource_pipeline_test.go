@@ -87,10 +87,7 @@ func runCanonicalResourcePipeline(t *testing.T, ambient string) {
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", protocol)
 	ctx := resourcePipelineContext(t)
 	config := resourcePipelineConfig()
-	res, err := telemetryResource(config, "synthetic-version")
-	if err != nil {
-		t.Fatal(err)
-	}
+	res := telemetryResource(config, "synthetic-version")
 	capture := resourceWireTransport{requests: make(chan resourceWireRequest, 16)}
 	client := &http.Client{Transport: capture}
 	b := &otelBackend{exportState: &exportHealth{}}
@@ -248,7 +245,7 @@ func assertMalformedSignalRejected(t *testing.T, signal string) {
 	b := &otelBackend{exportState: &exportHealth{}}
 	cleanupResourceBackend(t, b)
 	c := resourcePipelineConfig()
-	res, _ := telemetryResource(c, "synthetic-version")
+	res := telemetryResource(c, "synthetic-version")
 	err := configureResourceSignal(resourcePipelineContext(t), b, c, res, &http.Client{Transport: resourceWireTransport{make(chan resourceWireRequest, 16)}}, signal)
 	assertBoundedResourceInvalid(t, err)
 	if b.traces != nil || b.metrics != nil || b.logs != nil {

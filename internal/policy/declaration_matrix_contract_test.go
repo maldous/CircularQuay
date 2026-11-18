@@ -62,8 +62,14 @@ func TestDeclarationMatrixContractRepositoryExecutionReferences(t *testing.T) {
 		{"source", "repository_source", func(p *model.Policy) { changeSource(p, func(s *model.Source) { s.Path = "repo:values.json" }) }},
 		{"bootstrap", "repository_bootstrap", func(p *model.Policy) { changeSource(p, func(s *model.Source) { s.TokenFile = "repo:token" }) }},
 		{"directory", "repository_execution_or_cache", func(p *model.Policy) { changeWorkload(p, func(w *model.Workload) { w.Directory = "repo:work" }) }},
-		{"command", "repository_execution", func(p *model.Policy) { changeWorkload(p, func(w *model.Workload) { w.Command = []string{"repo:program"} }) }},
-		{"destination", "repository_destination", func(p *model.Policy) { changeWorkload(p, func(w *model.Workload) { w.Targets = map[string]model.Target{"sink": {Type: "file", Path: "repo:destination"}} }) }},
+		{"command", "repository_execution", func(p *model.Policy) {
+			changeWorkload(p, func(w *model.Workload) { w.Command = []string{"repo:program"} })
+		}},
+		{"destination", "repository_destination", func(p *model.Policy) {
+			changeWorkload(p, func(w *model.Workload) {
+				w.Targets = map[string]model.Target{"sink": {Type: "file", Path: "repo:destination"}}
+			})
+		}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

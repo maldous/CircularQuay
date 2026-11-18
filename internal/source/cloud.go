@@ -260,16 +260,24 @@ func azureCredential(s model.Source) (azcore.TokenCredential, error) {
 }
 
 func azureWorkloadCredential(s model.Source) (azcore.TokenCredential, error) {
+	return azureWorkloadCredentialWithOperations(s, platform.ValidateProtectedPath, os.Getenv, func(options *azidentity.WorkloadIdentityCredentialOptions) (azcore.TokenCredential, error) {
+		return azidentity.NewWorkloadIdentityCredential(options)
+	})
+}
+
+// azureWorkloadCredentialWithOperations keeps file and authority admission before
+// construction. Collaborators are per call, never ambient credential overrides.
+func azureWorkloadCredentialWithOperations(s model.Source, validate func(string) error, getenv func(string) string, construct func(*azidentity.WorkloadIdentityCredentialOptions) (azcore.TokenCredential, error)) (azcore.TokenCredential, error) {
 	if s.Profile == "" || s.TokenFile == "" {
 		return nil, fault.New(fault.Invalid, "azure_workload_identity")
 	}
-	if err := platform.ValidateProtectedPath(s.TokenFile); err != nil {
+	if err := validate(s.TokenFile); err != nil {
 		return nil, err
 	}
-	if os.Getenv("AZURE_AUTHORITY_HOST") != "" {
+	if getenv("AZURE_AUTHORITY_HOST") != "" {
 		return nil, fault.New(fault.Trust, "azure_authority_override")
 	}
-	credential, err := azidentity.NewWorkloadIdentityCredential(azureWorkloadCredentialOptions(s, nil))
+	credential, err := construct(azureWorkloadCredentialOptions(s, nil))
 	if err != nil {
 		return nil, fault.New(fault.Denied, "azure_identity")
 	}
@@ -288,14 +296,22 @@ func azureWorkloadCredentialOptions(s model.Source, base http.RoundTripper) *azi
 }
 
 func azureManagedCredential(s model.Source) (azcore.TokenCredential, error) {
+	return azureManagedCredentialWithOperations(s, azureMetadataOverride, func(options *azidentity.ManagedIdentityCredentialOptions) (azcore.TokenCredential, error) {
+		return azidentity.NewManagedIdentityCredential(options)
+	})
+}
+
+// azureManagedCredentialWithOperations retains explicit client selection and
+// metadata-override refusal before construction. It does not retrieve a token.
+func azureManagedCredentialWithOperations(s model.Source, metadataOverride func() bool, construct func(*azidentity.ManagedIdentityCredentialOptions) (azcore.TokenCredential, error)) (azcore.TokenCredential, error) {
 	if s.Profile == "" {
 		return nil, fault.New(fault.Invalid, "azure_managed_identity")
 	}
-	if azureMetadataOverride() {
+	if metadataOverride() {
 		return nil, fault.New(fault.Trust, "azure_metadata_override")
 	}
 	options := &azidentity.ManagedIdentityCredentialOptions{ClientOptions: azcore.ClientOptions{Transport: metadataHTTPClient()}, ID: azidentity.ClientID(s.Profile)}
-	credential, err := azidentity.NewManagedIdentityCredential(options)
+	credential, err := construct(options)
 	if err != nil {
 		return nil, fault.New(fault.Denied, "azure_identity")
 	}
@@ -303,8 +319,12 @@ func azureManagedCredential(s model.Source) (azcore.TokenCredential, error) {
 }
 
 func azureMetadataOverride() bool {
+	return azureMetadataOverrideWithLookup(os.Getenv)
+}
+
+func azureMetadataOverrideWithLookup(getenv func(string) string) bool {
 	for _, name := range []string{"IDENTITY_ENDPOINT", "IDENTITY_HEADER", "MSI_ENDPOINT", "MSI_SECRET", "IMDS_ENDPOINT", "AZURE_POD_IDENTITY_AUTHORITY_HOST"} {
-		if os.Getenv(name) != "" {
+		if getenv(name) != "" {
 			return true
 		}
 	}
@@ -342,17 +362,24 @@ func (c tenantCredential) GetToken(ctx context.Context, opts azpolicy.TokenReque
 }
 
 func readAzure(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	return readAzureWithClients(ctx, s, b, azureCredential, azsecrets.NewClient, nil)
+}
+
+// readAzureWithClients retains endpoint and name admission before any identity
+// or client construction. Production uses the fixed credential selector and
+// generated SDK constructor; tests supply only per-call, contained collaborators.
+func readAzureWithClients(ctx context.Context, s model.Source, b model.Binding, credential func(model.Source) (azcore.TokenCredential, error), newClient func(string, azcore.TokenCredential, *azsecrets.ClientOptions) (*azsecrets.Client, error), base http.RoundTripper) (model.Value, error) {
 	if _, err := azureOrigin(s.Endpoint); err != nil {
 		return model.Value{}, err
 	}
 	if strings.Contains(b.Resource, "/") {
 		return model.Value{}, fault.New(fault.Invalid, "azure_secret_name")
 	}
-	cred, err := azureCredential(s)
+	cred, err := credential(s)
 	if err != nil {
 		return model.Value{}, err
 	}
-	client, err := azsecrets.NewClient(s.Endpoint, cred, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: cloudHTTPClient(nil)}})
+	client, err := newClient(s.Endpoint, cred, &azsecrets.ClientOptions{ClientOptions: azcore.ClientOptions{Transport: cloudHTTPClient(base)}})
 	if err != nil {
 		return model.Value{}, fault.New(fault.Invalid, "azure_client")
 	}
@@ -455,7 +482,37 @@ func gcpResource(s model.Source, b model.Binding) (string, error) {
 	return b.Resource + gcpVersionPathSeparator + version, nil
 }
 
+// gcpSecretAccess narrows the generated client to its one used operation and
+// lifetime. It is per call: no ambient factory or credential source is replaced.
+type gcpSecretAccess struct {
+	access func(context.Context, *secretmanagerpb.AccessSecretVersionRequest) (*secretmanagerpb.AccessSecretVersionResponse, error)
+	close  func() error
+}
+
+func newGCPSecretAccess(ctx context.Context, s model.Source) (gcpSecretAccess, error) {
+	return newGCPSecretAccessWithConstructor(ctx, s, secretmanager.NewClient)
+}
+
+func newGCPSecretAccessWithConstructor(ctx context.Context, s model.Source, connect func(context.Context, ...option.ClientOption) (*secretmanager.Client, error)) (gcpSecretAccess, error) {
+	client, err := connect(ctx, option.WithTokenSource(google.ComputeTokenSource(s.Account)), option.WithEndpoint("secretmanager.googleapis.com:443"))
+	if err != nil {
+		return gcpSecretAccess{}, err
+	}
+	return gcpSecretAccess{
+		access: func(ctx context.Context, request *secretmanagerpb.AccessSecretVersionRequest) (*secretmanagerpb.AccessSecretVersionResponse, error) {
+			return client.AccessSecretVersion(ctx, request)
+		},
+		close: client.Close,
+	}, nil
+}
+
 func readGCP(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	return readGCPWithFactory(ctx, s, b, newGCPSecretAccess)
+}
+
+// readGCPWithFactory keeps resource and metadata-identity checks before client
+// construction. Production always supplies the fixed generated-client factory.
+func readGCPWithFactory(ctx context.Context, s model.Source, b model.Binding, connect func(context.Context, model.Source) (gcpSecretAccess, error)) (model.Value, error) {
 	name, err := gcpResource(s, b)
 	if err != nil {
 		return model.Value{}, err
@@ -463,12 +520,12 @@ func readGCP(ctx context.Context, s model.Source, b model.Binding) (model.Value,
 	if err := validateGCPIdentity(s); err != nil {
 		return model.Value{}, err
 	}
-	client, err := secretmanager.NewClient(ctx, option.WithTokenSource(google.ComputeTokenSource(s.Account)), option.WithEndpoint("secretmanager.googleapis.com:443"))
+	client, err := connect(ctx, s)
 	if err != nil {
 		return model.Value{}, cloudError(err)
 	}
-	defer client.Close()
-	result, err := client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{Name: name})
+	defer client.close()
+	result, err := client.access(ctx, &secretmanagerpb.AccessSecretVersionRequest{Name: name})
 	if err != nil {
 		return model.Value{}, cloudError(err)
 	}

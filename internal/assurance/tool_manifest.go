@@ -297,6 +297,10 @@ func validDigest(value string) bool {
 }
 
 func readToolManifest(path string) (string, []byte, error) {
+	return readToolManifestWithCanonical(path, canonicalRegularPath)
+}
+
+func readToolManifestWithCanonical(path string, canonicalPath func(string) (string, error)) (string, []byte, error) {
 	if !localAbsoluteToolPath(path) {
 		return "", nil, errors.New("invalid tool manifest location")
 	}
@@ -305,7 +309,7 @@ func readToolManifest(path string) (string, []byte, error) {
 		return "", nil, errors.New("invalid tool manifest protection")
 	}
 	defer file.Close()
-	canonical, err := canonicalRegularPath(path)
+	canonical, err := canonicalPath(path)
 	if err != nil {
 		return "", nil, errors.New("invalid tool manifest location")
 	}
@@ -382,6 +386,10 @@ func verifyTool(entry ToolEntry, source, output string, seen map[string]bool) (V
 }
 
 func verifyExecutableIdentity(declaredPath, expected, source, output string, seen map[string]bool) (string, string, error) {
+	return verifyExecutableIdentityWithValidation(declaredPath, expected, source, output, seen, platform.ValidateExecutable)
+}
+
+func verifyExecutableIdentityWithValidation(declaredPath, expected, source, output string, seen map[string]bool, validate func(string) error) (string, string, error) {
 	if !localAbsoluteToolPath(declaredPath) {
 		return "", "", errors.New("invalid tool path")
 	}
@@ -392,7 +400,7 @@ func verifyExecutableIdentity(declaredPath, expected, source, output string, see
 	if err != nil || containedBy(path, source) || containedBy(path, output) || seen[strings.ToLower(path)] {
 		return "", "", errors.New("invalid tool path")
 	}
-	if err = platform.ValidateExecutable(path); err != nil {
+	if err = validate(path); err != nil {
 		return "", "", errors.New("invalid tool protection")
 	}
 	actual, err := executableSHA256(path)

@@ -124,3 +124,11 @@ test('rendered pages, export manifest and Worker retain exact public parity', as
     assert.equal((await dispatch(privatePath)).status, 404, privatePath);
   }
 });
+
+
+test('Worker malformed URLs and missing private assets return fixed nonpromoting refusals', async () => {
+  const missing = { ASSETS: { async fetch() { return new Response('missing', { status: 404 }); } } };
+  assert.equal((await worker.fetch({ method: 'GET', url: 'not a URL' }, missing)).status, 400);
+  assert.equal((await worker.fetch(new Request('https://preview.invalid/'), missing)).status, 404);
+  assert.equal((await worker.fetch(new Request('https://preview.invalid/#fragment'), missing)).status, 400);
+});

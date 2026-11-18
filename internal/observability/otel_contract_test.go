@@ -50,7 +50,7 @@ func TestCollectorClientIsBoundedAndRejectsRedirects(t *testing.T) {
 }
 
 func TestTelemetryResourceIsClosedToDeclaredStaticFields(t *testing.T) {
-	resource, err := telemetryResource(model.Observability{
+	resource := telemetryResource(model.Observability{
 		ServiceName: "cq",
 		Environment: "test",
 		ResourceAttributes: &model.ResourceAttributes{
@@ -58,9 +58,6 @@ func TestTelemetryResourceIsClosedToDeclaredStaticFields(t *testing.T) {
 			ServiceInstanceID: "worker-a",
 		},
 	}, "1.2.3")
-	if err != nil {
-		t.Fatalf("telemetry resource: %v", err)
-	}
 	got := map[string]string{}
 	for _, value := range resource.Attributes() {
 		got[string(value.Key)] = value.Value.AsString()

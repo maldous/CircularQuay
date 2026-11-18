@@ -6,7 +6,9 @@
     "dev": "node server.mjs",
     "check": "node check.mjs",
     "build:help": "node tools/build-help.mjs",
-    "test": "node --test --test-concurrency=1 boundary.test.mjs configuration-undo.test.mjs guided-policy.test.mjs imported-json.test.mjs module-boundary.test.mjs schema.test.mjs help.test.mjs presentation-preferences.test.mjs"
+    "test": "node --test --test-concurrency=1 boundary.test.mjs configuration-undo.test.mjs guided-policy.test.mjs imported-json.test.mjs module-boundary.test.mjs schema.test.mjs help.test.mjs presentation-preferences.test.mjs build-tools-completion.test.mjs configuration-completion.test.mjs coverage-report-completion.test.mjs entry-completion.test.mjs help-component-completion.test.mjs presentation-completion.test.mjs schema-completion.test.mjs server-completion.test.mjs ui-completion.test.mjs workbench-completion.test.mjs"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

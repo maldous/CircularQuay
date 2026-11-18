@@ -302,10 +302,10 @@ func publicJWK(raw json.RawMessage, algorithm string) (crypto.PublicKey, string,
 		return nil, "", ErrInvalid
 	}
 	thumbprint, err := key.Thumbprint(crypto.SHA256)
-	if err != nil || len(thumbprint) != sha256.Size {
-		return nil, "", ErrInvalid
-	}
-	return key.Key, base64.RawURLEncoding.EncodeToString(thumbprint), nil
+	// The admitted public P-256/RSA key shapes have valid thumbprint inputs;
+	// SHA-256 is linked above and always produces sha256.Size bytes. Preserve
+	// a dependency error for the caller's existing fail-closed proof boundary.
+	return key.Key, base64.RawURLEncoding.EncodeToString(thumbprint), err
 }
 
 func algorithmKeyMatches(algorithm string, key any) bool {

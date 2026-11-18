@@ -21,7 +21,7 @@ func defaultPlatformBoundaryOperations() platformBoundaryOperations {
 }
 
 type executableBoundaryOperations struct {
-	open    func(string) (*os.File, string, os.FileInfo, error)
+	open   func(string) (*os.File, string, os.FileInfo, error)
 	digest func(io.Reader, int64) ([]byte, bool, error)
 }
 
@@ -30,9 +30,9 @@ func defaultExecutableBoundaryOperations() executableBoundaryOperations {
 }
 
 type creationBoundaryOperations struct {
-	open    func(*os.Root, string, int, os.FileMode) (*os.File, error)
+	open     func(*os.Root, string, int, os.FileMode) (*os.File, error)
 	populate func(*os.File, string, []byte) error
-	sync    func(string) error
+	sync     func(string) error
 }
 
 func defaultCreationBoundaryOperations() creationBoundaryOperations {

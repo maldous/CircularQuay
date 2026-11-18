@@ -368,7 +368,10 @@ jobs:
           # Capture real native exit codes explicitly; never let retention turn
           # a failing Go invocation into a successful job.
           $PSNativeCommandUseErrorActionPreference = $false
-          $cqGo = (Get-Command go -CommandType Application).Source
+          # Use the first executable selected by native PATH resolution, not
+          # every installed Go application returned by Get-Command.
+          $cqGo = (Get-Command go -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+          if ([string]::IsNullOrWhiteSpace($cqGo)) { throw 'Selected Go executable is unavailable' }
           $cqCounters = Join-Path $env:RUNNER_TEMP 'cq-platform-windows'
           python -I -B .github/scripts/platform_coverage.py begin --source $env:GITHUB_WORKSPACE --expected-commit $env:GITHUB_SHA --go $cqGo --platform windows --output $cqCounters
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -490,7 +493,10 @@ jobs:
           python3 -B -m unittest discover -s .github/scripts/tests -p test_retain_audit_evidence.py
           python3 -B -m unittest discover -s .github/scripts/tests -p test_go_mcp_coverage.py
           python3 -B -m unittest discover -s .github/scripts/tests -p test_platform_coverage.py
-      - name: Run the actual source profile
+          python3 -B -m unittest discover -s .github/scripts/tests -p test_source_gate.py
+          python3 -B -m unittest discover -s .github/scripts/tests -p test_browser_coverage_intake.py
+      # This job retains a raw single-platform observation, not whole-Source qualification.
+      - name: Run and retain the actual raw source profile exit
         id: source_audit
         shell: bash --noprofile --norc -eo pipefail {0}
         run: |
@@ -576,11 +582,18 @@ jobs:
               json.dump(manifest, output, separators=(",", ":"))
           os.chmod(os.environ["CQ_TOOL_MANIFEST"], 0o600)
           PY
+          set +e
           env HOME="$cq_home_dir" TMPDIR="$cq_tmp_dir" GOTMPDIR="$cq_tmp_dir" \
             GOCACHE="$cq_cache_dir/build" GOMODCACHE="$cq_cache_dir/mod" GOROOT="$cq_tool_dir/go" \
             GOTOOLCHAIN=local GOMAXPROCS=2 GOFLAGS=-p=1 CQ_GIT="$CQ_GIT" CQ_GO="$CQ_GO" \
             CQ_GOFMT="$CQ_GOFMT" CQ_TOOL_MANIFEST="$CQ_TOOL_MANIFEST" \
             "$cq_audit_dir/cq-audit" run --profile source --tool-manifest "$CQ_TOOL_MANIFEST" --go "$CQ_GO" --output "$cq_audit_dir/evidence"
+          cq_audit_exit=$?
+          set -e
+          printf 'audit_exit=%s\n' "$cq_audit_exit" >> "$GITHUB_OUTPUT"
+          # Preserve the actual exit. Only the two explicitly witnessed holds
+          # may later resolve; crashes and all other failures stay failures.
+          test "$cq_audit_exit" -eq 0 || test "$cq_audit_exit" -eq 1
       - name: Retain bounded source audit evidence
         id: retain_audit
         if: ${{ always() && steps.source_audit.outputs.audit_dir != '' }}
@@ -590,14 +603,22 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          # A failed audit stays failed. This step only retains its bounded
-          # public-source evidence; it cannot manufacture a qualification pass.
+          # The raw failed report and exit remain unchanged. Retention itself
+          # cannot manufacture a qualification pass.
           python3 -B .github/scripts/retain_audit_evidence.py \
             --source "$GITHUB_WORKSPACE" --audit "$CQ_AUDIT_DIRECTORY/evidence" \
             --output "$RUNNER_TEMP/cq-source-evidence" --expected-commit "$GITHUB_SHA"
           test -f "$RUNNER_TEMP/cq-source-evidence/coverage.out"
           test -f "$RUNNER_TEMP/cq-source-evidence/metadata.json"
           printf 'retained=true\n' >> "$GITHUB_OUTPUT"
+      - name: Validate all raw required checks without promoting unresolved holds
+        if: ${{ always() && steps.retain_audit.outcome == 'success' }}
+        shell: bash --noprofile --norc -eo pipefail {0}
+        env:
+          CQ_RAW_AUDIT_EXIT: ${{ steps.source_audit.outputs.audit_exit }}
+        run: |
+          set -euo pipefail
+          python3 -I -B .github/scripts/source_gate.py observe --metadata "$RUNNER_TEMP/cq-source-evidence/metadata.json" --audit-exit "$CQ_RAW_AUDIT_EXIT"
       - name: Bind original Source counter artifact for same-run comparison
         id: bind_platform_source
         if: ${{ always() && steps.retain_audit.outcome == 'success' && steps.retain_audit.outputs.retained == 'true' }}
@@ -620,11 +641,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   platform-coverage:
-    name: Same-revision cross-platform statement coverage
-    needs: [tests, native-macos, native-windows, assurance]
+    permissions:
+      contents: read
+      actions: read
+    name: Authoritative complete Source qualification
+    needs: [tests, native-macos, native-windows, assurance, cross-build-gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       CQ_COVERAGE_PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -640,12 +664,17 @@ jobs:
           set -euo pipefail
           umask 077
           python3 - <<'PY'
-          import os
+          import json, os
           from pathlib import Path
+          complete = json.loads(os.environ['CQ_PLATFORM_NEEDS'])
+          full = Path(os.environ['RUNNER_TEMP']) / 'cq-source-needs.json'
+          with os.fdopen(os.open(full, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
+              json.dump(complete, stream)
+          selected = {key: complete[key] for key in ('tests', 'native-macos', 'native-windows', 'assurance')}
           path = Path(os.environ['RUNNER_TEMP']) / 'cq-platform-needs.json'
           descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
           with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
-              stream.write(os.environ['CQ_PLATFORM_NEEDS'])
+              json.dump(selected, stream)
           PY
           # The values come from authenticated runner needs/step contexts, NOT
           # from metadata inside the artifacts. Missing IDs fail before a blank
@@ -702,5 +731,21 @@ jobs:
             ${{ runner.temp }}/cq-platform-union/coverage.out
             ${{ runner.temp }}/cq-platform-union/platform-union.json
             ${{ runner.temp }}/cq-platform-union/gaps.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require current complete tagged witnesses and strict full-platform coverage
+        id: authoritative_source
+        shell: bash --noprofile --norc -eo pipefail {0}
+        env:
+          CQ_TAGGED_API_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -I -B .github/scripts/source_gate.py qualify --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --union "$RUNNER_TEMP/cq-platform-union" --artifacts "$RUNNER_TEMP/cq-platform-archives" --pins "$RUNNER_TEMP/cq-platform-pins.json" --needs "$RUNNER_TEMP/cq-source-needs.json" --output "$RUNNER_TEMP/cq-authoritative-source.json"
+      - name: Retain distinct authoritative Source decision
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: authoritative-source-${{ github.sha }}
+          path: ${{ runner.temp }}/cq-authoritative-source.json
           if-no-files-found: error
           retention-days: 7

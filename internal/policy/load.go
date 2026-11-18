@@ -47,6 +47,10 @@ func Load(path string) (model.Policy, error) {
 // the supplied configuration directory, so callers can validate an atomic
 // replacement before exposing it at that path.
 func Parse(data []byte, configPath string) (model.Policy, error) {
+	return parseWithAbsolute(data, configPath, filepath.Abs)
+}
+
+func parseWithAbsolute(data []byte, configPath string, absolutePath func(string) (string, error)) (model.Policy, error) {
 	result, err := DecodeDocument(data, configPath)
 	if err != nil {
 		return model.Policy{}, err
@@ -54,7 +58,7 @@ func Parse(data []byte, configPath string) (model.Policy, error) {
 	if result.Composition != nil {
 		return model.Policy{}, fault.New(fault.Unsupported, "policy_composition_requires_resolution")
 	}
-	path, err := filepath.Abs(configPath)
+	path, err := absolutePath(configPath)
 	if err != nil {
 		return model.Policy{}, fault.New(fault.Invalid, "policy_location")
 	}
@@ -139,7 +143,11 @@ func decodePolicy(data []byte, result *model.Policy) error {
 }
 
 func decodeJSON(data []byte, result *model.Policy) error {
-	if jsondocument.Decode(data, result) != nil || hasJSONNull(data) || !validOperationalDocument(jsonDocument(data)) {
+	if jsondocument.Decode(data, result) != nil {
+		return fault.New(fault.Invalid, "policy_json")
+	}
+	document := jsonDocument(data)
+	if containsJSONNull(document) || !validOperationalDocument(document) {
 		return fault.New(fault.Invalid, "policy_json")
 	}
 	if result.Composition == nil && (result.Sources == nil || result.Workloads == nil) {
@@ -150,9 +158,10 @@ func decodeJSON(data []byte, result *model.Policy) error {
 
 func jsonDocument(data []byte) any {
 	var document any
-	if json.Unmarshal(data, &document) != nil {
-		return nil
-	}
+	// Only decodeJSON calls this helper, after strict decoding of these same
+	// bytes. That pass validates every number and rejects malformed, duplicate,
+	// noncanonical, deeply nested or trailing input before this projection.
+	_ = json.Unmarshal(data, &document)
 	return document
 }
 

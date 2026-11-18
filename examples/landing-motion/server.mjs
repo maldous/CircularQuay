@@ -1,7 +1,8 @@
 import { createReadStream } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { stat } from 'node:fs/promises';
 import http from 'node:http';
-import { extname, normalize, resolve } from 'node:path';
+import { extname, normalize, resolve, relative, sep, isAbsolute } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { readSitePage, SITE_PAGE_FILES } from './render-site-header.mjs';
 
@@ -78,24 +79,30 @@ export const assets = new Map([
 // Only declared local integration SVGs are public; catalogs, credits and
 // evidence remain outside the HTTP asset surface.
 const catalog = JSON.parse(await readFile(new URL('integrations.json', import.meta.url), 'utf8'));
-for (const group of catalog.groups) {
-  for (const item of group.items) {
-    if (item.asset === null) continue;
-    if (!/^assets\/integrations\/[a-z0-9-]+\.svg$/.test(item.asset)) {
-      throw new Error('Invalid public integration asset path');
+export function integrationAssetEntries(catalog) {
+  const entries = [];
+  for (const group of catalog.groups) {
+    for (const item of group.items) {
+      if (item.asset === null) continue;
+      if (!/^assets\/integrations\/[a-z0-9-]+\.svg$/.test(item.asset)) throw new Error('Invalid public integration asset path');
+      entries.push([`/${item.asset}`, item.asset]);
     }
-    assets.set(`/${item.asset}`, item.asset);
   }
+  return entries;
 }
+for (const entry of integrationAssetEntries(catalog)) assets.set(...entry);
 
 // Documentation modules are a revision-bound public snapshot, never a file browser.
 const documentationManifest = JSON.parse(await readFile(new URL('explore-content/manifest.json', import.meta.url), 'utf8'));
-for (const file of documentationManifest.publicFiles) {
-  if (!/^(?:explore-manifest\.js|explore-content\/[a-z0-9-]+\.js|explore-content\/assets\/[a-f0-9]{64}\.(?:svg|png|jpg|webp))$/.test(file.path)) {
-    throw new Error('Invalid public documentation asset path');
+export function documentationAssetEntries(manifest) {
+  const entries = [];
+  for (const file of manifest.publicFiles) {
+    if (!/^(?:explore-manifest\.js|explore-content\/[a-z0-9-]+\.js|explore-content\/assets\/[a-f0-9]{64}\.(?:svg|png|jpg|webp))$/.test(file.path)) throw new Error('Invalid public documentation asset path');
+    entries.push([`/${file.path}`, file.path]);
   }
-  assets.set(`/${file.path}`, file.path);
+  return entries;
 }
+for (const entry of documentationAssetEntries(documentationManifest)) assets.set(...entry);
 
 // Reuse fixed canonical aliases, landing facades, and the generated distribution
 // at pinned absolute paths. No directory serving.
@@ -106,12 +113,16 @@ for (const name of canonicalHelpNames) {
   assets.set(`/client-help/${name}`, `client-help/${name}`);
   assets.set(`/web/${name}`, `web/${name}`);
 }
-for (const path of ['/help/generated/manifest.json', helpManifest.catalog.path, helpManifest.search.path, ...helpCatalog.documents.map(item => item.article.path)]) {
-  if (!/^\/help\/generated\/(?:manifest|(?:catalog|search|article-[a-z][a-z0-9.-]{0,100})-[a-f0-9]{64})\.json$/.test(path)) throw new Error('Invalid public help asset path');
-  const file = `client-help/generated/${path.split('/').pop()}`;
-  assets.set(path, file);
-  assets.set(`/${file}`, file);
+export function helpAssetEntries(paths) {
+  const entries = [];
+  for (const path of paths) {
+    if (!/^\/help\/generated\/(?:manifest|(?:catalog|search|article-[a-z][a-z0-9.-]{0,100})-[a-f0-9]{64})\.json$/.test(path)) throw new Error('Invalid public help asset path');
+    const file = `client-help/generated/${path.split('/').pop()}`;
+    entries.push([path, file], [`/${file}`, file]);
+  }
+  return entries;
 }
+for (const entry of helpAssetEntries(['/help/generated/manifest.json', helpManifest.catalog.path, helpManifest.search.path, ...helpCatalog.documents.map(item => item.article.path)])) assets.set(...entry);
 
 export const contentTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -154,7 +165,8 @@ export async function handleRequest(request, response) {
 
   const canonicalFile = canonicalHelpSources.get(asset);
   const file = canonicalFile || resolve(root, normalize(asset));
-  if (!canonicalFile && !file.startsWith(`${root}/`)) return reply(response, 403, 'Forbidden');
+  const inside = relative(root, file);
+  if (!canonicalFile && (inside === '' || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside))) return reply(response, 403, 'Forbidden');
 
   try {
     const rendered = SITE_PAGE_FILES.includes(asset) ? await readSitePage(asset) : null;
@@ -175,19 +187,25 @@ export async function handleRequest(request, response) {
   }
 }
 
-const server = http.createServer(handleRequest);
-
-if (!process.env.CQ_EXPORT_ROUTE_MAP) server.listen(port, host, () => {
-  process.stdout.write(`CircularQuay landing-motion preview: http://${host}:${port}/\n`);
-});
-
-function stop(signal) {
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 5_000).unref();
-  process.stdout.write(`Received ${signal}; closing landing-motion preview.\n`);
+export function startLandingPreview({ port: selectedPort = port } = {}) {
+  const server = http.createServer(handleRequest);
+  server.listen(selectedPort, host, () => {
+    process.stdout.write(`CircularQuay landing-motion preview: http://${host}:${selectedPort}/\n`);
+  });
+  return server;
 }
 
-if (!process.env.CQ_EXPORT_ROUTE_MAP) {
-  process.once('SIGINT', () => stop('SIGINT'));
-  process.once('SIGTERM', () => stop('SIGTERM'));
+export function stopLandingPreview(server, signal, { exit = code => process.exit(code), schedule = setTimeout, cancel = clearTimeout, write = text => process.stdout.write(text) } = {}) {
+  const timeout = schedule(() => exit(1), 5_000);
+  timeout.unref();
+  server.close(() => { cancel(timeout); exit(0); });
+  write(`Received ${signal}; closing landing-motion preview.\n`);
+}
+
+// Importing the closed route graph is no longer a request to start a listener.
+// Direct CLI still honors the original export-only switch and fixed loopback.
+if (process.argv[1] === fileURLToPath(import.meta.url) && !process.env.CQ_EXPORT_ROUTE_MAP) {
+  const server = startLandingPreview();
+  process.once('SIGINT', () => stopLandingPreview(server, 'SIGINT'));
+  process.once('SIGTERM', () => stopLandingPreview(server, 'SIGTERM'));
 }

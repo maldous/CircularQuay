@@ -77,10 +77,14 @@ type auditRun struct {
 }
 
 func prepareAudit(options Options) (auditRun, error) {
+	return prepareAuditWithPath(options, filepath.Abs)
+}
+
+func prepareAuditWithPath(options Options, absolute func(string) (string, error)) (auditRun, error) {
 	if options.Profile != "source" && options.Profile != "enterprise" {
 		return auditRun{}, errors.New("unknown audit profile")
 	}
-	root, err := filepath.Abs(options.Source)
+	root, err := absolute(options.Source)
 	if err != nil {
 		return auditRun{}, errors.New("invalid source directory")
 	}
@@ -135,10 +139,10 @@ func (audit auditRun) run(ctx context.Context, command commandFunc) (Report, err
 		audit.report.ToolManifest = ptrToolManifest(tools.report())
 		return writeFailedReport(audit.output, audit.report)
 	}
-	format, err := checkFormatting(ctx, tools.commandFor("gofmt"), audit.root, audit.options.GoBinary, audit.environment, scope.files)
-	if err != nil {
-		return audit.report, err
-	}
+	// sourceGoScope admitted a nonempty file list above, and no mutation occurs
+	// before formatting. The only checkFormatting error is an empty list;
+	// actual tool failures are retained in its required Check.
+	format, _ := checkFormatting(ctx, tools.commandFor("gofmt"), audit.root, audit.options.GoBinary, audit.environment, scope.files)
 	audit.recordChecks(ctx, tools, format, scope)
 	audit.recordAfterIdentity(ctx, identity, tools.commandFor("git"))
 	audit.report.ToolManifest = ptrToolManifest(tools.report())
@@ -531,14 +535,20 @@ func addSonar(ctx context.Context, command commandFunc, root string, environment
 	}
 }
 
+type sonarInspector func(context.Context, string, string, string, string, string) (SonarSummary, error)
+
 func verifySonarRun(ctx context.Context, options Options, token, metadata string, required bool, report *Report) {
+	verifySonarRunWithInspector(ctx, options, token, metadata, required, report, inspectSonar)
+}
+
+func verifySonarRunWithInspector(ctx context.Context, options Options, token, metadata string, required bool, report *Report, inspect sonarInspector) {
 	verification := Check{Name: "sonarqube_clean_counts", Required: required, Status: "failed", Code: "sonar_verification_failed"}
 	defer func() { report.Checks = append(report.Checks, verification) }()
 	taskID, err := sonarMetadataTask(metadata)
 	if err != nil {
 		return
 	}
-	summary, err := inspectSonar(ctx, options.SonarURL, token, options.SonarProjectKey, report.Commit, taskID)
+	summary, err := inspect(ctx, options.SonarURL, token, options.SonarProjectKey, report.Commit, taskID)
 	if err != nil {
 		return
 	}
@@ -570,7 +580,11 @@ func validSonarURL(raw string) bool {
 }
 
 func readToken(path string) (string, error) {
-	path, err := filepath.Abs(path)
+	return readTokenWithPath(path, filepath.Abs)
+}
+
+func readTokenWithPath(path string, absolute func(string) (string, error)) (string, error) {
+	path, err := absolute(path)
 	if err != nil {
 		return "", errors.New("invalid token path")
 	}

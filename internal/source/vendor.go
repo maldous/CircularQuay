@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +17,29 @@ import (
 	"github.com/maldous/CircularQuay/internal/transport"
 )
 
+type vendorExecution struct {
+	validate   func(string) error
+	credential func(string) (string, error)
+	makeHome   func(string, string) (string, error)
+	removeHome func(string) error
+	lookup     func(string) (string, bool)
+	run        func(context.Context, vendorInvocation) error
+}
+
+type vendorInvocation struct {
+	executable  string
+	arguments   []string
+	home        string
+	environment []string
+	output      io.Writer
+}
+
 func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Value, error) {
+	operations := vendorExecution{validate: validateVendorExecutable, credential: transport.ReadCredentialFile, makeHome: os.MkdirTemp, removeHome: os.RemoveAll, lookup: os.LookupEnv, run: executeVendorCommand}
+	return readVendorWithOperations(ctx, s, b, operations)
+}
+
+func readVendorWithOperations(ctx context.Context, s model.Source, b model.Binding, operations vendorExecution) (model.Value, error) {
 	if err := validateVersionCapability(s, b); err != nil {
 		return model.Value{}, err
 	}
@@ -25,36 +48,40 @@ func readVendor(ctx context.Context, s model.Source, b model.Binding) (model.Val
 	if err != nil {
 		return model.Value{}, err
 	}
-	if err := validateVendorExecutable(s.Path); err != nil {
+	if err := operations.validate(s.Path); err != nil {
 		return model.Value{}, err
 	}
-	token, err := transport.ReadCredentialFile(s.TokenFile)
+	token, err := operations.credential(s.TokenFile)
 	if err != nil {
 		return model.Value{}, err
 	}
-	home, err := os.MkdirTemp("", "cq-vendor-")
+	home, err := operations.makeHome("", "cq-vendor-")
 	if err != nil {
 		return model.Value{}, fault.New(fault.Apply, "vendor_state")
 	}
-	defer os.RemoveAll(home)
+	defer operations.removeHome(home)
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(bounded, s.Path, args...)
-	cmd.Dir = home
-	cmd.Env = []string{"HOME=" + home, "USERPROFILE=" + home, "APPDATA=" + home, "LOCALAPPDATA=" + home, "NO_COLOR=1", key + "=" + token}
-	if root, ok := os.LookupEnv("SystemRoot"); ok {
-		cmd.Env = append(cmd.Env, "SystemRoot="+root)
+	environment := []string{"HOME=" + home, "USERPROFILE=" + home, "APPDATA=" + home, "LOCALAPPDATA=" + home, "NO_COLOR=1", key + "=" + token}
+	if root, ok := operations.lookup("SystemRoot"); ok {
+		environment = append(environment, "SystemRoot="+root)
 	}
 	var output limitedBuffer
-	cmd.Stdout = &output
-	cmd.Stderr = &discardBuffer{}
-	if cmd.Run() != nil {
+	command := vendorInvocation{executable: s.Path, arguments: args, home: home, environment: environment, output: &output}
+	if operations.run(bounded, command) != nil {
 		return model.Value{}, fault.New(fault.Denied, "vendor_request")
 	}
 	if output.overflow {
 		return model.Value{}, fault.New(fault.Trust, "vendor_response_size")
 	}
 	return parseVendorOutput(s, b, output.Bytes())
+}
+
+func executeVendorCommand(ctx context.Context, command vendorInvocation) error {
+	cmd := exec.CommandContext(ctx, command.executable, command.arguments...)
+	cmd.Dir, cmd.Env = command.home, command.environment
+	cmd.Stdout, cmd.Stderr = command.output, &discardBuffer{}
+	return cmd.Run()
 }
 
 func validateVendorExecutable(path string) error {

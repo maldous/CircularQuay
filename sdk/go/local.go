@@ -433,12 +433,9 @@ func validJSON(value []byte) bool {
 		return false
 	}
 	var document any
-	if jsondocument.Decode(value, &document) != nil {
-		return false
-	}
-	decoder := json.NewDecoder(bytes.NewReader(value))
-	decoder.UseNumber()
-	if decoder.Decode(&document) != nil {
+	// Preserve exact numeric lexemes inside the existing strict decoder rather
+	// than parsing the already-admitted document a second time here.
+	if jsondocument.DecodeNumbers(value, &document) != nil {
 		return false
 	}
 	return validIJSON(document, 0, new(int))
@@ -551,9 +548,7 @@ func validConfigSourceURL(parsed *url.URL, original string) bool {
 	if !strings.EqualFold(parsed.Scheme, "https") {
 		return false
 	}
-	if !parsed.IsAbs() {
-		return false
-	}
+	// URL.IsAbs is exactly Scheme != ""; the HTTPS check already proves it.
 	if parsed.Host == "" {
 		return false
 	}

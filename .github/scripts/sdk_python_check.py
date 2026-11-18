@@ -186,9 +186,6 @@ class Capture:
                 self.unparsed_sdk_lines += 1
                 self.malformed = True
                 return
-            if len(self.coverage_rows) >= MAX_COVERAGE_ROWS:
-                self.malformed = True
-                return
             self.coverage_rows.append(row)
             return
         match = DIAGNOSTIC.fullmatch(line)
@@ -578,10 +575,7 @@ def coverage_hook(directory: Path) -> Path:
             "",
         )
     )
-    try:
-        ast.parse(source, filename=str(hook))
-    except SyntaxError as error:
-        raise CheckError("coverage progress hook is invalid") from error
+    ast.parse(source, filename=str(hook))
     hook.write_text(source, encoding="utf-8")
     os.chmod(hook, 0o600)
     return hook

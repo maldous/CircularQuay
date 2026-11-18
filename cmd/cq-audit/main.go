@@ -33,7 +33,13 @@ func auditSignalContext(parent context.Context) (context.Context, context.Cancel
 	return signal.NotifyContext(parent, signals...)
 }
 
+type auditRunner func(context.Context, assurance.Options) (assurance.Report, error)
+
 func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int {
+	return runWithAudit(ctx, arguments, stdout, stderr, assurance.Run)
+}
+
+func runWithAudit(ctx context.Context, arguments []string, stdout, stderr io.Writer, audit auditRunner) int {
 	if isSonarCommand(arguments) {
 		return runSonar(ctx, arguments, stdout, stderr)
 	}
@@ -56,7 +62,7 @@ func run(ctx context.Context, arguments []string, stdout, stderr io.Writer) int 
 		_, _ = fmt.Fprintln(stderr, "invalid audit arguments")
 		return 2
 	}
-	report, err := assurance.Run(ctx, options)
+	report, err := audit(ctx, options)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "audit could not complete; verify source, output and prerequisites")
 		return 2

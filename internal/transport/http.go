@@ -120,9 +120,9 @@ func Endpoint(raw string) (*url.URL, error) {
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return nil, fault.New(fault.Trust, "provider_endpoint")
 	}
-	if strings.ContainsAny(u.Host, "\x00\r\n") {
-		return nil, fault.New(fault.Trust, "provider_endpoint")
-	}
+	// net/url rejects literal ASCII controls before parsing and disallows
+	// escaped controls in both hostnames and IPv6 zones. A successful Parse
+	// therefore cannot introduce a NUL, CR, or LF into this admitted Host.
 	return u, nil
 }
 

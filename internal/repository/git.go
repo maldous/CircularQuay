@@ -24,29 +24,47 @@ var gitVersion = regexp.MustCompile(`^git version ([0-9]+)\.([0-9]+)(?:\.[0-9]+)
 // credentials or a network server. Production always calls the installed Git.
 var runGit = executeGit
 
+type gitRuntime struct {
+	find     func(string) (string, error)
+	validate func(string) error
+	quota    func(string) error
+	run      func(context.Context, string, []string, []string, io.Writer) error
+}
+
 func executeGit(ctx context.Context, environment []string, limit int64, arguments ...string) ([]byte, error) {
-	program, err := exec.LookPath("git")
+	operations := gitRuntime{find: exec.LookPath, validate: platform.ValidateExecutable, quota: quota.ValidateUnprivilegedExecution, run: runNativeGit}
+	return executeGitWithRuntime(ctx, environment, limit, operations, arguments...)
+}
+
+func executeGitWithRuntime(ctx context.Context, environment []string, limit int64, operations gitRuntime, arguments ...string) ([]byte, error) {
+	program, err := operations.find("git")
 	if err != nil {
 		return nil, failure(fault.Unsupported, "git_dependency")
 	}
-	if platform.ValidateExecutable(program) != nil {
+	if operations.validate(program) != nil {
 		return nil, failure(fault.Trust, "git_dependency")
 	}
-	if quota.ValidateUnprivilegedExecution(program) != nil {
+	if operations.quota(program) != nil {
 		return nil, failure(fault.Unsupported, "disk_quota_identity")
 	}
+	output := &limitedOutput{remaining: limit}
+	if err = operations.run(ctx, program, environment, arguments, output); err != nil {
+		return nil, failure(fault.Unavailable, "git_command")
+	}
+	return output.buffer.Bytes(), nil
+}
+
+// runNativeGit is the production-only process boundary. Per-call tests of the
+// surrounding guards supply a different runner, never a package-global hook.
+func runNativeGit(ctx context.Context, program string, environment, arguments []string, output io.Writer) error {
 	// This is direct exec, never a shell. program is resolved and ACL-checked
 	// above; arguments are constructed by this package from validated policy,
 	// fixed Git subcommands and fixed ref names before reaching this boundary.
 	command := exec.CommandContext(ctx, program, arguments...)
 	command.Env = environment
 	command.Stderr = io.Discard
-	output := &limitedOutput{remaining: limit}
 	command.Stdout = output
-	if err = command.Run(); err != nil {
-		return nil, failure(fault.Unavailable, "git_command")
-	}
-	return output.buffer.Bytes(), nil
+	return command.Run()
 }
 
 type limitedOutput struct {
@@ -186,11 +204,26 @@ func (s *store) runWithVerification(ctx context.Context, authenticatedFetch, ver
 	if !validGitInvocation(arguments) {
 		return nil, failure(fault.Invalid, "git_arguments")
 	}
-	environment, err := s.environment(authenticatedFetch, verifySignature)
+	operations := s.gitExecution()
+	environment, err := operations.environment(s, authenticatedFetch, verifySignature)
 	if err != nil {
 		return nil, err
 	}
-	return runGit(ctx, environment, limit, append([]string{"--git-dir=" + s.git}, arguments...)...)
+	return operations.execute(ctx, environment, limit, append([]string{"--git-dir=" + s.git}, arguments...)...)
+}
+
+// gitOperations is a per-store deterministic boundary. Only package-private
+// tests inject it; public stores retain all native environment and exec guards.
+type gitOperations struct {
+	environment func(*store, bool, bool) ([]string, error)
+	execute     func(context.Context, []string, int64, ...string) ([]byte, error)
+}
+
+func (s *store) gitExecution() gitOperations {
+	if s.gitOperations != nil {
+		return *s.gitOperations
+	}
+	return gitOperations{environment: (*store).environment, execute: runGit}
 }
 
 var standardGitCommands = map[string]bool{
@@ -271,7 +304,13 @@ func matchingObjectID(output, expected string) bool {
 // be operator controlled, but it must not replace a verified native helper
 // with a writable executable during commit-signature verification.
 func trustedSSHKeygen() (string, error) {
-	program, err := exec.LookPath("ssh-keygen")
+	return trustedSSHKeygenWithLookup(exec.LookPath)
+}
+
+// trustedSSHKeygenWithLookup keeps installed-verifier validation after discovery.
+// The per-call lookup seam models metadata failure without mutating global PATH.
+func trustedSSHKeygenWithLookup(lookup func(string) (string, error)) (string, error) {
+	program, err := lookup("ssh-keygen")
 	if err != nil {
 		return "", failure(fault.Unsupported, "ssh_signature_dependency")
 	}
@@ -282,7 +321,13 @@ func trustedSSHKeygen() (string, error) {
 }
 
 func (s *store) initialize(ctx context.Context) error {
-	if _, err := os.Lstat(s.git); err == nil {
+	return s.initializeWithLookup(ctx, os.Lstat)
+}
+
+// initializeWithLookup retains the exact owned-directory creation path while
+// allowing a failed metadata read to be verified before any Git invocation.
+func (s *store) initializeWithLookup(ctx context.Context, lookup func(string) (os.FileInfo, error)) error {
+	if _, err := lookup(s.git); err == nil {
 		return s.checkGitConfig()
 	} else if !os.IsNotExist(err) {
 		return failure(fault.Trust, "git_directory")

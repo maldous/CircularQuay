@@ -162,6 +162,32 @@ def source_identity(root: str, target: str) -> dict:
             "source_entries": count, "source_bytes": total, "repository_object_bytes": storage, "listing_sha256": hashlib.sha256(raw).hexdigest()}
 
 
+def source_state(root: str) -> dict:
+    """Count checkout drift without exporting paths or reading untracked bodies."""
+    raw = git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    entries = [entry for entry in raw.split(b"\0") if entry]
+    require(len(entries) <= 10000)
+    tracked = untracked = bytecode = 0
+    index = 0
+    while index < len(entries):
+        entry = entries[index]
+        require(len(entry) >= 4 and entry[2:3] == b" ")
+        code, path = entry[:2], entry[3:]
+        if code == b"??":
+            untracked += 1
+            if b"__pycache__" in path.split(b"/") and path.endswith((b".pyc", b".pyo")):
+                bytecode += 1
+        else:
+            tracked += 1
+            if b"R" in code or b"C" in code:
+                index += 1
+                require(index < len(entries))
+        index += 1
+    return {"schema": "cq-sonar-checkout-state-counts/1", "clean": not raw,
+            "tracked_changes": tracked, "untracked_entries": untracked,
+            "python_bytecode_entries": bytecode}
+
+
 def verify_worktree(root: str) -> None:
     require(git(root, "rev-parse", "HEAD").decode().strip() == REVISION)
     require(git(root, "rev-parse", "HEAD^{tree}").decode().strip() == TREE)
@@ -343,11 +369,12 @@ def new_denominators(value: dict, current: dict) -> dict:
 
 
 def admin_config(password: bytes) -> bytes:
-    require(re.fullmatch(rb"Cq9![A-Za-z0-9_-]{43}\n", password) is not None)
+    # Actual repository producer: Cq9! + hex.EncodeToString(32 random bytes).
+    require(re.fullmatch(rb"Cq9![0-9a-f]{64}\n", password) is not None)
     return b'user = "admin:' + password.rstrip(b"\n") + b'"\n'
 
 
-ARGUMENT_COUNTS = {"prepare": 6, "verify": 1, "empty": 1, "branch": 1, "admin": 2,
+ARGUMENT_COUNTS = {"prepare": 6, "state": 2, "verify": 1, "empty": 1, "branch": 1, "admin": 2,
                    "analysis": 9, "period": 4, "current": 5, "denominators": 3, "observe": 2}
 
 
@@ -359,7 +386,9 @@ def execute(command: str, args: list[str]) -> str | None:
         validate_identity(identity)
         save(args[3], identity)
         return identity["project_date"]
-    if command == "verify":
+    if command == "state":
+        save(args[1], source_state(args[0]))
+    elif command == "verify":
         verify_worktree(args[0])
     elif command == "empty":
         analysis_list(document(read_owned(args[0])), 0)

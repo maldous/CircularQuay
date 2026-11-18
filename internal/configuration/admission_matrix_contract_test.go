@@ -170,9 +170,12 @@ func admissionNoEffects(t *testing.T) resolver {
 	t.Helper()
 	return resolver{
 		readFile: func(string, bool) ([]byte, error) { t.Fatal("unexpected read"); return nil, nil },
-		fetch:    func(context.Context, model.Repository, string) (string, error) { t.Fatal("unexpected fetch"); return "", nil },
-		current:  func(context.Context, model.Repository) (string, error) { t.Fatal("unexpected current"); return "", nil },
-		now:      func() time.Time { return time.Unix(100, 0).UTC() },
+		fetch: func(context.Context, model.Repository, string) (string, error) {
+			t.Fatal("unexpected fetch")
+			return "", nil
+		},
+		current: func(context.Context, model.Repository) (string, error) { t.Fatal("unexpected current"); return "", nil },
+		now:     func() time.Time { return time.Unix(100, 0).UTC() },
 	}
 }
 
@@ -201,7 +204,7 @@ func TestAdmissionMatrixContractOwnedRootLoad(t *testing.T) {
 	}
 	file := filepath.Join(root, "policy.json")
 	data := marshalPolicy(t, model.Policy{Version: 1,
-		Sources: map[string]model.Source{"data": {Type: "json", Path: filepath.Join(root, "absent-values.json")}},
+		Sources:   map[string]model.Source{"data": {Type: "json", Path: filepath.Join(root, "absent-values.json")}},
 		Workloads: map[string]model.Workload{"job": {Mode: "offline", Bindings: []model.Binding{{Name: "VALUE", Source: "data", Field: "value", AllowOffline: true}}}},
 	})
 	if err := os.WriteFile(file, data, 0o600); err != nil {
@@ -262,9 +265,9 @@ func assertAdmissionFinalReferences(t *testing.T, composed bool) {
 	t.Helper()
 	root := t.TempDir()
 	candidate := model.Policy{Version: 1,
-		Sources: map[string]model.Source{"root": {Type: "json", Path: filepath.Join(root, "root-values.json")}},
+		Sources:   map[string]model.Source{"root": {Type: "json", Path: filepath.Join(root, "root-values.json")}},
 		Workloads: map[string]model.Workload{"job": {Mode: "offline", Bindings: []model.Binding{{Name: "VALUE", Source: "root", Field: "value", AllowOffline: true}}}},
-		Updates: &model.Updates{Check: "interactive", Channel: "stable", IntervalHours: 24, TimeoutSeconds: 10, TokenFile: filepath.Join(root, "absent-token")},
+		Updates:   &model.Updates{Check: "interactive", Channel: "stable", IntervalHours: 24, TimeoutSeconds: 10, TokenFile: filepath.Join(root, "absent-token")},
 	}
 	reader := admissionNoEffects(t)
 	if composed {

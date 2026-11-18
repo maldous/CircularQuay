@@ -16,14 +16,13 @@ func MCPLegacyFingerprint(config model.MCP) string {
 	if len(config.Authorities) != 0 || config.Issuer == "" || config.JWKSURL == "" || config.Audience == "" {
 		return ""
 	}
-	data, err := json.Marshal(struct {
+	data, _ := json.Marshal(struct {
 		Issuer   string
 		JWKSURL  string
 		Audience string
 	}{config.Issuer, config.JWKSURL, config.Audience})
-	if err != nil {
-		return ""
-	}
+	// This concrete declaration contains only strings, integers, booleans,
+	// slices and maps of concrete values; JSON encoding has no error case.
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
 }

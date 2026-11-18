@@ -18,14 +18,18 @@ import (
 // other operational effects. MCP startup is deliberately excluded: a server
 // must not make an ambient release-feed request when a terminal launches it.
 func (a application) checkUpdates(ctx context.Context, command string, config *model.Updates) error {
-	if !shouldCheckUpdates(command, config, interactiveTerminal(a.runner.In, a.runner.Err)) {
+	return a.checkUpdatesWithOperations(ctx, command, config, interactiveTerminal, update.Check)
+}
+
+func (a application) checkUpdatesWithOperations(ctx context.Context, command string, config *model.Updates, terminal func(io.Reader, io.Writer) bool, check func(context.Context, *model.Updates, update.Options) (update.Result, error)) error {
+	if !shouldCheckUpdates(command, config, terminal(a.runner.In, a.runner.Err)) {
 		return nil
 	}
 	store, err := a.store()
 	if err != nil {
 		return err
 	}
-	result, err := update.Check(ctx, config, update.Options{Version: a.version(), StateDirectory: store.Directory})
+	result, err := check(ctx, config, update.Options{Version: a.version(), StateDirectory: store.Directory})
 	if err != nil {
 		_, _ = fmt.Fprintln(a.runner.Err, "CircularQuay could not check for updates; continuing.")
 		return nil

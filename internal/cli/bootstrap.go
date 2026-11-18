@@ -41,7 +41,7 @@ func (a application) bootstrapWithFetcher(ctx context.Context, args []string, fe
 	if err != nil {
 		return 0, err
 	}
-	destination, err := filepath.Abs(options.output)
+	destination, err := a.absolutePath(options.output)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, "bootstrap output")
 	}
@@ -105,10 +105,14 @@ func (a application) validateLocalBootstrap(ctx context.Context, destination str
 }
 
 func prepareBootstrapDestination(destination string) error {
-	if err := platform.EnsurePrivateDirectory(filepath.Dir(destination)); err != nil {
+	return prepareBootstrapDestinationWithOperations(destination, platform.EnsurePrivateDirectory, os.Lstat)
+}
+
+func prepareBootstrapDestinationWithOperations(destination string, ensure func(string) error, inspect func(string) (os.FileInfo, error)) error {
+	if err := ensure(filepath.Dir(destination)); err != nil {
 		return err
 	}
-	if _, err := os.Lstat(destination); err == nil {
+	if _, err := inspect(destination); err == nil {
 		return fault.New(fault.Trust, "bootstrap existing output")
 	} else if !os.IsNotExist(err) {
 		return fault.New(fault.Apply, "bootstrap output")

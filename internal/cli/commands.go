@@ -30,22 +30,24 @@ func (a application) initializeContext(ctx context.Context, args []string) (int,
 }
 
 func (a application) initialize(args []string) (int, error) {
+	return a.initializeWithOperations(args, initializationOperations{os.MkdirAll, writeNew})
+}
+
+func (a application) initializeWithOperations(args []string, operations initializationOperations) (int, error) {
 	f := flag.NewFlagSet("init", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	out := f.String("output", a.config, "policy output")
 	if f.Parse(args) != nil || f.NArg() != 0 {
 		return 0, fault.New(fault.Invalid, "init arguments")
 	}
-	p, err := filepath.Abs(*out)
+	p, err := a.absolutePath(*out)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, "init path")
 	}
 	fixture := filepath.Base(p) + ".fixture.json"
 	config := model.Policy{Version: 1, Sources: map[string]model.Source{"demo": {Type: "json", Path: fixture}}, Workloads: map[string]model.Workload{"demo": {Mode: "offline", Bindings: []model.Binding{{Name: "DEMO_API_KEY", Source: "demo", Field: "DEMO_API_KEY", AllowOffline: true}}}}}
-	b, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return 0, fault.New(fault.Apply, "init encode")
-	}
+	// The constructed literal contains only finite closed JSON values.
+	b, _ := json.MarshalIndent(config, "", "  ")
 	if _, err = os.Lstat(p); !os.IsNotExist(err) {
 		return 0, fault.New(fault.Trust, "existing policy")
 	}
@@ -53,13 +55,13 @@ func (a application) initialize(args []string) (int, error) {
 	if _, err = os.Lstat(fixturePath); !os.IsNotExist(err) {
 		return 0, fault.New(fault.Trust, "existing fixture")
 	}
-	if err = os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+	if err = operations.mkdir(filepath.Dir(p), 0o700); err != nil {
 		return 0, fault.New(fault.Apply, "init directory")
 	}
-	if err = writeNew(fixturePath, []byte("{\"DEMO_API_KEY\":\"synthetic-only-not-a-credential\"}\n")); err != nil {
+	if err = operations.write(fixturePath, []byte("{\"DEMO_API_KEY\":\"synthetic-only-not-a-credential\"}\n")); err != nil {
 		return 0, err
 	}
-	if err = writeNew(p, b); err != nil {
+	if err = operations.write(p, b); err != nil {
 		return 0, err
 	}
 	return a.print(map[string]string{"state": "initialized", "policy": p, "credentials": "synthetic fixture only"})
@@ -121,6 +123,10 @@ func (a application) status(args []string, p model.Policy) (int, error) {
 }
 
 func (a application) workloadCommand(ctx context.Context, args []string, loaded ...model.Policy) (code int, err error) {
+	return a.workloadCommandWithOperations(ctx, args, loaded, a.defaultWorkloadOperations())
+}
+
+func (a application) workloadCommandWithOperations(ctx context.Context, args []string, loaded []model.Policy, operations workloadCommandOperations) (code int, err error) {
 	ctx, complete := observability.Start(ctx, observability.Operation{Phase: observability.PhaseWorkload, ProviderKind: "native"})
 	defer func() { complete(observability.OutcomeForError(err)) }()
 	p, err := a.commandPolicy(ctx, loaded)
@@ -131,11 +137,11 @@ func (a application) workloadCommand(ctx context.Context, args []string, loaded 
 	if err != nil {
 		return 0, err
 	}
-	request, workload, engine, err := a.prepareWorkloadCommand(p, request)
+	request, workload, engine, err := a.prepareWorkloadCommandWithEngine(p, request, operations.engine)
 	if err != nil {
 		return 0, err
 	}
-	unlock, err := engine.State.Lock(request.id)
+	unlock, err := operations.lock(engine, request.id)
 	if err != nil {
 		return 0, err
 	}
@@ -144,18 +150,18 @@ func (a application) workloadCommand(ctx context.Context, args []string, loaded 
 			_ = unlock()
 		}
 	}()
-	engine, err = a.withRepositorySources(ctx, workload, engine)
+	engine, err = operations.repository(ctx, workload, engine)
 	if err != nil {
 		return 0, err
 	}
-	g, err := resolveWorkloadGeneration(ctx, engine, request)
+	g, err := operations.resolve(ctx, engine, request)
 	if err != nil {
 		return 0, err
 	}
 	if request.command == "run" {
-		return a.runResolvedWorkload(ctx, engine, workload, g, request.override, &unlock)
+		return operations.run(ctx, engine, workload, g, request.override, &unlock)
 	}
-	return a.completeWorkloadCommand(ctx, request, workload, engine, g)
+	return operations.complete(ctx, request, workload, engine, g)
 }
 
 func (a application) commandPolicy(ctx context.Context, loaded []model.Policy) (model.Policy, error) {
@@ -192,6 +198,10 @@ func parseWorkloadRequest(args []string) (workloadRequest, error) {
 }
 
 func (a application) prepareWorkloadCommand(p model.Policy, request workloadRequest) (workloadRequest, model.Workload, *resolve.Engine, error) {
+	return a.prepareWorkloadCommandWithEngine(p, request, a.engine)
+}
+
+func (a application) prepareWorkloadCommandWithEngine(p model.Policy, request workloadRequest, construct func(model.Policy) (*resolve.Engine, error)) (workloadRequest, model.Workload, *resolve.Engine, error) {
 	workload, ok := p.Workloads[request.id]
 	if !ok {
 		return request, model.Workload{}, nil, fault.New(fault.Invalid, "workload")
@@ -200,7 +210,7 @@ func (a application) prepareWorkloadCommand(p model.Policy, request workloadRequ
 	if err != nil {
 		return request, model.Workload{}, nil, err
 	}
-	engine, err := a.engine(p)
+	engine, err := construct(p)
 	if err != nil {
 		return request, model.Workload{}, nil, err
 	}
@@ -245,7 +255,11 @@ func resolveWorkloadGeneration(ctx context.Context, engine *resolve.Engine, requ
 }
 
 func (a application) runResolvedWorkload(ctx context.Context, engine *resolve.Engine, workload model.Workload, generation model.Generation, override []string, unlock *func() error) (int, error) {
-	if err := recordPhase(engine.State, workload, generation, "resolved"); err != nil {
+	return a.runResolvedWorkloadWithOperations(ctx, engine, workload, generation, override, unlock, recordPhase, platform.RunWithIO)
+}
+
+func (a application) runResolvedWorkloadWithOperations(ctx context.Context, engine *resolve.Engine, workload model.Workload, generation model.Generation, override []string, unlock *func() error, record func(state.Store, model.Workload, model.Generation, string) error, run func(context.Context, model.Workload, model.Generation, []string, io.Reader, io.Writer, io.Writer) (int, error)) (int, error) {
+	if err := record(engine.State, workload, generation, "resolved"); err != nil {
 		return 0, err
 	}
 	// Only reconciliation is serialized. A child may run indefinitely while
@@ -254,7 +268,7 @@ func (a application) runResolvedWorkload(ctx context.Context, engine *resolve.En
 		return 0, err
 	}
 	*unlock = nil
-	return platform.RunWithIO(ctx, workload, generation, override, a.runner.In, a.runner.Out, a.runner.Err)
+	return run(ctx, workload, generation, override, a.runner.In, a.runner.Out, a.runner.Err)
 }
 
 func (a application) completeWorkloadCommand(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
@@ -271,17 +285,25 @@ func (a application) completeWorkloadCommand(ctx context.Context, request worklo
 }
 
 func (a application) storeSnapshot(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
-	if err := engine.Snapshot(ctx, generation); err != nil {
+	return a.storeSnapshotWithOperations(ctx, request, workload, engine, generation, engine.Snapshot, recordPhase)
+}
+
+func (a application) storeSnapshotWithOperations(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation, snapshot func(context.Context, model.Generation) error, record func(state.Store, model.Workload, model.Generation, string) error) (int, error) {
+	if err := snapshot(ctx, generation); err != nil {
 		return 0, err
 	}
-	if err := recordPhase(engine.State, workload, generation, "snapshotted"); err != nil {
+	if err := record(engine.State, workload, generation, "snapshotted"); err != nil {
 		return 0, err
 	}
 	return a.print(map[string]any{"workload": request.id, "state": "snapshotted", "operation": request.command, "offline": generation.Offline, "bindings": len(generation.Values)})
 }
 
 func (a application) reconcileWorkload(ctx context.Context, workload model.Workload, engine *resolve.Engine, generation model.Generation, targets []string) (int, error) {
-	record, err := reconcileTargets(ctx, engine.State, workload, generation, targets, nativeOperations())
+	return a.reconcileWorkloadWithOperations(ctx, workload, engine, generation, targets, reconcileTargets)
+}
+
+func (a application) reconcileWorkloadWithOperations(ctx context.Context, workload model.Workload, engine *resolve.Engine, generation model.Generation, targets []string, reconcile func(context.Context, state.Store, model.Workload, model.Generation, []string, targetOperations) (state.Record, error)) (int, error) {
+	record, err := reconcile(ctx, engine.State, workload, generation, targets, nativeOperations())
 	if err != nil {
 		return 0, err
 	}
@@ -289,28 +311,28 @@ func (a application) reconcileWorkload(ctx context.Context, workload model.Workl
 }
 
 func (a application) syncWorkload(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation) (int, error) {
+	return a.syncWorkloadWithOperations(ctx, request, workload, engine, generation, engine.Snapshot, a.reconcileWorkload)
+}
+
+func (a application) syncWorkloadWithOperations(ctx context.Context, request workloadRequest, workload model.Workload, engine *resolve.Engine, generation model.Generation, snapshot func(context.Context, model.Generation) error, reconcile func(context.Context, model.Workload, *resolve.Engine, model.Generation, []string) (int, error)) (int, error) {
 	if workload.Snapshot.Path != "" && workload.Mode != "online" {
-		if err := engine.Snapshot(ctx, generation); err != nil {
+		if err := snapshot(ctx, generation); err != nil {
 			return 0, err
 		}
 	}
-	return a.reconcileWorkload(ctx, workload, engine, generation, request.targets)
+	return reconcile(ctx, workload, engine, generation, request.targets)
 }
 
 func recordPhase(s state.Store, w model.Workload, g model.Generation, phase string) error {
-	record, err := generationRecord(w, g, phase)
-	if err != nil {
-		return err
-	}
+	record := generationRecord(w, g, phase)
 	return s.Write(record)
 }
 
-func generationRecord(w model.Workload, g model.Generation, phase string) (state.Record, error) {
+func generationRecord(w model.Workload, g model.Generation, phase string) state.Record {
 	id := make([]byte, 16)
-	if _, err := rand.Read(id); err != nil {
-		return state.Record{}, fault.New(fault.Apply, "generation identifier")
-	}
-	return state.Record{Workload: g.Workload, Generation: hex.EncodeToString(id), State: phase, Health: "unknown", Mode: w.Mode, Offline: g.Offline, LastChecked: time.Now().UTC(), LastSuccess: g.RetrievedAt, Receipts: g.Receipts}, nil
+	// Go 1.27.4 rand.Read fills the buffer or terminates irrecoverably.
+	_, _ = rand.Read(id)
+	return state.Record{Workload: g.Workload, Generation: hex.EncodeToString(id), State: phase, Health: "unknown", Mode: w.Mode, Offline: g.Offline, LastChecked: time.Now().UTC(), LastSuccess: g.RetrievedAt, Receipts: g.Receipts}
 }
 
 func apply(ctx context.Context, w model.Workload, id string, g model.Generation) error {

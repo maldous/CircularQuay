@@ -156,7 +156,10 @@ func TestProviderSnapshotMatrixContractCancelAfterDecrypt(t *testing.T) {
 	defer cancel()
 	calls := 0
 	engine.Snapshots = mappedSnapshotCallbacks{
-		encrypt: func(context.Context, model.Snapshot, map[string]string) error { t.Fatal("unexpected encrypt"); return nil },
+		encrypt: func(context.Context, model.Snapshot, map[string]string) error {
+			t.Fatal("unexpected encrypt")
+			return nil
+		},
 		decrypt: func(context.Context, model.Snapshot) (map[string]string, error) {
 			calls++
 			cancel()

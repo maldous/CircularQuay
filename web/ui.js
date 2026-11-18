@@ -18,7 +18,7 @@ function loadPolicySchema() {
   });
   return policySchemaPromise;
 }
-const loadGuidedPolicyTools = () => guidedPolicyToolsPromise ||= import('/local/schema-tools.js');
+const loadGuidedPolicyTools = () => guidedPolicyToolsPromise ||= import('./local/schema-tools.js');
 
 export function start(model) {
   installHelp();

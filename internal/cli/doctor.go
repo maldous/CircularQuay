@@ -33,7 +33,7 @@ func (a application) doctor(ctx context.Context, args []string, loaded ...model.
 }
 
 func (a application) doctorReadiness(ctx context.Context, report *doctorReport, fix bool, loaded []model.Policy) (int, error) {
-	path, err := filepath.Abs(a.config)
+	path, err := a.absolutePath(a.config)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, "policy path")
 	}
@@ -105,7 +105,11 @@ type doctorDependency struct {
 }
 
 func doctorPrincipal() string {
-	principal, err := mcp.LocalPrincipal()
+	return doctorPrincipalWithIdentity(mcp.LocalPrincipal)
+}
+
+func doctorPrincipalWithIdentity(identity func() (mcp.Principal, error)) string {
+	principal, err := identity()
 	if err != nil {
 		return "unavailable"
 	}

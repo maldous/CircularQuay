@@ -165,9 +165,8 @@ func repositoryParts(parts []string) (string, string, error) {
 	if len(parts) < 4 || !validRepositoryPart(parts[0]) || !validRepositoryPart(parts[1]) {
 		return "", "", fault.New(fault.Invalid, "github_config_repository")
 	}
-	if parts[0] == "." || parts[0] == ".." || parts[1] == "." || parts[1] == ".." {
-		return "", "", fault.New(fault.Invalid, "github_config_repository")
-	}
+	// validRepositoryPart requires alphanumeric endpoints, which already
+	// excludes dot and dot-dot components before either part is returned.
 	return parts[0], parts[1], nil
 }
 

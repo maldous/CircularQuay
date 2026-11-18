@@ -32,8 +32,15 @@ func trustedEntry(info os.FileInfo, secret bool) bool {
 }
 
 func trustedAncestors(path string) bool {
+	return trustedAncestorsWithInspect(path, os.Stat)
+}
+
+// trustedAncestorsWithInspect retains the native traversal and ownership checks.
+// The private per-call boundary permits a failed metadata read without changing
+// host directory permissions or replacing process-global filesystem operations.
+func trustedAncestorsWithInspect(path string, inspect func(string) (os.FileInfo, error)) bool {
 	for {
-		info, err := os.Stat(path)
+		info, err := inspect(path)
 		if err != nil || !trustedDirectory(info) {
 			return false
 		}

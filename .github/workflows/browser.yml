@@ -35,6 +35,12 @@ jobs:
         shell: bash
         run: |
           python -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r examples/landing-motion/requirements-explore.txt
+      - name: Verify owned documentation-renderer contracts (MarkdownIt 3.0)
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -I -B -m unittest discover -s .github/scripts/tests -p test_build_explore.py -v
       - name: Verify public behavior and standalone export
         shell: bash
         run: |
@@ -65,10 +71,57 @@ jobs:
           node-version: ${{ matrix.node }}
           package-manager-cache: false
       - name: Validate dependency-free browser preview
+        id: browser_validation
         shell: bash
         working-directory: web
         run: |
           set -euo pipefail
           umask 077
           npm run check
-          npm test
+          if test '${{ matrix.node }}' != 24.22.2 || test "$GITHUB_EVENT_NAME" = workflow_dispatch; then
+            npm test
+            exit 0
+          fi
+          case "$RUNNER_OS" in Linux) platform=linux; browser_python=python3;; macOS) platform=macos; browser_python=python3;; Windows) platform=windows; browser_python=python;; *) exit 2;; esac
+          selected_node="$(node -p process.execPath)"
+          output="$RUNNER_TEMP/cq-browser-web-$platform"
+          export CQ_PR_HEAD_SHA='${{ github.event.pull_request.head.sha || github.sha }}'
+          begin_exit=0
+          "$browser_python" -B "$GITHUB_WORKSPACE/.github/scripts/browser_coverage.py" begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$output" --node "$selected_node" --platform "$platform" --suite web || begin_exit=$?
+          if test "$begin_exit" != 0; then
+            original_exit=0
+            npm test || original_exit=$?
+            test "$original_exit" = 0 || exit "$original_exit"
+            exit "$begin_exit"
+          fi
+          original_exit=0
+          NODE_V8_COVERAGE="$output/raw" "$selected_node" --test --test-concurrency=1 --experimental-test-coverage \
+            --test-coverage-exclude='../examples/landing-motion/**/*.test.mjs' \
+            --test-coverage-exclude='**/*.test.mjs' \
+            --test-coverage-exclude=../examples/landing-motion/.local/worker-routes.mjs \
+            --test-reporter=spec --test-reporter=lcov \
+            --test-reporter-destination=stdout --test-reporter-destination="$output/lcov.info" \
+            boundary.test.mjs configuration-undo.test.mjs guided-policy.test.mjs \
+            imported-json.test.mjs module-boundary.test.mjs schema.test.mjs \
+            help.test.mjs presentation-preferences.test.mjs \
+            build-tools-completion.test.mjs configuration-completion.test.mjs \
+            coverage-report-completion.test.mjs entry-completion.test.mjs \
+            help-component-completion.test.mjs presentation-completion.test.mjs \
+            schema-completion.test.mjs server-completion.test.mjs \
+            ui-completion.test.mjs workbench-completion.test.mjs || original_exit=$?
+          retain_exit=0
+          "$browser_python" -B "$GITHUB_WORKSPACE/.github/scripts/browser_coverage.py" retain --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$output" --node "$selected_node" --platform "$platform" --suite web --test-exit "$original_exit" || retain_exit=$?
+          if test "$retain_exit" = 0; then printf 'retained=true\nplatform=%s\n' "$platform" >> "$GITHUB_OUTPUT"; fi
+          test "$original_exit" = 0 || exit "$original_exit"
+          exit "$retain_exit"
+      - name: Retain exact original native browser evidence
+        if: ${{ always() && steps.browser_validation.outputs.retained == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-coverage-${{ github.sha }}-web-${{ steps.browser_validation.outputs.platform }}
+          path: |
+            ${{ runner.temp }}/cq-browser-web-${{ steps.browser_validation.outputs.platform }}/lcov.info
+            ${{ runner.temp }}/cq-browser-web-${{ steps.browser_validation.outputs.platform }}/counters.json
+            ${{ runner.temp }}/cq-browser-web-${{ steps.browser_validation.outputs.platform }}/metadata.json
+          if-no-files-found: error
+          retention-days: 7

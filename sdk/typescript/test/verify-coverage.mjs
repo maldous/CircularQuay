@@ -1,4 +1,4 @@
-import { lstat, open } from "node:fs/promises";
+import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -191,4 +191,20 @@ function fail(message) {
   throw new Error(`coverage validation failed: ${message}`);
 }
 
-await main();
+// The command keeps its exact argument/read/validation behavior. Importing the
+// owned validator is effect-free so deterministic report/descriptor contracts
+// can exercise the same implementation without spawning a second tool.
+export { main, readBounded, requireStableReport, sameRegularFile, readAtMost, decodeUTF8,
+  parseReport, validateReport, validateCoverage, normalizeCoveragePath, nonemptyEntries,
+  countEntries, branchEntries, requireMatchingKeys, ownEntries, isRecord, isCount, isMain };
+async function isMain(entry = process.argv[1]) {
+  if (!entry) return false;
+  const actual = await realpath(fileURLToPath(import.meta.url));
+  try {
+    return await realpath(entry) === actual;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+if (await isMain()) await main();

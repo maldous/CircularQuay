@@ -34,10 +34,7 @@ func (c *resourceRequestInspector) RoundTrip(r *http.Request) (*http.Response, e
 }
 func canonicalTransportResource(t *testing.T) *resource.Resource {
 	t.Helper()
-	r, err := telemetryResource(resourcePipelineConfig(), "synthetic-version")
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := telemetryResource(resourcePipelineConfig(), "synthetic-version")
 	return r
 }
 func syntheticUncontrolledResource() *resourcepb.Resource {

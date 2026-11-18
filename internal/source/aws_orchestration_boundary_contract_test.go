@@ -178,7 +178,9 @@ func TestAWSOrchestrationBoundaryContractIdentityPrecedesExactGeneratedValueRequ
 func assertAWSOrchestrationValue(t *testing.T, service string) {
 	t.Helper()
 	fixture := &awsOrchestrationFixture{}
-	configure := func(ctx context.Context, source model.Source) (aws.Config, error) { return fixture.configure(t, ctx, source) }
+	configure := func(ctx context.Context, source model.Source) (aws.Config, error) {
+		return fixture.configure(t, ctx, source)
+	}
 	binding := model.Binding{Resource: awsOrchestrationARN(service), Field: "KEY", Version: "7"}
 	source := awsOrchestrationSource()
 	source.AuditVerified = true

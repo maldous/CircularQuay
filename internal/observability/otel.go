@@ -60,10 +60,7 @@ func newOTelBackend(ctx context.Context, config model.Observability, token, vers
 	if err != nil {
 		return nil, err
 	}
-	resource, err := telemetryResource(config, version)
-	if err != nil {
-		return nil, err
-	}
+	resource := telemetryResource(config, version)
 	urls, err := parseCollectorURLs(config.Endpoint)
 	if err != nil {
 		return nil, err
@@ -254,7 +251,7 @@ func collectorHeaders(token string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
-func telemetryResource(config model.Observability, version string) (*resource.Resource, error) {
+func telemetryResource(config model.Observability, version string) *resource.Resource {
 	attributes := []attribute.KeyValue{attribute.String("service.name", config.ServiceName)}
 	if version != "" {
 		attributes = append(attributes, attribute.String("service.version", version))
@@ -270,15 +267,21 @@ func telemetryResource(config model.Observability, version string) (*resource.Re
 			attributes = append(attributes, attribute.String("service.instance.id", config.ResourceAttributes.ServiceInstanceID))
 		}
 	}
-	return resource.NewWithAttributes("", attributes...), nil
+	return resource.NewWithAttributes("", attributes...)
 }
 
 func (b *otelBackend) configureTraces(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	return b.configureTracesWithExporter(ctx, config, resource, client, headers, endpoint, func(ctx context.Context, options ...otlptracehttp.Option) (sdktrace.SpanExporter, error) {
+		return otlptracehttp.New(ctx, options...)
+	})
+}
+
+func (b *otelBackend) configureTracesWithExporter(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string, create func(context.Context, ...otlptracehttp.Option) (sdktrace.SpanExporter, error)) error {
 	client, err := collectorResourceClient(client, resource, collectorTrace)
 	if err != nil {
 		return err
 	}
-	exporter, err := otlptracehttp.New(ctx,
+	exporter, err := create(ctx,
 		otlptracehttp.WithEndpointURL(endpoint),
 		otlptracehttp.WithEncoding(otlptracehttp.EncodingProtobuf),
 		otlptracehttp.WithHTTPClient(client),
@@ -318,11 +321,17 @@ func (b *otelBackend) configureTraces(ctx context.Context, config model.Observab
 }
 
 func (b *otelBackend) configureMetrics(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	return b.configureMetricsWithExporter(ctx, config, resource, client, headers, endpoint, func(ctx context.Context, options ...otlpmetrichttp.Option) (sdkmetric.Exporter, error) {
+		return otlpmetrichttp.New(ctx, options...)
+	})
+}
+
+func (b *otelBackend) configureMetricsWithExporter(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string, create func(context.Context, ...otlpmetrichttp.Option) (sdkmetric.Exporter, error)) error {
 	client, err := collectorResourceClient(client, resource, collectorMetrics)
 	if err != nil {
 		return err
 	}
-	exporter, err := otlpmetrichttp.New(ctx,
+	exporter, err := create(ctx,
 		otlpmetrichttp.WithEndpointURL(endpoint),
 		otlpmetrichttp.WithHTTPClient(client),
 		otlpmetrichttp.WithHeaders(headers),
@@ -383,11 +392,17 @@ func saturatingInt64(value uint64) int64 {
 }
 
 func (b *otelBackend) configureLogs(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string) error {
+	return b.configureLogsWithExporter(ctx, config, resource, client, headers, endpoint, func(ctx context.Context, options ...otlploghttp.Option) (sdklog.Exporter, error) {
+		return otlploghttp.New(ctx, options...)
+	})
+}
+
+func (b *otelBackend) configureLogsWithExporter(ctx context.Context, config model.Observability, resource *resource.Resource, client *http.Client, headers map[string]string, endpoint string, create func(context.Context, ...otlploghttp.Option) (sdklog.Exporter, error)) error {
 	client, err := collectorResourceClient(client, resource, collectorLogs)
 	if err != nil {
 		return err
 	}
-	exporter, err := otlploghttp.New(ctx,
+	exporter, err := create(ctx,
 		otlploghttp.WithEndpointURL(endpoint),
 		otlploghttp.WithHTTPClient(client),
 		otlploghttp.WithHeaders(headers),

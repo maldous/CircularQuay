@@ -32,6 +32,18 @@ func (s *Service) HTTPHandler() (http.Handler, error) {
 	return s.httpHandler(verifier)
 }
 
+// httpSessionServer is the SDK callback, with its own no-token refusal. The
+// outer authorization middleware remains mandatory; this callback is not an
+// alternate ingress and does not mint a principal from missing authority.
+func (s *Service) httpSessionServer(r *http.Request) *sdk.Server {
+	ti := auth.TokenInfoFromContext(r.Context())
+	if ti == nil {
+		return nil
+	}
+	client, _ := ti.Extra["client"].(string)
+	return s.server(principalFromToken(ti, client))
+}
+
 func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error) {
 	cfg := s.current().MCP
 	resourceURL := configuredResource(cfg)
@@ -45,14 +57,7 @@ func (s *Service) httpHandler(verifier auth.TokenVerifier) (http.Handler, error)
 	}
 	metadataPath := "/.well-known/oauth-protected-resource" + path
 	metadataURL := resource.Scheme + "://" + resource.Host + metadataPath
-	stream := sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
-		ti := auth.TokenInfoFromContext(r.Context())
-		if ti == nil {
-			return nil
-		}
-		client, _ := ti.Extra["client"].(string)
-		return s.server(principalFromToken(ti, client))
-	}, &sdk.StreamableHTTPOptions{
+	stream := sdk.NewStreamableHTTPHandler(s.httpSessionServer, &sdk.StreamableHTTPOptions{
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: maximumRequestBytes,
 		PropagateRequestCancellation: true, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
@@ -184,8 +189,13 @@ func permittedOrigin(origin string, allowed []string) bool {
 // authorities or the compact single-issuer RFC 9068 contract. Public resource
 // metadata and provider authentication remain separate from token verification.
 func NewAccessTokenVerifier(ctx context.Context, cfg model.MCP) (auth.TokenVerifier, error) {
-	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
-	return newProductionAccessTokenVerifier(ctx, cfg, client)
+	return newProductionAccessTokenVerifier(ctx, cfg, accessTokenHTTPClient())
+}
+
+// accessTokenHTTPClient retains the fixed production timeout and refuses
+// redirects before a verifier can forward a request to another authority.
+func accessTokenHTTPClient() *http.Client {
+	return &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
 }
 
 func newAccessTokenVerifier(ctx context.Context, cfg model.MCP, client *http.Client) (auth.TokenVerifier, error) {

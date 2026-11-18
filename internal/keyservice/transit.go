@@ -95,22 +95,15 @@ func (t *Transit) Wrap(ctx context.Context, request WrapRequest) (WrapResult, er
 	if err := transitWrapRequest(request); err != nil {
 		return WrapResult{}, err
 	}
-	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionWrap)
+	configuration, token, routes, err := t.authorize(ctx, request.Association, request.Context, transitActionWrap)
 	if err != nil {
 		return WrapResult{}, err
 	}
-	endpoint, err := transitURL(configuration, "encrypt", request.Association.KeyID)
-	if err != nil {
-		return WrapResult{}, err
-	}
-	keyVersion, ok := transitVersionNumber(request.Association.KeyVersion)
-	if !ok {
-		return WrapResult{}, fault.New(fault.Trust, "transit_key_configuration")
-	}
+	endpoint := routes.operation("encrypt")
 	body := transitEncryptRequest{
 		Plaintext:  base64.StdEncoding.EncodeToString(request.Plaintext),
 		Context:    base64.StdEncoding.EncodeToString(transitDerivedContext(request.Context)),
-		KeyVersion: keyVersion,
+		KeyVersion: routes.version,
 	}
 	var response transitEncryptResponse
 	if err := t.client.DoJSON(ctx, http.MethodPost, endpoint, transitHeaders(token, configuration.Namespace), body, &response); err != nil {
@@ -135,14 +128,11 @@ func (t *Transit) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResu
 		return UnwrapResult{}, err
 	}
 	ciphertext := string(request.Ciphertext)
-	configuration, token, _, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
+	configuration, token, routes, err := t.authorize(ctx, request.Association, request.Context, transitActionUnwrap)
 	if err != nil {
 		return UnwrapResult{}, err
 	}
-	endpoint, err := transitURL(configuration, "decrypt", request.Association.KeyID)
-	if err != nil {
-		return UnwrapResult{}, err
-	}
+	endpoint := routes.operation("decrypt")
 	body := transitDecryptRequest{
 		Ciphertext: ciphertext,
 		Context:    base64.StdEncoding.EncodeToString(transitDerivedContext(request.Context)),
@@ -190,31 +180,33 @@ func transitReceipt(association KMSAssociation, context AssociationContext) KMSR
 	}
 }
 
-func (t *Transit) authorize(ctx context.Context, association KMSAssociation, request AssociationContext, action transitAction) (TransitConfiguration, string, transitKeyConfig, error) {
+func (t *Transit) authorize(ctx context.Context, association KMSAssociation, request AssociationContext, action transitAction) (TransitConfiguration, string, transitRoutes, error) {
 	if err := transitContextError(ctx); err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
 	if err := validateTransitAssociation(association, request); err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
 	configuration, err := t.privateConfiguration(ctx, association)
 	if err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
-	// Refuse a malformed declared key path before resolving bootstrap identity.
-	// nativeKeyConfig repeats URL validation at the actual request boundary.
-	if _, err := transitURL(configuration, "keys", association.KeyID); err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+	// Parse the complete key path and canonical version before bootstrap
+	// identity. Subsequent operations use copies of these validated parts;
+	// DoJSON still validates the actual endpoint at every request boundary.
+	routes, err := newTransitRoutes(configuration, association)
+	if err != nil {
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
 	token, err := t.credential(ctx, configuration)
 	if err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
-	config, err := t.nativeKeyConfig(ctx, association, configuration, token, action)
+	_, err = t.nativeKeyConfig(ctx, association, configuration, token, action, routes.keys)
 	if err != nil {
-		return TransitConfiguration{}, "", transitKeyConfig{}, err
+		return TransitConfiguration{}, "", transitRoutes{}, err
 	}
-	return configuration, token, config, nil
+	return configuration, token, routes, nil
 }
 
 func (t *Transit) privateConfiguration(ctx context.Context, association KMSAssociation) (TransitConfiguration, error) {
@@ -245,11 +237,7 @@ func (t *Transit) credential(ctx context.Context, configuration TransitConfigura
 	return token, nil
 }
 
-func (t *Transit) nativeKeyConfig(ctx context.Context, association KMSAssociation, configuration TransitConfiguration, token string, action transitAction) (transitKeyConfig, error) {
-	endpoint, err := transitURL(configuration, "keys", association.KeyID)
-	if err != nil {
-		return transitKeyConfig{}, err
-	}
+func (t *Transit) nativeKeyConfig(ctx context.Context, association KMSAssociation, configuration TransitConfiguration, token string, action transitAction, endpoint *url.URL) (transitKeyConfig, error) {
 	var response transitKeyResponse
 	if err := t.client.DoJSON(ctx, http.MethodGet, endpoint, transitHeaders(token, configuration.Namespace), nil, &response); err != nil {
 		return transitKeyConfig{}, transitProviderFailure(ctx, err)
@@ -375,6 +363,37 @@ func transitURL(configuration TransitConfiguration, operation, keyID string) (*u
 		return nil, fault.New(fault.Invalid, "transit_resource")
 	}
 	return endpoint, nil
+}
+
+// transitRoutes owns validated path parts and one canonical version, not a
+// provider identity or grant. Only constant operation names are supplied by
+// Wrap and Unwrap; every resulting request retains transport's endpoint fence.
+type transitRoutes struct {
+	keys    *url.URL
+	prefix  string
+	keyID   string
+	version uint64
+}
+
+func newTransitRoutes(configuration TransitConfiguration, association KMSAssociation) (transitRoutes, error) {
+	keys, err := transitURL(configuration, "keys", association.KeyID)
+	if err != nil {
+		return transitRoutes{}, err
+	}
+	version, ok := transitVersionNumber(association.KeyVersion)
+	if !ok {
+		return transitRoutes{}, fault.New(fault.Trust, "transit_key_configuration")
+	}
+	// transport.URL appends these exact, nonempty validated segments without
+	// rewriting their bytes, so the final keys/keyID suffix is guaranteed.
+	prefix := strings.TrimSuffix(keys.Path, "keys/"+association.KeyID)
+	return transitRoutes{keys: keys, prefix: prefix, keyID: association.KeyID, version: version}, nil
+}
+
+func (routes transitRoutes) operation(name string) *url.URL {
+	endpoint := *routes.keys
+	endpoint.Path = routes.prefix + name + "/" + routes.keyID
+	return &endpoint
 }
 
 func transitHeaders(token, namespace string) map[string]string {

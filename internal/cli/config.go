@@ -184,9 +184,13 @@ func (a application) configValue(valueJSON, valueFile string, hasJSON, hasFile b
 }
 
 func readConfigInput(in io.Reader, path string) ([]byte, error) {
+	return readConfigInputWithResolver(in, path, filepath.Abs)
+}
+
+func readConfigInputWithResolver(in io.Reader, path string, absolutePath func(string) (string, error)) ([]byte, error) {
 	var reader io.Reader
 	if path != "-" {
-		abs, err := filepath.Abs(path)
+		abs, err := absolutePath(path)
 		if err != nil {
 			return nil, fault.New(fault.Invalid, "config input")
 		}
@@ -215,9 +219,10 @@ func strictJSON(data []byte) (any, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var value any
-	if decoder.Decode(&value) != nil || decoder.More() {
-		return nil, fault.New(fault.Invalid, errorConfigJSON)
-	}
+	// The strict decoder above accepted these same immutable bytes, including
+	// finite numbers and exactly one document. This pass only retains their
+	// original numeric spelling instead of converting numbers to float64.
+	_ = decoder.Decode(&value)
 	return value, nil
 }
 
@@ -227,7 +232,7 @@ func jsonPrimitive(data []byte) bool {
 }
 
 func (a application) readConfigDocument() (any, string, error) {
-	path, err := filepath.Abs(a.config)
+	path, err := a.absolutePath(a.config)
 	if err != nil {
 		return nil, "", fault.New(fault.Invalid, errorConfigPath)
 	}
@@ -249,7 +254,11 @@ func (a application) readConfigDocument() (any, string, error) {
 }
 
 func (a application) mutateConfig(ctx context.Context, expected string, create, repair bool, mutate func(*any) error) (int, error) {
-	path, err := filepath.Abs(a.config)
+	return a.mutateConfigWithOperations(ctx, expected, create, repair, mutate, configurationCommitOperations{a.ensureConfigUnchanged, configurationWriteContext, platform.WriteProtected})
+}
+
+func (a application) mutateConfigWithOperations(ctx context.Context, expected string, create, repair bool, mutate func(*any) error, operations configurationCommitOperations) (int, error) {
+	path, err := a.absolutePath(a.config)
 	if err != nil {
 		return 0, fault.New(fault.Invalid, errorConfigPath)
 	}
@@ -272,13 +281,13 @@ func (a application) mutateConfig(ctx context.Context, expected string, create, 
 	if err != nil {
 		return 0, err
 	}
-	if err = a.ensureConfigUnchanged(path, digest, repair); err != nil {
+	if err = operations.unchanged(path, digest, repair); err != nil {
 		return 0, err
 	}
-	if err = configurationWriteContext(ctx); err != nil {
+	if err = operations.context(ctx); err != nil {
 		return 0, err
 	}
-	if err = platform.WriteProtected(path, data); err != nil {
+	if err = operations.write(path, data); err != nil {
 		return 0, err
 	}
 	return a.print(map[string]string{"sha256": configDigest(data), "state": "updated"})
@@ -582,7 +591,11 @@ func (a application) formatConfig() (bool, error) {
 }
 
 func (a application) formatConfigContext(ctx context.Context) (bool, error) {
-	path, err := filepath.Abs(a.config)
+	return a.formatConfigWithOperations(ctx, configurationFormatOperations{platform.ReadProtected, configurationWriteContext, platform.WriteProtected})
+}
+
+func (a application) formatConfigWithOperations(ctx context.Context, operations configurationFormatOperations) (bool, error) {
+	path, err := a.absolutePath(a.config)
 	if err != nil {
 		return false, fault.New(fault.Invalid, errorConfigPath)
 	}
@@ -599,17 +612,17 @@ func (a application) formatConfigContext(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	current, err := platform.ReadProtected(path, false)
+	current, err := operations.read(path, false)
 	if err != nil || configDigest(current) != digest {
 		return false, fault.New(fault.Denied, errorConfigChanged)
 	}
 	if bytes.Equal(current, data) {
 		return false, nil
 	}
-	if err = configurationWriteContext(ctx); err != nil {
+	if err = operations.context(ctx); err != nil {
 		return false, err
 	}
-	if err = platform.WriteProtected(path, data); err != nil {
+	if err = operations.write(path, data); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -113,13 +113,21 @@ async function readTrustedAsset(directory, name) {
   }
 }
 
+// This value-level predicate is independently useful at bounded-read adapters.
+// Testing malformed numbers does not assert that Node emitted them from fs.read.
+export function isValidAssetReadCount(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+export { sameIdentity as matchesAssetIdentityRecord, isContained as isContainedAssetPath };
+
 async function readBoundedAsset(file, expectedSize) {
   if (!Number.isSafeInteger(expectedSize) || expectedSize < 0 || expectedSize > maximumAssetBytes) return null;
   const buffer = Buffer.alloc(Math.min(expectedSize + 1, maximumAssetBytes + 1));
   let read = 0;
   while (read < buffer.length) {
     const result = await file.read(buffer, read, buffer.length - read, read);
-    if (!Number.isSafeInteger(result.bytesRead) || result.bytesRead < 0) return null;
+    if (!isValidAssetReadCount(result.bytesRead)) return null;
     if (result.bytesRead === 0) break;
     read += result.bytesRead;
   }
@@ -218,23 +226,34 @@ export function createPreview(plane, sourceRoot = root) {
   });
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// The direct CLI retains its two fixed loopback ports. Library callers can
+// exercise the same watcher/lifecycle against an owned fixture on ephemeral ports.
+export function startDevelopmentPreview({ sourceRoot = root, ports = [5180, 5181] } = {}) {
   let reloadTimer;
-  const watcher = watch(root, { recursive: true }, (_event, name) => {
+  const watcher = watch(sourceRoot, { recursive: true }, (_event, name) => {
     if (!reloadablePath(name)) return;
     clearTimeout(reloadTimer);
     reloadTimer = setTimeout(() => {
       for (const response of listeners) response.write('data: reload\n\n');
     }, 120);
   });
-  const servers = [createPreview('remote'), createPreview('local')];
-  servers.forEach((server, index) => server.listen(5180 + index, '127.0.0.1', () => {
-    console.log(`${index ? 'LOCAL client' : 'Account/operator'} synthetic preview: http://127.0.0.1:${5180 + index}`);
+  const servers = [createPreview('remote', sourceRoot), createPreview('local', sourceRoot)];
+  servers.forEach((server, index) => server.listen(ports[index], '127.0.0.1', () => {
+    console.log(`${index ? 'LOCAL client' : 'Account/operator'} synthetic preview: http://127.0.0.1:${ports[index]}`);
   }));
-  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
     for (const response of listeners) response.end();
     servers.forEach(server => server.close());
     watcher.close();
     clearTimeout(reloadTimer);
-  });
+  };
+  return { servers, watcher, close };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const preview = startDevelopmentPreview();
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, preview.close);
 }

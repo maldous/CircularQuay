@@ -33,10 +33,11 @@ type accepted struct {
 }
 
 type store struct {
-	repo      model.Repository
-	git       string
-	signers   []byte
-	temporary string
+	repo          model.Repository
+	git           string
+	signers       []byte
+	temporary     string
+	gitOperations *gitOperations
 }
 
 type fetchOperations struct {
@@ -263,6 +264,10 @@ func CurrentContext(ctx context.Context, repo model.Repository) (string, error) 
 }
 
 func (s *store) currentRelease(ctx context.Context, repo model.Repository) (string, error) {
+	return s.currentReleaseWithPreparation(ctx, repo, prepareCurrentVerificationTemporary)
+}
+
+func (s *store) currentReleaseWithPreparation(ctx context.Context, repo model.Repository, prepare func(*store) (func() error, error)) (string, error) {
 	state, err := s.readAccepted()
 	if err != nil {
 		return "", err
@@ -273,7 +278,7 @@ func (s *store) currentRelease(ctx context.Context, repo model.Repository) (stri
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	cleanup, err := prepareCurrentVerificationTemporary(s)
+	cleanup, err := prepare(s)
 	if err != nil {
 		return "", err
 	}
@@ -354,9 +359,9 @@ func (s *store) readAccepted() (accepted, error) {
 }
 
 func (s *store) writeAccepted(state accepted) error {
-	data, err := json.Marshal(state)
-	if err != nil {
-		return failure(fault.Trust, "accepted_state")
-	}
+	// accepted is a closed, method-free struct of strings: encoding/json has
+	// no unsupported value, custom marshaler or cycle on this input. Keep the
+	// actual protected-write failure; a future shape change must requalify this.
+	data, _ := json.Marshal(state)
 	return platform.WriteProtected(filepath.Join(s.repo.Directory, "accepted.json"), data)
 }

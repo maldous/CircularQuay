@@ -52,18 +52,23 @@ type application struct {
 	repository     repositoryOperations
 	buildVersion   string
 	buildCommit    string
+	paths          *applicationPathOperations
 }
 
 // Run executes a command and returns a stable CLI or child status.
 func (r Runner) Run(ctx context.Context, args []string) int {
+	return r.runWithStandardStreams(ctx, args, os.Stdin, os.Stdout, os.Stderr)
+}
+
+func (r Runner) runWithStandardStreams(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) int {
 	if r.In == nil {
-		r.In = os.Stdin
+		r.In = input
 	}
 	if r.Out == nil {
-		r.Out = os.Stdout
+		r.Out = output
 	}
 	if r.Err == nil {
-		r.Err = os.Stderr
+		r.Err = diagnostics
 	}
 	f := flag.NewFlagSet("cq", flag.ContinueOnError)
 	f.SetOutput(io.Discard)
@@ -169,18 +174,19 @@ func (a application) dispatchConfigured(ctx context.Context, args []string) (int
 // runtime floor before any operational receipt, telemetry credential, provider
 // credential, repository, child-process, or workload effect.
 func (a application) preflightOperationalPolicy(ctx context.Context) (model.Policy, error) {
-	p, err := a.loadContext(ctx)
-	if err != nil {
-		return model.Policy{}, err
-	}
-	if err := enforceMinimumVersion(p, a.version()); err != nil {
-		return model.Policy{}, err
-	}
-	return p, nil
+	// loadContext always passes through loadPolicy and resolveParsedPolicy:
+	// the root floor precedes repository access, and the resolved floor is
+	// checked immediately before return. No callback or policy mutation occurs
+	// between that final check and this return; do not apply a third copy.
+	return a.loadContext(ctx)
 }
 
 func (a application) dispatchLoadedOperationalPolicy(ctx context.Context, args []string, p model.Policy) (int, error) {
-	runtime, err := a.newObservability(ctx, p)
+	return a.dispatchLoadedOperationalPolicyWithOperations(ctx, args, p, a.newObservability, a.checkUpdates)
+}
+
+func (a application) dispatchLoadedOperationalPolicyWithOperations(ctx context.Context, args []string, p model.Policy, construct func(context.Context, model.Policy) (*observability.Runtime, error), check func(context.Context, string, *model.Updates) error) (int, error) {
+	runtime, err := construct(ctx, p)
 	if err != nil {
 		return 0, err
 	}
@@ -191,7 +197,7 @@ func (a application) dispatchLoadedOperationalPolicy(ctx context.Context, args [
 	}()
 	ctx = observability.WithRuntime(ctx, runtime)
 	observability.Record(ctx, observability.Operation{Phase: observability.PhasePolicy, ProviderKind: "json"}, observability.OutcomeSuccess)
-	if err := a.checkUpdates(ctx, args[0], p.Updates); err != nil {
+	if err := check(ctx, args[0], p.Updates); err != nil {
 		return 0, err
 	}
 	return a.dispatchWithObservability(ctx, args, p)
@@ -223,15 +229,19 @@ func (a application) dispatchLoadedRuntime(ctx context.Context, args []string, p
 }
 
 func (a application) newObservability(ctx context.Context, policy model.Policy) (*observability.Runtime, error) {
+	return a.newObservabilityWithOperations(ctx, policy, a.store, observability.New)
+}
+
+func (a application) newObservabilityWithOperations(ctx context.Context, policy model.Policy, storeFor func() (state.Store, error), construct func(context.Context, *model.Observability, observability.Options) (*observability.Runtime, error)) (*observability.Runtime, error) {
 	directory := ""
 	if policy.Observability != nil && policy.Observability.DiagnosticLevel != "off" {
-		store, err := a.store()
+		store, err := storeFor()
 		if err != nil {
 			return nil, err
 		}
 		directory = store.Directory
 	}
-	return observability.New(ctx, policy.Observability, observability.Options{DiagnosticDirectory: directory, Version: a.version()})
+	return construct(ctx, policy.Observability, observability.Options{DiagnosticDirectory: directory, Version: a.version()})
 }
 
 func (a application) print(value any) (int, error) {
@@ -250,7 +260,7 @@ func (a application) load() (model.Policy, error) {
 }
 
 func (a application) loadContext(ctx context.Context) (model.Policy, error) {
-	p, err := filepath.Abs(a.config)
+	p, err := a.absolutePath(a.config)
 	if err != nil {
 		return model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
@@ -275,7 +285,7 @@ func (a application) resolvePolicyBytes(ctx context.Context, data []byte, path s
 	if err := ctx.Err(); err != nil {
 		return model.Policy{}, fault.New(fault.Unavailable, "configuration cancelled")
 	}
-	absolute, err := filepath.Abs(path)
+	absolute, err := a.absolutePath(path)
 	if err != nil {
 		return model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
@@ -293,7 +303,7 @@ func (a application) readRootPolicy(ctx context.Context, path string) ([]byte, s
 	if err := ctx.Err(); err != nil {
 		return nil, "", model.Policy{}, fault.New(fault.Unavailable, "configuration cancelled")
 	}
-	absolute, err := filepath.Abs(path)
+	absolute, err := a.absolutePath(path)
 	if err != nil {
 		return nil, "", model.Policy{}, fault.New(fault.Invalid, policyPathDiagnostic)
 	}
@@ -321,7 +331,7 @@ func (a application) resolveParsedPolicy(ctx context.Context, data []byte, path 
 
 func (a application) store() (state.Store, error) {
 	dir := a.directory
-	home, configErr := os.UserConfigDir()
+	home, configErr := a.userConfigDirectory()
 	if dir == "" {
 		if configErr != nil {
 			return state.Store{}, fault.New(fault.Apply, stateDirectoryDiagnostic)
@@ -329,7 +339,7 @@ func (a application) store() (state.Store, error) {
 		dir = filepath.Join(home, "cq", "state")
 	}
 	if configErr == nil {
-		if err := checkDefaultStateNamespace(home, dir); err != nil {
+		if err := checkDefaultStateNamespaceWithResolver(home, dir, a.absolutePath); err != nil {
 			return state.Store{}, err
 		}
 	}
@@ -337,11 +347,15 @@ func (a application) store() (state.Store, error) {
 }
 
 func checkDefaultStateNamespace(home, selected string) error {
-	absolute, err := filepath.Abs(selected)
+	return checkDefaultStateNamespaceWithResolver(home, selected, filepath.Abs)
+}
+
+func checkDefaultStateNamespaceWithResolver(home, selected string, absolutePath func(string) (string, error)) error {
+	absolute, err := absolutePath(selected)
 	if err != nil {
 		return fault.New(fault.Apply, stateDirectoryDiagnostic)
 	}
-	preferred, err := filepath.Abs(filepath.Join(home, "cq", "state"))
+	preferred, err := absolutePath(filepath.Join(home, "cq", "state"))
 	if err != nil {
 		return fault.New(fault.Apply, stateDirectoryDiagnostic)
 	}

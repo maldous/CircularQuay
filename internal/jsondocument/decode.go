@@ -19,6 +19,17 @@ var unmarshaler = reflect.TypeFor[json.Unmarshaler]()
 // struct fields, trailing input and excessive nesting. Errors never contain input.
 // Fields without omitempty must be present. Callers own size bounds and semantic validation.
 func Decode(data []byte, result any) error {
+	return decode(data, result, false)
+}
+
+// DecodeNumbers applies the same strict document checks as Decode and retains
+// number lexemes as json.Number when decoding interface values. The initial
+// checker still enforces the existing finite numeric and nesting bounds.
+func DecodeNumbers(data []byte, result any) error {
+	return decode(data, result, true)
+}
+
+func decode(data []byte, result any, numbers bool) error {
 	t := reflect.TypeOf(result)
 	if t == nil || t.Kind() != reflect.Pointer || !utf8.Valid(data) {
 		return errDocument
@@ -32,6 +43,9 @@ func Decode(data []byte, result any) error {
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
+	if numbers {
+		decoder.UseNumber()
+	}
 	if decoder.Decode(result) != nil {
 		return errDocument
 	}

@@ -312,6 +312,10 @@ func copyHelperBytes(destination, source *os.File) (int64, error) {
 }
 
 func enableHelper(path string) error {
+	return enableHelperWithValidation(path, helperExecutable)
+}
+
+func enableHelperWithValidation(path string, executable func(string) bool) error {
 	root, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		return err
@@ -322,7 +326,7 @@ func enableHelper(path string) error {
 	if err = root.Chmod(filepath.Base(path), 0700); err != nil {
 		return err
 	}
-	if !helperExecutable(path) {
+	if !executable(path) {
 		return os.ErrPermission
 	}
 	return nil

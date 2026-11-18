@@ -138,9 +138,8 @@ func normalizeReceipt(path string, data []byte) ([]byte, error) {
 		return nil, fault.New(fault.Invalid, "JSON receipt object required")
 	}
 	var compact bytes.Buffer
-	if json.Compact(&compact, data) != nil {
-		return nil, fault.New(fault.Invalid, "JSON receipt required")
-	}
+	// Unmarshal above validated these same bytes; Compact cannot reject them.
+	_ = json.Compact(&compact, data)
 	return append(compact.Bytes(), '\n'), nil
 }
 

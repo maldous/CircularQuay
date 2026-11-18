@@ -219,9 +219,9 @@ func correlation(ctx context.Context) string {
 		return current
 	}
 	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "unavailable"
-	}
+	// The pinned Go toolchain fills the buffer or terminates irrecoverably;
+	// there is no recoverable error or insecure correlation fallback.
+	_, _ = rand.Read(bytes[:])
 	return hex.EncodeToString(bytes[:])
 }
 

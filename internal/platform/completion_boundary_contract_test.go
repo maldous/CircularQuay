@@ -108,7 +108,9 @@ func completionReceiptPhase(t *testing.T, phase string) {
 		t.Fatal(err)
 	}
 	want := "owned"
-	if phase == "sync" { want += "{\"owned\":true}\n" }
+	if phase == "sync" {
+		want += "{\"owned\":true}\n"
+	}
 	if string(data) != want {
 		t.Fatal("unexpected committed receipt bytes")
 	}
@@ -219,7 +221,9 @@ func completionLockPhase(t *testing.T, phase string) {
 		}
 		return file, created, err
 	}
-	if phase == "protect" { ops.protect = func(string) error { return os.ErrPermission } }
+	if phase == "protect" {
+		ops.protect = func(string) error { return os.ErrPermission }
+	}
 	file, err := openLockFileWithOperations(path, ops)
 	if file != nil {
 		t.Fatal("failed lock escaped")
@@ -410,7 +414,9 @@ func completionCreationOperations(phase string) creationBoundaryOperations {
 		return file, err
 	}
 	ops.populate = func(file *os.File, name string, data []byte) error {
-		if phase == "protect" { return populateCreatedFileWithProtection(file, name, data, func(string) error { return os.ErrPermission }) }
+		if phase == "protect" {
+			return populateCreatedFileWithProtection(file, name, data, func(string) error { return os.ErrPermission })
+		}
 		if phase == "identity" {
 			_ = file.Close()
 		}

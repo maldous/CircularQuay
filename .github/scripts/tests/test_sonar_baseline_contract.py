@@ -401,11 +401,43 @@ class SonarBaselineContracts(unittest.TestCase):
         self.call(["denominators", self.file("counts", value), self.file("current-counts", current), str(self.root / "denominators")])
 
     def test_admin_config_is_existing_fake_protected_credential_not_a_permission_grant(self):
-        fake = b"Cq9!" + b"A" * 43 + b"\n"
+        fake = b"Cq9!" + b"a" * 64 + b"\n"
         self.assertEqual(b'user = "admin:' + fake.rstrip(b"\n") + b'"\n', BASE.admin_config(fake))
-        for value in (b"", b"admin", fake + b"\n", fake.replace(b"A", b'"', 1)):
+        for value in (b"", b"admin", fake + b"\n", fake.replace(b"a", b'"', 1), b"Cq9!" + b"A" * 43 + b"\n", fake.upper(), fake[:-2] + b"\n"):
             with self.assertRaises(ValueError):
                 BASE.admin_config(value)
+
+    def test_source_state_counts_drift_without_releasing_paths_or_weakening_clean_fence(self):
+        raw = b"?? sdk/python/src/cq/__pycache__/client.cpython-314.pyc\0?? owned-note.txt\0 M owned.go\0R  renamed.go\0original.go\0"
+        with mock.patch.object(BASE, "git", return_value=raw) as status:
+            result = BASE.source_state(str(self.root))
+        status.assert_called_once_with(str(self.root), "status", "--porcelain=v1", "-z", "--untracked-files=all")
+        self.assertEqual({"schema": "cq-sonar-checkout-state-counts/1", "clean": False,
+                          "tracked_changes": 2, "untracked_entries": 2, "python_bytecode_entries": 1}, result)
+        self.assertNotIn("owned", json.dumps(result))
+        for value in (b"", b"?? owned-note.txt\0", b"?? owned/__pycache__/module.pyo\0"):
+            with mock.patch.object(BASE, "git", return_value=value):
+                self.assertEqual(not value, BASE.source_state(str(self.root))["clean"])
+        for value in (b"bad", b"R  missing-origin\0"):
+            with mock.patch.object(BASE, "git", return_value=value), self.assertRaises(ValueError):
+                BASE.source_state(str(self.root))
+        with mock.patch.object(BASE, "source_state", return_value=result):
+            self.call(["state", str(self.root), str(self.root / "source-state")])
+        self.assertEqual(result, json.loads((self.root / "source-state").read_bytes()))
+
+    def test_workflow_prevents_checkout_bytecode_and_keeps_both_strict_source_fences(self):
+        root = Path(__file__).parents[3]
+        workflow = (root / ".github/workflows/sonar.yml").read_text()
+        closure = 'export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$root/python-cache"'
+        self.assertEqual(1, workflow.count(closure))
+        self.assertLess(workflow.index(closure), workflow.index('if python -m venv'))
+        self.assertIn('"$CQ_ANALYZER_PYTHON" -I -S -B .github/scripts/sonar_baseline_contract.py', workflow)
+        self.assertIn('git status --porcelain --untracked-files=all', workflow)
+        self.assertIn('fatal "current-source-changed-by-baseline"', workflow)
+        producer = (root / "internal/assurance/sonar.go").read_text()
+        self.assertIn('data := make([]byte, 32)', producer)
+        self.assertIn('hex.EncodeToString(data)', producer)
+        self.assertIn('[]byte("Cq9!"+password+"\\n")', producer)
 
     def test_cli_all_success_paths_are_owned_data_or_mocked_git_not_live_analysis(self):
         server = self.file("server", SERVER)
@@ -417,7 +449,7 @@ class SonarBaselineContracts(unittest.TestCase):
             self.call(["verify", "owned-root"]);verify.assert_called_once_with("owned-root")
         self.call(["empty", self.file("empty", analyses([]))])
         self.call(["branch", self.file("branches", {"branches": [{"name": "main", "isMain": True, "type": "BRANCH"}]})], stdout="main\n")
-        self.call(["admin", self.file("password", b"Cq9!" + b"A" * 43 + b"\n"), str(self.root / "curl-config")])
+        self.call(["admin", self.file("password", b"Cq9!" + b"a" * 64 + b"\n"), str(self.root / "curl-config")])
         args = baseline_inputs()
         metadata = self.file("task-metadata", args[1]);task = self.file("task", args[2]);history = self.file("history", args[3]);gate = self.file("gate", args[4]);record = str(self.root / "baseline")
         self.call(["analysis", source, metadata, task, history, gate, "3", "main", record, "unqualified"], stdout=ANALYSIS + "\n")

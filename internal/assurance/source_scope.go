@@ -6,6 +6,7 @@ import (
 	"errors"
 	"go/build/constraint"
 	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -123,8 +124,20 @@ func validateTaggedIntegrationFile(root string, file SourceFile) error {
 	return nil
 }
 
+type scopedSourceFile interface {
+	Read([]byte) (int, error)
+	Stat() (os.FileInfo, error)
+	Close() error
+}
+
 func boundedSourceRead(filename string) ([]byte, error) {
-	opened, err := platform.OpenProtected(filename, false)
+	return boundedSourceReadWithOpen(filename, func(path string) (scopedSourceFile, error) {
+		return platform.OpenProtected(path, false)
+	})
+}
+
+func boundedSourceReadWithOpen(filename string, open func(string) (scopedSourceFile, error)) ([]byte, error) {
+	opened, err := open(filename)
 	if err != nil {
 		return nil, err
 	}

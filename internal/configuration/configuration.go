@@ -63,10 +63,14 @@ var nativeResolver = resolver{
 // Load reads a protected master policy and resolves its complete configuration
 // graph. It performs no provider reads, shell execution, or ambient discovery.
 func Load(ctx context.Context, path string) (Result, error) {
+	return loadWithAbsolute(ctx, path, filepath.Abs)
+}
+
+func loadWithAbsolute(ctx context.Context, path string, absolutePath func(string) (string, error)) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, failure(fault.Unavailable, "cancelled")
 	}
-	absolute, err := filepath.Abs(path)
+	absolute, err := absolutePath(path)
 	if err != nil {
 		return Result{}, failure(fault.Invalid, "master_location")
 	}
@@ -89,7 +93,11 @@ func Parse(ctx context.Context, data []byte, path string) (Result, error) {
 // configuration graph to request repository access. Its result is not a
 // runnable policy until Load or Parse returns a complete Result.
 func ReadRoot(data []byte, path string) (model.Policy, error) {
-	absolute, err := filepath.Abs(path)
+	return readRootWithAbsolute(data, path, filepath.Abs)
+}
+
+func readRootWithAbsolute(data []byte, path string, absolutePath func(string) (string, error)) (model.Policy, error) {
+	absolute, err := absolutePath(path)
 	if err != nil {
 		return model.Policy{}, failure(fault.Invalid, "master_location")
 	}
@@ -101,10 +109,14 @@ func ReadRoot(data []byte, path string) (model.Policy, error) {
 }
 
 func parse(ctx context.Context, data []byte, path string, r resolver) (Result, error) {
+	return parseWithAbsolute(ctx, data, path, r, filepath.Abs)
+}
+
+func parseWithAbsolute(ctx context.Context, data []byte, path string, r resolver, absolutePath func(string) (string, error)) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, failure(fault.Unavailable, "cancelled")
 	}
-	absolute, err := filepath.Abs(path)
+	absolute, err := absolutePath(path)
 	if err != nil {
 		return Result{}, failure(fault.Invalid, "master_location")
 	}
@@ -119,6 +131,10 @@ func parse(ctx context.Context, data []byte, path string, r resolver) (Result, e
 }
 
 func resolveSingle(ctx context.Context, data []byte, path string) (Result, error) {
+	return resolveSingleWithValidation(ctx, data, path, policy.ValidateResolvedReferences)
+}
+
+func resolveSingleWithValidation(ctx context.Context, data []byte, path string, validate func(model.Policy, string) error) (Result, error) {
 	resolved, err := policy.Parse(data, path)
 	if err != nil {
 		return Result{}, err
@@ -128,7 +144,7 @@ func resolveSingle(ctx context.Context, data []byte, path string) (Result, error
 		guard.SourceDomains[source] = "root"
 	}
 	resolved.ConfigurationGuard = guard
-	if err = policy.ValidateResolvedReferences(resolved, path); err != nil {
+	if err = validate(resolved, path); err != nil {
 		return Result{}, err
 	}
 	if err = ctx.Err(); err != nil {

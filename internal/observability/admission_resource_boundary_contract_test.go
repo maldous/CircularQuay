@@ -26,7 +26,9 @@ func TestTelemetryAdmissionResourceIdentityAndSignalRefusals(t *testing.T) {
 	}{
 		{"diagnostic vocabulary", func(c *model.Observability) { c.DiagnosticLevel = "private-level" }, "observability identity"},
 		{"service control character", func(c *model.Observability) { c.ServiceName = "private\nservice" }, "observability identity"},
-		{"namespace control character", func(c *model.Observability) { c.ResourceAttributes = &model.ResourceAttributes{ServiceNamespace: "private\x00namespace"} }, "observability resource"},
+		{"namespace control character", func(c *model.Observability) {
+			c.ResourceAttributes = &model.ResourceAttributes{ServiceNamespace: "private\x00namespace"}
+		}, "observability resource"},
 		{"no enabled signal", func(c *model.Observability) { c.Metrics = nil }, "observability signals"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

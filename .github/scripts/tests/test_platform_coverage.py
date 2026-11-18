@@ -10,6 +10,8 @@ import io
 import json
 import os
 import re
+import runpy
+import socket
 from pathlib import Path
 import stat
 import subprocess
@@ -512,10 +514,11 @@ class OwnedFileContracts(unittest.TestCase):
 class ProcessMetadataContracts(unittest.TestCase):
     def test_git_uses_only_fixed_metadata_argv_and_no_credential_environment(self):
         complete = subprocess.CompletedProcess([], 0, b"safe metadata", b"")
+        source = Path("/owned")
         with mock.patch.dict(os.environ, {"PATH": "/trusted/bin", "HOME": "/private", "PRIVATE_TOKEN": "synthetic"}, clear=True), mock.patch.object(P.subprocess, "run", return_value=complete) as run:
-            self.assertEqual(P.git(Path("/owned"), "rev-parse", "HEAD"), b"safe metadata")
+            self.assertEqual(P.git(source, "rev-parse", "HEAD"), b"safe metadata")
             arguments, options = run.call_args
-            self.assertEqual(arguments[0][-3:], ["/owned", "rev-parse", "HEAD"])
+            self.assertEqual(arguments[0][-3:], [str(source), "rev-parse", "HEAD"])
             self.assertNotIn("PRIVATE_TOKEN", options["env"])
             self.assertNotIn("HOME", options["env"])
             self.assertEqual(options["env"]["GIT_CONFIG_GLOBAL"], os.devnull)
@@ -590,6 +593,35 @@ class ProcessMetadataContracts(unittest.TestCase):
 
 
 class CLIContracts(unittest.TestCase):
+    def test_actual_entry_help_exits_before_evidence_or_process_work(self):
+        original = SCRIPT.read_bytes()
+        output = io.StringIO()
+        errors = io.StringIO()
+        with contextlib.ExitStack() as stack:
+            probes = []
+            for owner, name in ((subprocess, "run"), (subprocess, "Popen"),
+                                (os, "system"), (socket, "create_connection"),
+                                (socket, "getaddrinfo"), (socket.socket, "connect"),
+                                (socket.socket, "connect_ex")):
+                probe = stack.enter_context(mock.patch.object(
+                    owner, name, side_effect=AssertionError("unexpected external operation")))
+                probes.append(probe)
+            stack.enter_context(mock.patch.object(sys, "argv", [str(SCRIPT), "--help"]))
+            stack.enter_context(contextlib.redirect_stdout(output))
+            stack.enter_context(contextlib.redirect_stderr(errors))
+            with self.assertRaises(SystemExit) as stopped:
+                runpy.run_path(str(SCRIPT), run_name="__main__")
+            self.assertEqual(stopped.exception.code, 0)
+            for probe in probes:
+                probe.assert_not_called()
+        help_text = output.getvalue()
+        self.assertIn("usage:", help_text)
+        self.assertIn("{begin,retain,baseline,pins,union}", help_text)
+        self.assertIn("--source", help_text)
+        self.assertIn("--expected-commit", help_text)
+        self.assertEqual(errors.getvalue(), "")
+        self.assertEqual(SCRIPT.read_bytes(), original)
+
     def test_exact_actions_delegate_without_running_any_go_or_provider(self):
         routes = {"begin": "begin", "retain": "retain", "baseline": "bind_baseline", "pins": "pins_from_needs", "union": "union"}
         for action, function in routes.items():
@@ -706,6 +738,24 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn('if test "$cq_test_exit" -ne 0; then exit "$cq_test_exit"; fi', value)
         self.assertIn('if ($cqTestExit -ne 0) { exit $cqTestExit }', value)
 
+    def test_windows_selects_one_native_path_identity_for_probe_test_and_retention(self):
+        body = self.job("native-windows")
+        selection = "$cqGo = (Get-Command go -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source"
+        refusal = "if ([string]::IsNullOrWhiteSpace($cqGo)) { throw 'Selected Go executable is unavailable' }"
+        self.assertEqual(body.count(selection), 1)
+        self.assertLess(body.index(selection), body.index(refusal))
+        self.assertLess(body.index(refusal), body.index("platform_coverage.py begin "))
+        # The exact scalar selected above is passed to BOTH identity probes and
+        # the real test invocation. No older path, version fallback or second
+        # command discovery can enter one of the three stages independently.
+        self.assertEqual(body.count("Get-Command "), 1)
+        self.assertEqual(body.count("--go $cqGo --platform windows"), 2)
+        self.assertEqual(body.count("& $cqGo test -count=1 -p=1 -covermode=atomic"), 1)
+        self.assertIn("go-version: '1.27.4'", body)
+        self.assertIn("$cqTestExit = $LASTEXITCODE", body)
+        self.assertIn("$cqRetainExit = $LASTEXITCODE", body)
+        self.assertLess(body.index("if ($cqTestExit -ne 0)"), body.index("exit $cqRetainExit"))
+
     def test_linux_race_vet_fuzz_and_complexity_controls_are_not_replaced(self):
         value = self.source()
         for required in ("go test -race -count=1 -p 1 ./...", "go vet -p 1 ./...", "-fuzz=FuzzCoverage",
@@ -714,6 +764,7 @@ class WorkflowContracts(unittest.TestCase):
             self.assertIn(required, value)
         self.assertNotIn("continue-on-error:", value)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX Bash retention contract; remains mandatory in Linux Source")
     def test_bash_retention_preserves_original_go_failure_and_independent_refusal(self):
         # Select the ACTUAL narrow control span, replacing only its two external
         # commands with shell return functions. No Go/helper command can remain.
@@ -790,6 +841,7 @@ def formatter_namespace():
     return namespace
 
 
+@unittest.skipUnless(os.name == "posix", "POSIX Source formatter pipe/group contract; mandatory on Linux")
 class FormatterVisibilityContracts(unittest.TestCase):
     def capture(self, body, limits=None, deadline=2):
         namespace = formatter_namespace()

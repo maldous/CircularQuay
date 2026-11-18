@@ -63,6 +63,12 @@ func parseTreeEntry(entry []byte) (string, string, error) {
 }
 
 func (s *store) materialize(ctx context.Context, commit string) (string, error) {
+	return s.materializeWithStaging(ctx, commit, os.MkdirTemp)
+}
+
+// materializeWithStaging keeps signature-derived tree admission before the
+// owned staging operation. Production always supplies os.MkdirTemp.
+func (s *store) materializeWithStaging(ctx context.Context, commit string, create func(string, string) (string, error)) (string, error) {
 	tree, err := s.readTree(ctx, commit)
 	if err != nil {
 		return "", err
@@ -71,7 +77,7 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 	if err != nil || accepted {
 		return destination, err
 	}
-	staging, err := os.MkdirTemp(releases, ".release-*")
+	staging, err := create(releases, ".release-*")
 	if err != nil {
 		return "", failure(fault.Trust, "release_staging")
 	}
@@ -89,6 +95,12 @@ func (s *store) materialize(ctx context.Context, commit string) (string, error) 
 }
 
 func (s *store) releaseDestination(ctx context.Context, commit string, tree map[string]string) (string, string, bool, error) {
+	return s.releaseDestinationWithLookup(ctx, commit, tree, os.Lstat)
+}
+
+// releaseDestinationWithLookup preserves both private-parent checks before the
+// fixed commit-path metadata read. The lookup is private and scoped to this call.
+func (s *store) releaseDestinationWithLookup(ctx context.Context, commit string, tree map[string]string, lookup func(string) (os.FileInfo, error)) (string, string, bool, error) {
 	releases := filepath.Join(s.repo.Directory, "releases")
 	if err := platform.EnsurePrivateDirectory(releases); err != nil {
 		return "", "", false, failure(fault.Trust, "releases_directory")
@@ -97,7 +109,7 @@ func (s *store) releaseDestination(ctx context.Context, commit string, tree map[
 		return "", "", false, err
 	}
 	destination := filepath.Join(releases, commit)
-	if _, err := os.Lstat(destination); err == nil {
+	if _, err := lookup(destination); err == nil {
 		if err = s.verifyRelease(ctx, destination, tree); err != nil {
 			return "", "", false, err
 		}

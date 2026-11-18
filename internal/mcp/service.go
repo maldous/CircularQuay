@@ -645,9 +645,16 @@ func decimalSIDPart(part string) bool {
 
 // RunStdio uses the actual OS identity, not a caller-supplied identity label.
 func (s *Service) RunStdio(ctx context.Context) error {
-	p, err := LocalPrincipal()
+	return s.runStdioWith(ctx, LocalPrincipal, &sdk.StdioTransport{})
+}
+
+// runStdioWith keeps the OS-identity decision before transport connection. Its
+// per-call collaborators allow owned in-memory protocol verification without
+// replacing process-wide standard streams or changing public identity authority.
+func (s *Service) runStdioWith(ctx context.Context, localPrincipal func() (Principal, error), transport sdk.Transport) error {
+	p, err := localPrincipal()
 	if err != nil {
 		return err
 	}
-	return s.server(p).Run(ctx, &sdk.StdioTransport{})
+	return s.server(p).Run(ctx, transport)
 }

@@ -95,6 +95,10 @@ func (r *Report) finish() {
 
 // WriteReport atomically writes private report metadata without raw tool diagnostics.
 func WriteReport(directory string, report Report) error {
+	return writeReportWithPath(directory, report, filepath.Abs)
+}
+
+func writeReportWithPath(directory string, report Report, absolute func(string) (string, error)) error {
 	info, err := os.Lstat(directory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("invalid audit output directory")
@@ -103,7 +107,7 @@ func WriteReport(directory string, report Report) error {
 	if err != nil {
 		return errors.New("audit report encoding failed")
 	}
-	path, err := filepath.Abs(filepath.Join(directory, "report.json"))
+	path, err := absolute(filepath.Join(directory, "report.json"))
 	if err != nil {
 		return errors.New("invalid audit report path")
 	}

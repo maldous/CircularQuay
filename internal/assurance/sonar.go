@@ -93,7 +93,10 @@ func decodeSonarResponse(response *http.Response, destination any) error {
 }
 
 func inspectSonar(ctx context.Context, endpoint, token, project, revision, taskID string) (SonarSummary, error) {
-	client := newSonarClient(endpoint, token, "")
+	return inspectSonarWithClient(ctx, newSonarClient(endpoint, token, ""), project, revision, taskID)
+}
+
+func inspectSonarWithClient(ctx context.Context, client *sonarClient, project, revision, taskID string) (SonarSummary, error) {
 	var summary SonarSummary
 	if err := inspectSonarTask(ctx, client, project, taskID, &summary); err != nil {
 		return summary, err
@@ -168,12 +171,25 @@ func inspectSonarTask(ctx context.Context, client *sonarClient, project, taskID 
 	return nil
 }
 
+type sonarMetadataFile interface {
+	Name() string
+	Close() error
+}
+
 func newSonarMetadata(directory string) (string, error) {
-	directory, err := filepath.Abs(directory)
+	return newSonarMetadataWithIO(directory, filepath.Abs, func(directory, pattern string) (sonarMetadataFile, error) {
+		return os.CreateTemp(directory, pattern)
+	})
+}
+
+// The per-call adapters retain real path and close failures without changing
+// process working directories or shared filesystem operations.
+func newSonarMetadataWithIO(directory string, absolute func(string) (string, error), create func(string, string) (sonarMetadataFile, error)) (string, error) {
+	directory, err := absolute(directory)
 	if err != nil {
 		return "", errors.New("invalid sonar metadata directory")
 	}
-	file, err := os.CreateTemp(directory, ".sonar-task-*.properties")
+	file, err := create(directory, ".sonar-task-*.properties")
 	if err != nil {
 		return "", errors.New("sonar task metadata creation failed")
 	}
@@ -184,7 +200,11 @@ func newSonarMetadata(directory string) (string, error) {
 }
 
 func sonarMetadataTask(path string) (string, error) {
-	path, err := filepath.Abs(path)
+	return sonarMetadataTaskWithPath(path, filepath.Abs)
+}
+
+func sonarMetadataTaskWithPath(path string, absolute func(string) (string, error)) (string, error) {
+	path, err := absolute(path)
 	if err != nil {
 		return "", errors.New("invalid sonar metadata path")
 	}
@@ -286,10 +306,14 @@ func parseSonarPercent(value string) (float64, error) {
 
 // InitSonar creates local bootstrap files without printing or accepting secret values.
 func InitSonar(directory string) error {
+	return initSonarWithPath(directory, filepath.Abs)
+}
+
+func initSonarWithPath(directory string, absolute func(string) (string, error)) error {
 	if directory == "" {
 		return errors.New("sonar state directory required")
 	}
-	directory, err := filepath.Abs(directory)
+	directory, err := absolute(directory)
 	if err != nil {
 		return errors.New("invalid sonar state directory")
 	}
@@ -312,26 +336,20 @@ func sonarStateAbsent(directory string) error {
 }
 
 func writeSonarBootstrap(directory string) error {
-	password, err := randomSecret()
-	if err != nil {
+	password := randomSecret()
+	if err := writeNewPrivate(filepath.Join(directory, "compose.env"), []byte("SONAR_DB_PASSWORD="+password+"\n")); err != nil {
 		return err
 	}
-	if err = writeNewPrivate(filepath.Join(directory, "compose.env"), []byte("SONAR_DB_PASSWORD="+password+"\n")); err != nil {
-		return err
-	}
-	password, err = randomSecret()
-	if err != nil {
-		return err
-	}
+	password = randomSecret()
 	return writeNewPrivate(filepath.Join(directory, sonarAdminPasswordFile), []byte("Cq9!"+password+"\n"))
 }
 
-func randomSecret() (string, error) {
+func randomSecret() string {
 	data := make([]byte, 32)
-	if _, err := rand.Read(data); err != nil {
-		return "", errors.New("secure random source unavailable")
-	}
-	return hex.EncodeToString(data), nil
+	// Since Go 1.24 Read fills the buffer or terminates irrecoverably; the
+	// pinned Go 1.27.4 toolchain never returns a recoverable entropy error.
+	_, _ = rand.Read(data)
+	return hex.EncodeToString(data)
 }
 
 func writeNewPrivate(path string, data []byte) error {
@@ -357,10 +375,16 @@ func BootstrapSonar(ctx context.Context, directory, endpoint, project string) er
 
 // BootstrapSonarWithOptions permits a bounded fixture token lifetime for a new loopback server.
 func BootstrapSonarWithOptions(ctx context.Context, directory, endpoint, project string, options BootstrapSonarOptions) error {
+	return bootstrapSonarWithFactory(ctx, directory, endpoint, project, options, newSonarClient)
+}
+
+type sonarClientFactory func(string, string, string) *sonarClient
+
+func bootstrapSonarWithFactory(ctx context.Context, directory, endpoint, project string, options BootstrapSonarOptions, factory sonarClientFactory) error {
 	if err := validateBootstrapSonarConfiguration(endpoint, project, options); err != nil {
 		return err
 	}
-	client, err := authenticateSonarAdministrator(ctx, directory, endpoint)
+	client, err := authenticateSonarAdministratorWithFactory(ctx, directory, endpoint, factory)
 	if err != nil {
 		return err
 	}
@@ -373,7 +397,7 @@ func BootstrapSonarWithOptions(ctx context.Context, directory, endpoint, project
 	if err = configureSonarProfiles(ctx, client, project); err != nil {
 		return err
 	}
-	return createSonarAuditToken(ctx, client, directory, project, options.TokenValidityDays)
+	return createSonarAuditTokenWithFactory(ctx, client, directory, project, options.TokenValidityDays, factory)
 }
 
 func validateBootstrapSonarConfiguration(endpoint, project string, options BootstrapSonarOptions) error {
@@ -391,14 +415,18 @@ func validateBootstrapSonarConfiguration(endpoint, project string, options Boots
 }
 
 func authenticateSonarAdministrator(ctx context.Context, directory, endpoint string) (*sonarClient, error) {
+	return authenticateSonarAdministratorWithFactory(ctx, directory, endpoint, newSonarClient)
+}
+
+func authenticateSonarAdministratorWithFactory(ctx context.Context, directory, endpoint string, factory sonarClientFactory) (*sonarClient, error) {
 	password, err := readToken(filepath.Join(directory, sonarAdminPasswordFile))
 	if err != nil {
 		return nil, err
 	}
-	initial := newSonarClient(endpoint, "admin", "admin")
+	initial := factory(endpoint, "admin", "admin")
 	// Failure can mean the dedicated server was initialized previously; validate the configured password below.
 	_ = initial.call(ctx, http.MethodPost, "/api/users/change_password", url.Values{"login": {"admin"}, "previousPassword": {"admin"}, "password": {password}}, nil)
-	client := newSonarClient(endpoint, "admin", password)
+	client := factory(endpoint, "admin", password)
 	var auth struct {
 		Valid bool `json:"valid"`
 	}
@@ -409,32 +437,30 @@ func authenticateSonarAdministrator(ctx context.Context, directory, endpoint str
 }
 
 func createSonarAuditToken(ctx context.Context, administrator *sonarClient, directory, project string, validityDays int) error {
-	name, err := randomSecret()
-	if err != nil {
-		return err
-	}
+	return createSonarAuditTokenWithFactory(ctx, administrator, directory, project, validityDays, newSonarClient)
+}
+
+func createSonarAuditTokenWithFactory(ctx context.Context, administrator *sonarClient, directory, project string, validityDays int, factory sonarClientFactory) error {
+	name := randomSecret()
 	login := "cq-audit-" + name[:12]
-	password, err := randomSecret()
-	if err != nil {
-		return err
-	}
+	password := randomSecret()
 	password = "Cq9!" + password
-	if err = administrator.call(ctx, http.MethodPost, "/api/users/create", url.Values{"login": {login}, "name": {"CQ temporary audit"}, "local": {"true"}, "password": {password}}, nil); err != nil {
+	if err := administrator.call(ctx, http.MethodPost, "/api/users/create", url.Values{"login": {login}, "name": {"CQ temporary audit"}, "local": {"true"}, "password": {password}}, nil); err != nil {
 		return err
 	}
 	// A project-analysis token cannot read hotspots or completed task warnings.
 	// Use a dedicated principal with only project-scoped Browse and Execute
 	// Analysis permissions. It cannot administer projects or review findings.
 	for _, permission := range []string{"user", "scan"} {
-		if err = administrator.call(ctx, http.MethodPost, "/api/permissions/add_user", url.Values{"login": {login}, "projectKey": {project}, "permission": {permission}}, nil); err != nil {
+		if err := administrator.call(ctx, http.MethodPost, "/api/permissions/add_user", url.Values{"login": {login}, "projectKey": {project}, "permission": {permission}}, nil); err != nil {
 			return err
 		}
 	}
-	client := newSonarClient(administrator.endpoint, login, password)
+	client := factory(administrator.endpoint, login, password)
 	var created struct {
 		Token string `json:"token"`
 	}
-	if err = client.call(ctx, http.MethodPost, "/api/user_tokens/generate", url.Values{"name": {login}, "type": {"USER_TOKEN"}, "expirationDate": {time.Now().UTC().AddDate(0, 0, validityDays).Format("2006-01-02")}}, &created); err != nil {
+	if err := client.call(ctx, http.MethodPost, "/api/user_tokens/generate", url.Values{"name": {login}, "type": {"USER_TOKEN"}, "expirationDate": {time.Now().UTC().AddDate(0, 0, validityDays).Format("2006-01-02")}}, &created); err != nil {
 		return err
 	}
 	if created.Token == "" || strings.ContainsAny(created.Token, "\r\n\x00") {

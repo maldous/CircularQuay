@@ -214,3 +214,29 @@ class LockCompletion(unittest.TestCase):
             with self.assertRaises(SystemExit) as status:
                 runpy.run_path(str(SCRIPT), run_name="__main__")
         self.assertEqual(0, status.exception.code)
+
+    def test_native_input_real_size_refusal_precedes_archive_or_wheel_read(self):
+        archive, wheel, _, manifest = self.native_fixture()
+        original = {archive: archive.read_bytes(), wheel: wheel.read_bytes()}
+        manifest_before = manifest.read_bytes()
+        read_bytes = Path.read_bytes
+        def metadata_only(path):
+            if path in original:
+                self.fail("oversized native input was read before its size refusal")
+            return read_bytes(path)
+        limit = 128 * 1024 * 1024
+        for oversized in (archive, wheel):
+            with self.subTest(input=oversized.name):
+                with oversized.open("r+b") as output:
+                    output.truncate(limit + 1)
+                self.assertEqual(limit + 1, oversized.stat().st_size)
+                with mock.patch.object(Path, "read_bytes", metadata_only):
+                    self.refuses("native input exceeds size limit", LOCK.darwin_intake,
+                                 archive, wheel, "3.14.10", "fixture:immutable")
+                self.assertEqual(limit + 1, oversized.stat().st_size)
+                with oversized.open("rb") as source:
+                    self.assertEqual(original[oversized], source.read(len(original[oversized])))
+                oversized.write_bytes(original[oversized])
+                self.assertEqual(manifest_before, manifest.read_bytes())
+                self.assertEqual(original[archive], archive.read_bytes())
+                self.assertEqual(original[wheel], wheel.read_bytes())

@@ -84,34 +84,38 @@ func (a application) flowOptions(args []string) (flowOptions, error) {
 }
 
 func (a application) flowRemote(ctx context.Context, options flowOptions, runner ciRunner, fetch bootstrapFetch) (int, error) {
+	return a.flowRemoteWithOperations(ctx, options, runner, fetch, defaultFlowOperations())
+}
+
+func (a application) flowRemoteWithOperations(ctx context.Context, options flowOptions, runner ciRunner, fetch bootstrapFetch, operations flowTemporaryOperations) (int, error) {
 	source := options.source
 	result, err := fetchFlowPolicy(ctx, source, fetch)
 	if err != nil {
 		return 0, err
 	}
-	parent, err := flowTemporaryParent()
+	parent, err := operations.parent()
 	if err != nil {
 		return 0, err
 	}
-	directory, err := newFlowTempDir(parent, "cq-flow-")
+	directory, err := operations.mkdir(parent, "cq-flow-")
 	if err != nil {
 		return 0, fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
 	defer os.RemoveAll(directory)
-	if err = platform.EnsurePrivateDirectory(directory); err != nil {
+	if err = operations.protect(directory); err != nil {
 		return 0, err
 	}
 	config := filepath.Join(directory, temporaryFlowPolicy)
 	if _, err = a.resolvePolicyBytes(ctx, result.Bytes, config); err != nil {
 		return 0, err
 	}
-	if err = platform.CreateProtectedExclusive(config, result.Bytes); err != nil {
+	if err = operations.write(config, result.Bytes); err != nil {
 		return 0, err
 	}
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	return (application{config: config, directory: a.directory, runner: a.runner, repository: a.repository, buildVersion: a.version(), buildCommit: a.commit()}).flowLocal(ctx, options.workload, runner, "pinned", source.ref, source.digest)
+	return operations.invoke(application{config: config, directory: a.directory, runner: a.runner, repository: a.repository, buildVersion: a.version(), buildCommit: a.commit()}, ctx, options.workload, runner, "pinned", source.ref, source.digest)
 }
 
 // fetchFlowPolicy validates every remote pin before any retrieval. A canceled
@@ -174,11 +178,15 @@ func flowEnvironmentSourcePresent() bool {
 }
 
 func flowTemporaryParent() (string, error) {
-	parent, err := filepath.EvalSymlinks(os.TempDir())
+	return flowTemporaryParentWithOperations(os.TempDir(), filepath.EvalSymlinks, filepath.Abs)
+}
+
+func flowTemporaryParentWithOperations(temporary string, resolve, absolute func(string) (string, error)) (string, error) {
+	parent, err := resolve(temporary)
 	if err != nil {
 		return "", fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}
-	parent, err = filepath.Abs(parent)
+	parent, err = absolute(parent)
 	if err != nil {
 		return "", fault.New(fault.Apply, flowTemporaryPolicyOperation)
 	}

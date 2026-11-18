@@ -149,7 +149,7 @@ class CheckCompletion(unittest.TestCase):
             else:
                 with mock.patch.object(CHECK.os, "name", "posix"), mock.patch.object(CHECK.signal, "SIGKILL", 9, create=True), mock.patch.object(CHECK.os, "killpg", create=True) as signal_tree:
                     CHECK._signal_tree(process, force=False); CHECK._signal_tree(process, force=True)
-                self.assertEqual([mock.call(process.pid, CHECK.signal.SIGTERM), mock.call(process.pid, CHECK.signal.SIGKILL)], signal_tree.call_args_list)
+                    self.assertEqual([mock.call(process.pid, CHECK.signal.SIGTERM), mock.call(process.pid, CHECK.signal.SIGKILL)], signal_tree.call_args_list)
 
     def test_termination_escalation_preserves_failure(self):
         process = mock.Mock()
@@ -214,3 +214,22 @@ class CheckCompletion(unittest.TestCase):
         with mock.patch.object(sys, "argv", [str(SCRIPT), "--help"]), contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(SystemExit) as status: runpy.run_path(str(SCRIPT), run_name="__main__")
         self.assertEqual(0, status.exception.code)
+
+    def test_output_reader_consumes_actual_nonempty_stream_and_final_fragment(self):
+        raw = (f"{PATH}:3: E501 complete\n{PATH}:4: E502 final").encode()
+        class Stream(io.BytesIO):
+            def __init__(self, data):
+                super().__init__(data)
+                self.requested = []
+            def read(self, count=-1):
+                self.requested.append(count)
+                return super().read(count)
+        stream = Stream(raw)
+        capture = CHECK.Capture("ruff")
+        CHECK._read_output(stream, capture)
+        self.assertTrue(stream.closed)
+        self.assertEqual([4096, 4096], stream.requested)
+        self.assertFalse(capture.malformed)
+        self.assertEqual(b"", capture.pending)
+        self.assertEqual([(3, "E501", "complete"), (4, "E502", "final")],
+                         [(item.line, item.rule, item.message) for item in capture.diagnostics])

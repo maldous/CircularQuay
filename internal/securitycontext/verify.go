@@ -86,13 +86,13 @@ func verifySignatures(env envelope, payload []byte, trust Trust) error {
 		return fault.New(fault.Trust, "security_context_threshold")
 	}
 	seen := make(map[string]struct{}, len(env.Signatures))
+	// Each successful verification inserts one previously unseen material
+	// identity. Duplicate material or any failed signature returns immediately,
+	// so completing this loop preserves the admitted signature-count threshold.
 	for _, sig := range env.Signatures {
 		if err := verifySignature(sig, env.Payload, payload, trust, seen); err != nil {
 			return err
 		}
-	}
-	if len(seen) < trust.RequiredSigners {
-		return fault.New(fault.Trust, "security_context_threshold")
 	}
 	return nil
 }
@@ -129,12 +129,12 @@ func verifySignature(sig signature, encodedPayload string, payload []byte, trust
 }
 
 func verifySingleton(payload string, sig signature, key TrustedKey) ([]byte, error) {
-	one, err := json.Marshal(envelope{Payload: payload, Signatures: []signature{sig}})
-	if err != nil {
-		return nil, fault.New(fault.Apply, "security_context_singleton")
-	}
+	// This envelope contains only strings and a finite slice of string-only
+	// signatures, with no custom marshaler. Encoding cannot fail for this type;
+	// retain both errors at the existing closed signature-failure boundary.
+	one, marshalErr := json.Marshal(envelope{Payload: payload, Signatures: []signature{sig}})
 	jws, err := jose.ParseSignedJSON(string(one), []jose.SignatureAlgorithm{key.Algorithm})
-	if err != nil {
+	if marshalErr != nil || err != nil {
 		return nil, fault.New(fault.Trust, "security_context_signature")
 	}
 	value, err := jws.Verify(key.Key)

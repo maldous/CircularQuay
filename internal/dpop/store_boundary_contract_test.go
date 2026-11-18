@@ -3,10 +3,7 @@ package dpop
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -36,8 +33,10 @@ func TestStoreBoundaryContractInitializationPreservesOccupiedDirectory(t *testin
 func TestStoreBoundaryContractInvalidChallengeAndEntropyHaveNoStateEffect(t *testing.T) {
 	store, now := testStore(t)
 	store.random = failingReader{}
-	if nonce, err := store.Challenge(nil, digest("binding"), now.Add(time.Minute)); nonce != "" || !errors.Is(err, ErrInvalid) {
-		t.Fatal("invalid challenge consulted entropy or returned a nonce")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if nonce, err := store.Challenge(ctx, digest("binding"), now.Add(time.Minute)); nonce != "" || !errors.Is(err, ErrInvalid) {
+		t.Fatal("canceled challenge consulted entropy or returned a nonce")
 	}
 	if nonce, err := store.Challenge(context.Background(), digest("binding"), now.Add(time.Minute)); nonce != "" || err == nil || errors.Is(err, ErrInvalid) {
 		t.Fatal("valid challenge did not retain its entropy failure")
@@ -172,9 +171,21 @@ func storeBoundaryKeyRefusals(t *testing.T) {
 	if algorithmKeyMatches("ES256", "not a key") || validES256Key(nil) {
 		t.Fatal("unsupported or nil public key was admitted")
 	}
-	key := &ecdsa.PublicKey{Curve: elliptic.P256(), X: big.NewInt(0), Y: big.NewInt(0)}
-	if validES256Key(key) {
-		t.Fatal("off-curve public point was admitted")
+	storeBoundaryPointAdmission(t)
+}
+
+func storeBoundaryPointAdmission(t *testing.T) {
+	t.Helper()
+	// Use the public JWK boundary: supported point parsers cannot construct an
+	// off-curve ECDSA key. The positive control is the standard P-256 base point.
+	const valid = `{"kty":"EC","crv":"P-256","x":"axfR8uEsQkf4vOblY6RA8ncDfYEt6zOg9KE5RdiYwpY","y":"T-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU"}`
+	key, thumbprint, err := publicJWK([]byte(valid), "ES256")
+	if err != nil || key == nil || !validJKT(thumbprint) || !algorithmKeyMatches("ES256", key) {
+		t.Fatal("valid P-256 public point did not reach key admission")
+	}
+	const offCurve = `{"kty":"EC","crv":"P-256","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","y":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}`
+	if key, thumbprint, err := publicJWK([]byte(offCurve), "ES256"); !errors.Is(err, ErrInvalid) || key != nil || thumbprint != "" {
+		t.Fatal("off-curve JWK produced partial key authority")
 	}
 }
 

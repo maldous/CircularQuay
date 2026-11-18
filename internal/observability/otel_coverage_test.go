@@ -82,10 +82,7 @@ func TestOTelCoverageExportHealthCountsWithoutAffectingDiagnostics(t *testing.T)
 }
 
 func TestOTelCoverageResourceOmitsUnsetOptionalFields(t *testing.T) {
-	resource, err := telemetryResource(model.Observability{ServiceName: "cq"}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	resource := telemetryResource(model.Observability{ServiceName: "cq"}, "")
 	attributes := resource.Attributes()
 	if len(attributes) != 1 || string(attributes[0].Key) != "service.name" || attributes[0].Value.AsString() != "cq" {
 		t.Fatalf("resource attributes = %#v", attributes)

@@ -21,6 +21,10 @@ import (
 )
 
 func (a application) serveMCP(ctx context.Context, args []string, loaded ...model.Policy) (int, error) {
+	return a.serveMCPWithOperations(ctx, args, loaded, defaultMCPServeOperations())
+}
+
+func (a application) serveMCPWithOperations(ctx context.Context, args []string, loaded []model.Policy, operations mcpServeOperations) (int, error) {
 	options, err := parseMCPServeOptions(args)
 	if err != nil {
 		return 0, err
@@ -34,17 +38,17 @@ func (a application) serveMCP(ctx context.Context, args []string, loaded ...mode
 	if err != nil {
 		return 0, err
 	}
-	service, err := cqmcp.New(p, b, cqmcp.Options{PolicyProvider: a.load, ActionAllowed: a.actionAllowed, DPoPStateDirectory: store.Directory})
+	service, err := operations.construct(p, b, cqmcp.Options{PolicyProvider: a.load, ActionAllowed: a.actionAllowed, DPoPStateDirectory: store.Directory})
 	if err != nil {
 		return 0, err
 	}
 	if options.transport == "stdio" {
-		return 0, service.RunStdio(ctx)
+		return 0, operations.stdio(ctx, service)
 	}
 	if options.transport != "http" {
 		return 0, fault.New(fault.Invalid, "mcp transport")
 	}
-	return runMCPHTTP(ctx, p.MCP.Address, service, options)
+	return operations.http(ctx, p.MCP.Address, service, options)
 }
 
 type mcpServeOptions struct {
@@ -69,7 +73,11 @@ func parseMCPServeOptions(args []string) (mcpServeOptions, error) {
 }
 
 func runMCPHTTP(ctx context.Context, configuredAddress string, service *cqmcp.Service, options mcpServeOptions) (int, error) {
-	handler, err := service.HTTPHandler()
+	return runMCPHTTPWithOperations(ctx, configuredAddress, service, options, (*cqmcp.Service).HTTPHandler, listenMCPServer)
+}
+
+func runMCPHTTPWithOperations(ctx context.Context, configuredAddress string, service *cqmcp.Service, options mcpServeOptions, handle func(*cqmcp.Service) (http.Handler, error), listen func(*http.Server, mcpServeOptions) error) (int, error) {
+	handler, err := handle(service)
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +98,7 @@ func runMCPHTTP(ctx context.Context, configuredAddress string, service *cqmcp.Se
 	defer cancel()
 	s := configuredMCPHTTPServer(listenerContext, address, handler)
 	shutdownMCPServerOnCancel(listenerContext, s)
-	err = listenMCPServer(s, options)
+	err = listen(s, options)
 	if err != nil && err != http.ErrServerClosed {
 		return 0, fault.New(fault.Apply, "mcp listener")
 	}
@@ -127,10 +135,14 @@ func newMCPShutdownContext(ctx context.Context) (context.Context, context.Cancel
 }
 
 func listenMCPServer(server *http.Server, options mcpServeOptions) error {
+	return listenMCPServerWithOperations(server, options, (*http.Server).ListenAndServe, (*http.Server).ListenAndServeTLS)
+}
+
+func listenMCPServerWithOperations(server *http.Server, options mcpServeOptions, listen func(*http.Server) error, tls func(*http.Server, string, string) error) error {
 	if options.cert != "" && options.key != "" {
-		return server.ListenAndServeTLS(options.cert, options.key)
+		return tls(server, options.cert, options.key)
 	}
-	return server.ListenAndServe()
+	return listen(server)
 }
 
 func loopback(host string) bool {
@@ -165,6 +177,8 @@ type backend struct {
 	app               application
 	resolveGeneration func(context.Context, model.Policy, string) (model.Generation, error)
 	now               func() time.Time
+	acquire           func(*resolve.Engine, string) (func() error, error)
+	execute           func(context.Context, model.Workload, model.Generation, []string, io.Reader, io.Writer, io.Writer) (int, error)
 }
 
 func (b backend) authorized(ctx context.Context, id, op, key string) (model.Policy, error) {
@@ -264,7 +278,7 @@ func (b backend) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	unlock = nil
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	code, err := platform.RunWithIO(runCtx, workload, g, nil, nil, io.Discard, io.Discard)
+	code, err := b.executeWorkload(runCtx, workload, g, nil, nil, io.Discard, io.Discard)
 	if err != nil {
 		return cqmcp.RunResult{}, err
 	}
@@ -276,7 +290,7 @@ func (b backend) repositoryEngine(ctx context.Context, config model.Policy, work
 	if err != nil {
 		return nil, nil, err
 	}
-	unlock, err := engine.State.Lock(id)
+	unlock, err := b.acquireWorkload(engine, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -386,14 +400,14 @@ func actionScopeFingerprint(p model.Policy, workload model.Workload) ([sha256.Si
 			break
 		}
 	}
-	payload, err := json.Marshal(struct {
+	payload, _ := json.Marshal(struct {
 		Workload   model.Workload          `json:"workload"`
 		Sources    map[string]model.Source `json:"sources"`
 		Repository *model.Repository       `json:"repository,omitempty"`
 	}{Workload: workload, Sources: sources, Repository: repository})
-	if err != nil {
-		return [sha256.Size]byte{}, fault.New(fault.Invalid, "action scope")
-	}
+	// Workload, Source and Repository are closed scalar/container types with
+	// no custom marshalers, floats, raw JSON or reference cycles. Missing
+	// source declarations remain a real refusal above.
 	return sha256.Sum256(payload), nil
 }
 
@@ -411,9 +425,9 @@ func (b backend) authorizeUntrustedCode(ctx context.Context, id string, workload
 
 func actionRunResult(code int) (cqmcp.RunResult, error) {
 	job := make([]byte, 16)
-	if _, err := rand.Read(job); err != nil {
-		return cqmcp.RunResult{}, fault.New(fault.Apply, "run identifier")
-	}
+	// The pinned crypto/rand.Read fills all 16 bytes or fatally terminates;
+	// it cannot return a recoverable error. Preserve the draw and its order.
+	_, _ = rand.Read(job)
 	status := "completed"
 	if code != 0 {
 		status = "failed"

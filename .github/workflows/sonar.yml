@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: read
+  # Read only fixed current same-repository original Source/SDK/Browser evidence.
+  actions: read
 
 concurrency:
   group: sonar-${{ github.workflow }}-${{ github.ref }}
@@ -43,14 +45,109 @@ jobs:
         with:
           distribution: temurin
           java-version: '21.0.13+9'
+      - name: Locate the authenticated current Source platform union
+        id: source_union
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -I -S -B .github/scripts/source_union_intake.py discover --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --head '${{ github.event.pull_request.head.sha }}' --pr '${{ github.event.pull_request.number }}' --sonar-run "$GITHUB_RUN_ID" --output "$RUNNER_TEMP/cq-sonar-source-union-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --step-output "$GITHUB_OUTPUT"
+      - name: Download only the authenticated Source union archive
+        id: source_union_archive
+        if: ${{ steps.source_union.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          github-token: ${{ github.token }}
+          repository: maldous/CircularQuay
+          run-id: ${{ steps.source_union.outputs.run_id }}
+          artifact-ids: ${{ steps.source_union.outputs.artifact_id }}
+          path: ${{ runner.temp }}/cq-sonar-source-union-archives-${{ github.run_id }}-${{ github.run_attempt }}
+          skip-decompress: true
+      - name: Locate authenticated native Windows Python counters
+        id: native_python
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -I -S -B .github/scripts/python_coverage.py discover --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --head '${{ github.event.pull_request.head.sha }}' --pr '${{ github.event.pull_request.number }}' --sonar-run "$GITHUB_RUN_ID" --output "$RUNNER_TEMP/cq-sonar-python-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --step-output "$GITHUB_OUTPUT"
+      - name: Download only the authenticated native Python archive
+        id: native_python_archive
+        if: ${{ steps.native_python.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          github-token: ${{ github.token }}
+          repository: maldous/CircularQuay
+          run-id: ${{ steps.native_python.outputs.run_id }}
+          artifact-ids: ${{ steps.native_python.outputs.artifact_id }}
+          path: ${{ runner.temp }}/cq-sonar-python-archives-${{ github.run_id }}-${{ github.run_attempt }}
+          skip-decompress: true
+      - name: Locate authenticated original native Browser evidence
+        id: native_browser
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python -I -S -B .github/scripts/browser_coverage_intake.py discover --source "$GITHUB_WORKSPACE" --sonar-run "$GITHUB_RUN_ID" --expected-commit "$GITHUB_SHA" --head '${{ github.event.pull_request.head.sha }}' --pr '${{ github.event.pull_request.number }}' --output "$RUNNER_TEMP/cq-sonar-browser-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --step-output "$GITHUB_OUTPUT"
+      - name: Download only authenticated Browser linux counters
+        id: native_browser_linux
+        if: ${{ steps.native_browser.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          github-token: ${{ github.token }}
+          repository: maldous/CircularQuay
+          run-id: ${{ steps.native_browser.outputs.run_id }}
+          artifact-ids: ${{ steps.native_browser.outputs.artifact_linux }}
+          path: ${{ runner.temp }}/cq-sonar-browser-archives-${{ github.run_id }}-${{ github.run_attempt }}/linux
+          skip-decompress: true
+      - name: Download only authenticated Browser macos counters
+        id: native_browser_macos
+        if: ${{ steps.native_browser.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          github-token: ${{ github.token }}
+          repository: maldous/CircularQuay
+          run-id: ${{ steps.native_browser.outputs.run_id }}
+          artifact-ids: ${{ steps.native_browser.outputs.artifact_macos }}
+          path: ${{ runner.temp }}/cq-sonar-browser-archives-${{ github.run_id }}-${{ github.run_attempt }}/macos
+          skip-decompress: true
+      - name: Download only authenticated Browser windows counters
+        id: native_browser_windows
+        if: ${{ steps.native_browser.outputs.ready == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          github-token: ${{ github.token }}
+          repository: maldous/CircularQuay
+          run-id: ${{ steps.native_browser.outputs.run_id }}
+          artifact-ids: ${{ steps.native_browser.outputs.artifact_windows }}
+          path: ${{ runner.temp }}/cq-sonar-browser-archives-${{ github.run_id }}-${{ github.run_attempt }}/windows
+          skip-decompress: true
       - name: Produce fresh isolated Sonar evidence
         env:
           CQ_ANALYZER_PYTHON: ${{ steps.analyzer-python.outputs.python-path }}
+          CQ_SOURCE_UNION_TOKEN: ${{ github.token }}
+          CQ_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           # SonarQube's Linux prerequisite reference for the pinned server:
           # https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/
           set -uo pipefail
+          # Keep this ephemeral token out of every test/scanner/build process.
+          source_union_token="${CQ_SOURCE_UNION_TOKEN-}"
+          unset CQ_SOURCE_UNION_TOKEN
           umask 077
 
           root="$RUNNER_TEMP/cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
@@ -61,6 +158,9 @@ jobs:
           printf 'CQ_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
           printf 'CQ_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
           export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
+          # Python imports must not dirty the checkout required by both fences.
+          # Keep caches outside source; -B also protects isolated helper calls.
+          export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$root/python-cache"
 
           compose_project="cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml -f "$state/analyzer-override.json")
@@ -303,6 +403,7 @@ jobs:
           except Exception:
               raise SystemExit("python-production-inventory-invalid") from None
           PYTHON_INVENTORY
+              "$python_tool" -B .github/scripts/python_coverage.py linux-begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/linux-python-tool" >"$state/linux-python-tool.log" 2>&1 || fail "python-linux-tool-identity-unavailable"
               export COVERAGE_FILE="$evidence/python.coverage"
               python_test_status=0
               PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
@@ -316,11 +417,14 @@ jobs:
               (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
               cp "$evidence/python.coverage" "$state/sonar-python.coverage" || fail "python-helper-coverage-prior-unavailable"
               helper_test_status=0
-              PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel test_platform_coverage test_build_explore test_sdk_python_check_completion test_sdk_python_lock_completion test_go_mcp_coverage_completion test_retain_audit_evidence_completion test_sdk_python_darwin_source_policy_completion >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
+              PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel test_platform_coverage test_build_explore test_sdk_python_check_completion test_sdk_python_lock_completion test_go_mcp_coverage_completion test_retain_audit_evidence_completion test_sdk_python_darwin_source_policy_completion test_source_union_intake test_python_coverage test_sdk_python_check_invariants test_browser_coverage test_source_gate test_browser_coverage_intake >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
               (( helper_test_status == 0 )) || fail "python-helper-tests-failed:$helper_test_status"
               python_coverage_status=0
               "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
-              (( python_coverage_status == 0 )) || fail "python-coverage-not-100:$python_coverage_status"
+              # The raw Linux result stays a separate fact. Only the explicit
+              # full-scope composite below is the canonical coverage qualifier.
+              printf 'raw_linux_xml_exit=%s\nraw_linux_promoted=false\n' "$python_coverage_status" >"$evidence/python-raw-linux-status.txt"
+              (( python_coverage_status == 0 || python_coverage_status == 2 )) || fail "python-raw-report-unavailable:$python_coverage_status"
               # Use the pinned coverage tool's public read API, not fabricated
               # counters. XML must retain every indexed production Python file.
               "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" "$state/python-production-inventory.json" "$state/sonar-python.coverage" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
@@ -345,7 +449,10 @@ jobs:
                   ".github/scripts/sdk_python_darwin_wheel.py",
                   ".github/scripts/sdk_python_lock.py", ".github/scripts/sonar_metric_contract.py",
                   ".github/scripts/sonar_coverage_contract.py", ".github/scripts/sonar_baseline_contract.py",
-                  ".github/scripts/platform_coverage.py", "examples/landing-motion/build-explore.py",
+                  ".github/scripts/platform_coverage.py", ".github/scripts/source_union_intake.py",
+                  ".github/scripts/python_coverage.py", ".github/scripts/browser_coverage.py",
+                  ".github/scripts/source_gate.py", ".github/scripts/browser_coverage_intake.py",
+                  "examples/landing-motion/build-explore.py",
               }
               for helper in helpers:
                   if helper not in after.measured_files() or not after.lines(helper):
@@ -372,6 +479,52 @@ jobs:
           except Exception:
               raise SystemExit("python-metric-coverage-preservation-invalid") from None
           METRIC_PRESERVATION
+              # Preserve original database/XML and export real coverage.py JSON;
+              # this export is retention, not a lower subset coverage threshold.
+              "$python_tool" -B .github/scripts/python_coverage.py linux-check --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/linux-python-tool" >>"$state/linux-python-tool.log" 2>&1 || fail "python-linux-tool-identity-changed"
+              linux_json_status=0
+              "$python_tool" -m coverage json --rcfile .github/sonar.coveragerc --fail-under=0 -o "$evidence/python-linux-original.json" >>"$evidence/python-coverage.log" 2>&1 || linux_json_status=$?
+              cp "$evidence/python-coverage.xml" "$evidence/python-linux-original.xml" || fatal "python-linux-retention-failed"
+              native_python_status=2
+              if test "$linux_json_status" = 0 && test '${{ steps.native_python.outputs.ready }}' = true && test '${{ steps.native_python_archive.outcome }}' = success; then
+                native_python_status=0
+                GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/python_coverage.py consume --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/native-python-composite" --binding "$RUNNER_TEMP/cq-sonar-python-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 '${{ steps.native_python.outputs.binding_sha256 }}' --archives "$RUNNER_TEMP/cq-sonar-python-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --linux-json "$evidence/python-linux-original.json" --linux-xml "$evidence/python-linux-original.xml" --linux-tool "$state/linux-python-tool/linux-tool-verified.json" >"$state/native-python-intake.log" 2>&1 || native_python_status=$?
+                if (( native_python_status == 0 || native_python_status == 1 )); then
+                  if cp "$state/native-python-composite/python-coverage.xml" "$evidence/python-coverage.xml" && cp "$state/native-python-composite/python-composite.json" "$evidence/python-composite.json"; then
+                    : # Valid incomplete composites are retained but still fail100.
+                  else
+                    native_python_status=2
+                    cp "$evidence/python-linux-original.xml" "$evidence/python-coverage.xml" || fatal "python-linux-fallback-failed"
+                  fi
+                fi
+              fi
+              printf 'native_intake_exit=%s\nraw_linux_promoted=false\n' "$native_python_status" >"$evidence/python-canonical-status.txt"
+              case "$native_python_status" in
+                0) : ;;
+                1) fail "python-native-coverage-not-100" ;;
+                *)
+                  fail "python-native-evidence-unavailable-or-refused"
+                  printf '%s\n' '{"kind":"same-source-native-python-composite","admitted":false,"selected":"raw-linux-fallback","global_gate_passed":false}' >"$evidence/python-composite.json"
+                  ;;
+              esac
+              canonical_python_status=0
+              python -I -S -B - "$evidence/python-coverage.xml" <<'PYTHON_CANONICAL' || canonical_python_status=$?
+          import pathlib, sys, xml.etree.ElementTree as ET
+          try:
+              raw = pathlib.Path(sys.argv[1]).read_bytes()
+              if not 0 < len(raw) <= 16 << 20 or b"<!DOCTYPE" in raw:
+                  raise ValueError("coverage bound")
+              root = ET.fromstring(raw)
+              if root.tag != "coverage" or root.get("version") != "7.17.0":
+                  raise ValueError("coverage format")
+              lines, hits, branches, covered = [int(root.get(key, "-1")) for key in ("lines-valid", "lines-covered", "branches-valid", "branches-covered")]
+              if lines <= 0 or lines != hits or branches < 0 or branches != covered:
+                  raise SystemExit(1)
+          except Exception:
+              raise SystemExit(2) from None
+          PYTHON_CANONICAL
+              (( canonical_python_status == 0 )) || fail "python-coverage-not-100:$canonical_python_status"
+              printf 'canonical_full_scope_exit=%s\n' "$canonical_python_status" >>"$evidence/python-canonical-status.txt"
               unset COVERAGE_FILE
             else
               fail "python-dependency-install-failed"
@@ -400,20 +553,71 @@ jobs:
           # classified test files and the ignored worker module they generate.
           # Keep repeated source records for SonarJS to merge.
           mkdir -p "$evidence/browser" || fatal "browser-evidence-directory-failed"
-          browser_coverage_status=0
-          node --test --test-concurrency=1 --experimental-test-coverage \
+          browser_node="$(node -p process.execPath)"
+          baseline="$RUNNER_TEMP/cq-browser-full-browser-linux"
+          baseline_begin_status=0
+          python -I -S -B .github/scripts/browser_coverage.py begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$baseline" --node "$browser_node" --platform linux --suite full-browser >"$state/browser-baseline.log" 2>&1 || baseline_begin_status=$?
+          browser_report="$evidence/browser/lcov.info"
+          if test "$baseline_begin_status" = 0; then browser_report="$baseline/lcov.info"; fi
+          run_browser_once() {
+            "$browser_node" --test --test-concurrency=1 --experimental-test-coverage \
             --test-coverage-exclude='examples/landing-motion/**/*.test.mjs' \
             --test-coverage-exclude='web/**/*.test.mjs' \
             --test-coverage-exclude=examples/landing-motion/.local/worker-routes.mjs \
             --test-reporter=spec --test-reporter=lcov \
-            --test-reporter-destination=stdout --test-reporter-destination="$evidence/browser/lcov.info" \
+            --test-reporter-destination=stdout --test-reporter-destination="$browser_report" \
             examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs \
             web/boundary.test.mjs web/configuration-undo.test.mjs web/guided-policy.test.mjs \
             web/imported-json.test.mjs web/module-boundary.test.mjs web/schema.test.mjs \
             web/help.test.mjs web/presentation-preferences.test.mjs \
-            >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+            web/build-tools-completion.test.mjs web/configuration-completion.test.mjs \
+            web/coverage-report-completion.test.mjs web/entry-completion.test.mjs \
+            web/help-component-completion.test.mjs web/presentation-completion.test.mjs \
+            web/schema-completion.test.mjs web/server-completion.test.mjs \
+            web/ui-completion.test.mjs web/workbench-completion.test.mjs
+          }
+          browser_coverage_status=0
+          if test "$baseline_begin_status" = 0; then
+            NODE_V8_COVERAGE="$baseline/raw" run_browser_once >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+          else
+            run_browser_once >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+          fi
           printf 'browser_test_exit=%s\n' "$browser_coverage_status" >"$evidence/browser-test-status.txt"
           (( browser_coverage_status == 0 )) || fail "browser-tests-failed:$browser_coverage_status"
+          baseline_retain_status=2
+          if test "$baseline_begin_status" = 0; then
+            baseline_retain_status=0
+            python -I -S -B .github/scripts/browser_coverage.py retain --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$baseline" --node "$browser_node" --platform linux --suite full-browser --test-exit "$browser_coverage_status" >>"$state/browser-baseline.log" 2>&1 || baseline_retain_status=$?
+            cp "$baseline/lcov.info" "$evidence/browser/lcov.info" || fail "browser-original-copy-failed"
+          fi
+          cp "$evidence/browser/lcov.info" "$evidence/browser/lcov-linux-original.info" || fail "browser-raw-report-retention-failed"
+          (( baseline_begin_status == 0 && baseline_retain_status == 0 )) || fail "browser-local-baseline-unavailable-or-refused"
+          browser_union_status=2
+          if test "$baseline_retain_status" = 0 && test '${{ steps.native_browser.outputs.ready }}' = true && test '${{ steps.native_browser_linux.outcome }}' = success && test '${{ steps.native_browser_macos.outcome }}' = success && test '${{ steps.native_browser_windows.outcome }}' = success; then
+            browser_admission_status=0
+            GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/browser_coverage_intake.py consume --source "$GITHUB_WORKSPACE" --sonar-run "$GITHUB_RUN_ID" --expected-commit "$GITHUB_SHA" --head '${{ github.event.pull_request.head.sha }}' --pr '${{ github.event.pull_request.number }}' --binding "$RUNNER_TEMP/cq-sonar-browser-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 '${{ steps.native_browser.outputs.binding_sha256 }}' --archives "$RUNNER_TEMP/cq-sonar-browser-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --output "$state/browser-api-admission" >"$state/browser-intake.log" 2>&1 || browser_admission_status=$?
+            if test "$browser_admission_status" = 0; then
+              browser_pins_sha="$(sha256sum <"$state/browser-api-admission/pins.json" | awk '{print $1}')"
+              # Three external provider ZIPs, one explicitly local current
+              # baseline directory. Never invent a fourth artifact ID/hash.
+              browser_union_status=0
+              python -I -S -B .github/scripts/browser_coverage.py union --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$RUNNER_TEMP/cq-browser-composite" --node "$browser_node" --pins "$state/browser-api-admission/pins.json" --expected-pins-sha256 "$browser_pins_sha" --baseline "$baseline" --linux "$state/browser-api-admission/linux.zip" --macos "$state/browser-api-admission/macos.zip" --windows "$state/browser-api-admission/windows.zip" >>"$state/browser-intake.log" 2>&1 || browser_union_status=$?
+              if (( browser_union_status == 0 || browser_union_status == 1 )); then
+                if cp "$RUNNER_TEMP/cq-browser-composite/lcov.info" "$evidence/browser/lcov.info" && cp "$RUNNER_TEMP/cq-browser-composite/composite.json" "$evidence/browser/composite.json" && cp "$RUNNER_TEMP/cq-browser-composite/gaps.json" "$evidence/browser/gaps.json" && cp "$state/browser-api-admission/admission.json" "$evidence/browser/admission.json"; then
+                  : # A genuine shortfall still fails; original LCOV stays separate.
+                else
+                  browser_union_status=2
+                  cp "$evidence/browser/lcov-linux-original.info" "$evidence/browser/lcov.info" || fatal "browser-original-fallback-copy-failed"
+                fi
+              fi
+            fi
+          fi
+          printf 'original_test_exit=%s\nbaseline_begin_exit=%s\nbaseline_retain_exit=%s\ncanonical_union_exit=%s\noriginal_promoted=false\n' "$browser_coverage_status" "$baseline_begin_status" "$baseline_retain_status" "$browser_union_status" >"$evidence/browser/canonical-status.txt"
+          case "$browser_union_status" in
+            0) : ;;
+            1) fail "browser-canonical-coverage-not-100" ;;
+            *) fail "browser-native-evidence-unavailable-or-refused" ;;
+          esac
           test -s "$evidence/browser/lcov.info" || fail "browser-coverage-report-missing"
 
           # The scanner's source root is the checkout. Move generated test
@@ -463,6 +667,26 @@ jobs:
             ' "${coverage_profiles[@]}" >"$evidence/coverage.out"
             coverage_union_status=$?
             (( coverage_union_status == 0 )) || fail "coverage-union-invalid"
+            # Preserve this exact Linux+tagged report even when a genuine
+            # full-platform union supplies additional same-source counters.
+            cp "$evidence/coverage.out" "$evidence/coverage-linux-original.out" || fatal "linux-coverage-retention-failed"
+            source_union_admitted=0
+            if test '${{ steps.source_union.outputs.ready }}' = true && test '${{ steps.source_union_archive.outcome }}' = success; then
+              GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/source_union_intake.py consume --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/source-union-intake" --binding "$RUNNER_TEMP/cq-sonar-source-union-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 '${{ steps.source_union.outputs.binding_sha256 }}' --archives "$RUNNER_TEMP/cq-sonar-source-union-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --linux "$evidence/coverage-linux-original.out" >"$state/source-union-intake.log" 2>&1
+              if test "$?" = 0; then
+                if cp "$state/source-union-intake/coverage.out" "$evidence/coverage.out" && cp "$state/source-union-intake/source-union-intake.json" "$evidence/source-union-intake.json"; then
+                  source_union_admitted=1
+                else
+                  cp "$evidence/coverage-linux-original.out" "$evidence/coverage.out" || fatal "linux-coverage-fallback-write-failed"
+                  fail "source-platform-union-publication-failed"
+                fi
+              fi
+            fi
+            source_union_token=''
+            if test "$source_union_admitted" != 1; then
+              fail "source-platform-union-unavailable-or-refused"
+              printf '%s\n' '{"kind":"sonar-authenticated-source-union","platform_union_admitted":false,"selected":"current-linux-fallback","global_gate_passed":false,"source_report_promoted":false}' >"$evidence/source-union-intake.json"
+            fi
             awk 'NR > 1 { total += $2; if ($3 > 0) covered += $2 } END { if (total == 0) exit 2; printf "covered_statements=%d\ntotal_statements=%d\ncoverage_percent=%.9f\n", covered, total, 100*covered/total; if (covered != total) exit 1 }' "$evidence/coverage.out" >"$evidence/coverage-summary.txt"
             coverage_status=$?
             (( coverage_status == 0 )) || fail "coverage-not-100:$coverage_status"
@@ -493,7 +717,7 @@ jobs:
           }
           baseline_contract() {
             env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
-              "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_baseline_contract.py "$@" \
+              "$CQ_ANALYZER_PYTHON" -I -S -B .github/scripts/sonar_baseline_contract.py "$@" \
               2>>"$baseline_state/contract.log"
           }
           produce_ancestor_baseline() {
@@ -595,12 +819,14 @@ jobs:
             return 0
           }
           baseline_stage=not-started
+          baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-before.json" || fail "baseline-source-state-before-unavailable"
           if produce_ancestor_baseline; then
             printf 'status=established\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
           else
             printf 'status=unavailable\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
             fail "baseline-producer-unavailable"
           fi
+          baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-after.json" || fail "baseline-source-state-after-unavailable"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA" && git diff --quiet && git diff --cached --quiet \
             && test -z "$(git status --porcelain --untracked-files=all)" || fatal "current-source-changed-by-baseline"
 

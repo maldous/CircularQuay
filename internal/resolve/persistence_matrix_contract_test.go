@@ -31,8 +31,14 @@ func assertMappedCorruptState(t *testing.T, offline bool) {
 		return model.Value{}, nil
 	})
 	engine.Snapshots = mappedSnapshotCallbacks{
-		encrypt: func(context.Context, model.Snapshot, map[string]string) error { t.Fatal("unexpected encrypt"); return nil },
-		decrypt: func(context.Context, model.Snapshot) (map[string]string, error) { t.Fatal("corrupt state reached decrypt"); return nil, nil },
+		encrypt: func(context.Context, model.Snapshot, map[string]string) error {
+			t.Fatal("unexpected encrypt")
+			return nil
+		},
+		decrypt: func(context.Context, model.Snapshot) (map[string]string, error) {
+			t.Fatal("corrupt state reached decrypt")
+			return nil, nil
+		},
 	}
 	if offline {
 		workload := engine.Policy.Workloads["demo"]

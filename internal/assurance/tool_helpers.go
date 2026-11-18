@@ -72,9 +72,13 @@ func (helper VerifiedHelper) matches() bool {
 }
 
 func (tools *qualifiedTools) copyNativeHelpers(directory string) error {
+	return tools.copyNativeHelpersWithCopy(directory, copyHelperBinary)
+}
+
+func (tools *qualifiedTools) copyNativeHelpersWithCopy(directory string, copy func(helperBinary, string) error) error {
 	for _, helper := range tools.manifest.Helpers {
 		target := filepath.Join(directory, canonicalToolName(helper.ID))
-		if !helper.matches() || copyHelperBinary(helper.binary(), target) != nil {
+		if !helper.matches() || copy(helper.binary(), target) != nil {
 			return os.ErrPermission
 		}
 		tools.helperCopies[helper.ID] = target

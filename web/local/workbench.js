@@ -187,7 +187,21 @@ export function workbench(root, state, hooks) {
     const dialog = document.querySelector('#wb-dialog');
     dialog.innerHTML = `<h2 id="wb-dialog-title">Import local variables / workbench JSON</h2><p>Paste synthetic key/value lines, restore a workbench JSON export, or choose a local file. No interpolation, execution, URL request or upload. Existing duplicate names cause a complete rejection.</p><form id="wb-import"><label>.env content<textarea id="wb-env-text" spellcheck="false" placeholder="API_URL=https://api.example.invalid&#10;DEMO_TOKEN=synthetic-only" required></textarea></label><label>Choose local .env / workspace JSON file<input id="wb-env-file" type="file" accept=".env,.txt,.json,text/plain,application/json"></label><p id="wb-import-error" class="error" role="alert"></p><div class="actions"><button>Import variables</button><button type="button" class="quiet" data-wb="close">Cancel</button></div><p class="hint">Imported rows start with UTC windows. Select each row’s Availability tab to set independent dates/timezones, and Value & source for provider/key profiles.</p></form>`;
     dialog.showModal();
-    document.querySelector('#wb-env-file').onchange = async e => { const file = e.target.files[0]; if (!file) return; if (file.size > 65536) { document.querySelector('#wb-import-error').textContent = 'Maximum .env size is 64 KiB.'; return; } document.querySelector('#wb-env-text').value = await file.text(); };
+    const fileText = document.querySelector('#wb-env-text');
+    const fileError = document.querySelector('#wb-import-error');
+    let fileGeneration = 0;
+    document.querySelector('#wb-env-file').onchange = async event => {
+      const current = ++fileGeneration;
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 65536) { fileError.textContent = 'Maximum .env size is 64 KiB.'; return; }
+      try {
+        const text = await file.text();
+        if (current === fileGeneration && fileText.isConnected) fileText.value = text;
+      } catch {
+        if (current === fileGeneration && fileError.isConnected) fileError.textContent = 'The local file could not be read. Your workspace is unchanged.';
+      }
+    };
     document.querySelector('#wb-import').onsubmit = event => {
       event.preventDefault(); const text = document.querySelector('#wb-env-text').value;
       try {

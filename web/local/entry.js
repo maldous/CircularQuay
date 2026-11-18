@@ -1,4 +1,4 @@
-import { start } from '/ui.js';
+import { start } from '../ui.js';
 import { model } from './model.js';
 import { workbench } from './workbench.js';
 import { configuration } from './configuration.js';

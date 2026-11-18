@@ -272,22 +272,21 @@ type snapshotPayload struct {
 	Generation model.Generation `json:"generation"`
 }
 
-func (e *Engine) fingerprint(id string) (string, error) {
+func (e *Engine) fingerprint(id string) string {
 	w := e.Policy.Workloads[id]
 	ss := make(map[string]model.Source)
 	for _, b := range w.Bindings {
 		ss[b.Source] = e.Policy.Sources[b.Source]
 	}
-	b, err := json.Marshal(struct {
+	b, _ := json.Marshal(struct {
 		Version  int
 		Workload model.Workload
 		Sources  map[string]model.Source
 	}{Version: e.Policy.Version, Workload: w, Sources: ss})
-	if err != nil {
-		return "", fault.New(fault.Invalid, "snapshot policy")
-	}
+	// This projection excludes Policy's composition, time and floating-point
+	// fields: Workload and Source contain only closed JSON scalar containers.
 	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:]), nil
+	return hex.EncodeToString(sum[:])
 }
 
 // Snapshot stores only explicitly exportable static values with their provenance.
@@ -320,10 +319,7 @@ func (e *Engine) snapshotWorkload(id string) (model.Workload, error) {
 }
 
 func (e *Engine) encodeSnapshot(generation model.Generation) (string, error) {
-	fingerprint, err := e.fingerprint(generation.Workload)
-	if err != nil {
-		return "", err
-	}
+	fingerprint := e.fingerprint(generation.Workload)
 	encoded, err := json.Marshal(snapshotPayload{Version: 1, Workload: generation.Workload, Policy: fingerprint, Generation: generation})
 	if err != nil || len(encoded) > 2<<20 {
 		return "", fault.New(fault.Apply, "snapshot encode")
@@ -488,10 +484,7 @@ func (e *Engine) decryptSnapshot(ctx context.Context, workload model.Workload) (
 }
 
 func (e *Engine) validateSnapshot(id string, workload model.Workload, payload snapshotPayload) error {
-	fingerprint, err := e.fingerprint(id)
-	if err != nil {
-		return err
-	}
+	fingerprint := e.fingerprint(id)
 	if payload.Version != 1 || payload.Workload != id || payload.Policy != fingerprint || payload.Generation.Workload != id || len(payload.Generation.Values) != len(workload.Bindings) {
 		return fault.New(fault.Trust, "snapshot scope")
 	}

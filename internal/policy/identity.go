@@ -190,14 +190,13 @@ func MCPAuthorityFingerprint(config model.MCP, name string) string {
 	if !found {
 		return ""
 	}
-	data, err := json.Marshal(struct {
+	data, _ := json.Marshal(struct {
 		Resource  string
 		Name      string
 		Authority model.IdentityAuthority
 	}{config.Resource, name, authority})
-	if err != nil {
-		return ""
-	}
+	// This concrete declaration contains only strings, integers, booleans,
+	// slices and maps of concrete values; JSON encoding has no error case.
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
 }

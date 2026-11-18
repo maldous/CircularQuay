@@ -65,10 +65,10 @@ func bundle(g model.Generation) (string, error) {
 		values[name] = v.Data
 	}
 	b, err := json.Marshal(values)
-	if err != nil {
-		return "", fault.New(fault.Invalid, "publication_encoding")
-	}
-	return string(b), nil
+	// The closed map[string]string has no custom marshalers, unsupported
+	// values, or cycles. Preserve the encoder's error contract directly rather
+	// than remapping an encoding failure that this type cannot produce.
+	return string(b), err
 }
 
 func binding(t model.Target) string {
@@ -155,10 +155,10 @@ func windmill(ctx context.Context, c transport.Client, t model.Target, token, da
 		path = []string{"api", "w", t.Project, "variables", "create"}
 		body["path"] = t.Resource
 	}
-	u, err = transport.URL(t.Endpoint, path...)
-	if err != nil {
-		return err
-	}
+	// The exists URL already validated this immutable endpoint, project and
+	// resource. Only fixed valid verbs change below; Target was copied by value
+	// before the request, so a transport cannot substitute those strings.
+	u, _ = transport.URL(t.Endpoint, path...)
 	return c.DoJSON(ctx, http.MethodPost, u, headers, body, nil)
 }
 

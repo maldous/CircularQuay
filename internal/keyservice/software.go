@@ -60,6 +60,10 @@ func NewSoftwareKMS(resolver SoftwareKEKResolver) (*SoftwareKMS, error) {
 
 // Wrap encrypts short data-key material with an association-bound JWE.
 func (s *SoftwareKMS) Wrap(ctx context.Context, request WrapRequest) (WrapResult, error) {
+	return s.wrapWithEncrypter(ctx, request, jose.NewEncrypter)
+}
+
+func (s *SoftwareKMS) wrapWithEncrypter(ctx context.Context, request WrapRequest, newEncrypter func(jose.ContentEncryption, jose.Recipient, *jose.EncrypterOptions) (jose.Encrypter, error)) (WrapResult, error) {
 	if err := validateSoftwareWrapRequest(ctx, request); err != nil {
 		return WrapResult{}, err
 	}
@@ -69,7 +73,7 @@ func (s *SoftwareKMS) Wrap(ctx context.Context, request WrapRequest) (WrapResult
 	}
 	defer clearBytes(key)
 	options := softwareOptions(request.Association)
-	encrypter, err := jose.NewEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.A256KW, Key: key, KeyID: request.Association.KeyID}, options)
+	encrypter, err := newEncrypter(jose.A256GCM, jose.Recipient{Algorithm: jose.A256KW, Key: key, KeyID: request.Association.KeyID}, options)
 	if err != nil {
 		return WrapResult{}, fault.New(fault.Trust, "software_encrypter")
 	}
@@ -81,15 +85,25 @@ func (s *SoftwareKMS) Wrap(ctx context.Context, request WrapRequest) (WrapResult
 		return WrapResult{}, err
 	}
 	ciphertext := []byte(envelope.FullSerialize())
-	if err := validateSoftwareJWE(ciphertext, request.Association, request.Context); err != nil {
+	return softwareWrappedValue(ciphertext, request.Association, request.Context)
+}
+
+// softwareWrappedValue takes ownership of serialized output and validates its
+// fixed profile before publishing it. Refusal clears that owned buffer.
+func softwareWrappedValue(ciphertext []byte, association KMSAssociation, binding AssociationContext) (WrapResult, error) {
+	if err := validateSoftwareJWE(ciphertext, association, binding); err != nil {
 		clearBytes(ciphertext)
 		return WrapResult{}, err
 	}
-	return WrapResult{Ciphertext: ciphertext, Receipt: softwareReceipt(request.Association, request.Context)}, nil
+	return WrapResult{Ciphertext: ciphertext, Receipt: softwareReceipt(association, binding)}, nil
 }
 
 // Unwrap decrypts only the fixed, association-bound JWE profile.
 func (s *SoftwareKMS) Unwrap(ctx context.Context, request UnwrapRequest) (UnwrapResult, error) {
+	return s.unwrapWithDecrypt(ctx, request, (*jose.JSONWebEncryption).Decrypt)
+}
+
+func (s *SoftwareKMS) unwrapWithDecrypt(ctx context.Context, request UnwrapRequest, decrypt func(*jose.JSONWebEncryption, any) ([]byte, error)) (UnwrapResult, error) {
 	if err := validateSoftwareUnwrapRequest(ctx, request); err != nil {
 		return UnwrapResult{}, err
 	}
@@ -105,7 +119,7 @@ func (s *SoftwareKMS) Unwrap(ctx context.Context, request UnwrapRequest) (Unwrap
 	if err != nil {
 		return UnwrapResult{}, fault.New(fault.Trust, "software_jwe")
 	}
-	plaintext, err := envelope.Decrypt(key)
+	plaintext, err := decrypt(envelope, key)
 	if err != nil {
 		clearBytes(plaintext)
 		return UnwrapResult{}, fault.New(fault.Trust, "software_decrypt")
@@ -114,11 +128,17 @@ func (s *SoftwareKMS) Unwrap(ctx context.Context, request UnwrapRequest) (Unwrap
 		clearBytes(plaintext)
 		return UnwrapResult{}, err
 	}
+	return softwareUnwrappedValue(plaintext, request.Association, request.Context)
+}
+
+// softwareUnwrappedValue owns the plaintext release boundary independently of
+// the decryptor. Invalid material is cleared, never partially returned.
+func softwareUnwrappedValue(plaintext []byte, association KMSAssociation, binding AssociationContext) (UnwrapResult, error) {
 	if !validSoftwareDEK(plaintext) {
 		clearBytes(plaintext)
 		return UnwrapResult{}, fault.New(fault.Trust, "software_plaintext")
 	}
-	return UnwrapResult{Plaintext: plaintext, Receipt: softwareReceipt(request.Association, request.Context)}, nil
+	return UnwrapResult{Plaintext: plaintext, Receipt: softwareReceipt(association, binding)}, nil
 }
 
 func (s *SoftwareKMS) resolve(ctx context.Context, association KMSAssociation) ([]byte, error) {

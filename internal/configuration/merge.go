@@ -10,12 +10,8 @@ import (
 )
 
 func mergeFragment(master *model.Policy, child model.Policy, include model.Include, plan includePlan) error {
-	if master.Sources == nil {
-		master.Sources = make(map[string]model.Source)
-	}
-	if master.Workloads == nil {
-		master.Workloads = make(map[string]model.Workload)
-	}
+	// The sole production caller owns newMasterResolution's copyPolicy maps;
+	// both are allocated even when the decoded master omitted declarations.
 	qualifiedSources, err := qualifySources(child.Sources, include, plan)
 	if err != nil {
 		return err

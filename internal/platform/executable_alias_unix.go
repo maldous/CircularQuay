@@ -12,8 +12,14 @@ import (
 // symlink targets. A protected final target alone does not protect a mutable
 // alias. Keeping the original path also preserves native argv and script $0.
 func trustedExecutableAliases(path string) bool {
+	return trustedExecutableAliasesWithAncestors(path, trustedAncestors)
+}
+
+// trustedExecutableAliasesWithAncestors preserves root admission before reading
+// any alias. Production supplies the complete native ancestor validation.
+func trustedExecutableAliasesWithAncestors(path string, ancestors func(string) bool) bool {
 	root := string(filepath.Separator)
-	if !trustedAncestors(root) {
+	if !ancestors(root) {
 		return false
 	}
 	walk := executableAliasWalk{current: root, parts: strings.Split(path, root)}
