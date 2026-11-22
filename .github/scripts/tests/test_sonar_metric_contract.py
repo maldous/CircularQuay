@@ -306,7 +306,7 @@ class SonarMetricContracts(unittest.TestCase):
             self.assertFalse((runner / "__pycache__").exists())
 
     def test_workflow_keeps_one_primary_call_under_the_declared_stdlib_closure(self) -> None:
-        workflow = (SCRIPT.parents[1] / "workflows/sonar.yml").read_text()
+        workflow = (SCRIPT.parent / "sonar_gate.sh").read_text()
         lines = [line.strip() for line in workflow.splitlines() if line.lstrip().startswith("metric_failures=")]
         expected = ('metric_failures="$(env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" '
                     'LANG=C.UTF-8 "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_metric_contract.py '

@@ -425,9 +425,21 @@ class SonarBaselineContracts(unittest.TestCase):
             self.call(["state", str(self.root), str(self.root / "source-state")])
         self.assertEqual(result, json.loads((self.root / "source-state").read_bytes()))
 
-    def test_workflow_prevents_checkout_bytecode_and_keeps_both_strict_source_fences(self):
+    def test_sonar_workflow_admits_external_gate_with_same_guarded_shell(self):
         root = Path(__file__).parents[3]
         workflow = (root / ".github/workflows/sonar.yml").read_text()
+        script = (root / ".github/scripts/sonar_gate.sh").read_text()
+        self.assertLess(len(workflow.encode()), 21000)
+        self.assertIn("run: exec bash --noprofile --norc -e -o pipefail .github/scripts/sonar_gate.sh", workflow)
+        self.assertEqual(workflow.count("          CQ_SONAR_GATE_"), 13)
+        self.assertEqual(script.count("\nunset CQ_SONAR_GATE_"), 13)
+        self.assertNotIn(chr(36) + "{{", script)
+        self.assertIn("unset CQ_SOURCE_UNION_TOKEN", script)
+        self.assertIn("if (covered != total) exit 1", script)
+
+    def test_workflow_prevents_checkout_bytecode_and_keeps_both_strict_source_fences(self):
+        root = Path(__file__).parents[3]
+        workflow = (root / ".github/scripts/sonar_gate.sh").read_text()
         closure = 'export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$root/python-cache"'
         self.assertEqual(1, workflow.count(closure))
         self.assertLess(workflow.index(closure), workflow.index('if python -m venv'))
