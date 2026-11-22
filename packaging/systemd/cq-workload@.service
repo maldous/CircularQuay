@@ -1,0 +1,24 @@
+[Unit]
+Description=CQ enrolled workload %i
+After=local-fs.target
+
+[Service]
+Type=simple
+User=cq-%i
+Group=cq-%i
+UMask=0077
+ExecStart=/usr/local/bin/cq --config /etc/cq/%i.json --state-dir /var/lib/cq-%i run --workload %i
+StateDirectory=cq-%i
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=60s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cq-%i
+
+# Online mode resolves again on EVERY ExecStart, including crash restarts. Do
+# not replace this with a dependency oneshot that stays successful indefinitely.
+# Offline/hybrid enrollment must seed and verify a scoped encrypted snapshot.

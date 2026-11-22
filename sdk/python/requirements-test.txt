@@ -1,0 +1,14 @@
+# Runtime-test closure for every supported CPython interpreter (3.11 through
+# 3.15). These packages exercise the SDK and build its distribution. Static
+# analysis uses its own qualified Python 3.14 toolchain so analyzer dependencies
+# do not constrain the application's supported interpreter versions.
+#
+# requirements-ci.txt remains the authoritative direct-pins file for the
+# separately qualified Python 3.14 static/security toolchain (Bandit, Ruff,
+# mypy, pip-audit and its supporting dependencies). Both closures are resolved
+# only in hosted CI and installed from reviewed hash locks with source archives
+# disallowed.
+build==1.6.1
+coverage==7.17.0
+hatchling==1.33.0
+mcp==1.30.0

@@ -1,0 +1,27 @@
+name: Dependency review
+
+on:
+  pull_request:
+    branches: [develop, main, 'release/**']
+
+# This workflow reviews dependency metadata through GitHub's dependency-review
+# API. It does not check out or execute pull-request code.
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Review introduced vulnerable dependencies
+        # v5.0.0, official release commit. Pinning the complete commit avoids
+        # following the mutable v5 major-version branch.
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

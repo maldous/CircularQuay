@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "sources": {
+    "fixture": {
+      "type": "json",
+      "path": "values.json"
+    }
+  },
+  "workloads": {
+    "demo": {
+      "mode": "offline",
+      "bindings": [
+        {
+          "name": "DEMO_MESSAGE",
+          "source": "fixture",
+          "field": "message",
+          "allow_offline": true
+        }
+      ]
+    }
+  }
+}

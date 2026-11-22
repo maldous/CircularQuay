@@ -1,0 +1,6 @@
+[
+  { "source": "https://config.example.invalid/tree/main", "valid": true },
+  { "source": "https://config.example.invalid/tree/main?", "valid": false },
+  { "source": "https://config.example.invalid/tree/main#", "valid": false },
+  { "source": "https:config.example.invalid/tree/main", "valid": false }
+]

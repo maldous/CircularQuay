@@ -1,0 +1,161 @@
+{
+  "format": "cq-darwin-cpython-inputs-v1",
+  "status": "reviewed-staged-provenance-not-native-build-qualified",
+  "platform": "darwin",
+  "architecture": "x86_64",
+  "evidence": {
+    "workflow_head": "de92f54fe6a14a163a7da8b28ad7047fb59a6328",
+    "run_id": 43153887957,
+    "attempt": 1,
+    "conclusion": "failure",
+    "url": "https://github.com/maldous/CircularQuay/actions/runs/43153887957",
+    "runner_image": "20260824.0482.1",
+    "source_input": "63ce3c404bd5ac23cf402112d873ff7175a5f8ff",
+    "scope": "All five signed payloads passed patch-version, PSF signer/notarization, signature and Intel architecture checks. Three archives passed published SHA-256 checks. Two cached frameworks failed root-protection preflight before execution.",
+    "native_execution": false,
+    "openssl_acquired_by_run": false,
+    "wheels_built": false
+  },
+  "installation_scope": {
+    "executor": "fresh disposable Intel macOS GitHub-hosted job dedicated to one recorded patch version",
+    "route": "required framework component from the hash- and signature-verified official installer",
+    "system_framework_installation": true,
+    "foo_shared_or_persistent_installation": false,
+    "wrapper_scripts_or_unrelated_packages": false,
+    "pip": "only the recorded bundled wheel in a task-local environment; no network upgrade",
+    "native_installation_and_execution": "pending; record actual installer receipt, protected paths, binary hashes, version and architecture"
+  },
+  "inputs": [
+    {
+      "python": "3.11.9",
+      "job_id": 130969218401,
+      "job_conclusion": "failure",
+      "observed_mode": "framework",
+      "url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg",
+      "installer_bytes": 44860848,
+      "installer_sha256": "b6cfdee2571ca56ee895043ca1e7110fb78a878cee3eb0c21accb2de34d24b55",
+      "installer_signer": "Python Software Foundation (BMM5U3QVKW)",
+      "package_id": "org.python.Python.PythonFramework-3.11",
+      "component_version": "0",
+      "package_python_version": "3.11.9",
+      "package_framework_sha256": "a2909857658602ef7df5918adbba48ecb8f103fc98d4f52fefd4e6d815941b52",
+      "package_interpreter_sha256": "4e28e811a89aeac6eed668ae641c7f85f5831e42e8dc6cd9a85a3bcc032ec46a",
+      "patchlevel_header_sha256": "1c0fbf9b25dc78e95c224648f40b064f9f00c95e0c4af6f1aeae712a32c78b72",
+      "bundled_pip": {
+        "name": "pip-24.0-py3-none-any.whl",
+        "sha256": "ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc"
+      },
+      "package_load_commands": [
+        "/Library/Frameworks/Python.framework/Versions/3.11/Python (compatibility version 3.11.0, current version 3.11.0)",
+        "/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1311.0.0)"
+      ],
+      "preinstalled_framework": "failed root protection; not executed; use the reviewed fresh installer route"
+    },
+    {
+      "python": "3.12.10",
+      "job_id": 130969218447,
+      "job_conclusion": "failure",
+      "observed_mode": "framework",
+      "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg",
+      "installer_bytes": 45720356,
+      "installer_sha256": "8373e58da4ea146b3eb1c1f9834f19a319440b6b679b06050b1f9ee3237aa8e4",
+      "installer_signer": "Python Software Foundation (BMM5U3QVKW)",
+      "package_id": "org.python.Python.PythonFramework-3.12",
+      "component_version": "0",
+      "package_python_version": "3.12.10",
+      "package_framework_sha256": "14e61fb22a897d238248dfd8fe3b472b4541338c293368b4747803055b8bb3aa",
+      "package_interpreter_sha256": "d4f152f2a753c94e0e7935c8ebbe6b2609979e1df7898422b577d0076383d08b",
+      "patchlevel_header_sha256": "21499531529d07324f8b4096a23dc7d5c86338c182fb9cc8dd2a272441aabca4",
+      "bundled_pip": {
+        "name": "pip-25.0.1-py3-none-any.whl",
+        "sha256": "c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f"
+      },
+      "package_load_commands": [
+        "/Library/Frameworks/Python.framework/Versions/3.12/Python (compatibility version 3.12.0, current version 3.12.0)",
+        "/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1311.0.0)"
+      ],
+      "preinstalled_framework": "failed root protection; not executed; use the reviewed fresh installer route"
+    },
+    {
+      "python": "3.13.17",
+      "job_id": 130969218142,
+      "job_conclusion": "success",
+      "observed_mode": "archive",
+      "url": "https://github.com/actions/python-versions/releases/download/3.13.17-39711892467/python-3.13.17-darwin-x64.tar.gz",
+      "archive_bytes": 70157281,
+      "verified_archive_sha256": "c295dedca816c7aed4a980591b6d5ff81cd7f22ba3cb4a871c2d2fbc26dba050",
+      "installer_bytes": 70800910,
+      "installer_sha256": "3053592af66128269efab37fe7851a4894920b27c442aeec99ce4d34d17c07e3",
+      "installer_signer": "Python Software Foundation (BMM5U3QVKW)",
+      "package_id": "org.python.Python.PythonFramework-3.13",
+      "component_version": "0",
+      "package_python_version": "3.13.17",
+      "package_framework_sha256": "8868c2a88bf2b13e70b347d133d39ccb00e4a792cfd84c36ec6028bdd256ea81",
+      "package_interpreter_sha256": "acae9af690ff37590ab8fb5e1142f254f1eaa5c462be1a225954c1cd37f2cbaa",
+      "patchlevel_header_sha256": "5e7d2a64e92f9dd677331f5de0759a0b7c6708afbbe03377947702a9818cc965",
+      "bundled_pip": {
+        "name": "pip-26.2.2-py3-none-any.whl",
+        "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+      },
+      "package_load_commands": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/Python (compatibility version 3.13.0, current version 3.13.0)",
+        "/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)"
+      ],
+      "status": "archive and signed payload verified; fresh native installation and execution pending"
+    },
+    {
+      "python": "3.14.10",
+      "job_id": 130969218431,
+      "job_conclusion": "success",
+      "observed_mode": "archive",
+      "url": "https://github.com/actions/python-versions/releases/download/3.14.10-40336797752/python-3.14.10-darwin-x64.tar.gz",
+      "archive_bytes": 75316227,
+      "verified_archive_sha256": "82d456f964cb3138ff3914a4004b1c551e9793f07e0d4deeae407c0d121bbaed",
+      "installer_bytes": 76018440,
+      "installer_sha256": "286c7018aa2730f6747ca433dccdc2b31be45f078a9ea0ffa44d5f06368fd2d7",
+      "installer_signer": "Python Software Foundation (BMM5U3QVKW)",
+      "package_id": "org.python.Python.PythonFramework-3.14",
+      "component_version": "0",
+      "package_python_version": "3.14.10",
+      "package_framework_sha256": "911c6fc490da724c682a88115498b4058296a63d3d9167f193409b3b1569880d",
+      "package_interpreter_sha256": "8255b46f6de3ed938594a87dd24c77b548888fcfb4c94b63a28990dbc5c40db6",
+      "patchlevel_header_sha256": "6dd5d85cf57b4105bbf6928d508798787dd07cc1140af0bf6be536abdcd852e3",
+      "bundled_pip": {
+        "name": "pip-26.2.2-py3-none-any.whl",
+        "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+      },
+      "package_load_commands": [
+        "/Library/Frameworks/Python.framework/Versions/3.14/Python (compatibility version 3.14.0, current version 3.14.0)",
+        "/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)"
+      ],
+      "status": "archive and signed payload verified; fresh native installation and execution pending"
+    },
+    {
+      "python": "3.15.2",
+      "job_id": 130969218339,
+      "job_conclusion": "success",
+      "observed_mode": "archive",
+      "url": "https://github.com/actions/python-versions/releases/download/3.15.2-40340363276/python-3.15.2-darwin-x64.tar.gz",
+      "archive_bytes": 81168295,
+      "verified_archive_sha256": "3598759050401152244152503382874410ef8071fb1156544a3bd233ddcf148f",
+      "installer_bytes": 81894859,
+      "installer_sha256": "2c6104475535b720b45774c68b0dfc9fcca2235353cf9ff81e05488f89845396",
+      "installer_signer": "Python Software Foundation (BMM5U3QVKW)",
+      "package_id": "org.python.Python.PythonFramework-3.15",
+      "component_version": "0",
+      "package_python_version": "3.15.2",
+      "package_framework_sha256": "020aed5774ec6ccba7b4522e32c9d11958e6ef83e89030890d04053e443fc2e4",
+      "package_interpreter_sha256": "a35b08329e2ecf79a151f8954695d43d6f584ee8483c890295200eaad99c14b7",
+      "patchlevel_header_sha256": "3f46c7e15faaac9021dce4a5e04df6acc93612175f65d649baf14c7a8e8a76b2",
+      "bundled_pip": {
+        "name": "pip-26.2.2-py3-none-any.whl",
+        "sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+      },
+      "package_load_commands": [
+        "/Library/Frameworks/Python.framework/Versions/3.15/Python (compatibility version 3.15.0, current version 3.15.0)",
+        "/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1356.0.0)"
+      ],
+      "status": "archive and signed payload verified; fresh native installation and execution pending"
+    }
+  ]
+}

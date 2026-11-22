@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "sources": {
+    "data": {
+      "type": "json",
+      "path": "values.json"
+    }
+  },
+  "workloads": {
+    "demo": {
+      "mode": "offline",
+      "bindings": [
+        {
+          "name": "DEMO_MESSAGE",
+          "source": "data",
+          "field": "message",
+          "allow_offline": true
+        }
+      ]
+    }
+  }
+}

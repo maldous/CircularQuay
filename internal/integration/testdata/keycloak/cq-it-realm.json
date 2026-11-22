@@ -1,0 +1,119 @@
+{
+  "realm": "cq-it",
+  "enabled": true,
+  "displayName": "CQ synthetic interoperability fixture",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 60,
+  "ssoSessionIdleTimeout": 120,
+  "ssoSessionMaxLifespan": 300,
+  "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "realm": [],
+    "client": {
+      "cq-mcp-resource": [
+        {
+          "name": "read-access",
+          "description": "Synthetic fixture role for the CQ read operation",
+          "clientRole": true,
+          "composite": false
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "cq-fixture-client",
+      "name": "CQ fixture service client",
+      "description": "FIXTURE ONLY: client credentials are synthetic and must never be used outside the disposable interoperability test.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "fixture-only-not-a-production-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "access.token.header.type.rfc9068": "true"
+      },
+      "defaultClientScopes": [
+        "service_account",
+        "cq.read"
+      ],
+      "protocolMappers": [
+        {
+          "name": "cq fixture audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "cq-fixture-audience",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "cq fixture roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "cq-mcp-resource",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "serviceAccountUser": {
+        "username": "service-account-cq-fixture-client",
+        "enabled": true,
+        "clientRoles": {
+          "cq-mcp-resource": [
+            "read-access"
+          ]
+        }
+      }
+    },
+    {
+      "clientId": "cq-mcp-resource",
+      "name": "CQ fixture resource",
+      "description": "Fixture resource role container; it is not a CQ authorization-server configuration.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": false
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "cq.read",
+      "description": "Synthetic fixture scope for a CQ read operation",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /
+# Local design preview only; public crawl policy is pending domain and content review.

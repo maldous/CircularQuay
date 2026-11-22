@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "observability": {
+    "enabled": true,
+    "service_name": "cq",
+    "environment": "reference",
+    "diagnostic_level": "info",
+    "resource_attributes": {
+      "service_namespace": "reference-team",
+      "service_instance_id": "reference-host"
+    },
+    "metrics": {"enabled": true, "interval_seconds": 30},
+    "traces": {"enabled": true, "sample_ratio": 0.1},
+    "logs": {"enabled": true},
+    "endpoint": "https://collector.example.test",
+    "timeout_seconds": 5,
+    "export_interval_seconds": 5,
+    "batch_size": 128,
+    "queue_size": 1024
+  },
+  "updates": {
+    "check": "never",
+    "minimum_version": "1.0.0"
+  },
+  "sources": {
+    "service-sops": {
+      "type": "sops",
+      "path": "repo:secrets/reference-api.sops.json",
+      "sops": "/usr/bin/sops",
+      "age_identity_file": "/etc/cq/identities/reference-age.txt",
+      "identity": "none"
+    }
+  },
+  "workloads": {
+    "reference-api": {
+      "mode": "hybrid",
+      "bindings": [
+        {
+          "name": "API_TOKEN",
+          "source": "service-sops",
+          "field": "api_token",
+          "allow_offline": true,
+          "allow_publish": true
+        }
+      ],
+      "environment": {
+        "APP_MODE": "production"
+      },
+      "directory": "/var/lib/reference-api",
+      "snapshot": {
+        "path": "/var/lib/cq/snapshots/reference-api.sops.json",
+        "recipients": [
+          "age1cy0su9fwf3gf9mw868g5yut09p6nytfmmnktexz2ya5uqg9vl9sss4euqm"
+        ],
+        "identity_file": "/etc/cq/identities/reference-age.txt",
+        "sops": "/usr/bin/sops"
+      },
+      "targets": {
+        "systemd-credential": {
+          "type": "systemd",
+          "path": "/etc/credstore.encrypted/reference-api",
+          "accept_snapshot": true,
+          "service": "reference-api.service",
+          "activation": "restart"
+        }
+      }
+    }
+  },
+  "grants": [
+    {
+      "subject": "https://id.example.test|reference-operator-001",
+      "client": "reference-console",
+      "workload": "reference-api",
+      "operations": [
+        "list",
+        "status"
+      ],
+      "authority": "workforce"
+    }
+  ],
+  "mcp": {
+    "address": "127.0.0.1:8787",
+    "origins": [
+      "https://console.example.test"
+    ],
+    "hosts": [
+      "mcp.example.test"
+    ],
+    "audit_path": "/var/lib/cq/audit/reference-api.jsonl",
+    "resource": "https://mcp.example.test/mcp",
+    "authorities": {
+      "workforce": {
+        "issuer": "https://id.example.test",
+        "jwks_url": "https://id.example.test/.well-known/jwks.json",
+        "audience": "registered-cq-api",
+        "profile": "rfc9068",
+        "clients": [
+          "reference-console"
+        ],
+        "subjects": [
+          "https://id.example.test|reference-operator-001"
+        ],
+        "required_scopes": [
+          "session:approved"
+        ],
+        "permissions": {
+          "list": {
+            "scopes": [
+              "workloads:discover"
+            ]
+          },
+          "status": {
+            "scopes": [
+              "workloads:status"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "repository": {
+    "url": "https://github.com/example-org/cq-config.git",
+    "directory": "/var/lib/cq/repository",
+    "ref": "refs/heads/main",
+    "allowed_signers_file": "/etc/cq/repository-signers",
+    "initial_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "format": "cq-darwin-build-inputs-v1",
+  "status": "proposed-inputs-not-native-qualified",
+  "platform": "darwin",
+  "architecture": "x86_64",
+  "source_policy": "sdk/python/darwin-source-policy.json",
+  "source_policy_sha256": "22724939a77f28bbf8b759026d0c324fcd5ef594d9957301c81434bde3417417",
+  "upstream_metadata": {
+    "pyproject.toml": {
+      "member": "cryptography-50.0.2/pyproject.toml",
+      "sha256": "c2a9d817e811d622f086ef4af0b90168392231f2b972ce5dd8ca4b19e9e11701"
+    },
+    "Cargo.toml": {
+      "member": "cryptography-50.0.2/Cargo.toml",
+      "sha256": "3394db0f684339a40b53827888616f5b855c2547a857631dfddafb609b5edd9f"
+    },
+    "Cargo.lock": {
+      "member": "cryptography-50.0.2/Cargo.lock",
+      "sha256": "98778208027ce05bfff0db88c290f28355eb20e685f0c728775359fb91a1a4c4"
+    }
+  },
+  "cargo_registry_packages": 32,
+  "upstream_rust_minimum": "1.83.0",
+  "source_date_epoch": 1790782204,
+  "source_epoch_basis": {
+    "url": "https://pypi.org/pypi/cryptography/50.0.2/json",
+    "sdist_upload_time": "2026-09-30T15:30:04.884601Z"
+  },
+  "direct_requirements": "sdk/python/requirements-darwin-build.txt",
+  "direct_requirements_sha256": "b3730ab1ad058a57e98baf044cdcc7888feda2a93e913ae5f922c8fa3751b633",
+  "resolution": {
+    "host": "Linux x86_64",
+    "target_platform": "macosx_15_0_x86_64",
+    "implementation": "cp",
+    "abis": "per-minor cp311\u2013cp315, abi3, none",
+    "index": "https://pypi.org/simple",
+    "binary_only": true,
+    "ignore_installed": true,
+    "native_validation": false
+  },
+  "closures": [
+    {
+      "python": "311",
+      "resolver": "cross-targetmetadataonly;notnativequalification",
+      "pip": "26.3",
+      "report_sha256": "aab212175c4a6a8903cda1ca3abc4de81480fda621448667ba79109421027fd1",
+      "lock": "sdk/python/locks/build-darwin-py311.txt",
+      "lock_sha256": "b31075c1f4d7e671b2059510d915289245f106c78f9568492ccde030cedaafb9",
+      "entries": [
+        {
+          "name": "cffi",
+          "version": "2.1.1",
+          "url": "https://files.pythonhosted.org/packages/70/d2/16d99a0c4948febc0ebd133a13b2f688ff7f8cb04da971e1128872ce0c03/cffi-2.1.1-cp311-cp311-macosx_10_15_x86_64.whl",
+          "sha256": "c8d2c9fd1f2d16f780d15127abb050d13d1a76c03a4bd87d7e4980e45e511e12"
+        },
+        {
+          "name": "maturin",
+          "version": "1.16.0",
+          "url": "https://files.pythonhosted.org/packages/d2/8e/d65633d7c25484cb82735a51e15bc969f9874a13557e2b352d27df574c20/maturin-1.16.0-py3-none-macosx_10_12_x86_64.whl",
+          "sha256": "2216d731c9324869d3bff72c0c73009bb6e640b3fa7d340174ae70dc874d1d9f"
+        },
+        {
+          "name": "setuptools",
+          "version": "84.2.1",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12",
+          "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+          "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+        }
+      ]
+    },
+    {
+      "python": "312",
+      "resolver": "cross-targetmetadataonly;notnativequalification",
+      "pip": "26.3",
+      "report_sha256": "e843b1821ca6fb08d7a8989afbef7c1a7380a31d369116f0fb7834e386cdfcfb",
+      "lock": "sdk/python/locks/build-darwin-py312.txt",
+      "lock_sha256": "5b4cbf456a331405dd08af3e5658cf3990c3bfe6ebbab74bed939b614d07606e",
+      "entries": [
+        {
+          "name": "cffi",
+          "version": "2.1.1",
+          "url": "https://files.pythonhosted.org/packages/10/69/43965eccfdead3b9220015fd1320e117be8c6ed01a62ffab76eeb752f5d5/cffi-2.1.1-cp312-cp312-macosx_10_15_x86_64.whl",
+          "sha256": "c8c69575568085ba0b1b10c0249d779a214aea6f6522e949a0fc9fb0fcb449d0"
+        },
+        {
+          "name": "maturin",
+          "version": "1.16.0",
+          "url": "https://files.pythonhosted.org/packages/d2/8e/d65633d7c25484cb82735a51e15bc969f9874a13557e2b352d27df574c20/maturin-1.16.0-py3-none-macosx_10_12_x86_64.whl",
+          "sha256": "2216d731c9324869d3bff72c0c73009bb6e640b3fa7d340174ae70dc874d1d9f"
+        },
+        {
+          "name": "setuptools",
+          "version": "84.2.1",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12",
+          "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+          "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+        }
+      ]
+    },
+    {
+      "python": "313",
+      "resolver": "cross-targetmetadataonly;notnativequalification",
+      "pip": "26.3",
+      "report_sha256": "8eeb914d2317f7f036fc9c18df95e65389c581d5a32442693d4a1141f1b8a562",
+      "lock": "sdk/python/locks/build-darwin-py313.txt",
+      "lock_sha256": "1fc68e59cddba1e0b627ba2c990373298d9cc138289ddd786b2affcf42fee873",
+      "entries": [
+        {
+          "name": "cffi",
+          "version": "2.1.1",
+          "url": "https://files.pythonhosted.org/packages/a7/46/2e5fdde8555706dd98139a910ca11be02809f3f605ce956f655d0214e100/cffi-2.1.1-cp313-cp313-macosx_10_15_x86_64.whl",
+          "sha256": "9d2055050ea716bd38b7f7f1579c275386646b4894c155a3e2f3cd62ed41b7c6"
+        },
+        {
+          "name": "maturin",
+          "version": "1.16.0",
+          "url": "https://files.pythonhosted.org/packages/d2/8e/d65633d7c25484cb82735a51e15bc969f9874a13557e2b352d27df574c20/maturin-1.16.0-py3-none-macosx_10_12_x86_64.whl",
+          "sha256": "2216d731c9324869d3bff72c0c73009bb6e640b3fa7d340174ae70dc874d1d9f"
+        },
+        {
+          "name": "setuptools",
+          "version": "84.2.1",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12",
+          "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+          "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+        }
+      ]
+    },
+    {
+      "python": "314",
+      "resolver": "cross-targetmetadataonly;notnativequalification",
+      "pip": "26.3",
+      "report_sha256": "dc95c378c73d1beddb78d86bb8f39f14eabc6a58f17df311a1bece071af6af5d",
+      "lock": "sdk/python/locks/build-darwin-py314.txt",
+      "lock_sha256": "2fa96579fa82492d9ce146a26d386d79e3bcee239a7cb4d2d5829800e6f42a1b",
+      "entries": [
+        {
+          "name": "cffi",
+          "version": "2.1.1",
+          "url": "https://files.pythonhosted.org/packages/d9/99/c4b0c17cacdc9c3b8f280026286a9826d6a208c0f047591a3c3ce99b91fd/cffi-2.1.1-cp314-cp314-macosx_10_15_x86_64.whl",
+          "sha256": "d28630f5854ab07ab1fd4aba756de52326c82e6be15d414b12793f1975048b54"
+        },
+        {
+          "name": "maturin",
+          "version": "1.16.0",
+          "url": "https://files.pythonhosted.org/packages/d2/8e/d65633d7c25484cb82735a51e15bc969f9874a13557e2b352d27df574c20/maturin-1.16.0-py3-none-macosx_10_12_x86_64.whl",
+          "sha256": "2216d731c9324869d3bff72c0c73009bb6e640b3fa7d340174ae70dc874d1d9f"
+        },
+        {
+          "name": "setuptools",
+          "version": "84.2.1",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12",
+          "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+          "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+        }
+      ]
+    },
+    {
+      "python": "315",
+      "resolver": "cross-targetmetadataonly;notnativequalification",
+      "pip": "26.3",
+      "report_sha256": "29ac9a24e39d0bc336ae5dbb9e8080b1c59a2b7b3fe9afb02e8aa3adc093ccbe",
+      "lock": "sdk/python/locks/build-darwin-py315.txt",
+      "lock_sha256": "8b0bfc88218323c5b31f5bd981ab28ffc93ba4b318d079ebf28b36f9911901ad",
+      "entries": [
+        {
+          "name": "cffi",
+          "version": "2.1.1",
+          "url": "https://files.pythonhosted.org/packages/1b/8a/af668013284634733f02d683458a0728739c7d6ddb5e14cb0c20832266fe/cffi-2.1.1-cp315-cp315-macosx_10_15_x86_64.whl",
+          "sha256": "fb92203a88b3d3053034db775110081c49d28be6551923805e039924093761e4"
+        },
+        {
+          "name": "maturin",
+          "version": "1.16.0",
+          "url": "https://files.pythonhosted.org/packages/d2/8e/d65633d7c25484cb82735a51e15bc969f9874a13557e2b352d27df574c20/maturin-1.16.0-py3-none-macosx_10_12_x86_64.whl",
+          "sha256": "2216d731c9324869d3bff72c0c73009bb6e640b3fa7d340174ae70dc874d1d9f"
+        },
+        {
+          "name": "setuptools",
+          "version": "84.2.1",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        },
+        {
+          "name": "pycparser",
+          "version": "3.12",
+          "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+          "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+        }
+      ]
+    }
+  ]
+}

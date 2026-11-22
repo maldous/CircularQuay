@@ -1,0 +1,79 @@
+{
+  "format": "cq-darwin-native-toolchain-inputs-v1",
+  "status": "proposed-inputs-incomplete-not-qualified",
+  "platform": "darwin",
+  "architecture": "x86_64",
+  "rust": {
+    "version": "1.99.1",
+    "target": "x86_64-apple-darwin",
+    "url": "https://static.rust-lang.org/dist/2026-10-15/rust-1.99.1-x86_64-apple-darwin.tar.xz",
+    "sha256": "13b237d0294bad3bb7b18d559517947ed8348ea25812fa3b468c904996f80e34",
+    "metadata_url": "https://static.rust-lang.org/dist/channel-rust-stable.toml",
+    "metadata_date": "2026-10-15",
+    "metadata_sha256": "fb152be80975c194aa5fc684b2aec3a6e14e2b855efe2faa4e5f8ae6e590f463",
+    "acquired": false
+  },
+  "apple": {
+    "developer_dir": "/Applications/Xcode_16.4.app/Contents/Developer",
+    "xcode_version": "16.4",
+    "xcode_build": "16F6",
+    "macos_sdk_version": "15.5",
+    "metadata_repository": "actions/runner-images",
+    "metadata_path": "images/macos/macos-15-Readme.md",
+    "metadata_git_blob": "7b7aa2607800f9735b3062b0229bca92376e7bd2",
+    "metadata_image_version": "20260824.0482.1",
+    "metadata_is_actual_runner_evidence": false,
+    "native_readback": "pending image/provenance, xcodebuild, clang, SDK and signature verification"
+  },
+  "openssl": {
+    "version": "3.5.9",
+    "support_line": "3.5 LTS",
+    "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+    "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+    "metadata_url": "https://openssl-library.org/source/",
+    "checksum_url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz.sha256",
+    "checksum_status": "user-supplied expected checksum; official archive bytes independently downloaded and matched; native acquisition remains pending",
+    "acquired": false,
+    "checksum_provenance": {
+      "expected_source": "operator-provided SHA-256 line for openssl-3.5.9.tar.gz",
+      "archive_bytes": 53279637,
+      "archive_sha256_verified": true,
+      "verification_scope": "cloud source archive comparison only; no extraction, installation or native build",
+      "original_checksum_web_restriction": "checksum link click returned Failed to fetch restricted URL; that operation was not retried"
+    }
+  },
+  "build_settings": {
+    "cargo_target": "x86_64-apple-darwin",
+    "cargo_locked": true,
+    "cargo_offline_during_build": true,
+    "openssl_static": true,
+    "macosx_deployment_target": "10.15",
+    "source_date_epoch": 1790782204,
+    "parallel_jobs": 2,
+    "python_build_isolation": false
+  },
+  "remaining_inputs": [
+    "Fresh reviewed CPython framework-component installation on separate disposable Intel macOS jobs; verify actual installed receipts and recorded binary/pip identities",
+    "Bind retained completed Apple Xcode/SDK and Rust/Cargo receipts; do not repeat the provenance batch",
+    "Acquire any remaining exact build inputs and locked crates through permitted routes",
+    "Build/link/test cryptography50.0.2 and repeat clean builds before reviewed wheel custody and six runtime/static consumer-lock changes"
+  ],
+  "python": {
+    "inputs": "sdk/python/darwin-cpython-inputs.json",
+    "inputs_sha256": "e319d10d6cc430d61738e02f854fb02d6d4f43c6e97e7304f7e6a98b121bb017",
+    "patch_versions": [
+      "3.11.9",
+      "3.12.10",
+      "3.13.17",
+      "3.14.10",
+      "3.15.2"
+    ],
+    "status": "staged payload provenance complete; fresh disposable framework installation and execution pending"
+  },
+  "native_receipt_status": {
+    "source": "retained native integration owner report",
+    "apple_xcode_sdk": "complete; reuse the retained actual native receipt",
+    "rust_cargo": "complete; reuse the retained actual native receipt",
+    "scope": "Initial proposal/acquired flags above are preserved observations; this status records newer owner-reported native evidence, not cloud execution"
+  }
+}

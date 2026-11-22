@@ -1,0 +1,10 @@
+# Direct CI tool inputs. Release qualification also requires resolved dependency
+# hashes and an independently bound toolchain; these pins alone are not closure.
+bandit==1.9.4
+build==1.6.1
+coverage==7.17.0
+hatchling==1.33.0
+mcp==1.30.0
+mypy==2.4.1
+pip-audit==2.10.1
+ruff==0.17.3
