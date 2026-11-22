@@ -703,8 +703,15 @@ produce_ancestor_baseline() {
   baseline_stage=established
   return 0
 }
+current_checkout_is_clean() {
+  local selected_commit checkout_status
+  selected_commit="$(git rev-parse HEAD)" && test "$selected_commit" = "$GITHUB_SHA" \
+    && git diff --quiet && git diff --cached --quiet \
+    && checkout_status="$(git status --porcelain --untracked-files=all)" && test -z "$checkout_status"
+}
 baseline_stage=not-started
 baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-before.json" || fail "baseline-source-state-before-unavailable"
+current_checkout_is_clean || fatal "current-source-invalid-before-baseline"
 if produce_ancestor_baseline; then
   printf 'status=established\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
 else
@@ -712,8 +719,7 @@ else
   fail "baseline-producer-unavailable"
 fi
 baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-after.json" || fail "baseline-source-state-after-unavailable"
-test "$(git rev-parse HEAD)" = "$GITHUB_SHA" && git diff --quiet && git diff --cached --quiet \
-  && test -z "$(git status --porcelain --untracked-files=all)" || fatal "current-source-changed-by-baseline"
+current_checkout_is_clean || fatal "current-source-changed-by-baseline"
 
 # Scanner and server readback deliberately run even after coverage
 # has failed, so one report retains both strict gate outcomes.

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+
 import contextlib
 import copy
 import datetime as dt
@@ -436,6 +439,83 @@ class SonarBaselineContracts(unittest.TestCase):
         self.assertNotIn(chr(36) + "{{", script)
         self.assertIn("unset CQ_SOURCE_UNION_TOKEN", script)
         self.assertIn("if (covered != total) exit 1", script)
+
+    @unittest.skipUnless(os.name == "posix" and Path("/bin/bash").is_file()
+                         and shutil.which("git"), "owned Linux Git/Bash fixture only")
+    def test_baseline_preflight_never_enters_producer_without_exact_clean_checkout(self):
+        gate = (Path(__file__).parents[3] / ".github/scripts/sonar_gate.sh").read_text()
+        snippet = gate[gate.index("current_checkout_is_clean() {\n"):
+                       gate.index("\n# Scanner and server readback deliberately")]
+        # Admit the exact owned Git/dispatch seam only, never the Sonar job.
+        allowed = r"""current_checkout_is_clean() {
+  local selected_commit checkout_status
+  selected_commit="$(git rev-parse HEAD)" && test "$selected_commit" = "$GITHUB_SHA" \
+    && git diff --quiet && git diff --cached --quiet \
+    && checkout_status="$(git status --porcelain --untracked-files=all)" && test -z "$checkout_status"
+}
+baseline_stage=not-started
+baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-before.json" || fail "baseline-source-state-before-unavailable"
+current_checkout_is_clean || fatal "current-source-invalid-before-baseline"
+if produce_ancestor_baseline; then
+  printf 'status=established\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+else
+  printf 'status=unavailable\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+  fail "baseline-producer-unavailable"
+fi
+baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-after.json" || fail "baseline-source-state-after-unavailable"
+current_checkout_is_clean || fatal "current-source-changed-by-baseline"
+"""
+        self.assertEqual(snippet, allowed)
+        setup = r"""mode="$1"
+evidence="$2"
+git() {
+  if test "$mode" = unavailable && test "$1" = status; then return 128; fi
+  command git "$@"
+}
+baseline_contract() { test "$1" = state && printf '{}\n' >"$3"; }
+fail() { printf 'unexpected:%s\n' "$1" >&2; exit 3; }
+fatal() { printf '%s\n' "$1" >&2; exit 2; }
+produce_ancestor_baseline() {
+  printf 'started\n' >"$evidence/entered"
+  if test "$mode" = producer-dirty; then printf 'synthetic\n' >producer-output; fi
+  baseline_stage=established
+}
+"""
+        modes = {
+            "clean": (True, b""),
+            "preexisting-dirty": (False, b"current-source-invalid-before-baseline\n"),
+            "unavailable": (False, b"current-source-invalid-before-baseline\n"),
+            "wrong-head": (False, b"current-source-invalid-before-baseline\n"),
+            "producer-dirty": (True, b"current-source-changed-by-baseline\n"),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": directory,
+                   "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull}
+            for mode, (entered, error) in modes.items():
+                with self.subTest(mode=mode):
+                    path = temp / mode
+                    path.mkdir()
+                    evidence = temp / f"{mode}-evidence"
+                    evidence.mkdir()
+                    def git(*arguments):
+                        return subprocess.check_output(["git", *arguments], cwd=path, env=env, timeout=5)
+                    git("init", "-q")
+                    (path / "owned").write_text("fabricated")
+                    git("add", "owned")
+                    git("-c", "user.name=Owned Fixture", "-c", "user.email=fixture@localhost",
+                        "commit", "-qm", "synthetic")
+                    if mode == "preexisting-dirty":
+                        (path / "already-there").write_text("fabricated")
+                    head = "0" * 40 if mode == "wrong-head" else git("rev-parse", "HEAD").decode().strip()
+                    result = subprocess.run(
+                        ["/bin/bash", "--noprofile", "--norc", "-euo", "pipefail", "-c",
+                         setup + snippet, "owned-baseline", mode, str(evidence)],
+                        cwd=path, env={**env, "GITHUB_SHA": head, "GITHUB_WORKSPACE": str(path)},
+                        capture_output=True, timeout=10, check=False)
+                    self.assertEqual(result.returncode, 2 if error else 0)
+                    self.assertEqual(result.stderr, error)
+                    self.assertEqual((evidence / "entered").exists(), entered)
 
     def test_workflow_prevents_checkout_bytecode_and_keeps_both_strict_source_fences(self):
         root = Path(__file__).parents[3]
