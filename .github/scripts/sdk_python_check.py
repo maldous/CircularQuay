@@ -576,7 +576,7 @@ def coverage_hook(directory: Path) -> Path:
         )
     )
     ast.parse(source, filename=str(hook))
-    hook.write_text(source, encoding="utf-8")
+    hook.write_bytes(source.encode("utf-8"))
     os.chmod(hook, 0o600)
     return hook
 

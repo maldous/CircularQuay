@@ -1,14 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInThisContext } from 'node:vm';
 import { browser, publicHelpFetcher } from '../../web/coverage-dom-fixture.test.mjs';
 import { normaliseBrowserServiceConfig, initialiseBrowserServices } from './browser-services.js';
 import { SURFACES, QUALIFIED_ORIGINS } from './service-config.js';
+const preferenceBootstrap = new URL('./preference-bootstrap.js', import.meta.url);
+// The page runs the startup preferences as a classic script on every load.
+const runPreferenceBootstrap = () => runInThisContext(
+  readFileSync(preferenceBootstrap, 'utf8'), { filename: preferenceBootstrap.pathname },
+);
 let sequence = 0;
 const load = name => import(new URL(`${name}?owned-browser=${++sequence}`, import.meta.url));
 
 test('appearance and locale run actual event lifecycles without loading optional service providers', async t => {
   const x = browser(t, { html: '<button id="theme-toggle" disabled></button><select id="language"><option value="en"></option><option value="ar"></option></select><img class="language-flag"><span data-i18n="title1"></span><span data-i18n="unknown">Unchanged</span><button id="login"></button><p id="login-status" hidden></p>', stored: { 'circularquay-motion-language': 'ar', 'circularquay-motion-theme': 'system' } });
-  x.media.matches = true; await load('preference-bootstrap.js'); assert.equal(x.document.documentElement.lang, 'ar'); assert.equal(x.document.documentElement.dir, 'rtl'); assert.equal(x.document.documentElement.dataset.layoutReady, 'false');
+  x.media.matches = true; runPreferenceBootstrap(); assert.equal(x.document.documentElement.lang, 'ar'); assert.equal(x.document.documentElement.dir, 'rtl'); assert.equal(x.document.documentElement.dataset.layoutReady, 'false');
   await load('appearance.js'); const toggle = x.document.querySelector('#theme-toggle'); assert.equal(toggle.disabled, false); assert.match(toggle.getAttribute('aria-label'), /الفاتح/);
   toggle.click(); assert.equal(x.document.documentElement.dataset.theme, 'light'); assert.equal(x.data.get('circularquay-motion-theme'), 'light');
   x.setStorageBlocked(true); toggle.click(); assert.equal(x.document.documentElement.dataset.theme, 'dark'); x.setStorageBlocked(false);
@@ -22,7 +29,7 @@ test('appearance and locale run actual event lifecycles without loading optional
 
 test('blocked preferences and optional absent appearance controls remain safe while DOM-ready locale initializes once', async t => {
   const x = browser(t, { html: '<span data-i18n="title1"></span><button id="login"></button>', blockedStorage: true });
-  await load('preference-bootstrap.js'); assert.equal(x.document.documentElement.dataset.theme, 'light'); assert.equal(x.document.documentElement.dir, 'ltr');
+  runPreferenceBootstrap(); assert.equal(x.document.documentElement.dataset.theme, 'light'); assert.equal(x.document.documentElement.dir, 'ltr');
   await load('appearance.js'); x.event(x.media, 'change'); x.document.readyState = 'loading'; await load('locale.js'); x.event(x.document, 'DOMContentLoaded'); x.document.querySelector('#login').click(); assert.match(x.document.querySelector('[data-i18n]').textContent, /right/);
 });
 

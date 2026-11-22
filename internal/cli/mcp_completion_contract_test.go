@@ -17,7 +17,6 @@ import (
 	"github.com/maldous/CircularQuay/internal/fault"
 	cqmcp "github.com/maldous/CircularQuay/internal/mcp"
 	"github.com/maldous/CircularQuay/internal/model"
-	"github.com/maldous/CircularQuay/internal/platform"
 	"github.com/maldous/CircularQuay/internal/resolve"
 	"github.com/maldous/CircularQuay/internal/state"
 )
@@ -50,12 +49,12 @@ func newMCPCompletionFixture(t *testing.T) *mcpCompletionFixture {
 	f.policy = model.Policy{Version: 1,
 		Sources: map[string]model.Source{"fixture": {Type: "json", Path: values}},
 		Workloads: map[string]model.Workload{"demo": {Mode: "offline", Command: []string{command}, CommandSHA256: hex.EncodeToString(digest[:]), UntrustedCode: true,
-				Bindings: []model.Binding{{Name: "TOKEN", Source: "fixture", Field: "TOKEN", AllowOffline: true}}}},
+			Bindings: []model.Binding{{Name: "TOKEN", Source: "fixture", Field: "TOKEN", AllowOffline: true}}}},
 		Grants: []model.Grant{{Subject: "local:alice", Workload: "demo", Operations: []string{"status", "read", "run"}, Keys: []string{"TOKEN"}}}}
 	f.app = application{config: filepath.Join(root, "policy.json"), directory: filepath.Join(root, "state"),
 		paths: &applicationPathOperations{configurationDirectory: func() (string, error) {
-				return filepath.Join(root, "config"), nil
-			}}}
+			return filepath.Join(root, "config"), nil
+		}}}
 	f.save()
 	f.backend = backend{app: f.app, acquire: f.acquire, execute: f.execute}
 	return f
@@ -148,8 +147,8 @@ func mcpCompletionRecord(t *testing.T, f *mcpCompletionFixture, corrupt bool) {
 
 func mcpCompletionUnavailableDirectory() *applicationPathOperations {
 	return &applicationPathOperations{configurationDirectory: func() (string, error) {
-			return "", errors.New("owned unavailable configuration root")
-		}}
+		return "", errors.New("owned unavailable configuration root")
+	}}
 }
 
 func TestMCPCompletionReadActualJSONAndAcquisitionRefusals(t *testing.T) {
@@ -292,6 +291,7 @@ type mcpCompletionHandoff struct {
 	backend
 	beforeRun func()
 }
+
 func (b mcpCompletionHandoff) Run(ctx context.Context, id string) (cqmcp.RunResult, error) {
 	b.beforeRun()
 	return b.backend.Run(ctx, id)
@@ -300,10 +300,10 @@ func (b mcpCompletionHandoff) Run(ctx context.Context, id string) (cqmcp.RunResu
 func TestMCPCompletionUntrustedActionRechecksEachDisclosureGrant(t *testing.T) {
 	f := newMCPCompletionFixture(t)
 	b := mcpCompletionHandoff{backend: f.backend, beforeRun: func() {
-			f.policy.Grants[0].Operations = []string{"run"}
-			f.policy.Grants[0].Keys = nil
-			f.save()
-		}}
+		f.policy.Grants[0].Operations = []string{"run"}
+		f.policy.Grants[0].Keys = nil
+		f.save()
+	}}
 	result, err := f.service(b).RunWorkload(context.Background(), cqmcp.Principal{Subject: "local:alice"}, "demo")
 	if !fault.Is(err, fault.Denied) || result != (cqmcp.RunResult{}) || f.locks != 0 || f.executions != 0 {
 		t.Fatal("lost read grant reached untrusted action effects")
@@ -336,12 +336,12 @@ func TestMCPCompletionRepositoryRefusalReleasesOwnedLock(t *testing.T) {
 			f.save()
 			calls := 0
 			f.backend.app.repository = repositoryOperations{fetch: func(context.Context, model.Repository) (string, error) {
-					t.Fatal("offline read fetched")
-					return "", nil
-				}, current: func(context.Context, model.Repository) (string, error) {
-					calls++
-					return "", fault.New(fault.Trust, "owned current refusal")
-				}}
+				t.Fatal("offline read fetched")
+				return "", nil
+			}, current: func(context.Context, model.Repository) (string, error) {
+				calls++
+				return "", fault.New(fault.Trust, "owned current refusal")
+			}}
 			svc := f.service(f.backend)
 			mcpCompletionRepositoryResult(t, svc, operation)
 			if calls != 1 || f.locks != 1 || f.releases != 1 || f.executions != 0 {
@@ -364,12 +364,12 @@ func TestMCPCompletionServeDispatchKeepsConstructedService(t *testing.T) {
 }
 
 type mcpCompletionServeProbe struct {
-	fixture *mcpCompletionFixture
-	transport string
-	wanted error
+	fixture     *mcpCompletionFixture
+	transport   string
+	wanted      error
 	constructed int
-	served int
-	actual *cqmcp.Service
+	served      int
+	actual      *cqmcp.Service
 }
 
 func (p *mcpCompletionServeProbe) construct(policy model.Policy, b cqmcp.Backend, options cqmcp.Options) (*cqmcp.Service, error) {
@@ -541,20 +541,20 @@ func mcpCompletionTLSCase(t *testing.T, options mcpServeOptions) {
 	plain, encrypted := 0, 0
 	wanted := errors.New("owned listener result")
 	err := listenMCPServerWithOperations(server, options,
-	func(s *http.Server) error {
-		if s != server {
-			t.Fatal("plain server changed")
-		}
-		plain++
-		return wanted
-	},
-	func(s *http.Server, cert, key string) error {
-		if s != server || cert != options.cert || key != options.key {
-			t.Fatal("TLS arguments changed")
-		}
-		encrypted++
-		return wanted
-	})
+		func(s *http.Server) error {
+			if s != server {
+				t.Fatal("plain server changed")
+			}
+			plain++
+			return wanted
+		},
+		func(s *http.Server, cert, key string) error {
+			if s != server || cert != options.cert || key != options.key {
+				t.Fatal("TLS arguments changed")
+			}
+			encrypted++
+			return wanted
+		})
 	if err != wanted || plain+encrypted != 1 {
 		t.Fatal("listener result/count changed")
 	}

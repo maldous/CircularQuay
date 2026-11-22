@@ -44,8 +44,14 @@ func TestCompletionPolicyGuardDomainAdmission(t *testing.T) {
 		{"missing_source", "configuration_domains", func(g *model.ConfigurationGuard) { delete(g.SourceDomains, "fixture") }},
 		{"invalid_domain", "configuration_domains", func(g *model.ConfigurationGuard) { g.SourceDomains["fixture"] = "bad domain" }},
 		{"unmatched_local", "configuration_domains", func(g *model.ConfigurationGuard) { g.LocalSources = []string{"fixture"} }},
-		{"unknown_local", "configuration_local_domain", func(g *model.ConfigurationGuard) { g.LocalSources = []string{"missing"}; g.LocalRoots = map[string]string{"missing": ""} }},
-		{"empty_root", "configuration_local_domain", func(g *model.ConfigurationGuard) { g.LocalSources = []string{"fixture"}; g.LocalRoots = map[string]string{"fixture": ""} }},
+		{"unknown_local", "configuration_local_domain", func(g *model.ConfigurationGuard) {
+			g.LocalSources = []string{"missing"}
+			g.LocalRoots = map[string]string{"missing": ""}
+		}},
+		{"empty_root", "configuration_local_domain", func(g *model.ConfigurationGuard) {
+			g.LocalSources = []string{"fixture"}
+			g.LocalRoots = map[string]string{"fixture": ""}
+		}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

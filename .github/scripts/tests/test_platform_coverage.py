@@ -437,6 +437,18 @@ class OwnedFileContracts(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             P.write_new(output, b"replace")
 
+    def test_metadata_comparison_classifies_refusal_without_reporting_values(self):
+        original = self.put("private", b"fabricated").stat()
+        changed = type("StatView", (), {
+            name: getattr(original, name) for name in (
+                "st_dev", "st_ino", "st_mode", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns"
+            )
+        })()
+        P.require_same_identity(original, changed, "pathname identity")
+        changed.st_ctime_ns += 1
+        with self.assertRaisesRegex(P.FileIdentityMismatch, r"^pathname identity: ctime$"):
+            P.require_same_identity(original, changed, "pathname identity")
+
     @unittest.skipUnless(os.name == "posix", "POSIX protection oracle only; Windows ACLs are not inferred")
     def test_symlink_hardlink_and_public_private_file_refuse(self):
         path = self.put("private", b"fabricated")

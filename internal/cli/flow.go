@@ -10,7 +10,6 @@ import (
 
 	"github.com/maldous/CircularQuay/internal/bootstrap"
 	"github.com/maldous/CircularQuay/internal/fault"
-	"github.com/maldous/CircularQuay/internal/platform"
 )
 
 const (

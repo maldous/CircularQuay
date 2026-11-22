@@ -22,7 +22,7 @@ func TestRepositoryInvariantBoundaryContractRelativeLookupRefusesBeforeIO(t *tes
 	}
 	got, err = verifier.expectedBlob("relative-policy.json")
 	var safe *fault.Error
-	if got != "" || !errors.As(err, &safe) || safe.Kind != fault.Trust || safe.Operation != "release_path" {
+	if got != "" || !errors.As(err, &safe) || safe.Kind != fault.Trust || safe.Operation != "repository_release_path" {
 		t.Fatal("incompatible relative lookup did not refuse with zero blob")
 	}
 	// expectedBlob is a lexical component; no release, Git, quota, subprocess

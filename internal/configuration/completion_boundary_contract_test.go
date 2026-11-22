@@ -42,13 +42,17 @@ func TestCompletionConfigurationLocationFailuresBeforeEffects(t *testing.T) {
 
 func TestCompletionConfigurationSinglePostValidationCancellation(t *testing.T) {
 	path := fixturePath(t, "master", "policy.json")
-	data := masterDocument(t, nil)
-	root, err := ReadRoot(data, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	root.Composition = nil
-	data = marshalPolicy(t, root)
+	data := marshalPolicy(t, model.Policy{
+		Version: 1,
+		Sources: map[string]model.Source{
+			"root": {Type: "json", Path: filepath.Join(filepath.Dir(path), "root.json")},
+		},
+		Workloads: map[string]model.Workload{
+			"root": {Mode: "offline", Bindings: []model.Binding{
+				{Name: "ROOT_VALUE", Source: "root", Field: "value", AllowOffline: true},
+			}},
+		},
+	})
 	if result, err := resolveSingle(context.Background(), data, path); err != nil || result.Policy.ConfigurationGuard == nil {
 		t.Fatal("single-policy positive control failed")
 	}

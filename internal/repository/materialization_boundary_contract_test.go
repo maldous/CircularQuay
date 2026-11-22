@@ -193,7 +193,6 @@ func TestRepositoryMaterializationBoundaryContractExistingExactReleaseIsReconcil
 	assertNoMaterializationStaging(t, fixture)
 }
 
-
 // Open-file Stat captures Windows identity before the operation. A path-derived
 // FileInfo may otherwise load its file ID lazily after replacement occurred.
 func eagerMaterializationIdentity(t *testing.T, path string) os.FileInfo {

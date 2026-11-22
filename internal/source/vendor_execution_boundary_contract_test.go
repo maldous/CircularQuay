@@ -55,7 +55,7 @@ func newVendorExecutionFixture(t *testing.T) *vendorExecutionFixture {
 	root := privateSourceDirectory(t, "vendor-execution")
 	return &vendorExecutionFixture{
 		t: t, home: filepath.Join(root, "home"),
-		source: model.Source{Type: "onepassword", Project: "synthetic-vault", Path: filepath.Join(root, "inert-never-executed"), TokenFile: filepath.Join(root, "synthetic-token-not-read"), AuditVerified: true},
+		source:  model.Source{Type: "onepassword", Project: "synthetic-vault", Path: filepath.Join(root, "inert-never-executed"), TokenFile: filepath.Join(root, "synthetic-token-not-read"), AuditVerified: true},
 		binding: model.Binding{Resource: "op://synthetic-vault/item/field"},
 	}
 }

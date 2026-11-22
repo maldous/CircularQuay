@@ -101,6 +101,22 @@ def strict_json(data):
     return value
 
 
+class FileIdentityMismatch(InvalidEvidence):
+    """A bounded stat comparison changed; report field names, never file data."""
+
+
+FILE_IDENTITY_FIELDS = ("device", "inode", "mode", "links", "size", "mtime", "ctime")
+
+
+def require_same_identity(before, after, view):
+    expected = file_identity(before)
+    observed = file_identity(after)
+    if observed != expected:
+        fields = ", ".join(name for name, left, right in zip(FILE_IDENTITY_FIELDS, expected, observed)
+                           if left != right)
+        raise FileIdentityMismatch(f"{view}: {fields}")
+
+
 def file_identity(info):
     return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
@@ -121,8 +137,8 @@ def safe_file(path, maximum, private=False):
             require(not private or (before.st_uid == os.geteuid() and not before.st_mode & 0o077))
         data = stream.read(maximum + 1)
         require(len(data) == before.st_size)
-        require(file_identity(before) == file_identity(os.fstat(stream.fileno())))
-        require(file_identity(before) == file_identity(os.stat(path, follow_symlinks=False)))
+        require_same_identity(before, os.fstat(stream.fileno()), "descriptor stability")
+        require_same_identity(before, os.stat(path, follow_symlinks=False), "pathname identity")
         return data
 
 
@@ -636,6 +652,10 @@ def main():
             print("pins_sha256=" + digest(encoded(value)))
         else:
             return union(args.source, args.expected_commit, args.artifacts, args.pins, args.expected_pins_sha256, args.output)
+    except FileIdentityMismatch as error:
+        print("Bounded same-run platform evidence refused.")
+        print("File identity check: " + str(error), file=sys.stderr)
+        return 2
     except (OSError, ValueError, UnicodeError, RecursionError, subprocess.SubprocessError, TypeError, AttributeError):
         print("Bounded same-run platform evidence refused.")
         return 2

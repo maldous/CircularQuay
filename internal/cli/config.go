@@ -497,7 +497,8 @@ func replaceArray(document *any, parentParts []string, replacement []any) error 
 	case []any:
 		index, err := pointerIndex(key, len(node))
 		if err != nil {
-			return err
+			// This path must identify an existing element to replace.
+			return fault.New(fault.Invalid, errorConfigPointer)
 		}
 		node[index] = replacement
 	default:

@@ -104,7 +104,11 @@ function shuffled(list, random, previousId = '') {
   if (copy.length > 1 && (copy[0]?.id || copy[0]) === previousId) [copy[0], copy[1]] = [copy[1], copy[0]];
   return copy;
 }
-function validVariant(item, pool) { return pool?.some(candidate => candidate?.asset === item?.asset && candidate?.id === item?.id); }
+const SCENARIO_NODES = ['local', 'remote', 'shell', 'container', 'cloud', 'ci'];
+function validVariant(item, pool) {
+  return Boolean(item?.name && item?.asset && Array.isArray(pool)
+    && pool.some(candidate => candidate?.name && candidate.asset === item.asset && candidate.id === item.id));
+}
 
 /** Rotates real integration variants without exhausting a group invisibly. */
 export function createVariantRotation({ variantPools = {}, random = Math.random } = {}) {
@@ -182,7 +186,13 @@ export function createScenarioSession({ variantPools = {}, previous = null, rand
   const selection = {};
   selection.identity = validVariant(variantSelection?.identity, variantPools.identity) ? variantSelection.identity : pickVariant(variantPools.identity, previous?.selection?.identity?.asset, random);
   selection['identity-2'] = validVariant(variantSelection?.['identity-2'], variantPools['identity-2']) && variantSelection['identity-2'].asset !== selection.identity.asset ? variantSelection['identity-2'] : pickVariant(variantPools['identity-2'], previous?.selection?.['identity-2']?.asset, random, new Set([selection.identity.asset]));
-  Object.entries(variantPools).filter(([node]) => node !== 'identity' && node !== 'identity-2').forEach(([node, variants]) => { selection[node] = validVariant(variantSelection?.[node], variants) && (node !== 'remote' || variantSelection[node].asset !== selection.local?.asset) ? variantSelection[node] : pickVariant(variants, previous?.selection?.[node]?.asset, random, node === 'remote' ? new Set([selection.local?.asset]) : new Set()); });
+  for (const node of SCENARIO_NODES) {
+    const variants = variantPools[node];
+    const proposed = variantSelection?.[node];
+    const unavailable = node === 'remote' ? new Set([selection.local.asset]) : new Set();
+    selection[node] = validVariant(proposed, variants) && !unavailable.has(proposed.asset)
+      ? proposed : pickVariant(variants, previous?.selection?.[node]?.asset, random, unavailable);
+  }
   const [targetOne, targetTwo] = persona.targets;
   const slots = Array.isArray(optionalSlots) ? new Set(optionalSlots.filter(slot => slot === 0 || slot === 1)) : null;
   const firstOptional = slots ? (slots.has(0) ? choose(OPTIONALS, random) : null) : (random() < optionalProbability ? choose(OPTIONALS, random) : null);
@@ -203,7 +213,7 @@ export function createScenarioSession({ variantPools = {}, previous = null, rand
 export function staticScenario(variantPools = {}) { return createScenarioSession({ variantPools, previous: { id: 'ai-model', selection: {} }, random: () => 0, optionalProbability: 0 }); }
 /** A bounded, conservative set used only to reserve story height before playback. */
 export function storyReservationSessions(variantPools = {}, measure = item => item.name?.length || item.text?.length || 0) {
-  const selection = Object.fromEntries(Object.entries(variantPools).map(([node, variants]) => [node, reservationVariant(variants, new Set(), measure)]));
+  const selection = Object.fromEntries(SCENARIO_NODES.map(node => [node, reservationVariant(variantPools[node], new Set(), measure)]));
   selection.identity = reservationVariant(variantPools.identity, new Set(), measure);
   selection['identity-2'] = reservationVariant(variantPools['identity-2'], new Set([selection.identity.asset]), measure);
   const optionalByLength = [...OPTIONALS].sort((left, right) => measure(right) - measure(left));
