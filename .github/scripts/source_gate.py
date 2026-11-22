@@ -94,15 +94,36 @@ def raw_checks(value, exit_code):
     return sorted(holds)
 
 
-def identity(source, expected, go, jar, role):
-    require(role in ROLES)
-    build = build_selection(go, os.environ)
-    source_value, _ = PC.source_identity(source, expected)
-    tool = PC.tool_identity(go, role)
-    locks = {path: PC.digest(PC.safe_file(source / path, PC.MAX_METADATA)) for path in LOCKS}
-    manifest = PC.strict_json(PC.safe_file(source / LOCKS[0], PC.MAX_METADATA))
+class TaggedPreflightRefused(ValueError):
+    """Report the owned phase without revealing paths, values or exceptions."""
+
+
+def tagged_phase(label, check, *args):
+    try:
+        return check(*args)
+    except PC.FileIdentityMismatch as error:
+        # This exception contains only fixed labels and metadata field names.
+        raise TaggedPreflightRefused(f"{label}: {error}") from None
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        raise TaggedPreflightRefused(label) from None
+
+
+def checked_wiremock(jar, manifest):
     jar_hash = PC.digest(PC.safe_file(jar, 256 << 20))
     require(jar_hash == manifest['wiremock']['sha256'])
+    return jar_hash
+
+
+def identity(source, expected, go, jar, role):
+    require(role in ROLES)
+    build = tagged_phase('build selectors', build_selection, go, os.environ)
+    source_value, _ = tagged_phase('source checkout', PC.source_identity, source, expected)
+    tool = tagged_phase('Go tool', PC.tool_identity, go, role)
+    locks = {path: PC.digest(tagged_phase('tracked lockfile', PC.safe_file, source / path, PC.MAX_METADATA))
+             for path in LOCKS}
+    manifest = tagged_phase('tool manifest', PC.strict_json,
+                            tagged_phase('tool manifest', PC.safe_file, source / LOCKS[0], PC.MAX_METADATA))
+    jar_hash = tagged_phase('WireMock fixture', checked_wiremock, jar, manifest)
     return {'source': source_value, 'go': tool, 'locks': locks, 'build': build,
             'wiremock_sha256': jar_hash, 'wiremock_version': manifest['wiremock']['version']}
 
@@ -127,10 +148,10 @@ def fixed_directory(output, role):
 
 
 def tagged_begin(source, expected, go, jar, role, output):
-    fixed_directory(output, role)
+    tagged_phase('runner output directory', fixed_directory, output, role)
     before = identity(source, expected, go, jar, role)
-    producer = origin(os.environ, role)
-    output.mkdir(mode=0o700)
+    producer = tagged_phase('workflow origin', origin, os.environ, role)
+    tagged_phase('reserve runner output', lambda: output.mkdir(mode=0o700))
     PC.write_new(output / 'begin.json', PC.encoded({'identity': before, 'producer': producer}))
 
 
@@ -537,6 +558,10 @@ def main(argv=None):
             result = qualify(source, args.expected_commit, Path(args.union), read_json(args.needs), args.audit_exit, api, Path(args.pins), Path(args.artifacts))
             PC.write_new(output, PC.encoded(result))
         return 0
+    except TaggedPreflightRefused as error:
+        print(REFUSAL, file=__import__('sys').stderr)
+        print(f"Tagged preflight check: {error}", file=__import__('sys').stderr)
+        return 2
     except (OSError, ValueError, TypeError, KeyError, AttributeError, RecursionError, zipfile.BadZipFile, zlib.error, EOFError, RuntimeError, subprocess.SubprocessError):
         print(REFUSAL, file=__import__('sys').stderr)
         return 2

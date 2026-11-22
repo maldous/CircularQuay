@@ -411,17 +411,34 @@ class AuthenticatedArchiveContracts(unittest.TestCase):
             for key in ('lcov.info', 'lcov.info', 'metadata.json'): z.writestr(key, b'{}')
         with self.assertRaises(P.InvalidEvidence): P.read_archive(duplicate.getvalue())
         link = io.BytesIO()
-        with zipfile.ZipFile(link, 'w') as archive:
+        with zipfile.ZipFile(link, 'w') as link_zip:
             for name in ('lcov.info', 'counters.json', 'metadata.json'):
                 item = zipfile.ZipInfo(name)
                 item.create_system = 3
                 item.external_attr = ((stat.S_IFLNK | 0o777) << 16)
-                archive.writestr(item, b'not-followed')
+                link_zip.writestr(item, b'not-followed')
         with self.assertRaises(P.InvalidEvidence): P.read_archive(link.getvalue())
 
 
 
 class ProducerAndOwnedIOContracts(unittest.TestCase):
+    def test_windows_descriptor_path_projection_keeps_stable_identity(self):
+        fields = dict(st_dev=1, st_ino=2, st_size=5, st_mtime_ns=11,
+                      st_ctime_ns=12, st_mode=stat.S_IFREG | 0o600, st_nlink=1)
+
+        def file_view(**changes):
+            return type("FileView", (), fields | changes)()
+
+        base = file_view()
+        named = file_view(st_ctime_ns=13, st_mode=stat.S_IFREG | 0o700)
+        P.require_same_windows_file(base, named)
+        self.assertNotEqual(P.checked_windows_file_view(base), P.checked_windows_file_view(named))
+        for change in (dict(st_dev=6), dict(st_ino=3), dict(st_ino=0), dict(st_size=6),
+                       dict(st_mtime_ns=14), dict(st_nlink=2),
+                       dict(st_file_attributes=0x400), dict(st_mode=stat.S_IFDIR | 0o700)):
+            with self.subTest(change=change), self.assertRaises(P.InvalidEvidence):
+                P.require_same_windows_file(base, file_view(**change))
+
     def test_owned_regular_read_and_exclusive_write_never_overwrite_or_follow_a_directory(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name).resolve(); path = root / 'owned'

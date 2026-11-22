@@ -117,6 +117,20 @@ def identity(info):
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def checked_windows_file_view(info):
+    require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+            and not getattr(info, 'st_file_attributes', 0) & 0x400)
+    return (*identity(info), info.st_mode)
+
+
+def require_same_windows_file(descriptor, pathname):
+    # Both views retain complete within-view stability. CPython can expose
+    # different ctime or permission projections for one Windows file.
+    opened = checked_windows_file_view(descriptor)
+    named = checked_windows_file_view(pathname)
+    require(opened[:4] == named[:4])
+
+
 def private_read(path, limit):
     path = Path(path)
     before = path.lstat()
@@ -126,7 +140,10 @@ def private_read(path, limit):
     descriptor = os.open(path, flags)
     try:
         opened = os.fstat(descriptor)
-        require(identity(before) == identity(opened))
+        if os.name == 'nt':
+            require_same_windows_file(opened, before)
+        else:
+            require(identity(before) == identity(opened))
         chunks = []
         total = 0
         while True:
@@ -136,7 +153,13 @@ def private_read(path, limit):
             total += len(part)
             require(total <= limit)
             chunks.append(part)
-        require(identity(opened) == identity(os.fstat(descriptor)) == identity(path.lstat()))
+        opened_after, named_after = os.fstat(descriptor), path.lstat()
+        if os.name == 'nt':
+            require(checked_windows_file_view(opened) == checked_windows_file_view(opened_after))
+            require(checked_windows_file_view(before) == checked_windows_file_view(named_after))
+            require_same_windows_file(opened_after, named_after)
+        else:
+            require(identity(opened) == identity(opened_after) == identity(named_after))
         require(total == opened.st_size)
         return b''.join(chunks)
     finally:

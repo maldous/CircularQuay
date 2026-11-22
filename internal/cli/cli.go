@@ -346,10 +346,6 @@ func (a application) store() (state.Store, error) {
 	return state.Store{Directory: dir}, nil
 }
 
-func checkDefaultStateNamespace(home, selected string) error {
-	return checkDefaultStateNamespaceWithResolver(home, selected, filepath.Abs)
-}
-
 func checkDefaultStateNamespaceWithResolver(home, selected string, absolutePath func(string) (string, error)) error {
 	absolute, err := absolutePath(selected)
 	if err != nil {
