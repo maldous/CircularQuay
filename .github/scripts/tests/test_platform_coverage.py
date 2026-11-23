@@ -449,6 +449,29 @@ class OwnedFileContracts(unittest.TestCase):
         with self.assertRaisesRegex(P.FileIdentityMismatch, r"^pathname identity: ctime$"):
             P.require_same_identity(original, changed, "pathname identity")
 
+    def test_windows_file_binding_allows_only_cross_view_projection(self):
+        owned = self.put("windows-model", b"fabricated").stat()
+        fields = {
+            name: getattr(owned, name) for name in (
+                "st_dev", "st_ino", "st_mode", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns"
+            )
+        }
+
+        def info(**changes):
+            return type("StatView", (), fields | changes)()
+
+        pathname = info(st_mode=owned.st_mode | 0o111, st_ctime_ns=owned.st_ctime_ns + 1)
+        P.require_same_windows_file(info(), pathname)
+        with self.assertRaises(P.FileIdentityMismatch):
+            P.require_same_identity(info(), pathname, "descriptor stability")
+        for change in (
+            {"st_dev": owned.st_dev + 1}, {"st_ino": owned.st_ino + 1}, {"st_ino": 0},
+            {"st_size": owned.st_size + 1}, {"st_mtime_ns": owned.st_mtime_ns + 1},
+            {"st_nlink": 2}, {"st_file_attributes": 0x400}, {"st_mode": 0o040700},
+        ):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                P.require_same_windows_file(info(), info(**change))
+
     @unittest.skipUnless(os.name == "posix", "POSIX protection oracle only; Windows ACLs are not inferred")
     def test_symlink_hardlink_and_public_private_file_refuse(self):
         path = self.put("private", b"fabricated")

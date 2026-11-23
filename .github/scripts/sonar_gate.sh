@@ -1,0 +1,1189 @@
+#!/usr/bin/env bash
+# SonarQube's Linux prerequisite reference for the pinned server:
+# https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/
+set -uo pipefail
+
+# Resolve workflow metadata as data; do not inherit new inputs in subprocesses.
+sonar_input_native_python_ready="${CQ_SONAR_GATE_NATIVE_PYTHON_READY-}"
+unset CQ_SONAR_GATE_NATIVE_PYTHON_READY
+sonar_input_native_python_archive="${CQ_SONAR_GATE_NATIVE_PYTHON_ARCHIVE-}"
+unset CQ_SONAR_GATE_NATIVE_PYTHON_ARCHIVE
+sonar_input_native_python_sha="${CQ_SONAR_GATE_NATIVE_PYTHON_SHA-}"
+unset CQ_SONAR_GATE_NATIVE_PYTHON_SHA
+sonar_input_native_browser_ready="${CQ_SONAR_GATE_NATIVE_BROWSER_READY-}"
+unset CQ_SONAR_GATE_NATIVE_BROWSER_READY
+sonar_input_native_browser_linux="${CQ_SONAR_GATE_NATIVE_BROWSER_LINUX-}"
+unset CQ_SONAR_GATE_NATIVE_BROWSER_LINUX
+sonar_input_native_browser_macos="${CQ_SONAR_GATE_NATIVE_BROWSER_MACOS-}"
+unset CQ_SONAR_GATE_NATIVE_BROWSER_MACOS
+sonar_input_native_browser_windows="${CQ_SONAR_GATE_NATIVE_BROWSER_WINDOWS-}"
+unset CQ_SONAR_GATE_NATIVE_BROWSER_WINDOWS
+sonar_input_pr_head="${CQ_SONAR_GATE_PR_HEAD-}"
+unset CQ_SONAR_GATE_PR_HEAD
+sonar_input_pr_number="${CQ_SONAR_GATE_PR_NUMBER-}"
+unset CQ_SONAR_GATE_PR_NUMBER
+sonar_input_native_browser_sha="${CQ_SONAR_GATE_NATIVE_BROWSER_SHA-}"
+unset CQ_SONAR_GATE_NATIVE_BROWSER_SHA
+sonar_input_source_union_ready="${CQ_SONAR_GATE_SOURCE_UNION_READY-}"
+unset CQ_SONAR_GATE_SOURCE_UNION_READY
+sonar_input_source_union_archive="${CQ_SONAR_GATE_SOURCE_UNION_ARCHIVE-}"
+unset CQ_SONAR_GATE_SOURCE_UNION_ARCHIVE
+sonar_input_source_union_sha="${CQ_SONAR_GATE_SOURCE_UNION_SHA-}"
+unset CQ_SONAR_GATE_SOURCE_UNION_SHA
+# Keep this ephemeral token out of every test/scanner/build process.
+source_union_token="${CQ_SOURCE_UNION_TOKEN-}"
+unset CQ_SOURCE_UNION_TOKEN
+umask 077
+
+root="$RUNNER_TEMP/cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+state="$root/state"
+evidence="$root/evidence"
+mkdir -p "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+chmod 700 "$root" "$state" "$evidence" "$root/home" "$root/tmp" "$root/go-build" "$root/go-mod"
+printf 'CQ_SONAR_EVIDENCE=%s\n' "$evidence" >>"$GITHUB_ENV"
+printf 'CQ_SONAR_ROOT=%s\n' "$root" >>"$GITHUB_ENV"
+export HOME="$root/home" TMPDIR="$root/tmp" GOCACHE="$root/go-build" GOMODCACHE="$root/go-mod"
+# Python imports must not dirty the checkout required by both fences.
+# Keep caches outside source; -B also protects isolated helper calls.
+export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$root/python-cache"
+
+compose_project="cq-sonar-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+compose=(docker compose --project-name "$compose_project" --env-file "$state/compose.env" -f audit/compose.yaml -f "$state/analyzer-override.json")
+compose_start_attempted=0
+startup_diagnostics_collected=0
+collect_startup_diagnostics() {
+  (( compose_start_attempted == 1 && startup_diagnostics_collected == 0 )) || return 0
+  startup_diagnostics_collected=1
+  set +e
+  states="$state/startup-container-states.ndjson"
+  classes="$state/startup-failure-classes.txt"
+  : >"$states"
+  : >"$classes"
+  for service in sonarqube database; do
+    inspect_available=false
+    lifecycle=''
+    running=''
+    exit_code=''
+    oom_killed=''
+    restart_count=''
+    health=''
+    container_id="$(timeout 10s "${compose[@]}" ps --all -q "$service" 2>/dev/null)"
+    if [[ "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+      # Inspect exactly the service lifecycle fields needed to
+      # distinguish exit, OOM, restart, and health states.
+      fields="$(timeout 10s docker inspect --format '{{.State.Status}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null)"
+      IFS='|' read -r lifecycle running exit_code oom_killed restart_count health <<<"$fields"
+      if test -n "${lifecycle:-}" && test -n "${running:-}" && test -n "${exit_code:-}" && test -n "${oom_killed:-}" && test -n "${restart_count:-}" && test -n "${health:-}"; then
+        inspect_available=true
+      fi
+    fi
+    timeout 15s "${compose[@]}" logs --no-color --tail 200 "$service" >"$state/${service}-startup.log" 2>&1
+    log_exit_status=$?
+    case "$log_exit_status" in ''|*[!0-9]*) log_exit_status=255;; esac
+    if test "$inspect_available" = true; then
+      jq -cn --arg service "$service" --arg lifecycle "$lifecycle" --arg running "$running" --arg exit_code "$exit_code" --arg oom_killed "$oom_killed" --arg restart_count "$restart_count" --arg health "$health" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:true,status:$lifecycle,running:$running,exit_code:$exit_code,oom_killed:$oom_killed,restart_count:$restart_count,health:$health,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+    else
+      jq -cn --arg service "$service" --argjson log_exit_status "$log_exit_status" '{service:$service,inspect_available:false,private_log_available:($log_exit_status == 0),private_log_exit_status:$log_exit_status}' >>"$states"
+    fi
+  done
+  for class in 'java.lang.OutOfMemoryError' 'java.lang.IllegalStateException' 'java.net.BindException' 'java.net.ConnectException' 'java.sql.SQLException' 'org.elasticsearch.bootstrap.BootstrapException' 'org.elasticsearch.ElasticsearchException'; do
+    grep -Fqs "$class" "$state/sonarqube-startup.log" "$state/database-startup.log" && printf '%s\n' "$class" >>"$classes"
+  done
+  timeout 15s "${compose[@]}" exec -T sonarqube sh -c 'for process in /proc/[0-9]*; do test -r "$process/comm" || continue; comm=$(cat "$process/comm"); case "$comm" in java|java*) printf "pid=%s comm=%s\\n" "${process##*/}" "$comm"; cat "$process/limits"; exit 0;; esac; done; exit 3' >"$evidence/sonarqube-java-process-limits.txt" 2>&1
+  java_limits_status=$?
+  java_process_found=false
+  if test "$java_limits_status" = 0 && grep -q '^pid=[0-9][0-9]* comm=java' "$evidence/sonarqube-java-process-limits.txt"; then java_process_found=true; fi
+  jq -n --slurpfile container_states "$states" --rawfile failure_classes "$classes" --arg java_process_status "$java_limits_status" --argjson java_process_found "$java_process_found" '{container_inspect:$container_states,known_startup_failure_classes:($failure_classes | split("\n") | map(select(length > 0))),java_process_limits:{available:($java_process_status == "0"),process_found:$java_process_found},diagnostics_availability:"present; classifications are not proof of zero startup failures"}' >"$evidence/startup-diagnostics.json"
+  return 0
+}
+cleanup() {
+  status=$?
+  trap - EXIT INT TERM
+  set +e
+  if (( compose_start_attempted == 0 )); then
+    printf 'cleanup=skipped-no-compose-resources\n' >"$evidence/cleanup-status.txt"
+    exit "$status"
+  fi
+  collect_startup_diagnostics
+  if ! test -f "$state/compose.env"; then
+    printf 'cleanup_status=missing-compose-env\n' >"$evidence/cleanup-status.txt"
+    if (( status == 0 )); then exit 1; fi
+    exit "$status"
+  fi
+  timeout 60s "${compose[@]}" down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
+  cleanup_status=$?
+  if (( cleanup_status != 0 )); then
+    printf 'cleanup_status=%s\n' "$cleanup_status" >"$evidence/cleanup-status.txt"
+    if (( status == 0 )); then exit 1; fi
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+result=0
+fail() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-failure:%s\n' "$1" >&2; result=1; }
+fatal() { printf '%s\n' "$1" >>"$evidence/failures.txt"; printf 'sonar-gate-fatal:%s\n' "$1" >&2; exit 2; }
+for command in docker curl jq sha256sum unzip timeout go python node npm java keytool; do
+  command -v "$command" >>"$evidence/tools.txt" 2>&1 || fatal "missing-tool:$command"
+done
+docker compose version >>"$evidence/tools.txt" 2>&1 || fatal "missing-compose-plugin"
+git rev-parse --show-toplevel >"$evidence/source-root.txt" 2>&1 || fatal "source-root-unavailable"
+test "$(cat "$evidence/source-root.txt")" = "$GITHUB_WORKSPACE" || fatal "source-root-not-workspace"
+git rev-parse HEAD >"$evidence/head.txt" 2>&1 || fatal "head-unavailable"
+git rev-parse 'HEAD^{tree}' >"$evidence/tree.txt" 2>&1 || fatal "tree-unavailable"
+git diff --quiet && git diff --cached --quiet || fatal "checkout-not-clean"
+test "$(cat "$evidence/head.txt")" = "$GITHUB_SHA" || fatal "head-not-triggering-sha"
+printf '%s\n' "https://docs.sonarsource.com/sonarqube-server/server-installation/pre-installation/linux/" >"$evidence/sonar-linux-prerequisite-reference.txt"
+vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable"
+printf 'before=%s\n' "$vm_max_map_count" >"$evidence/vm.max_map_count.txt"
+[[ "$vm_max_map_count" =~ ^[0-9]+$ ]] || fatal "vm-max-map-count-invalid"
+if (( vm_max_map_count < 524288 )); then
+  command -v sudo >>"$evidence/tools.txt" 2>&1 || fatal "vm-max-map-count-sudo-unavailable"
+  sudo -n sysctl -w vm.max_map_count=524288 >>"$evidence/vm.max_map_count.txt" 2>&1 || fatal "vm-max-map-count-set-failed"
+fi
+vm_max_map_count="$(cat /proc/sys/vm/max_map_count)" || fatal "vm-max-map-count-unavailable-after-set"
+printf 'after=%s\n' "$vm_max_map_count" >>"$evidence/vm.max_map_count.txt"
+[[ "$vm_max_map_count" =~ ^[0-9]+$ ]] && (( vm_max_map_count >= 524288 )) || fatal "vm-max-map-count-too-low"
+# These are diagnostics for the shell driving Docker, not the
+# SonarQube service process. The enforced values are read from PID 1
+# after Compose applies audit/compose.yaml's service ulimits.
+printf 'nofile_soft=%s\nnofile_hard=%s\nnproc_soft=%s\nnproc_hard=%s\n' "$(ulimit -Sn)" "$(ulimit -Hn)" "$(ulimit -Su)" "$(ulimit -Hu)" >"$evidence/runner-shell-limits.txt"
+limit_is_adequate() { [[ "$1" == unlimited ]] || { [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" >= "$2" )); }; }
+cat /proc/sys/fs/file-max >"$evidence/fs.file-max.txt" 2>&1 || fatal "fs-file-max-unavailable"
+test "$(cat "$evidence/fs.file-max.txt")" -ge 131072 || fatal "fs-file-max-too-low"
+awk '/MemAvailable:|MemTotal:/{print}' /proc/meminfo >"$evidence/memory.txt" 2>&1 || fatal "memory-unavailable"
+if test -r /sys/fs/cgroup/memory.max; then cat /sys/fs/cgroup/memory.max >>"$evidence/memory.txt"; fi
+if test -r /sys/fs/cgroup/memory/memory.limit_in_bytes; then cat /sys/fs/cgroup/memory/memory.limit_in_bytes >>"$evidence/memory.txt"; fi
+
+# The port is allocated only for this runner-local, loopback service.
+sonar_port="$(python3 - <<'PY'
+import socket
+with socket.socket() as s:
+    s.bind(('127.0.0.1', 0))
+    print(s.getsockname()[1])
+PY
+)" || fatal "loopback-port-allocation-failed"
+export SONAR_PORT="$sonar_port"
+
+go build -p 1 -trimpath -o "$root/cq-audit" ./cmd/cq-audit >>"$evidence/bootstrap.log" 2>&1 || fatal "bootstrap-build-failed"
+"$root/cq-audit" sonar-init --directory "$state" >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-init-failed"
+# Build public pinned source in this job; never export a Foo-built JAR.
+bash tools/build-sonar-python.sh "$root/analyzer-build" "$evidence" "$CQ_ANALYZER_PYTHON" || fatal "analyzer-source-build-failed"
+# JSON is YAML-compatible. Replace only the exact bundled Python JAR,
+# using the pre-start read-only mount from the retained runtime proof.
+python - "$root/analyzer-build/analyzer.jar" "$state/analyzer-override.json" <<'PYTHON'
+import json, sys
+source, output = sys.argv[1:]
+with open(output, 'w', encoding='utf-8') as stream:
+    json.dump({'services': {'sonarqube': {'volumes': [{
+        'type': 'bind', 'source': source,
+        'target': '/opt/sonarqube/lib/extensions/sonar-python-plugin-5.32.0.37250.jar',
+        'read_only': True}]}}}, stream)
+PYTHON
+sha256sum "$state/analyzer-override.json" >"$evidence/analyzer-overlay.sha256"
+compose_start_attempted=1
+timeout 240s "${compose[@]}" up -d >>"$evidence/compose-up.log" 2>&1 || fatal "compose-up-failed"
+timeout 20s "${compose[@]}" ps --format json >"$evidence/compose-ps.json" 2>&1 || fatal "compose-status-failed"
+timeout 20s "${compose[@]}" port sonarqube 9000 >"$evidence/sonarqube-port.txt" 2>&1 || fatal "sonarqube-port-readback-unavailable"
+sonar_port_mapping="$(cat "$evidence/sonarqube-port.txt")"
+test "$sonar_port_mapping" = "127.0.0.1:${sonar_port}" || fatal "sonarqube-port-not-requested-loopback"
+sonar_container_id="$(timeout 10s "${compose[@]}" ps --all -q sonarqube 2>/dev/null)" || fatal "sonarqube-container-id-unavailable"
+[[ "$sonar_container_id" =~ ^[0-9a-f]{12,64}$ ]] || fatal "sonarqube-container-id-invalid"
+timeout 10s docker inspect --format '{{json .NetworkSettings.Ports}}' "$sonar_container_id" >"$evidence/sonarqube-port-inspect.json" 2>&1 || fatal "sonarqube-port-inspect-unavailable"
+jq -e --arg port "$sonar_port" '
+  type == "object" and keys == ["9000/tcp"] and
+  .["9000/tcp"] as $bindings |
+  ($bindings | type == "array" and length == 1 and
+   .[0].HostIp == "127.0.0.1" and .[0].HostPort == $port)
+' "$evidence/sonarqube-port-inspect.json" >/dev/null || fatal "sonarqube-port-inspect-not-requested-loopback"
+analyzer_sha="$(awk 'NR == 1 {print $1}' "$evidence/analyzer-jar.sha256")"
+[[ "$analyzer_sha" =~ ^[0-9a-f]{64}$ ]] || fatal "built-analyzer-digest-invalid"
+timeout 20s "${compose[@]}" exec -T sonarqube sha256sum /opt/sonarqube/lib/extensions/sonar-python-plugin-5.32.0.37250.jar >"$evidence/server-python-analyzer.sha256" 2>&1 || fatal "server-analyzer-digest-unavailable"
+server_analyzer_sha="$(awk 'NR == 1 {print $1}' "$evidence/server-python-analyzer.sha256")"
+test "$server_analyzer_sha" = "$analyzer_sha" || fatal "server-analyzer-digest-mismatch"
+timeout 20s "${compose[@]}" exec -T sonarqube cat /proc/1/limits >"$evidence/sonarqube-process-limits.txt" 2>&1 || fatal "sonarqube-process-limits-unavailable"
+read -r sonar_nofile_soft sonar_nofile_hard < <(awk '$1 == "Max" && $2 == "open" && $3 == "files" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+test -n "${sonar_nofile_soft:-}" && test -n "${sonar_nofile_hard:-}" || fatal "sonarqube-nofile-limits-missing"
+limit_is_adequate "$sonar_nofile_soft" 131072 && limit_is_adequate "$sonar_nofile_hard" 131072 || fatal "sonarqube-nofile-limits-too-low"
+read -r sonar_nproc_soft sonar_nproc_hard < <(awk '$1 == "Max" && $2 == "processes" { print $(NF-2), $(NF-1); exit }' "$evidence/sonarqube-process-limits.txt")
+test -n "${sonar_nproc_soft:-}" && test -n "${sonar_nproc_hard:-}" || fatal "sonarqube-nproc-limits-missing"
+limit_is_adequate "$sonar_nproc_soft" 8192 && limit_is_adequate "$sonar_nproc_hard" 8192 || fatal "sonarqube-nproc-limits-too-low"
+
+ready=0
+for _ in $(seq 1 90); do
+  if curl --connect-timeout 5 --max-time 10 --fail --silent --show-error "http://127.0.0.1:${sonar_port}/api/system/status" >"$evidence/system-status.json" 2>>"$evidence/bootstrap.log"; then
+    if jq -e '.status == "UP"' "$evidence/system-status.json" >/dev/null; then ready=1; break; fi
+  fi
+  sleep 2
+done
+if (( ready != 1 )); then
+  collect_startup_diagnostics
+  fatal "sonar-not-ready"
+fi
+"$root/cq-audit" sonar-bootstrap --directory "$state" --url "http://127.0.0.1:${sonar_port}" --project cq --token-validity-days 30 >>"$evidence/bootstrap.log" 2>&1 || fatal "sonar-bootstrap-failed"
+
+# The lock's archive digest was read from the official SonarSource
+# .sha256 sidecar; the executable digest is an independent receipt.
+lock=tools/sonar-scanner.json
+archive_url="$(jq -er '.archive_url | select(startswith("https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/"))' "$lock")" || fatal "scanner-lock-url-invalid"
+archive_sha="$(jq -er '.archive_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-digest-invalid"
+archive_sha_source="$(jq -er '.archive_sha256_source | select(. == "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.3.1.16491-linux-x64.zip.sha256")' "$lock")" || fatal "scanner-lock-source-invalid"
+executable_path="$(jq -er '.executable_path | select(test("^sonar-scanner-[0-9.]+-linux-x64/bin/sonar-scanner$"))' "$lock")" || fatal "scanner-lock-path-invalid"
+executable_sha="$(jq -er '.executable_sha256 | select(test("^[0-9a-f]{64}$"))' "$lock")" || fatal "scanner-lock-executable-digest-invalid"
+cp "$lock" "$evidence/sonar-scanner-lock.json"
+curl --connect-timeout 15 --max-time 30 --max-filesize 4096 --fail --silent --show-error --location "$archive_sha_source" --output "$evidence/scanner-archive.sha256" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-sidecar-download-failed"
+sidecar_sha="$(awk 'NR == 1 { print $1 } NR > 1 { invalid = 1 } END { if (NR != 1 || invalid) exit 1 }' "$evidence/scanner-archive.sha256")" || fatal "scanner-sidecar-format-invalid"
+[[ "$sidecar_sha" =~ ^[0-9a-f]{64}$ ]] || fatal "scanner-sidecar-digest-invalid"
+test "$sidecar_sha" = "$archive_sha" || fatal "scanner-sidecar-lock-mismatch"
+curl --connect-timeout 15 --max-time 300 --max-filesize 200000000 --fail --silent --show-error --location "$archive_url" --output "$root/scanner.zip" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-download-failed"
+printf '%s  %s\n' "$archive_sha" "$root/scanner.zip" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-archive-digest-mismatch"
+unzip -q "$root/scanner.zip" -d "$root/scanner" >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-extraction-failed"
+scanner="$root/scanner/$executable_path"
+printf '%s  %s\n' "$executable_sha" "$scanner" | sha256sum -c - >>"$evidence/scanner-download.log" 2>&1 || fatal "scanner-executable-digest-mismatch"
+"$scanner" --version >"$evidence/scanner-version.txt" 2>&1 || fatal "scanner-version-failed"
+grep -F '8.3.1.16491' "$evidence/scanner-version.txt" >/dev/null || fatal "scanner-version-mismatch"
+
+# Produce reports in this same checkout before scanning; do not import
+# another revision's artifact or turn a failed producer into a pass.
+if python -m venv "$root/python" >"$evidence/python-install.log" 2>&1; then
+  python_tool="$root/python/bin/python"
+  python_lock_status=0
+  "$python_tool" .github/scripts/sdk_python_lock.py --verify-lock sdk/python/locks/ci-linux-py314.txt --requirements sdk/python/requirements-ci.txt >>"$evidence/python-install.log" 2>&1 || python_lock_status=$?
+  (( python_lock_status == 0 )) || fail "python-lock-invalid:$python_lock_status"
+  if (( python_lock_status == 0 )) && "$python_tool" -m pip --isolated install --disable-pip-version-check --no-input --require-hashes --only-binary=:all: -r sdk/python/locks/ci-linux-py314.txt >>"$evidence/python-install.log" 2>&1; then
+    # Bind the report denominator to the tracked production Python
+    # inventory under the unchanged Sonar source/test declarations.
+    "$python_tool" - "$GITHUB_SHA" "$state/python-production-inventory.json" <<'PYTHON_INVENTORY' || fail "python-production-inventory-invalid"
+import json, pathlib, re, subprocess, sys
+try:
+    properties = dict(line.split("=", 1) for line in pathlib.Path("sonar-project.properties").read_text().splitlines() if line and not line.startswith("#"))
+    if properties["sonar.sources"] != "." or properties["sonar.tests"] != ".":
+        raise ValueError("source scope changed")
+    patterns = properties["sonar.exclusions"].split(",") + properties["sonar.test.inclusions"].split(",")
+    def matches(name, pattern):
+        expression = re.escape(pattern).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
+        return re.fullmatch(expression, name) is not None
+    raw = subprocess.check_output(["git", "ls-tree", "-rz", sys.argv[1]])
+    if len(raw) > 4 << 20:
+        raise ValueError("inventory bound")
+    inventory = []
+    for entry in raw.split(b"\0"):
+        if not entry:
+            continue
+        header, path = entry.split(b"\t", 1)
+        mode, kind, blob = header.decode().split()
+        name = path.decode("utf-8")
+        if not name.endswith(".py") or any(matches(name, pattern) for pattern in patterns):
+            continue
+        if kind != "blob" or mode not in {"100644", "100755"}:
+            raise ValueError("production file type")
+        if not name.startswith(("sdk/python/src/", ".github/scripts/", "examples/landing-motion/")):
+            raise ValueError("unmeasured production root")
+        inventory.append(name)
+    if not inventory or len(inventory) > 256:
+        raise ValueError("production inventory size")
+    pathlib.Path(sys.argv[2]).write_text(json.dumps(sorted(inventory)) + "\n")
+except Exception:
+    raise SystemExit("python-production-inventory-invalid") from None
+PYTHON_INVENTORY
+    "$python_tool" -B .github/scripts/python_coverage.py linux-begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/linux-python-tool" >"$state/linux-python-tool.log" 2>&1 || fail "python-linux-tool-identity-unavailable"
+    export COVERAGE_FILE="$evidence/python.coverage"
+    python_test_status=0
+    PYTHONPATH="$GITHUB_WORKSPACE/sdk/python/src" "$python_tool" -m coverage run --rcfile .github/sonar.coveragerc -m unittest discover -s sdk/python/tests -v >"$evidence/python-coverage.log" 2>&1 || python_test_status=$?
+    (( python_test_status == 0 )) || fail "python-tests-failed:$python_test_status"
+    # Keep the original Sonar contracts as an independent append,
+    # then measure the already-required Source/SDK suites once each.
+    # The report includes production files no suite executes yet.
+    cp "$evidence/python.coverage" "$state/sdk-python.coverage" || fail "python-metric-coverage-prior-unavailable"
+    metric_test_status=0
+    "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest discover -s .github/scripts/tests -p 'test_sonar_*_contract.py' -v >>"$evidence/python-coverage.log" 2>&1 || metric_test_status=$?
+    (( metric_test_status == 0 )) || fail "sonar-metric-contract-tests-failed:$metric_test_status"
+    cp "$evidence/python.coverage" "$state/sonar-python.coverage" || fail "python-helper-coverage-prior-unavailable"
+    helper_test_status=0
+    PYTHONPATH="$GITHUB_WORKSPACE/.github/scripts/tests" "$python_tool" -m coverage run --append --rcfile .github/sonar.coveragerc -m unittest -v test_go_mcp_coverage test_retain_audit_evidence test_sdk_python_check test_sdk_python_darwin_source_policy test_sdk_python_lock test_sdk_python_darwin_wheel test_platform_coverage test_build_explore test_sdk_python_check_completion test_sdk_python_lock_completion test_go_mcp_coverage_completion test_retain_audit_evidence_completion test_sdk_python_darwin_source_policy_completion test_source_union_intake test_python_coverage test_sdk_python_check_invariants test_browser_coverage test_source_gate test_browser_coverage_intake >>"$evidence/python-coverage.log" 2>&1 || helper_test_status=$?
+    (( helper_test_status == 0 )) || fail "python-helper-tests-failed:$helper_test_status"
+    python_coverage_status=0
+    "$python_tool" -m coverage xml --rcfile .github/sonar.coveragerc -o "$evidence/python-coverage.xml" >>"$evidence/python-coverage.log" 2>&1 || python_coverage_status=$?
+    # The raw Linux result stays a separate fact. Only the explicit
+    # full-scope composite below is the canonical coverage qualifier.
+    printf 'raw_linux_xml_exit=%s\nraw_linux_promoted=false\n' "$python_coverage_status" >"$evidence/python-raw-linux-status.txt"
+    (( python_coverage_status == 0 || python_coverage_status == 2 )) || fail "python-raw-report-unavailable:$python_coverage_status"
+    # Use the pinned coverage tool's public read API, not fabricated
+    # counters. XML must retain every indexed production Python file.
+    "$python_tool" - "$state/sdk-python.coverage" "$evidence/python.coverage" "$evidence/python-coverage.xml" "$GITHUB_WORKSPACE" "$state/python-production-inventory.json" "$state/sonar-python.coverage" <<'METRIC_PRESERVATION' || fail "python-metric-coverage-preservation-invalid"
+import json, os, pathlib, runpy, sys
+from coverage import CoverageData
+try:
+    after = CoverageData(basename=sys.argv[2])
+    after.read()
+    snapshots = [CoverageData(basename=path) for path in [sys.argv[1], sys.argv[6]]]
+    for before in snapshots:
+        before.read()
+        if not before.has_arcs() or not after.has_arcs() or not before.measured_files():
+            raise ValueError("missing branch data")
+        for name in before.measured_files():
+            if not set(before.lines(name) or ()) <= set(after.lines(name) or ()):
+                raise ValueError("missing prior lines")
+            if not set(before.arcs(name) or ()) <= set(after.arcs(name) or ()):
+                raise ValueError("missing prior arcs")
+    helpers = {
+        ".github/scripts/go_mcp_coverage.py", ".github/scripts/retain_audit_evidence.py",
+        ".github/scripts/sdk_python_check.py", ".github/scripts/sdk_python_darwin_source_policy.py",
+        ".github/scripts/sdk_python_darwin_wheel.py",
+        ".github/scripts/sdk_python_lock.py", ".github/scripts/sonar_metric_contract.py",
+        ".github/scripts/sonar_coverage_contract.py", ".github/scripts/sonar_baseline_contract.py",
+        ".github/scripts/platform_coverage.py", ".github/scripts/source_union_intake.py",
+        ".github/scripts/python_coverage.py", ".github/scripts/browser_coverage.py",
+        ".github/scripts/source_gate.py", ".github/scripts/browser_coverage_intake.py",
+        "examples/landing-motion/build-explore.py",
+    }
+    for helper in helpers:
+        if helper not in after.measured_files() or not after.lines(helper):
+            raise ValueError("missing helper execution")
+    with pathlib.Path(sys.argv[3]).open("rb") as stream:
+        raw = stream.read((16 << 20) + 1)
+    if len(raw) > 16 << 20:
+        raise ValueError("oversize XML")
+    workspace = pathlib.Path(sys.argv[4]).resolve(strict=True)
+    if workspace != pathlib.Path.cwd().resolve():
+        raise ValueError("checkout root mismatch")
+    contract = runpy.run_path(str(workspace / ".github/scripts/sonar_coverage_contract.py"))
+    updated = contract["with_repository_source"](raw, str(workspace))
+    reported = contract["resolved_file_paths"](updated, str(workspace))
+    inventory = set(json.loads(pathlib.Path(sys.argv[5]).read_text()))
+    if any(not set(before.measured_files()) <= inventory for before in snapshots) or not set(after.measured_files()) <= inventory:
+        raise ValueError("coverage source classification")
+    required = {os.path.normpath(os.path.join(workspace, name)) for name in inventory}
+    if required != reported:
+        raise ValueError("production XML denominator mismatch")
+    # Insert only the explicit source element; never serialize class
+    # subtrees or modify measured lines, branches or totals.
+    pathlib.Path(sys.argv[3]).write_bytes(updated)
+except Exception:
+    raise SystemExit("python-metric-coverage-preservation-invalid") from None
+METRIC_PRESERVATION
+    # Preserve original database/XML and export real coverage.py JSON;
+    # this export is retention, not a lower subset coverage threshold.
+    "$python_tool" -B .github/scripts/python_coverage.py linux-check --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/linux-python-tool" >>"$state/linux-python-tool.log" 2>&1 || fail "python-linux-tool-identity-changed"
+    linux_json_status=0
+    "$python_tool" -m coverage json --rcfile .github/sonar.coveragerc --fail-under=0 -o "$evidence/python-linux-original.json" >>"$evidence/python-coverage.log" 2>&1 || linux_json_status=$?
+    cp "$evidence/python-coverage.xml" "$evidence/python-linux-original.xml" || fatal "python-linux-retention-failed"
+    native_python_status=2
+    if test "$linux_json_status" = 0 && test "$sonar_input_native_python_ready" = true && test "$sonar_input_native_python_archive" = success; then
+      native_python_status=0
+      GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/python_coverage.py consume --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/native-python-composite" --binding "$RUNNER_TEMP/cq-sonar-python-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 "$sonar_input_native_python_sha" --archives "$RUNNER_TEMP/cq-sonar-python-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --linux-json "$evidence/python-linux-original.json" --linux-xml "$evidence/python-linux-original.xml" --linux-tool "$state/linux-python-tool/linux-tool-verified.json" >"$state/native-python-intake.log" 2>&1 || native_python_status=$?
+      if (( native_python_status == 0 || native_python_status == 1 )); then
+        if cp "$state/native-python-composite/python-coverage.xml" "$evidence/python-coverage.xml" && cp "$state/native-python-composite/python-composite.json" "$evidence/python-composite.json"; then
+          : # Valid incomplete composites are retained but still fail100.
+        else
+          native_python_status=2
+          cp "$evidence/python-linux-original.xml" "$evidence/python-coverage.xml" || fatal "python-linux-fallback-failed"
+        fi
+      fi
+    fi
+    printf 'native_intake_exit=%s\nraw_linux_promoted=false\n' "$native_python_status" >"$evidence/python-canonical-status.txt"
+    case "$native_python_status" in
+      0) : ;;
+      1) fail "python-native-coverage-not-100" ;;
+      *)
+        fail "python-native-evidence-unavailable-or-refused"
+        printf '%s\n' '{"kind":"same-source-native-python-composite","admitted":false,"selected":"raw-linux-fallback","global_gate_passed":false}' >"$evidence/python-composite.json"
+        ;;
+    esac
+    canonical_python_status=0
+    python -I -S -B - "$evidence/python-coverage.xml" <<'PYTHON_CANONICAL' || canonical_python_status=$?
+import pathlib, sys, xml.etree.ElementTree as ET
+try:
+    raw = pathlib.Path(sys.argv[1]).read_bytes()
+    if not 0 < len(raw) <= 16 << 20 or b"<!DOCTYPE" in raw:
+        raise ValueError("coverage bound")
+    root = ET.fromstring(raw)
+    if root.tag != "coverage" or root.get("version") != "7.17.0":
+        raise ValueError("coverage format")
+    lines, hits, branches, covered = [int(root.get(key, "-1")) for key in ("lines-valid", "lines-covered", "branches-valid", "branches-covered")]
+    if lines <= 0 or lines != hits or branches < 0 or branches != covered:
+        raise SystemExit(1)
+except Exception:
+    raise SystemExit(2) from None
+PYTHON_CANONICAL
+    (( canonical_python_status == 0 )) || fail "python-coverage-not-100:$canonical_python_status"
+    printf 'canonical_full_scope_exit=%s\n' "$canonical_python_status" >>"$evidence/python-canonical-status.txt"
+    unset COVERAGE_FILE
+  else
+    fail "python-dependency-install-failed"
+  fi
+else
+  fail "python-venv-failed"
+fi
+
+typescript_dependencies=sdk/typescript/node_modules
+if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+  fatal "unexpected-typescript-dependency-directory"
+fi
+if npm --prefix sdk/typescript ci --ignore-scripts --no-audit --no-fund >"$evidence/typescript-install.log" 2>&1; then
+  # Run c8 from the repository root so LCOV SF paths match Sonar's
+  # root. These are the existing SDK coverage gates and verifier.
+  typescript_coverage_status=0
+  sdk/typescript/node_modules/.bin/c8 --all --src sdk/typescript/src --include '**/*.ts' --extension .ts --exclude-after-remap --reports-dir "$evidence/typescript" --reporter=text --reporter=json --reporter=lcov --check-coverage --statements 100 --lines 100 --functions 100 --branches 100 npm --prefix sdk/typescript test >"$evidence/typescript-coverage.log" 2>&1 || typescript_coverage_status=$?
+  (( typescript_coverage_status == 0 )) || fail "typescript-coverage-not-100:$typescript_coverage_status"
+  typescript_report_status=0
+  node sdk/typescript/test/verify-coverage.mjs "$evidence/typescript/coverage-final.json" >>"$evidence/typescript-coverage.log" 2>&1 || typescript_report_status=$?
+  (( typescript_report_status == 0 )) || fail "typescript-coverage-report-invalid:$typescript_report_status"
+else
+  fail "typescript-dependency-install-failed"
+fi
+# Sonar imports coverage only for indexed production files. Omit the
+# classified test files and the ignored worker module they generate.
+# Keep repeated source records for SonarJS to merge.
+mkdir -p "$evidence/browser" || fatal "browser-evidence-directory-failed"
+browser_node="$(node -p process.execPath)"
+baseline="$RUNNER_TEMP/cq-browser-full-browser-linux"
+baseline_begin_status=0
+python -I -S -B .github/scripts/browser_coverage.py begin --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$baseline" --node "$browser_node" --platform linux --suite full-browser >"$state/browser-baseline.log" 2>&1 || baseline_begin_status=$?
+browser_report="$evidence/browser/lcov.info"
+if test "$baseline_begin_status" = 0; then browser_report="$baseline/lcov.info"; fi
+run_browser_once() {
+  "$browser_node" --test --test-concurrency=1 --experimental-test-coverage \
+  --test-coverage-exclude='examples/landing-motion/**/*.test.mjs' \
+  --test-coverage-exclude='web/**/*.test.mjs' \
+  --test-coverage-exclude=examples/landing-motion/.local/worker-routes.mjs \
+  --test-reporter=spec --test-reporter=lcov \
+  --test-reporter-destination=stdout --test-reporter-destination="$browser_report" \
+  examples/landing-motion/*.test.mjs examples/landing-motion/client-help/integrity.test.mjs \
+  web/boundary.test.mjs web/configuration-undo.test.mjs web/guided-policy.test.mjs \
+  web/imported-json.test.mjs web/module-boundary.test.mjs web/schema.test.mjs \
+  web/help.test.mjs web/presentation-preferences.test.mjs \
+  web/build-tools-completion.test.mjs web/configuration-completion.test.mjs \
+  web/coverage-report-completion.test.mjs web/entry-completion.test.mjs \
+  web/help-component-completion.test.mjs web/presentation-completion.test.mjs \
+  web/schema-completion.test.mjs web/server-completion.test.mjs \
+  web/ui-completion.test.mjs web/workbench-completion.test.mjs
+}
+browser_coverage_status=0
+if test "$baseline_begin_status" = 0; then
+  NODE_V8_COVERAGE="$baseline/raw" run_browser_once >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+else
+  run_browser_once >"$evidence/browser-coverage.log" 2>&1 || browser_coverage_status=$?
+fi
+printf 'browser_test_exit=%s\n' "$browser_coverage_status" >"$evidence/browser-test-status.txt"
+(( browser_coverage_status == 0 )) || fail "browser-tests-failed:$browser_coverage_status"
+baseline_retain_status=2
+if test "$baseline_begin_status" = 0; then
+  baseline_retain_status=0
+  python -I -S -B .github/scripts/browser_coverage.py retain --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$baseline" --node "$browser_node" --platform linux --suite full-browser --test-exit "$browser_coverage_status" >>"$state/browser-baseline.log" 2>&1 || baseline_retain_status=$?
+  cp "$baseline/lcov.info" "$evidence/browser/lcov.info" || fail "browser-original-copy-failed"
+fi
+cp "$evidence/browser/lcov.info" "$evidence/browser/lcov-linux-original.info" || fail "browser-raw-report-retention-failed"
+(( baseline_begin_status == 0 && baseline_retain_status == 0 )) || fail "browser-local-baseline-unavailable-or-refused"
+browser_union_status=2
+if test "$baseline_retain_status" = 0 && test "$sonar_input_native_browser_ready" = true && test "$sonar_input_native_browser_linux" = success && test "$sonar_input_native_browser_macos" = success && test "$sonar_input_native_browser_windows" = success; then
+  browser_admission_status=0
+  GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/browser_coverage_intake.py consume --source "$GITHUB_WORKSPACE" --sonar-run "$GITHUB_RUN_ID" --expected-commit "$GITHUB_SHA" --head "$sonar_input_pr_head" --pr "$sonar_input_pr_number" --binding "$RUNNER_TEMP/cq-sonar-browser-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 "$sonar_input_native_browser_sha" --archives "$RUNNER_TEMP/cq-sonar-browser-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --output "$state/browser-api-admission" >"$state/browser-intake.log" 2>&1 || browser_admission_status=$?
+  if test "$browser_admission_status" = 0; then
+    browser_pins_sha="$(sha256sum <"$state/browser-api-admission/pins.json" | awk '{print $1}')"
+    # Three external provider ZIPs, one explicitly local current
+    # baseline directory. Never invent a fourth artifact ID/hash.
+    browser_union_status=0
+    python -I -S -B .github/scripts/browser_coverage.py union --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$RUNNER_TEMP/cq-browser-composite" --node "$browser_node" --pins "$state/browser-api-admission/pins.json" --expected-pins-sha256 "$browser_pins_sha" --baseline "$baseline" --linux "$state/browser-api-admission/linux.zip" --macos "$state/browser-api-admission/macos.zip" --windows "$state/browser-api-admission/windows.zip" >>"$state/browser-intake.log" 2>&1 || browser_union_status=$?
+    if (( browser_union_status == 0 || browser_union_status == 1 )); then
+      if cp "$RUNNER_TEMP/cq-browser-composite/lcov.info" "$evidence/browser/lcov.info" && cp "$RUNNER_TEMP/cq-browser-composite/composite.json" "$evidence/browser/composite.json" && cp "$RUNNER_TEMP/cq-browser-composite/gaps.json" "$evidence/browser/gaps.json" && cp "$state/browser-api-admission/admission.json" "$evidence/browser/admission.json"; then
+        : # A genuine shortfall still fails; original LCOV stays separate.
+      else
+        browser_union_status=2
+        cp "$evidence/browser/lcov-linux-original.info" "$evidence/browser/lcov.info" || fatal "browser-original-fallback-copy-failed"
+      fi
+    fi
+  fi
+fi
+printf 'original_test_exit=%s\nbaseline_begin_exit=%s\nbaseline_retain_exit=%s\ncanonical_union_exit=%s\noriginal_promoted=false\n' "$browser_coverage_status" "$baseline_begin_status" "$baseline_retain_status" "$browser_union_status" >"$evidence/browser/canonical-status.txt"
+case "$browser_union_status" in
+  0) : ;;
+  1) fail "browser-canonical-coverage-not-100" ;;
+  *) fail "browser-native-evidence-unavailable-or-refused" ;;
+esac
+test -s "$evidence/browser/lcov.info" || fail "browser-coverage-report-missing"
+
+# The scanner's source root is the checkout. Move generated test
+# dependencies outside it before the scanner indexes source files.
+if test -e "$typescript_dependencies" || test -L "$typescript_dependencies"; then
+  mv "$typescript_dependencies" "$root/typescript-node_modules" || fatal "typescript-dependency-isolation-failed"
+fi
+test -s "$evidence/python-coverage.xml" || fail "python-coverage-report-missing"
+test -s "$evidence/typescript/lcov.info" || fail "typescript-coverage-report-missing"
+
+# Reuse the integration lane's pinned synthetic WireMock input.
+# Join only the existing tagged provider lane. Other tagged suites
+# retain their own explicit fixture and admission requirements.
+wiremock_url="$(jq -er '.wiremock.jar' tools/integration-tools.json)" || fatal "wiremock-url-missing"
+wiremock_source="$(jq -er '.wiremock.source' tools/integration-tools.json)" || fatal "wiremock-checksum-source-missing"
+wiremock_sha="$(jq -er '.wiremock.sha256 | select(test("^[0-9a-f]{64}$"))' tools/integration-tools.json)" || fatal "wiremock-digest-invalid"
+curl --connect-timeout 15 --max-time 60 --max-filesize 256 --fail --silent --show-error "$wiremock_source" --output "$root/wiremock.sha256" >"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-checksum-download-failed"
+published_wiremock_sha="$(<"$root/wiremock.sha256")"
+test "$published_wiremock_sha" = "$wiremock_sha" || fatal "wiremock-published-digest-mismatch"
+export CQ_WIREMOCK_JAR="$root/wiremock-standalone.jar"
+curl --connect-timeout 15 --max-time 300 --max-filesize 268435456 --fail --silent --show-error "$wiremock_url" --output "$CQ_WIREMOCK_JAR" >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-download-failed"
+printf '%s  %s\n' "$wiremock_sha" "$CQ_WIREMOCK_JAR" | sha256sum -c - >>"$evidence/wiremock-download.log" 2>&1 || fatal "wiremock-digest-mismatch"
+
+mapfile -t packages < <(go list -f '{{.ImportPath}}' ./... 2>"$evidence/go-list.log")
+(( ${#packages[@]} > 0 )) || fail "no-module-packages"
+coverage="$evidence/coverage.raw.out"
+coverpkg="$(IFS=,; printf '%s' "${packages[*]}")"
+set +e
+go test -count=1 -p 1 -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$coverage" ./... >"$evidence/go-test.log" 2>&1
+coverage_test_status=$?
+(( coverage_test_status == 0 )) || fail "coverage-test-failed:$coverage_test_status"
+integration_coverage="$evidence/coverage.integration.out"
+go test -count=1 -p 1 -tags=integration -covermode=atomic -coverpkg="$coverpkg" -coverprofile="$integration_coverage" ./internal/integration >"$evidence/go-integration-test.log" 2>&1
+integration_test_status=$?
+(( integration_test_status == 0 )) || fail "integration-coverage-test-failed:$integration_test_status"
+coverage_profiles=("$coverage")
+if test -s "$integration_coverage"; then
+  coverage_profiles+=("$integration_coverage")
+else
+  fail "integration-coverage-profile-missing"
+fi
+if test -s "$coverage"; then
+  awk '
+    FNR == 1 { if ($0 != "mode: atomic") bad=1; if (NR == 1) print; next }
+    { key=$1; statements=$2; count=$3; if (key in seen && seen[key] != statements) { bad=1; next }; seen[key]=statements; if (!(key in maximum) || count > maximum[key]) maximum[key]=count }
+    END { if (bad) exit 2; for (key in seen) print key " " seen[key] " " maximum[key] }
+  ' "${coverage_profiles[@]}" >"$evidence/coverage.out"
+  coverage_union_status=$?
+  (( coverage_union_status == 0 )) || fail "coverage-union-invalid"
+  # Preserve this exact Linux+tagged report even when a genuine
+  # full-platform union supplies additional same-source counters.
+  cp "$evidence/coverage.out" "$evidence/coverage-linux-original.out" || fatal "linux-coverage-retention-failed"
+  source_union_admitted=0
+  if test "$sonar_input_source_union_ready" = true && test "$sonar_input_source_union_archive" = success; then
+    GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/source_union_intake.py consume --source "$GITHUB_WORKSPACE" --expected-commit "$GITHUB_SHA" --output "$state/source-union-intake" --binding "$RUNNER_TEMP/cq-sonar-source-union-binding-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/binding.json" --binding-sha256 "$sonar_input_source_union_sha" --archives "$RUNNER_TEMP/cq-sonar-source-union-archives-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" --linux "$evidence/coverage-linux-original.out" >"$state/source-union-intake.log" 2>&1
+    if test "$?" = 0; then
+      if cp "$state/source-union-intake/coverage.out" "$evidence/coverage.out" && cp "$state/source-union-intake/source-union-intake.json" "$evidence/source-union-intake.json"; then
+        source_union_admitted=1
+      else
+        cp "$evidence/coverage-linux-original.out" "$evidence/coverage.out" || fatal "linux-coverage-fallback-write-failed"
+        fail "source-platform-union-publication-failed"
+      fi
+    fi
+  fi
+  source_union_token=''
+  if test "$source_union_admitted" != 1; then
+    fail "source-platform-union-unavailable-or-refused"
+    printf '%s\n' '{"kind":"sonar-authenticated-source-union","platform_union_admitted":false,"selected":"current-linux-fallback","global_gate_passed":false,"source_report_promoted":false}' >"$evidence/source-union-intake.json"
+  fi
+  awk 'NR > 1 { total += $2; if ($3 > 0) covered += $2 } END { if (total == 0) exit 2; printf "covered_statements=%d\ntotal_statements=%d\ncoverage_percent=%.9f\n", covered, total, 100*covered/total; if (covered != total) exit 1 }' "$evidence/coverage.out" >"$evidence/coverage-summary.txt"
+  coverage_status=$?
+  (( coverage_status == 0 )) || fail "coverage-not-100:$coverage_status"
+else
+  fail "coverage-profile-missing"
+fi
+
+# A real ancestor analysis in this SAME fresh server supplies a real
+# analysis UUID. Pinned 26.10 SetAction/ShowAction bind the main
+# branch, and NewLinesRepository uses its snapshot date. References:
+# https://github.com/SonarSource/sonarqube/tree/26.10.0.133078/server/sonar-webserver-webapi/src/main/java/org/sonar/server/newcodeperiod/ws
+# https://github.com/SonarSource/sonarqube/blob/26.10.0.133078/server/sonar-ce-task-projectanalysis/src/main/java/org/sonar/ce/task/projectanalysis/source/NewLinesRepository.java
+# It is an unqualified historical comparand, not an old
+# qualification, a current report, or a fabricated successful scan.
+baseline_state="$state/baseline"
+mkdir -m 700 "$baseline_state" || fatal "baseline-state-unavailable"
+baseline_requests=0
+baseline_get() {
+  local name=$1 route=$2 http native_status
+  (( baseline_requests < 12 )) || return 1
+  baseline_requests=$((baseline_requests + 1))
+  http="$(curl --connect-timeout 5 --max-time 30 --max-filesize 131072 --silent --show-error \
+    --config "$baseline_state/scanner.config" --output "$baseline_state/$name.json" \
+    --write-out '%{http_code}' "http://127.0.0.1:${sonar_port}${route}" 2>>"$baseline_state/readback.log")"
+  native_status=$?
+  printf '%s\n' "$http" >"$evidence/baseline-$name.status"
+  test "$native_status" = 0 && test "$http" = 200
+}
+baseline_contract() {
+  env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+    "$CQ_ANALYZER_PYTHON" -I -S -B .github/scripts/sonar_baseline_contract.py "$@" \
+    2>>"$baseline_state/contract.log"
+}
+produce_ancestor_baseline() {
+  local day branch encoded_branch ce_task uuid scan_status post_http post_status
+  local source="$root/baseline-source"
+  baseline_stage=source-preparation
+  day="$(baseline_contract prepare "$GITHUB_WORKSPACE" "$GITHUB_SHA" \
+    "$evidence/system-status.json" "$evidence/baseline-source.json" "$executable_sha" "$analyzer_sha")" || return 1
+  # Full-history checkout is already required. Never fetch a guessed
+  # historical body, run old product code, or change the main checkout.
+  baseline_stage=owned-clone
+  mkdir -m 700 "$baseline_state/empty-template" || return 1
+  # Use an ordinary independent local clone, not a linked-worktree
+  # SCM interpretation or a hidden host checkout. Object storage was
+  # bounded above; copy no hardlinks/alternates/templates/credentials.
+  timeout 90s env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+    GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
+    git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+    clone --local --no-hardlinks --no-checkout --template="$baseline_state/empty-template" \
+    "$GITHUB_WORKSPACE" "$source" >"$baseline_state/clone.log" 2>&1 || return 1
+  timeout 90s env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 \
+    GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
+    git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false -C "$source" \
+    checkout --detach 4a9aae67eedfd161c4b23ecf6db1c767421447c3 \
+    >"$baseline_state/checkout.log" 2>&1 || return 1
+  baseline_contract verify "$source" || return 1
+  local token
+  token="$(<"$state/scanner.token")"
+  printf 'user = "%s:"\n' "$token" >"$baseline_state/scanner.config"
+  chmod 600 "$baseline_state/scanner.config"
+  unset token
+  baseline_stage=fresh-project
+  baseline_get before '/api/project_analyses/search?project=cq&ps=100' || return 1
+  baseline_contract empty "$baseline_state/before.json" || return 1
+  baseline_get branches '/api/project_branches/list?project=cq' || return 1
+  branch="$(baseline_contract branch "$baseline_state/branches.json")" || return 1
+  encoded_branch="$(jq -rn --arg value "$branch" '$value | @uri')" || return 1
+  token="$(<"$state/scanner.token")"
+  # The supported historical projectDate is ONLY the immutable Git
+  # committer UTC calendar day, not an invented earlier date. The
+  # exact returned effective date must match its conservative floor.
+  # CE submission/start/completion times are separately recorded NOW.
+  # Source-only ancestor analysis imports NO coverage from any head.
+  baseline_stage=ordinary-ancestor-analysis
+  ( cd "$source" && timeout --kill-after=15s 600s env -i \
+    PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" TZ=UTC \
+    SONAR_USER_HOME="$root/scanner-cache" SONAR_TOKEN="$token" "$scanner" \
+    -Dsonar.host.url="http://127.0.0.1:${sonar_port}" -Dsonar.projectKey=cq \
+    -Dsonar.scm.revision=4a9aae67eedfd161c4b23ecf6db1c767421447c3 \
+    -Dsonar.projectDate="$day" -Dsonar.scm.forceReloadAll=true \
+    -Dsonar.go.coverage.reportPaths= -Dsonar.python.coverage.reportPaths= \
+    -Dsonar.javascript.lcov.reportPaths= \
+    -Dsonar.scanner.metadataFilePath="$baseline_state/report-task.txt" \
+    -Dsonar.working.directory="$root/baseline-scanner-work" \
+    -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.ignoreSmallChanges=false \
+    >"$baseline_state/scanner.log" 2>&1 )
+  scan_status=$?
+  unset token
+  printf 'scanner_exit=%s\nqualified=false\n' "$scan_status" >"$evidence/baseline-scanner-status.txt"
+  baseline_contract verify "$source" || return 1
+  ce_task="$(awk -F= '$1 == "ceTaskId" {count++; value=$2} END {if(count!=1)exit 1; print value}' "$baseline_state/report-task.txt")" || return 1
+  [[ "$ce_task" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || return 1
+  baseline_get task "/api/ce/task?id=${ce_task}&additionalFields=warnings" || return 1
+  baseline_contract observe "$baseline_state/task.json" "$evidence/baseline-task-observation.json" || return 1
+  jq -e --arg expected "$ce_task" '.task.id == $expected and .task.componentKey == "cq" and .task.status == "SUCCESS"' \
+    "$baseline_state/task.json" >/dev/null 2>&1 || return 1
+  uuid="$(jq -er '.task.analysisId | select(type == "string" and test("^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$"))' "$baseline_state/task.json")" || return 1
+  baseline_get analyses '/api/project_analyses/search?project=cq&ps=100' || return 1
+  baseline_get gate "/api/qualitygates/project_status?analysisId=${uuid}" || return 1
+  baseline_stage=analysis-identity-binding
+  uuid="$(baseline_contract analysis "$evidence/baseline-source.json" "$baseline_state/report-task.txt" \
+    "$baseline_state/task.json" "$baseline_state/analyses.json" "$baseline_state/gate.json" \
+    "$scan_status" "$branch" "$evidence/baseline-analysis.json" unqualified)" || return 1
+  baseline_stage=specific-period-setting
+  baseline_contract admin "$state/admin.password" "$baseline_state/admin.config" || return 1
+  # Existing ephemeral administrator only, one project/branch setting;
+  # the separate scanner principal receives NO additional permission.
+  post_http="$(curl --connect-timeout 5 --max-time 30 --max-filesize 131072 --silent --show-error \
+    --config "$baseline_state/admin.config" --request POST \
+    --data-urlencode project=cq --data-urlencode "branch=$branch" \
+    --data-urlencode type=SPECIFIC_ANALYSIS --data-urlencode "value=$uuid" \
+    --output "$baseline_state/set-response" --write-out '%{http_code}' \
+    "http://127.0.0.1:${sonar_port}/api/new_code_periods/set" 2>>"$baseline_state/readback.log")"
+  post_status=$?
+  printf '%s\n' "$post_http" >"$evidence/baseline-setting.status"
+  # Never retry a potentially applied mutation. Reconcile its one
+  # original effect by branch-specific readback even on transport loss.
+  baseline_stage=branch-specific-period-readback
+  baseline_get period "/api/new_code_periods/show?project=cq&branch=${encoded_branch}" || return 1
+  baseline_get server '/api/system/status' || return 1
+  baseline_contract period "$baseline_state/period.json" "$evidence/baseline-analysis.json" \
+    "$baseline_state/server.json" "$evidence/baseline-period.json" || return 1
+  if test "$post_status" != 0 || test "$post_http" != 204; then
+    fail "baseline-setting-transport-not-clean"
+  fi
+  # Retain only sanitized identities/outcomes; never the private
+  # token/config, source worktree, raw scanner output or raw API data.
+  baseline_stage=established
+  return 0
+}
+current_checkout_is_clean() {
+  local selected_commit checkout_status
+  selected_commit="$(git rev-parse HEAD)" && test "$selected_commit" = "$GITHUB_SHA" \
+    && git diff --quiet && git diff --cached --quiet \
+    && checkout_status="$(git status --porcelain --untracked-files=all)" && test -z "$checkout_status"
+}
+baseline_stage=not-started
+baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-before.json" || fail "baseline-source-state-before-unavailable"
+current_checkout_is_clean || fatal "current-source-invalid-before-baseline"
+if produce_ancestor_baseline; then
+  printf 'status=established\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+else
+  printf 'status=unavailable\nstage=%s\n' "$baseline_stage" >"$evidence/baseline-producer-status.txt"
+  fail "baseline-producer-unavailable"
+fi
+baseline_contract state "$GITHUB_WORKSPACE" "$evidence/baseline-source-state-after.json" || fail "baseline-source-state-after-unavailable"
+current_checkout_is_clean || fatal "current-source-changed-by-baseline"
+
+# Scanner and server readback deliberately run even after coverage
+# has failed, so one report retains both strict gate outcomes.
+scanner_status=127
+if test -r "$state/scanner.token" && test -x "$scanner"; then
+  sonar_token="$(<"$state/scanner.token")"
+  # Community Build has no branch or PR analysis. Scanner CLI can
+  # auto-detect GitHub PR parameters, so run it with a deliberately
+  # minimal environment while retaining the explicit revision fence.
+  env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" SONAR_USER_HOME="$root/scanner-cache" SONAR_TOKEN="$sonar_token" "$scanner" \
+    -Dsonar.host.url="http://127.0.0.1:${sonar_port}" \
+    -Dsonar.projectKey=cq \
+    -Dsonar.scm.revision="$GITHUB_SHA" \
+    -Dsonar.go.coverage.reportPaths="$evidence/coverage.out" \
+    -Dsonar.python.coverage.reportPaths="$evidence/python-coverage.xml" \
+    -Dsonar.javascript.lcov.reportPaths="$evidence/typescript/lcov.info,$evidence/browser/lcov.info" \
+    -Dsonar.scanner.metadataFilePath="$evidence/report-task.raw.txt" \
+    -Dsonar.working.directory="$root/scanner-work" \
+    -Dsonar.qualitygate.wait=true \
+    -Dsonar.qualitygate.ignoreSmallChanges=false >"$evidence/scanner.log" 2>&1
+  scanner_status=$?
+  unset sonar_token
+else
+  fail "scanner-prerequisite-missing"
+fi
+printf 'scanner_exit=%s\n' "$scanner_status" >"$evidence/scanner-status.txt"
+# Check the exact analyzer bytes actually downloaded by this scanner.
+# A matching version label alone is not an artifact identity binding.
+python - "$root/scanner-cache" "$analyzer_sha" "$evidence/scanner-python-analyzer.json" <<'PYTHON' || fail "scanner-analyzer-digest-contract"
+import hashlib, json, pathlib, sys, zipfile
+root, expected, output = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+if not root.is_dir() or root.is_symlink():
+    raise SystemExit("scanner cache unavailable")
+found = []
+entries = 0
+for path in root.rglob('*'):
+    entries += 1
+    if entries > 2000 or path.is_symlink():
+        raise SystemExit("scanner cache shape exceeds contract")
+    if not path.is_file() or path.suffix != '.jar':
+        continue
+    if path.stat().st_size > 200000000:
+        raise SystemExit("scanner JAR exceeds contract")
+    with zipfile.ZipFile(path) as archive:
+        try:
+            info = archive.getinfo('META-INF/MANIFEST.MF')
+        except KeyError:
+            continue
+        if info.file_size > 65536:
+            raise SystemExit("scanner manifest exceeds contract")
+        manifest = archive.read(info).decode('utf-8').replace('\r\n ', '').splitlines()
+    if 'Plugin-Key: python' not in manifest:
+        continue
+    with path.open('rb') as stream:
+        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+    found.append({'path': str(path.relative_to(root)), 'sha256': digest})
+if len(found) != 1 or found[0]['sha256'] != expected:
+    raise SystemExit("cached Python analyzer absent, ambiguous or mismatched")
+with open(output, 'w', encoding='utf-8') as stream:
+    json.dump({'expected_sha256': expected, 'scanner_cached_python_analyzers': found}, stream)
+PYTHON
+scanner_warnings="$(grep -Eic '(^|[^[:alpha:]])WARN([^[:alpha:]]|$)' "$evidence/scanner.log" 2>/dev/null || true)"
+printf 'scanner_warning_lines=%s\n' "$scanner_warnings" >"$evidence/scanner-warnings.txt"
+(( scanner_warnings == 0 )) || fail "scanner-warnings:$scanner_warnings"
+
+readback_ok=1
+: >"$evidence/readback-failures.txt"
+readback_fail() {
+  readback_ok=0
+  # Callers supply fixed reason codes and local request names/indices.
+  # Never include server response bodies, component keys or credentials.
+  printf '%s\n' "$1" >>"$evidence/readback-failures.txt"
+  printf 'sonar-readback-failure:%s\n' "$1"
+}
+warning_count_is_zero() {
+  jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' "$1" >/dev/null 2>&1
+}
+for fixture in '{"task":{}}' '{"task":{"warningCount":"0"}}' '{"task":{"warningCount":1}}'; do
+  if printf '%s\n' "$fixture" | jq -e '.task.warningCount as $count | ($count | type) == "number" and $count >= 0 and ($count | floor) == $count and $count == 0' >/dev/null 2>&1; then
+    fatal "ce-warning-contract-fixture-accepted"
+  fi
+done
+request() {
+  name=$1
+  route=$2
+  status="$(curl --connect-timeout 5 --max-time 30 --silent --show-error --output "$evidence/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
+  printf '%s\n' "$status" >"$evidence/${name}.status"
+  test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
+}
+if test -r "$state/scanner.token" && test -s "$evidence/report-task.raw.txt"; then
+  sonar_token="$(<"$state/scanner.token")"
+  printf 'user = "%s:"\n' "$sonar_token" >"$state/curl.config"
+  chmod 600 "$state/curl.config"
+  unset sonar_token
+  awk -F= '$1 == "ceTaskId" || $1 == "projectKey" || $1 == "projectName" {print}' "$evidence/report-task.raw.txt" >"$evidence/report-task.txt"
+  ce_task="$(awk -F= '$1 == "ceTaskId" {print $2}' "$evidence/report-task.raw.txt")"
+  test -n "$ce_task" || readback_fail "ce-task-id-missing"
+  request ce-task "/api/ce/task?id=${ce_task}&additionalFields=warnings"
+  analysis_id="$(jq -er '.task.analysisId' "$evidence/ce-task.json" 2>/dev/null)" || readback_fail "analysis-id-invalid"
+  jq -e --arg sha "$GITHUB_SHA" '.task.status == "SUCCESS" and (.task.analysisId | type == "string") and (.task.componentKey == "cq")' "$evidence/ce-task.json" >/dev/null 2>&1 || readback_fail "ce-task-contract"
+  request installed-plugins '/api/plugins/installed'
+  jq -e '[.plugins[] | select(.key == "python")] | length == 1 and .[0].version == "5.33-SNAPSHOT"' "$evidence/installed-plugins.json" >/dev/null 2>&1 || readback_fail "loaded-python-analyzer-contract"
+  request current-analysis '/api/project_analyses/search?project=cq&ps=100'
+  jq -e --arg sha "$GITHUB_SHA" --arg analysis "$analysis_id" '.analyses[0].revision == $sha and .analyses[0].key == $analysis' "$evidence/current-analysis.json" >/dev/null 2>&1 || readback_fail "current-analysis-revision-or-id"
+  if test -s "$evidence/baseline-analysis.json" && test -s "$evidence/baseline-period.json"; then
+    baseline_get current-server '/api/system/status' || readback_fail "baseline-current-server-unavailable"
+    baseline_contract current "$evidence/baseline-analysis.json" "$evidence/ce-task.json" \
+      "$evidence/current-analysis.json" "$baseline_state/current-server.json" \
+      "$evidence/current-baseline-correspondence.json" || readback_fail "baseline-current-correspondence-invalid"
+    baseline_branch="$(jq -er '.branch' "$evidence/baseline-analysis.json")"
+    baseline_encoded_branch="$(jq -rn --arg value "$baseline_branch" '$value | @uri')"
+    baseline_get current-period "/api/new_code_periods/show?project=cq&branch=${baseline_encoded_branch}" || readback_fail "baseline-current-period-unavailable"
+    baseline_contract period "$baseline_state/current-period.json" "$evidence/baseline-analysis.json" \
+      "$baseline_state/current-server.json" "$evidence/current-baseline-period.json" || readback_fail "baseline-current-period-invalid"
+    baseline_get current-counts '/api/measures/component?component=cq&metricKeys=new_lines,new_lines_to_cover,new_conditions_to_cover' || readback_fail "baseline-new-counts-unavailable"
+    baseline_get after-counts '/api/project_analyses/search?project=cq&ps=100' || readback_fail "baseline-after-counts-unavailable"
+    baseline_contract current "$evidence/baseline-analysis.json" "$evidence/ce-task.json" \
+      "$baseline_state/after-counts.json" "$baseline_state/current-server.json" \
+      "$evidence/current-baseline-after-counts.json" || readback_fail "baseline-counts-analysis-drift"
+    baseline_contract denominators "$baseline_state/current-counts.json" \
+      "$evidence/current-baseline-after-counts.json" "$evidence/current-new-code-denominators.json" || readback_fail "baseline-new-denominators-not-positive"
+  else
+    readback_fail "baseline-not-established"
+  fi
+  request quality-gate "/api/qualitygates/project_status?analysisId=${analysis_id}"
+  request metrics '/api/measures/component?component=cq&metricKeys=coverage,new_coverage,duplicated_lines_density,new_duplicated_lines_density,violations,security_hotspots'
+  # Match the strict inspector contract. Accepted and false-positive
+  # dispositions must block, never waive, this gate.
+  request all-issues '/api/issues/search?componentKeys=cq&issueStatuses=OPEN,CONFIRMED,FALSE_POSITIVE,ACCEPTED,IN_SANDBOX&ps=500&p=1'
+  request hotspots '/api/hotspots/search?project=cq&ps=500&p=1'
+
+  # Attribution is deliberately a post-analysis read-only receipt.
+  # SonarQube Community Build 26.10.0.133078 declares both public
+  # endpoints and their request parameters in its shipped Web API
+  # snapshot. Its response examples define component-tree paging and
+  # duplication blocks (`_ref`, `from`, and `size`):
+  # https://github.com/SonarSource/sonarqube/tree/26.10.0.133078/sonar-ws-generator/src/main/resources
+  # Keep raw responses in state (not the uploaded artifact); retain
+  # only tracked public paths and line ranges in the evidence summary.
+  readonly_request_limit=51
+  readonly_request_count=0
+  readonly_response_max_bytes=262144
+  request_private() {
+    name=$1
+    route=$2
+    if (( readonly_request_count >= readonly_request_limit )); then
+      readback_fail "private-request-limit"
+      return 1
+    fi
+    readonly_request_count=$((readonly_request_count + 1))
+    status="$(curl --connect-timeout 5 --max-time 30 --max-filesize "$readonly_response_max_bytes" --silent --show-error --output "$state/${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")"
+    printf '%s\n' "$status" >"$evidence/${name}.status"
+    test "$status" = 200 || readback_fail "request-http-status:${name}:${status}"
+  }
+  request_private duplicate-components '/api/measures/component_tree?component=cq&metricKeys=duplicated_lines,duplicated_blocks,duplicated_lines_density&qualifiers=FIL&strategy=leaves&s=metric&metricSort=duplicated_lines&metricSortFilter=withMeasuresOnly&asc=false&ps=500&p=1'
+  jq -e '
+    (.paging | type == "object" and (.pageIndex | type == "number" and . == 1) and (.pageSize | type == "number" and . > 0 and . <= 500) and (.total | type == "number" and . >= 0 and . <= 500)) and
+    (.components | type == "array" and length <= 500) and
+    all(.components[]; (.key | type == "string") and (.path | type == "string") and .qualifier == "FIL" and (.measures | type == "array"))
+  ' "$state/duplicate-components.json" >/dev/null 2>&1 || readback_fail "duplicate-components-shape-or-paging"
+  jq -r '
+    [ .components[]
+      | select(.qualifier == "FIL")
+      | (.key) as $key
+      | ([.measures[]? | select(.metric == "duplicated_lines") | .value] | first) as $lines
+      | select(($lines | type == "string") and ($lines | test("^[0-9]+$")) and ($lines | tonumber) > 0)
+      | $key
+    ] | unique | if length <= 50 then .[] else error("too-many-duplicated-components") end
+  ' "$state/duplicate-components.json" >"$state/duplicate-components.txt" || readback_fail "duplicate-components-selection"
+  mapfile -t duplicate_components <"$state/duplicate-components.txt"
+  duplication_density="$(jq -er '[.component.measures[] | select(.metric == "duplicated_lines_density") | .value | tonumber] | if length == 1 then .[0] else error("missing-density") end' "$evidence/metrics.json" 2>/dev/null)" || readback_fail "duplication-density-invalid"
+  if [[ "$duplication_density" =~ ^[0-9]+(\.[0-9]+)?$ ]] && awk "BEGIN { exit !($duplication_density > 0) }"; then
+    (( ${#duplicate_components[@]} > 0 )) || readback_fail "positive-density-without-components"
+  fi
+  : >"$state/duplication-blocks.ndjson"
+  emitted_groups=0
+  emitted_blocks=0
+  unavailable_groups=0
+  unavailable_blocks=0
+  public_component_path() {
+    case "$1" in cq:*) path="${1#cq:}";; *) return 1;; esac
+    test -n "$path" && test "${path#/}" = "$path" && test "${path//\\/}" = "$path" || return 1
+    case "/$path/" in *'/./'*|*'/../'*|*'//'*) return 1;; esac
+    test "$(git cat-file -t "$GITHUB_SHA:$path" 2>/dev/null)" = blob
+  }
+  duplication_index=0
+  for component_key in "${duplicate_components[@]}"; do
+    public_component_path "$component_key" || { readback_fail "component-path-not-tracked"; continue; }
+    encoded_component="$(jq -rn --arg key "$component_key" '$key | @uri')" || { readback_fail "component-key-encoding"; continue; }
+    duplication_index=$((duplication_index + 1))
+    response_name="duplication-${duplication_index}"
+    request_private "$response_name" "/api/duplications/show?key=${encoded_component}"
+    response="$state/${response_name}.json"
+    # The server can omit _ref for a removed file. Validate the API
+    # shape separately from CQ's unchanged attribution budgets.
+    jq -e '
+      .files as $files | ($files | type == "object") and (.duplications | type == "array") and
+      all(.duplications[]; (.blocks | type == "array") and all(.blocks[];
+        (if has("_ref") then (._ref | type == "string") and ($files[._ref].key | type == "string") else true end) and
+        (.from | type == "number" and . >= 1 and floor == .) and (.size | type == "number" and . >= 1 and floor == .)))
+    ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-shape:${duplication_index}"; continue; }
+    # Counts are bounded by the existing response-byte cap and reveal
+    # neither raw responses nor component names or paths.
+    jq '{files:(.files | length),groups:(.duplications | length),blocks:([.duplications[].blocks[]] | length),maximum_group_blocks:([.duplications[].blocks | length] | max // 0)}' \
+      "$response" >"$evidence/duplication-counts-${duplication_index}.json" || { readback_fail "duplication-count-summary:${duplication_index}"; continue; }
+    jq -e '
+      (.files | length <= 100) and (.duplications | length >= 1 and length <= 22) and
+      ([.duplications[].blocks[]] | length <= 461) and
+      all(.duplications[]; (.blocks | length >= 2 and length <= 101))
+    ' "$response" >/dev/null 2>&1 || { readback_fail "duplication-response-bounds:${duplication_index}"; continue; }
+    response_groups="$(jq -er '.duplications | length' "$response")" || { readback_fail "duplication-group-count:${duplication_index}"; continue; }
+    response_blocks="$(jq -er '[.duplications[].blocks[]] | length' "$response")" || { readback_fail "duplication-block-count:${duplication_index}"; continue; }
+    if (( emitted_groups + response_groups > 100 || emitted_blocks + response_blocks > 873 )); then readback_fail "duplication-total-limit:${duplication_index}"; continue; fi
+    participants_ok=true
+    while IFS= read -r participant_key; do public_component_path "$participant_key" || participants_ok=false; done < <(jq -r '.files[]?.key' "$response")
+    if test "$participants_ok" != true; then readback_fail "participant-path-not-tracked:${duplication_index}"; continue; fi
+    removed_groups="$(jq -er '[.duplications[] | select(any(.blocks[]; has("_ref") | not))] | length' "$response")" || { readback_fail "removed-group-count:${duplication_index}"; continue; }
+    removed_blocks="$(jq -er '[.duplications[].blocks[] | select(has("_ref") | not)] | length' "$response")" || { readback_fail "removed-block-count:${duplication_index}"; continue; }
+    unavailable_groups=$((unavailable_groups + removed_groups))
+    unavailable_blocks=$((unavailable_blocks + removed_blocks))
+    if (( removed_blocks > 0 )); then
+      readback_fail "removed-file-attribution-unavailable:${duplication_index}"
+    fi
+    # Do not manufacture paths for removed files or export a partial
+    # group as if it were a complete current-source duplication.
+    jq -c --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" '
+      .files as $files | .duplications[] | select(all(.blocks[]; has("_ref"))) |
+      {revision:$revision,analysis_id:$analysis,blocks:[.blocks[] | {path:($files[._ref].key | sub("^cq:"; "")),from:.from,size:.size}]}
+    ' "$response" >>"$state/duplication-blocks.ndjson" || readback_fail "duplication-group-serialization:${duplication_index}"
+    emitted_groups=$((emitted_groups + response_groups))
+    emitted_blocks=$((emitted_blocks + response_blocks))
+  done
+  jq -s --arg revision "$GITHUB_SHA" --arg analysis "$analysis_id" --arg tree "$(cat "$evidence/tree.txt")" \
+    --argjson readback_ok "$readback_ok" --argjson unavailable_groups "$unavailable_groups" --argjson unavailable_blocks "$unavailable_blocks" '
+    {schema_version:2,revision:$revision,tree:$tree,analysis_id:$analysis,source:"SonarQube component_tree plus duplications/show; public tracked paths and ranges only",attribution_complete:($readback_ok == 1),omitted_removed_file_groups:$unavailable_groups,unavailable_removed_file_blocks:$unavailable_blocks,duplication_groups:.}
+  ' "$state/duplication-blocks.ndjson" >"$evidence/duplication-attribution.json" || readback_fail "duplication-attribution-serialization"
+  # Separate diagnostic payload: never widen the strict six-metric
+  # response or replace a failed threshold with a diagnostic total.
+  # Pinned 26.10 ComponentTreeAction permits path sorting and 15 keys.
+  coverage_keys=coverage,line_coverage,branch_coverage,lines_to_cover,uncovered_lines,conditions_to_cover,uncovered_conditions,new_coverage,new_line_coverage,new_branch_coverage,new_lines_to_cover,new_uncovered_lines,new_conditions_to_cover,new_uncovered_conditions,ncloc
+  printf '{"status":"unavailable"}\n' >"$evidence/coverage-breakdown.json"
+  coverage_request() {
+    local name=$1 route=$2 status curl_exit=0
+    status="$(curl --connect-timeout 5 --max-time 30 --max-filesize 1048576 --silent --show-error --output "$state/coverage-${name}.json" --write-out '%{http_code}' --config "$state/curl.config" "http://127.0.0.1:${sonar_port}${route}" 2>>"$evidence/readback.log")" || curl_exit=$?
+    test "$curl_exit" = 0 && test "$status" = 200 || { readback_fail "coverage-readback-http-invalid"; return 1; }
+  }
+  coverage_capture_ok=1
+  coverage_pages=0
+  coverage_request project "/api/measures/component?component=cq&metricKeys=${coverage_keys}" || coverage_capture_ok=0
+  if coverage_request files-1 "/api/measures/component_tree?component=cq&metricKeys=${coverage_keys}&qualifiers=FIL&strategy=leaves&s=path&ps=500&p=1"; then
+    coverage_total="$(jq -er '.paging.total | select(type == "number" and . >= 1 and . <= 4000 and floor == .)' "$state/coverage-files-1.json" 2>/dev/null)"
+    if [[ "$coverage_total" =~ ^[0-9]+$ ]]; then
+      coverage_pages=$(( (coverage_total + 499) / 500 ))
+      for (( coverage_page=2; coverage_page<=coverage_pages; coverage_page++ )); do
+        coverage_request "files-${coverage_page}" "/api/measures/component_tree?component=cq&metricKeys=${coverage_keys}&qualifiers=FIL&strategy=leaves&s=path&ps=500&p=${coverage_page}" || coverage_capture_ok=0
+      done
+    else
+      coverage_capture_ok=0
+    fi
+  else
+    coverage_capture_ok=0
+  fi
+  coverage_request analysis-after '/api/project_analyses/search?project=cq&ps=1' || coverage_capture_ok=0
+  if (( coverage_capture_ok == 1 )); then
+    python - "$state" "$evidence" "$GITHUB_SHA" "$analysis_id" "$coverage_pages" <<'COVERAGE_BREAKDOWN' || readback_fail "coverage-breakdown-contract-invalid"
+import hashlib, json, pathlib, re, subprocess, sys
+from decimal import Decimal
+try:
+    state, evidence = map(pathlib.Path, sys.argv[1:3])
+    revision, analysis, page_count = sys.argv[3], sys.argv[4], int(sys.argv[5])
+    if not 1 <= page_count <= 8 or not re.fullmatch(r"[0-9a-f]{40}", revision) or not re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", analysis):
+        raise ValueError("identity or paging bounds")
+    def git(*args):
+        return subprocess.check_output(["git", *args]).decode().strip()
+    tree = git("rev-parse", "HEAD^{tree}")
+    if git("rev-parse", "HEAD") != revision or tree != (evidence / "tree.txt").read_text().strip():
+        raise ValueError("source identity drift")
+    if subprocess.call(["git", "diff", "--quiet"]) or subprocess.call(["git", "diff", "--cached", "--quiet"]):
+        raise ValueError("source changed")
+    tracked = {}
+    raw_tree = subprocess.check_output(["git", "ls-tree", "-rz", revision])
+    if len(raw_tree) > 4 << 20:
+        raise ValueError("source inventory bounds")
+    for entry in raw_tree.split(b"\0"):
+        if entry:
+            header, path = entry.split(b"\t", 1)
+            mode, kind, blob = header.decode().split()
+            if kind == "blob" and mode in {"100644", "100755"}:
+                tracked[path.decode("utf-8")] = blob
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON member")
+            result[key] = value
+        return result
+    def read_json(path):
+        with path.open("rb") as stream:
+            raw = stream.read((1 << 20) + 1)
+        if not 0 < len(raw) <= 1 << 20:
+            raise ValueError("response bounds")
+        return json.loads(raw, object_pairs_hook=unique_object, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("nonfinite JSON")))
+    for fence in [read_json(evidence / "current-analysis.json"), read_json(state / "coverage-analysis-after.json")]:
+        current = fence["analyses"][0]
+        if current["key"] != analysis or current["revision"] != revision:
+            raise ValueError("analysis drift")
+    current_percent = {"coverage", "line_coverage", "branch_coverage"}
+    current_count = {"lines_to_cover", "uncovered_lines", "conditions_to_cover", "uncovered_conditions"}
+    new_keys = {"new_" + name for name in current_percent | current_count}
+    allowed = current_percent | current_count | new_keys | {"ncloc"}
+    def measures(component):
+        raw = component.get("measures", [])
+        if not isinstance(raw, list) or len(raw) > 15:
+            raise ValueError("metric list")
+        values = dict.fromkeys(sorted(allowed))
+        seen = set()
+        for item in raw:
+            name = item.get("metric")
+            if name not in allowed or name in seen:
+                raise ValueError("metric identity")
+            seen.add(name)
+            if name.startswith("new_"):
+                period = item.get("period")
+                if "value" in item or not isinstance(period, dict) or ("index" in period and (type(period["index"]) is not int or period["index"] != 1)):
+                    raise ValueError("period shape")
+                value = period.get("value")
+            else:
+                if "period" in item:
+                    raise ValueError("current shape")
+                value = item.get("value")
+            if not isinstance(value, str) or len(value) > 32:
+                raise ValueError("metric value")
+            if name in current_percent or name.removeprefix("new_") in current_percent:
+                if re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?", value) is None or not Decimal(0) <= Decimal(value) <= Decimal(100):
+                    raise ValueError("percentage")
+            elif re.fullmatch(r"0|[1-9][0-9]*", value) is None:
+                raise ValueError("count")
+            values[name] = value
+        return values
+    project = read_json(state / "coverage-project.json")["component"]
+    if project.get("key") != "cq":
+        raise ValueError("project")
+    project_values = measures(project)
+    if any(project_values[name] is None for name in current_percent | current_count):
+        raise ValueError("missing current project totals")
+    rows, seen_paths, groups = [], set(), {}
+    totals = dict.fromkeys(sorted(current_count), 0)
+    total = None
+    untracked = 0
+    for page in range(1, page_count + 1):
+        document = read_json(state / f"coverage-files-{page}.json")
+        paging = document["paging"]
+        if document["baseComponent"].get("key") != "cq" or any(type(paging.get(name)) is not int for name in ["pageIndex", "pageSize", "total"]):
+            raise ValueError("page identity")
+        if paging["pageIndex"] != page or paging["pageSize"] != 500 or not 1 <= paging["total"] <= 4000:
+            raise ValueError("page bounds")
+        if total is not None and total != paging["total"]:
+            raise ValueError("paging drift")
+        total = paging["total"]
+        components = document["components"]
+        if not isinstance(components, list) or len(components) != min(500, max(total - 500 * (page - 1), 0)):
+            raise ValueError("page cardinality")
+        for component in components:
+            path = component.get("path")
+            if not isinstance(path, str) or not 0 < len(path) <= 1024 or any(ord(c) < 32 for c in path) or "\\" in path or path.startswith("/") or any(part in {"", ".", ".."} for part in path.split("/")):
+                raise ValueError("path shape")
+            if component.get("key") != "cq:" + path or component.get("qualifier") != "FIL" or path in seen_paths:
+                raise ValueError("file identity")
+            seen_paths.add(path)
+            language = component.get("language", "unknown")
+            if not isinstance(language, str) or re.fullmatch(r"[a-zA-Z0-9_+.-]{1,32}", language) is None:
+                raise ValueError("language identity")
+            values = measures(component)
+            group = groups.setdefault(language, {"files": 0, "counter_files": dict.fromkeys(sorted(current_count), 0), "counts": dict.fromkeys(sorted(current_count), 0)})
+            group["files"] += 1
+            for name in current_count:
+                if values[name] is not None:
+                    value = int(values[name])
+                    totals[name] += value
+                    group["counts"][name] += value
+                    group["counter_files"][name] += 1
+            if path not in tracked:
+                untracked += 1
+                continue  # Retain only its aggregate counters, never an unbound path.
+            rows.append({"path": path, "blob": tracked[path], "language": language, "measures": values})
+    if total != len(seen_paths) or page_count != (total + 499) // 500:
+        raise ValueError("incomplete pagination")
+    if any(totals[name] != int(project_values[name]) for name in current_count):
+        raise ValueError("project-file count mismatch")
+    for counts in [totals] + [group["counts"] for group in groups.values()]:
+        if counts["uncovered_lines"] > counts["lines_to_cover"] or counts["uncovered_conditions"] > counts["conditions_to_cover"]:
+            raise ValueError("uncovered count bounds")
+    denominator = totals["lines_to_cover"] + totals["conditions_to_cover"]
+    numerator = denominator - totals["uncovered_lines"] - totals["uncovered_conditions"]
+    if denominator <= 0 or abs(Decimal(project_values["coverage"]) - Decimal(100) * numerator / denominator) > Decimal("0.05"):
+        raise ValueError("weighted coverage identity")
+    report_hashes = {}
+    for name in ["coverage.out", "python-coverage.xml", "browser/lcov.info", "typescript/lcov.info"]:
+        path = evidence / name
+        if path.stat().st_size > 16 << 20:
+            raise ValueError("report bound")
+        with path.open("rb") as stream:
+            report_hashes[name] = hashlib.file_digest(stream, "sha256").hexdigest()
+    output = {"schema": "cq-sonar-coverage-breakdown/1", "status": "complete" if untracked == 0 else "untracked-source", "revision": revision, "tree": tree, "analysis_id": analysis, "pages": page_count, "indexed_files": total, "public_tracked_files": len(rows), "untracked_indexed_files": untracked, "project": project_values, "weighted_counts": {"covered": numerator, "total": denominator}, "by_language": groups, "files": sorted(rows, key=lambda row: row["path"]), "report_sha256": report_hashes, "new_code_missing": sorted(name for name in new_keys if project_values[name] is None)}
+    encoded = (json.dumps(output, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    if len(encoded) > 8 << 20:
+        raise ValueError("output bound")
+    (evidence / "coverage-breakdown.json").write_bytes(encoded)
+    if untracked:
+        raise ValueError("untracked indexed source")
+except Exception:
+    raise SystemExit("coverage-breakdown-contract-invalid") from None
+COVERAGE_BREAKDOWN
+  else
+    readback_fail "coverage-breakdown-request-incomplete"
+  fi
+else
+  readback_fail "readback-prerequisite-missing"
+fi
+(( readback_ok == 1 )) || fail "readback-request-or-fence-failed"
+jq -e '.projectStatus.status == "OK"' "$evidence/quality-gate.json" >/dev/null 2>&1 || fail "quality-gate-not-ok"
+# Retain a bounded, safe call receipt, not raw stderr or API fields.
+# This is an input snapshot, not a diagnosis of an earlier failure.
+metric_input_bytes="$( { wc -c <"$evidence/metrics.json"; } 2>>"$state/metric-contract.stderr")"
+metric_input_sha=""
+if [[ "$metric_input_bytes" =~ ^[0-9]+$ ]] && (( metric_input_bytes > 0 && metric_input_bytes <= 65536 )); then
+  metric_input_sha="$( { sha256sum <"$evidence/metrics.json"; } 2>>"$state/metric-contract.stderr" | awk '{print $1}')"
+fi
+if [[ "$metric_input_sha" =~ ^[0-9a-f]{64}$ && "$metric_input_bytes" =~ ^[0-9]+$ ]]; then
+  printf 'input_sha256=%s\ninput_bytes=%s\n' "$metric_input_sha" "$metric_input_bytes" >"$evidence/metric-contract-outcome.txt"
+else
+  printf 'input_metadata=unavailable\n' >"$evidence/metric-contract-outcome.txt"
+  fail "sonar-metric-input-metadata-unavailable"
+fi
+metric_failures="$(env -i PATH="$PATH" HOME="$HOME" TMPDIR="$TMPDIR" LANG=C.UTF-8 "$CQ_ANALYZER_PYTHON" -I -S .github/scripts/sonar_metric_contract.py "$evidence/metrics.json" 2>"$state/metric-contract.stderr")"
+metric_status=$?
+printf 'metric_exit=%s\n' "$metric_status" >>"$evidence/metric-contract-outcome.txt"
+case "$metric_status" in
+  0) test -z "$metric_failures" || fail "sonar-metric-contract-output-invalid" ;;
+  1|2)
+    test -n "$metric_failures" || fail "sonar-metric-contract-output-invalid"
+    while IFS= read -r reason; do
+      case "$reason" in
+        sonar-metric-evidence-invalid|sonar-metric-stage-arguments-refused|sonar-metric-stage-read-refused|sonar-metric-stage-schema-refused|sonar-coverage-evidence-missing|sonar-coverage-evidence-invalid|sonar-coverage-not-100|sonar-duplication-evidence-missing|sonar-duplication-evidence-invalid|sonar-duplication-not-zero)
+          printf 'failure_code=%s\n' "$reason" >>"$evidence/metric-contract-outcome.txt"
+          fail "$reason" ;;
+        *)
+          printf 'stdout=unallowlisted\n' >>"$evidence/metric-contract-outcome.txt"
+          fail "sonar-metric-contract-output-invalid" ;;
+      esac
+    done <<<"$metric_failures"
+    ;;
+  *) fail "sonar-metric-contract-unavailable" ;;
+esac
+jq -e '.paging.total == 0 and (.issues | length) == 0' "$evidence/all-issues.json" >/dev/null 2>&1 || fail "issues-not-zero-or-unpaged"
+jq -e '.paging.total == 0 and (.hotspots | length) == 0' "$evidence/hotspots.json" >/dev/null 2>&1 || fail "hotspots-not-zero-or-unpaged"
+warning_count_is_zero "$evidence/ce-task.json" || fail "ce-warnings-not-zero"
+if (( scanner_status != 0 )); then
+  if (( scanner_status == 3 )) && jq -e '.task.status == "SUCCESS"' "$evidence/ce-task.json" >/dev/null 2>&1; then
+    fail "scanner-quality-gate-failed"
+  else
+    fail "scanner-upload-or-analysis-failed:$scanner_status"
+  fi
+fi
+
+sha256sum "$evidence"/* >"$evidence/SHA256SUMS" 2>/dev/null || true
+(( result == 0 )) || exit 1

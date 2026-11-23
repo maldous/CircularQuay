@@ -397,7 +397,7 @@ class SourceAndPinsContracts(OwnedCase):
 class WorkflowContracts(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix" and Path("/bin/bash").is_file(), "Existing Ubuntu Sonar Bash operator only")
     def test_source_derived_native_status_control_records_and_reaches_scanner_under_errexit(self):
-        workflow = (SCRIPT.parents[2] / ".github/workflows/sonar.yml").read_text()
+        workflow = (SCRIPT.parents[2] / ".github/scripts/sonar_gate.sh").read_text()
         command = next(row for row in workflow.splitlines() if "python_coverage.py consume" in row)
         capture = command[command.index(" || "):]
         self.assertEqual(capture, " || native_python_status=$?")
@@ -440,7 +440,7 @@ class WorkflowContracts(unittest.TestCase):
                         self.assertFalse(json.loads(fallback.read_bytes())['global_gate_passed'])
 
     def test_native_python_shortfall_is_captured_before_browser_and_scanner_evidence(self):
-        workflow = (SCRIPT.parents[2] / ".github/workflows/sonar.yml").read_text()
+        workflow = (SCRIPT.parents[2] / ".github/scripts/sonar_gate.sh").read_text()
         rows = [row for row in workflow.splitlines() if "python_coverage.py consume" in row]
         self.assertEqual(len(rows), 1)
         self.assertTrue(rows[0].endswith(" || native_python_status=$?"))
@@ -452,7 +452,7 @@ class WorkflowContracts(unittest.TestCase):
         self.assertIn('"$evidence/python-linux-original.xml"', workflow)
 
     def test_expected_nonzero_calls_capture_status_before_inherited_errexit(self):
-        workflow = (SCRIPT.parents[2] / ".github/workflows/sonar.yml").read_text()
+        workflow = (SCRIPT.parents[2] / ".github/scripts/sonar_gate.sh").read_text()
         commands = (("browser_coverage.py retain", "baseline_retain_status"),
                     ("browser_coverage_intake.py consume", "browser_admission_status"),
                     ("browser_coverage.py union", "browser_union_status"))
@@ -495,15 +495,16 @@ class WorkflowContracts(unittest.TestCase):
     def test_sonar_keeps_original_reports_and_requires_distinct_canonical_evidence(self):
         root = SCRIPT.parents[2]
         workflow = (root / ".github/workflows/sonar.yml").read_text()
-        self.assertEqual(workflow.count('run_browser_once() {'), 1)
-        self.assertIn('"$browser_node" --test --test-concurrency=1', workflow)
-        self.assertIn('lcov-linux-original.info', workflow)
-        self.assertIn('fail "browser-canonical-coverage-not-100"', workflow)
-        self.assertIn('fail "browser-native-evidence-unavailable-or-refused"', workflow)
-        self.assertIn('--baseline "$baseline"', workflow)
-        self.assertIn('browser_coverage_intake.py consume', workflow)
-        self.assertIn('test_browser_coverage_intake >>', workflow)
-        self.assertIn('".github/scripts/browser_coverage_intake.py"', workflow)
+        script = (root / ".github/scripts/sonar_gate.sh").read_text()
+        self.assertEqual(script.count('run_browser_once() {'), 1)
+        self.assertIn('"$browser_node" --test --test-concurrency=1', script)
+        self.assertIn('lcov-linux-original.info', script)
+        self.assertIn('fail "browser-canonical-coverage-not-100"', script)
+        self.assertIn('fail "browser-native-evidence-unavailable-or-refused"', script)
+        self.assertIn('--baseline "$baseline"', script)
+        self.assertIn('browser_coverage_intake.py consume', script)
+        self.assertIn('test_browser_coverage_intake >>', script)
+        self.assertIn('".github/scripts/browser_coverage_intake.py"', script)
         source_workflow = (root / ".github/workflows/source.yml").read_text()
         step = source_workflow.split("      - name: Check bounded evidence retention contracts\n", 1)[1].split("      # This job retains", 1)[0]
         selected = [line.strip() for line in step.splitlines() if " -m unittest discover " in line]

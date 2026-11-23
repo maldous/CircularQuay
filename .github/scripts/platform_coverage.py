@@ -122,9 +122,26 @@ def file_identity(info):
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def require_same_windows_file(descriptor, pathname):
+    # CPython's descriptor/path APIs can project different permission bits
+    # and ctime for one NTFS file. Each view is still checked for full
+    # before/after stability, and the two views must share a concrete identity.
+    for info in (descriptor, pathname):
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_ino != 0)
+        require(not getattr(info, "st_file_attributes", 0) & 0x400)
+
+    def stable_cross_view(info):
+        return (info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode),
+                info.st_nlink, info.st_size, info.st_mtime_ns)
+
+    if stable_cross_view(descriptor) != stable_cross_view(pathname):
+        raise FileIdentityMismatch("Windows descriptor/path binding")
+
+
 def safe_file(path, maximum, private=False):
     path = path.absolute()
     require(path.resolve(strict=True) == path)
+    named_before = os.stat(path, follow_symlinks=False) if os.name == "nt" else None
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     descriptor = os.open(path, flags)
     with os.fdopen(descriptor, "rb") as stream:
@@ -132,13 +149,20 @@ def safe_file(path, maximum, private=False):
         require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1)
         require(not getattr(before, "st_file_attributes", 0) & 0x400)
         require(0 < before.st_size <= maximum)
+        if named_before is not None:
+            require_same_windows_file(before, named_before)
         if os.name == "posix":
             require(before.st_uid in (0, os.geteuid()) and not before.st_mode & 0o022)
             require(not private or (before.st_uid == os.geteuid() and not before.st_mode & 0o077))
         data = stream.read(maximum + 1)
         require(len(data) == before.st_size)
         require_same_identity(before, os.fstat(stream.fileno()), "descriptor stability")
-        require_same_identity(before, os.stat(path, follow_symlinks=False), "pathname identity")
+        named_after = os.stat(path, follow_symlinks=False)
+        if named_before is None:
+            require_same_identity(before, named_after, "pathname identity")
+        else:
+            require_same_identity(named_before, named_after, "pathname stability")
+            require_same_windows_file(before, named_after)
         return data
 
 

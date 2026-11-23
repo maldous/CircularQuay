@@ -383,18 +383,19 @@ class SourceUnionIntakeContracts(unittest.TestCase):
     def test_workflow_scopes_token_read_grant_and_preserves_original_reports_and_gates(self):
         root = Path(__file__).parents[3]
         workflow = (root / ".github/workflows/sonar.yml").read_text()
+        script = (root / ".github/scripts/sonar_gate.sh").read_text()
         self.assertEqual(1, workflow.count("  actions: read"))
         self.assertEqual(INTAKE.UNION_JOB, "Authoritative complete Source qualification")
         self.assertNotIn("actions: write", workflow)
-        self.assertIn('unset CQ_SOURCE_UNION_TOKEN', workflow)
-        self.assertLess(workflow.index('unset CQ_SOURCE_UNION_TOKEN'), workflow.index('go test -count=1'))
-        self.assertIn('GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/source_union_intake.py consume', workflow)
-        self.assertIn('source_union_token=\'\'', workflow)
-        self.assertIn('fail "source-platform-union-unavailable-or-refused"', workflow)
-        self.assertIn('coverage-linux-original.out', workflow)
-        self.assertIn('if (covered != total) exit 1', workflow)
-        self.assertIn('go test -count=1 -p 1 -tags=integration', workflow)
-        commands = [line for line in workflow.splitlines() if ' -m unittest -v test_go_mcp_coverage ' in line]
+        self.assertIn('unset CQ_SOURCE_UNION_TOKEN', script)
+        self.assertLess(script.index('unset CQ_SOURCE_UNION_TOKEN'), script.index('go test -count=1'))
+        self.assertIn('GITHUB_TOKEN="$source_union_token" python -I -S -B .github/scripts/source_union_intake.py consume', script)
+        self.assertIn('source_union_token=\'\'', script)
+        self.assertIn('fail "source-platform-union-unavailable-or-refused"', script)
+        self.assertIn('coverage-linux-original.out', script)
+        self.assertIn('if (covered != total) exit 1', script)
+        self.assertIn('go test -count=1 -p 1 -tags=integration', script)
+        commands = [line for line in script.splitlines() if ' -m unittest -v test_go_mcp_coverage ' in line]
         self.assertEqual(len(commands), 1)
         selected = commands[0].split(' -m unittest -v ', 1)[1].split(' >>', 1)[0].split()
         original = {'test_go_mcp_coverage', 'test_retain_audit_evidence', 'test_sdk_python_check',
@@ -405,7 +406,7 @@ class SourceUnionIntakeContracts(unittest.TestCase):
                     'test_source_union_intake'}
         self.assertTrue(original <= set(selected))
         self.assertEqual(len(selected), len(set(selected)))
-        self.assertIn('".github/scripts/source_union_intake.py"', workflow)
+        self.assertIn('".github/scripts/source_union_intake.py"', script)
 
     def test_main_refuses_without_authentication_and_prints_only_fixed_failure(self):
         with mock.patch.dict(os.environ, {"GITHUB_TOKEN": ""}), mock.patch("sys.stdout", new_callable=io.StringIO) as output:

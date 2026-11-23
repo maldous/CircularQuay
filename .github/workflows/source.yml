@@ -190,14 +190,18 @@ jobs:
                   for name, file in (('stdout', 'stdout.diff'), ('stderr', 'stderr.txt')):
                       descriptor = os.open(root / file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
                       streams[name] = stack.enter_context(os.fdopen(descriptor, 'wb'))
+                  phase = 'tracked path inventory'
                   try:
                       files = tracked_files()
+                      phase = 'pinned formatter identity'
                       formatter, formatter_hash = selected_tools()
+                      phase = 'bounded formatter capture'
                       metadata.update(capture([str(formatter), '-d', *files], streams,
                                               {'stdout': 8 << 20, 'stderr': 1 << 20}))
                       metadata.update(files=len(files), go_version='go1.27.4 linux/amd64', gofmt_sha256=formatter_hash,
                                       status='passed' if metadata['format_passed'] else 'failed')
                   except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+                      print(f'Formatter evidence refused at {phase}.', file=__import__('sys').stderr)
                       metadata.update(status='refused', complete=False, format_passed=False)
               descriptor = os.open(root / 'formatter.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
               with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
